@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "strictPropertyInitialization": false,
+    "outDir": "dist",
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "./dist/types",
+    "baseUrl": ".",
+    "moduleResolution": "node",
+    "paths": {
+        "@utils/*": ["utils/*"],
+        "@typechain/*": ["typechain/*"],
+    }
+  },
+  "include": ["./test/**/*.ts", "./utils/**/*.ts", "./deploy/**/*.ts", "./typechain/**/*.ts"],
+  "files": [
+    "./buidler.config.ts",
+    "node_modules/@nomiclabs/buidler-ethers/src/type-extensions.d.ts",
+    "node_modules/@nomiclabs/buidler-waffle/src/type-extensions.d.ts",
+    "node_modules/buidler-deploy/src/type-extensions.d.ts",
+    "node_modules/buidler-typechain/src/type-extensions.d.ts"
+  ]
+}
