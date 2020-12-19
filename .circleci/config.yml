@@ -4,6 +4,9 @@ jobs:
   checkout_and_compile:
     docker:
       - image: circleci/node:10.11.0
+        environment:
+          NODE_OPTIONS: --max_old_space_size=4096
+    resource_class: large
     working_directory: ~/set-protocol-v2
     steps:
       - checkout
