@@ -5,7 +5,7 @@ jobs:
     docker:
       - image: circleci/node:10.11.0
         environment:
-          NODE_OPTIONS: --max_old_space_size=4096
+          NODE_OPTIONS: --max_old_space_size=8192
     resource_class: large
     working_directory: ~/set-protocol-v2
     steps:
