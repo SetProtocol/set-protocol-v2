@@ -29,7 +29,7 @@
     "lint-ts": "tslint -c tslint.json -p tsconfig.json --fix",
     "precommit": "lint-staged",
     "prepare": "yarn build",
-    "prepublish": "if [[ $(basename \"$PWD\" == \"set-protocol-v2-contracts\") ]]; then exit 1; fi;",
+    "prepublish": "if [[ $(basename \"$PWD\" == \"set-protocol-v2-contracts\") ]]; then echo \"CANNOT PUBLISH FROM THIS REPO\"; exit 1; fi;",
     "rename-extensions": "for f in typechain/*.d.ts; do mv -- \"$f\" \"${f%.d.ts}.ts\"; done",
     "test": "npx buidler test --network localhost",
     "test:clean": "yarn clean && yarn build && yarn test",
