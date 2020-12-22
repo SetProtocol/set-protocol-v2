@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -15,18 +15,27 @@
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
-
 pragma solidity 0.6.10;
 
-contract CompoundPriceOracleMock {
-    mapping(address => uint256) public assetToPrices;
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-    /* ============ External Functions ============ */
-    function setUnderlyingPrice(address _token, uint256 _newPrice) external {
-        assetToPrices[_token] = _newPrice;
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+
+contract DebtIssuanceMock {
+
+    mapping(ISetToken => bool) public isRegistered;
+    
+    function initialize(ISetToken _setToken) external {
+        _setToken.initializeModule();
     }
 
-    function getUnderlyingPrice(address _asset) external view returns (uint256) {
-        return assetToPrices[_asset];
+    function removeModule() external {}
+
+    function register(ISetToken _setToken) external {
+        isRegistered[_setToken] = true;
+    }
+
+    function unregister(ISetToken _setToken) external {
+        isRegistered[_setToken] = false;
     }
 }
