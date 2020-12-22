@@ -19,14 +19,24 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { ISetToken } from "../../interfaces/ISetToken.sol";
+
 /**
  * @title OneInchExchangeAdapter
  * @author Set Protocol
  *
  * Exchange adapter for 1Inch exchange that returns data for trades
+ *
+ * CHANGELOG:
+ * - Add getOneInchTradeUnits function to easily get units to pass into TradeModule.trade
+ * - Separate logic into _parseOneInchData internal function
  */
 
 contract OneInchExchangeAdapter {
+    using SafeMath for uint256;
+    using PreciseUnitMath for uint256;
 
     /* ============ State Variables ============ */
     
@@ -87,21 +97,13 @@ contract OneInchExchangeAdapter {
         view
         returns (address, uint256, bytes memory)
     {   
-        bytes4 signature;
-        address fromToken;
-        address toToken;
-        uint256 fromTokenAmount;
-        uint256 minReturnAmount;
-
-        // Parse 1inch calldata and validate parameters match expected inputs
-        // solium-disable-next-line security/no-inline-assembly
-        assembly {
-            signature := mload(add(_data, 32))
-            fromToken := mload(add(_data, 36))
-            toToken := mload(add(_data, 68))
-            fromTokenAmount := mload(add(_data, 100))
-            minReturnAmount := mload(add(_data, 132))
-        }
+        (
+            bytes4 signature,
+            address fromToken,
+            address toToken,
+            uint256 fromTokenAmount,
+            uint256 minReturnAmount
+        ) = _parseOneInchData(_data);
 
         require(
             signature == oneInchFunctionSignature,
@@ -142,5 +144,70 @@ contract OneInchExchangeAdapter {
         returns (address)
     {
         return oneInchApprovalAddress;
+    }
+
+    /**
+     * Returns source quantity and min receive quantity position units to pass into TradeModule
+     *
+     * @param  _setToken           Address of SetToken
+     * @param  _slippageTolerance  Slippage tolerance percentage in 10e18 (1% = 10e16)
+     * @param  _data               Arbitrage bytes containing trade call data 
+     * @return uint256             Position units of send token to pass into trade function
+     * @return uint256             Position units of min receive token to pass into trade function
+     */
+    function getOneInchTradeUnits(
+        ISetToken _setToken,
+        uint256 _slippageTolerance,
+        bytes memory _data
+    )
+        external
+        view
+        returns (uint256, uint256)
+    {
+        uint256 totalSupply = _setToken.totalSupply();
+
+        ( , , , uint256 notionalSendQuantity, uint256 notionalMinReceiveQuantity) = _parseOneInchData(_data);
+
+        // Round up
+        uint256 notionalSlippage = notionalMinReceiveQuantity.preciseMulCeil(_slippageTolerance);
+        uint256 sendQuantity = notionalSendQuantity.preciseDiv(totalSupply);
+
+        // Return 0 values if notional source quantity is not multiple of send quantity position
+        if (notionalSendQuantity % sendQuantity != 0) {
+            return (0, 0);
+        }
+
+        return (
+            sendQuantity,
+            notionalMinReceiveQuantity.sub(notionalSlippage).preciseDiv(totalSupply)
+        );
+    }
+
+    /* ============ Internal Functions ============ */
+
+    function _parseOneInchData(
+        bytes memory _data
+    )
+        internal
+        view
+        returns (bytes4, address, address, uint256, uint256)
+    {
+        bytes4 signature;
+        address fromToken;
+        address toToken;
+        uint256 fromTokenAmount;
+        uint256 minReturnAmount;
+
+        // Parse 1inch calldata and validate parameters match expected inputs
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            signature := mload(add(_data, 32))
+            fromToken := mload(add(_data, 36))
+            toToken := mload(add(_data, 68))
+            fromTokenAmount := mload(add(_data, 100))
+            minReturnAmount := mload(add(_data, 132))
+        }
+
+        return (signature, fromToken, toToken, fromTokenAmount, minReturnAmount);
     }
 }

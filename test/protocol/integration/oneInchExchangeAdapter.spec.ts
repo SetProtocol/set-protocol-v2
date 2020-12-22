@@ -17,8 +17,13 @@ import {
   ether,
   getAccounts,
   getRandomAccount,
+  getSystemFixture,
   getWaffleExpect,
+  preciseMulCeil,
+  preciseDiv
 } from "@utils/index";
+
+import { SystemFixture } from "@utils/fixtures";
 
 const web3 = new Web3();
 const expect = getWaffleExpect();
@@ -31,6 +36,7 @@ describe("OneInchExchangeAdapter", () => {
   let mockWeth: Account;
   let mockOneInchSpender: Account;
   let deployer: DeployHelper;
+  let setup: SystemFixture;
 
   let oneInchExchangeMock: OneInchExchangeMock;
   let oneInchExchangeAdapter: OneInchExchangeAdapter;
@@ -47,6 +53,8 @@ describe("OneInchExchangeAdapter", () => {
 
     deployer = new DeployHelper(owner.wallet);
 
+    setup = getSystemFixture(owner.address);
+    await setup.initialize();
     // Mock OneInch exchange that allows for only fixed exchange amounts
     oneInchExchangeMock = await deployer.mocks.deployOneInchExchangeMock(
       mockWbtc.address,
@@ -262,6 +270,94 @@ describe("OneInchExchangeAdapter", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Min destination quantity mismatch");
+      });
+    });
+  });
+
+  describe("getOneInchTradeUnits", async () => {
+    let sourceQuantity: BigNumber;
+    let issueQuantity: BigNumber;
+    let notionalMinReceiveQuantity: BigNumber;
+
+    let subjectSetToken: Address;
+    let subjectSlippageTolerance: BigNumber;
+    let subjectData: Bytes;
+
+    beforeEach(async () => {
+      sourceQuantity = ether(1);
+      const setToken = await setup.createSetToken(
+        [setup.dai.address],
+        [sourceQuantity],
+        [setup.issuanceModule.address],
+        owner.address
+      );
+
+      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+      await setup.dai.approve(setup.issuanceModule.address, ether(100));
+
+      issueQuantity = ether(10);
+      await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      notionalMinReceiveQuantity = ether(2);
+      // 1inch trades only need byte data as all method call data is generaged offchain
+      subjectSetToken = setToken.address;
+      subjectSlippageTolerance = ether(0.01); // 1%
+      // Get mock 1inch swap calldata
+      subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+        setup.dai.address, // Send token
+        setup.weth.address, // Receive token
+        issueQuantity, // Send quantity. Trade entire position
+        notionalMinReceiveQuantity, // Min receive quantity
+        ZERO,
+        ADDRESS_ZERO,
+        [ADDRESS_ZERO],
+        EMPTY_BYTES,
+        [ZERO],
+        [ZERO],
+      ]);
+    });
+
+    async function subject(): Promise<any> {
+      return await oneInchExchangeAdapter.getOneInchTradeUnits(
+        subjectSetToken,
+        subjectSlippageTolerance,
+        subjectData
+      );
+    }
+
+    it("should return the correct trade units", async () => {
+      const tradeUnits = await subject();
+      const minReceiveQuantity = preciseDiv(
+        notionalMinReceiveQuantity.sub(
+          preciseMulCeil(notionalMinReceiveQuantity, subjectSlippageTolerance)
+        ),
+        issueQuantity
+      );
+      // Expect
+      const expectedTradeUnits = [sourceQuantity, minReceiveQuantity];
+
+      expect(JSON.stringify(tradeUnits)).to.eq(JSON.stringify(expectedTradeUnits));
+    });
+
+    describe("when notional send quantity is not a multiple of position unit", async () => {
+      beforeEach(async () => {
+        subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+          setup.dai.address, // Send token
+          setup.weth.address, // Receive token
+          issueQuantity.add(1), // Send quantity. Trade entire position
+          notionalMinReceiveQuantity, // Min receive quantity
+          ZERO,
+          ADDRESS_ZERO,
+          [ADDRESS_ZERO],
+          EMPTY_BYTES,
+          [ZERO],
+          [ZERO],
+        ]);
+      });
+
+      it("should return 0s", async () => {
+        const tradeUnits = await subject();
+
+        expect(JSON.stringify(tradeUnits)).to.eq(JSON.stringify([ZERO, ZERO]));
       });
     });
   });
