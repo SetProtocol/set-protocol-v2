@@ -67,6 +67,9 @@ export class CompoundFixture {
     await this.unitroller._setPendingImplementation(this.comptroller.address);
     await this.comptroller._become(this.unitroller.address, ZERO, [], []);
     await this.comptroller._setPriceOracle(this.priceOracle.address);
+    await this.comptroller._setMaxAssets(10);
+    await this.comptroller._setCloseFactor(ether(0.5));
+    await this.comptroller._setLiquidationIncentive(ether(1.08));
 
     // deploy Interest rate model
     this.interestRateModel = await this._deployer.external.deployWhitePaperInterestRateModel(
@@ -76,6 +79,8 @@ export class CompoundFixture {
 
     // Deploy COMP governance
     this.comp = await this._deployer.external.deployComp(this._ownerAddress);
+    await this.comp.transfer(this.comptroller.address, ether(400000));
+
     this.compoundTimelock = await this._deployer.external.deployCompoundTimelock(
       this._ownerAddress,
       ONE_DAY_IN_SECONDS.mul(2),
@@ -109,12 +114,10 @@ export class CompoundFixture {
     );
 
     await this.comptroller._supportMarket(newCToken.address);
-
-    // Set starting collateral factor
-    await this.comptroller._setCollateralFactor(newCToken.address, collateralFactor);
-
     // Set starting price
     await this.priceOracle.setUnderlyingPrice(newCToken.address, currentPrice);
+    // Set starting collateral factor
+    await this.comptroller._setCollateralFactor(newCToken.address, collateralFactor);
 
     return newCToken;
   }
@@ -139,12 +142,10 @@ export class CompoundFixture {
     );
 
     await this.comptroller._supportMarket(newCToken.address);
-
-    // Set starting collateral factor
-    await this.comptroller._setCollateralFactor(newCToken.address, collateralFactor);
-
     // Set starting price
     await this.priceOracle.setUnderlyingPrice(newCToken.address, currentPrice);
+    // Set starting collateral factor
+    await this.comptroller._setCollateralFactor(newCToken.address, collateralFactor);
 
     return newCToken;
   }

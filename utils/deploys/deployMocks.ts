@@ -9,6 +9,8 @@ import {
   AmmAdapterMock,
   ClaimAdapterMock,
   ContractCallerMock,
+  ComptrollerMock,
+  DebtIssuanceMock,
   DebtModuleMock,
   ExplicitERC20Mock,
   GaugeControllerMock,
@@ -42,7 +44,9 @@ import { AaveLendingPoolMock__factory } from "../../typechain/factories/AaveLend
 import { AddressArrayUtilsMock__factory } from "../../typechain/factories/AddressArrayUtilsMock__factory";
 import { AmmAdapterMock__factory } from "../../typechain/factories/AmmAdapterMock__factory";
 import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapterMock__factory";
+import { ComptrollerMock__factory } from "../../typechain/factories/ComptrollerMock__factory";
 import { ContractCallerMock__factory } from "../../typechain/factories/ContractCallerMock__factory";
+import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
 import { ExplicitERC20Mock__factory } from "../../typechain/factories/ExplicitERC20Mock__factory";
 import { GaugeControllerMock__factory } from "../../typechain/factories/GaugeControllerMock__factory";
@@ -231,6 +235,22 @@ export default class DeployMocks {
 
   public async deployContractCallerMock(): Promise<ContractCallerMock> {
     return await new ContractCallerMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployDebtIssuanceMock(): Promise<DebtIssuanceMock> {
+    return await new DebtIssuanceMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployComptrollerMock(
+    comp: Address,
+    compAmount: BigNumber,
+    cToken: Address
+  ): Promise<ComptrollerMock> {
+    return await new ComptrollerMock__factory(this._deployerSigner).deploy(
+      comp,
+      compAmount,
+      cToken
+    );
   }
 
   /*************************************
