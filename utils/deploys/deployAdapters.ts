@@ -2,24 +2,26 @@ import { Signer } from "ethers";
 
 import {
   AaveGovernanceAdapter,
+  AaveMigrationWrapAdapter,
+  AaveWrapAdapter,
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
   KyberExchangeAdapter,
+  MakerPollingGovernanceAdapter,
   OneInchExchangeAdapter,
-  AaveMigrationWrapAdapter,
-  AaveWrapAdapter,
-  UniswapPairPriceAdapter
+  UniswapPairPriceAdapter,
 } from "../contracts";
 
 import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceAdapterFactory } from "../../typechain/AaveGovernanceAdapterFactory";
+import { AaveMigrationWrapAdapterFactory } from "../../typechain/AaveMigrationWrapAdapterFactory";
+import { AaveWrapAdapterFactory } from "../../typechain/AaveWrapAdapterFactory";
 import { CompoundLikeGovernanceAdapterFactory } from "../../typechain/CompoundLikeGovernanceAdapterFactory";
 import { CurveStakingAdapterFactory } from "../../typechain/CurveStakingAdapterFactory";
 import { KyberExchangeAdapterFactory } from "../../typechain/KyberExchangeAdapterFactory";
+import { MakerPollingGovernanceAdapterFactory } from "../../typechain/MakerPollingGovernanceAdapterFactory";
 import { OneInchExchangeAdapterFactory } from "../../typechain/OneInchExchangeAdapterFactory";
-import { AaveMigrationWrapAdapterFactory } from "../../typechain/AaveMigrationWrapAdapterFactory";
-import { AaveWrapAdapterFactory } from "../../typechain/AaveWrapAdapterFactory";
 import { UniswapPairPriceAdapterFactory } from "../../typechain/UniswapPairPriceAdapterFactory";
 
 export default class DeployAdapters {
@@ -63,6 +65,10 @@ export default class DeployAdapters {
 
   public async deployCompoundLikeGovernanceAdapter(governanceAlpha: Address, governanceToken: Address): Promise<CompoundLikeGovernanceAdapter> {
     return await new CompoundLikeGovernanceAdapterFactory(this._deployerSigner).deploy(governanceAlpha, governanceToken);
+  }
+
+  public async deployMakerPollingGovernanceAdapter(pollingEmitter: Address, mkrToken: Address): Promise<MakerPollingGovernanceAdapter> {
+    return await new MakerPollingGovernanceAdapterFactory(this._deployerSigner).deploy(pollingEmitter, mkrToken);
   }
 
   public async deployCurveStakingAdapter(gaugeController: Address): Promise<CurveStakingAdapter> {

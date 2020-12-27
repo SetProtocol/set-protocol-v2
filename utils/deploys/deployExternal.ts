@@ -83,6 +83,14 @@ import { MinterFactory } from "../../typechain/MinterFactory";
 import { LiquidityGaugeFactory } from "../../typechain/LiquidityGaugeFactory";
 
 import {
+  Mkr,
+  PollingEmitter
+} from "../contracts/maker";
+
+import { MkrFactory } from "../../typechain/MkrFactory";
+import { PollingEmitterFactory } from "../../typechain/PollingEmitterFactory";
+
+import {
   StakingRewards,
   Uni,
   UniswapGovernorAlpha,
@@ -384,6 +392,15 @@ export default class DeployExternalContracts {
 
   public async deployMinter(_token: string, _controller: string): Promise<Minter> {
     return await new MinterFactory(this._deployerSigner).deploy(_token, _controller);
+  }
+
+  // Maker
+  public async deployMkr(_account: Address): Promise<Mkr> {
+    return await new MkrFactory(this._deployerSigner).deploy(_account);
+  }
+
+  public async deployMakerPollingEmitter(): Promise<PollingEmitter> {
+    return await new PollingEmitterFactory(this._deployerSigner).deploy();
   }
 
   // Uniswap

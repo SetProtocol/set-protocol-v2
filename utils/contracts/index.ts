@@ -27,6 +27,7 @@ export { KyberExchangeAdapter } from "../../typechain/KyberExchangeAdapter";
 export { KyberNetworkProxyMock } from "../../typechain/KyberNetworkProxyMock";
 export { LendToAaveMigrator } from "../../typechain/LendToAaveMigrator";
 export { ManagerIssuanceHookMock } from "../../typechain/ManagerIssuanceHookMock";
+export { MakerPollingGovernanceAdapter } from "../../typechain/MakerPollingGovernanceAdapter";
 export { ModuleBaseMock } from "../../typechain/ModuleBaseMock";
 export { ModuleIssuanceHookMock } from "../../typechain/ModuleIssuanceHookMock";
 export { NavIssuanceCaller } from "../../typechain/NavIssuanceCaller";
