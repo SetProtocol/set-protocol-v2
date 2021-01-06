@@ -20,7 +20,6 @@ pragma experimental "ABIEncoderV2";
 
 
 import { ISetToken } from "../interfaces/ISetToken.sol";
-import "@nomiclabs/buidler/console.sol";
 
 
 /**

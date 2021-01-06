@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Web3Provider } from "ethers/providers";
+import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 
 export class Blockchain {
   public _provider: Web3Provider | JsonRpcProvider;

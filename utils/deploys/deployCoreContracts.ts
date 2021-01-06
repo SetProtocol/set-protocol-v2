@@ -1,5 +1,5 @@
 import { Signer } from "ethers";
-import { BigNumberish } from "ethers/utils";
+import { BigNumberish } from "@ethersproject/bignumber";
 
 import {
   Controller,
@@ -12,12 +12,12 @@ import {
 
 import { Address } from "./../types";
 
-import { ControllerFactory } from "../../typechain/ControllerFactory";
-import { IntegrationRegistryFactory } from "../../typechain/IntegrationRegistryFactory";
-import { PriceOracleFactory } from "../../typechain/PriceOracleFactory";
-import { SetTokenFactory } from "../../typechain/SetTokenFactory";
-import { SetTokenCreatorFactory } from "../../typechain/SetTokenCreatorFactory";
-import { SetValuerFactory } from "../../typechain/SetValuerFactory";
+import { Controller__factory } from "../../typechain/factories/Controller__factory";
+import { IntegrationRegistry__factory } from "../../typechain/factories/IntegrationRegistry__factory";
+import { PriceOracle__factory } from "../../typechain/factories/PriceOracle__factory";
+import { SetToken__factory } from "../../typechain/factories/SetToken__factory";
+import { SetTokenCreator__factory } from "../../typechain/factories/SetTokenCreator__factory";
+import { SetValuer__factory } from "../../typechain/factories/SetValuer__factory";
 
 export default class DeployCoreContracts {
   private _deployerSigner: Signer;
@@ -27,19 +27,19 @@ export default class DeployCoreContracts {
   }
 
   public async deployController(feeRecipient: Address): Promise<Controller> {
-    return await new ControllerFactory(this._deployerSigner).deploy(feeRecipient);
+    return await new Controller__factory(this._deployerSigner).deploy(feeRecipient);
   }
 
   public async getController(controllerAddress: Address): Promise<Controller> {
-    return await new ControllerFactory(this._deployerSigner).attach(controllerAddress);
+    return await new Controller__factory(this._deployerSigner).attach(controllerAddress);
   }
 
   public async deploySetTokenCreator(controller: Address): Promise<SetTokenCreator> {
-    return await new SetTokenCreatorFactory(this._deployerSigner).deploy(controller);
+    return await new SetTokenCreator__factory(this._deployerSigner).deploy(controller);
   }
 
   public async getSetTokenCreator(setTokenCreatorAddress: Address): Promise<SetTokenCreator> {
-    return await new SetTokenCreatorFactory(this._deployerSigner).attach(setTokenCreatorAddress);
+    return await new SetTokenCreator__factory(this._deployerSigner).attach(setTokenCreatorAddress);
   }
 
   public async deploySetToken(
@@ -51,7 +51,7 @@ export default class DeployCoreContracts {
     _name: string,
     _symbol: string,
   ): Promise<SetToken> {
-    return await new SetTokenFactory(this._deployerSigner).deploy(
+    return await new SetToken__factory(this._deployerSigner).deploy(
       _components,
       _units,
       _modules,
@@ -63,7 +63,7 @@ export default class DeployCoreContracts {
   }
 
   public async getSetToken(setTokenAddress: Address): Promise<SetToken> {
-    return await new SetTokenFactory(this._deployerSigner).attach(setTokenAddress);
+    return await new SetToken__factory(this._deployerSigner).attach(setTokenAddress);
   }
 
   public async deployPriceOracle(
@@ -74,7 +74,7 @@ export default class DeployCoreContracts {
     assetTwos: Address[],
     oracles: Address[],
   ): Promise<PriceOracle> {
-    return await new PriceOracleFactory(this._deployerSigner).deploy(
+    return await new PriceOracle__factory(this._deployerSigner).deploy(
       controller,
       masterQuoteAsset,
       adapters,
@@ -85,18 +85,18 @@ export default class DeployCoreContracts {
   }
 
   public async getPriceOracle(priceOracleAddress: Address): Promise<PriceOracle> {
-    return await new PriceOracleFactory(this._deployerSigner).attach(priceOracleAddress);
+    return await new PriceOracle__factory(this._deployerSigner).attach(priceOracleAddress);
   }
 
   public async deployIntegrationRegistry(controller: Address): Promise<IntegrationRegistry> {
-    return await new IntegrationRegistryFactory(this._deployerSigner).deploy(controller);
+    return await new IntegrationRegistry__factory(this._deployerSigner).deploy(controller);
   }
 
   public async getIntegrationRegistry(integrationRegistryAddress: Address): Promise<IntegrationRegistry> {
-    return await new IntegrationRegistryFactory(this._deployerSigner).attach(integrationRegistryAddress);
+    return await new IntegrationRegistry__factory(this._deployerSigner).attach(integrationRegistryAddress);
   }
 
   public async deploySetValuer(controller: Address): Promise<SetValuer> {
-    return await new SetValuerFactory(this._deployerSigner).deploy(controller);
+    return await new SetValuer__factory(this._deployerSigner).deploy(controller);
   }
 }

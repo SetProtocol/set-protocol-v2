@@ -17,19 +17,19 @@ import {
 } from "../contracts";
 import { Address } from "../types";
 
-import { AirdropModuleFactory } from "../../typechain/AirdropModuleFactory";
-import { AmmModuleFactory } from "../../typechain/AmmModuleFactory";
-import { BasicIssuanceModuleFactory } from "../../typechain/BasicIssuanceModuleFactory";
-import { ClaimModuleFactory } from "../../typechain/ClaimModuleFactory";
-import { GovernanceModuleFactory } from "../../typechain/GovernanceModuleFactory";
-import { IssuanceModuleFactory } from "../../typechain/IssuanceModuleFactory";
-import { NavIssuanceModuleFactory } from "../../typechain/NavIssuanceModuleFactory";
-import { SingleIndexModuleFactory } from "../../typechain/SingleIndexModuleFactory";
-import { StakingModuleFactory } from "../../typechain/StakingModuleFactory";
-import { StreamingFeeModuleFactory } from "../../typechain/StreamingFeeModuleFactory";
-import { TradeModuleFactory } from "../../typechain/TradeModuleFactory";
-import { UniswapYieldStrategyFactory } from "../../typechain/UniswapYieldStrategyFactory";
-import { WrapModuleFactory } from "../../typechain/WrapModuleFactory";
+import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
+import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
+import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
+import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__factory";
+import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
+import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
+import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
+import { SingleIndexModule__factory } from "../../typechain/factories/SingleIndexModule__factory";
+import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
+import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
+import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
+import { UniswapYieldStrategy__factory } from "../../typechain/factories/UniswapYieldStrategy__factory";
+import { WrapModule__factory } from "../../typechain/factories/WrapModule__factory";
 
 export default class DeployModules {
   private _deployerSigner: Signer;
@@ -39,51 +39,51 @@ export default class DeployModules {
   }
 
   public async deployBasicIssuanceModule(controller: Address): Promise<BasicIssuanceModule> {
-    return await new BasicIssuanceModuleFactory(this._deployerSigner).deploy(controller);
+    return await new BasicIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployIssuanceModule(controller: Address): Promise<IssuanceModule> {
-    return await new IssuanceModuleFactory(this._deployerSigner).deploy(controller);
+    return await new IssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployAmmModule(controller: Address): Promise<AmmModule> {
-    return await new AmmModuleFactory(this._deployerSigner).deploy(controller);
+    return await new AmmModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async getBasicIssuanceModule(basicIssuanceModule: Address): Promise <BasicIssuanceModule> {
-    return await new BasicIssuanceModuleFactory(this._deployerSigner).attach(basicIssuanceModule);
+    return await new BasicIssuanceModule__factory(this._deployerSigner).attach(basicIssuanceModule);
   }
 
   public async deployStreamingFeeModule(controller: Address): Promise<StreamingFeeModule> {
-    return await new StreamingFeeModuleFactory(this._deployerSigner).deploy(controller);
+    return await new StreamingFeeModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async getStreamingFeeModule(streamingFeeModule: Address): Promise <StreamingFeeModule> {
-    return await new StreamingFeeModuleFactory(this._deployerSigner).attach(streamingFeeModule);
+    return await new StreamingFeeModule__factory(this._deployerSigner).attach(streamingFeeModule);
   }
 
   public async deployAirdropModule(controller: Address): Promise<AirdropModule> {
-    return await new AirdropModuleFactory(this._deployerSigner).deploy(controller);
+    return await new AirdropModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployNavIssuanceModule(controller: Address, weth: Address): Promise<NavIssuanceModule> {
-    return await new NavIssuanceModuleFactory(this._deployerSigner).deploy(controller, weth);
+    return await new NavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
   public async deployTradeModule(controller: Address): Promise<TradeModule> {
-    return await new TradeModuleFactory(this._deployerSigner).deploy(controller);
+    return await new TradeModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployWrapModule(controller: Address, weth: Address): Promise<WrapModule> {
-    return await new WrapModuleFactory(this._deployerSigner).deploy(controller, weth);
+    return await new WrapModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
   public async deployClaimModule(controller: Address): Promise<ClaimModule> {
-    return await new ClaimModuleFactory(this._deployerSigner).deploy(controller);
+    return await new ClaimModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployStakingModule(controller: Address): Promise<StakingModule> {
-    return await new StakingModuleFactory(this._deployerSigner).deploy(controller);
+    return await new StakingModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployUniswapYieldStrategy(
@@ -96,7 +96,7 @@ export default class DeployModules {
     _rewarder: Address,
     _feeRecipient: Address
   ): Promise<UniswapYieldStrategy> {
-    return await new UniswapYieldStrategyFactory(this._deployerSigner).deploy(
+    return await new UniswapYieldStrategy__factory(this._deployerSigner).deploy(
       _controller,
       _uniswapRouter,
       _lpToken,
@@ -109,11 +109,11 @@ export default class DeployModules {
   }
 
   public async getUniswapYieldStrategy(uniswapYieldStrategy: Address): Promise <UniswapYieldStrategy> {
-    return await new UniswapYieldStrategyFactory(this._deployerSigner).attach(uniswapYieldStrategy);
+    return await new UniswapYieldStrategy__factory(this._deployerSigner).attach(uniswapYieldStrategy);
   }
 
   public async getNavIssuanceModule(navIssuanceModule: Address): Promise <NavIssuanceModule> {
-    return await new NavIssuanceModuleFactory(this._deployerSigner).attach(navIssuanceModule);
+    return await new NavIssuanceModule__factory(this._deployerSigner).attach(navIssuanceModule);
   }
 
   public async deploySingleIndexModule(
@@ -123,7 +123,7 @@ export default class DeployModules {
     sushiswapRouter: Address,
     balancerProxy: Address
   ): Promise<SingleIndexModule> {
-    return await new SingleIndexModuleFactory(this._deployerSigner).deploy(
+    return await new SingleIndexModule__factory(this._deployerSigner).deploy(
       controller,
       weth,
       uniswapRouter,
@@ -133,6 +133,6 @@ export default class DeployModules {
   }
 
   public async deployGovernanceModule(controller: Address): Promise<GovernanceModule> {
-    return await new GovernanceModuleFactory(this._deployerSigner).deploy(controller);
+    return await new GovernanceModule__factory(this._deployerSigner).deploy(controller);
   }
 }

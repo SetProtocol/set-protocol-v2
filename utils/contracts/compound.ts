@@ -3,7 +3,7 @@ export { Comp } from "../../typechain/Comp";
 export { CompoundGovernorAlpha } from "../../typechain/CompoundGovernorAlpha";
 export { CompoundTimelock } from "../../typechain/CompoundTimelock";
 export { Comptroller } from "../../typechain/Comptroller";
-export { CeRc20 } from "../../typechain/CeRc20";
+export { CERc20 } from "../../typechain/CERc20";
 export { CEther } from "../../typechain/CEther";
 export { CompoundPriceOracleMock } from "../../typechain/CompoundPriceOracleMock";
 export { PriceOracleProxy } from "../../typechain/PriceOracleProxy";

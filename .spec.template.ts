@@ -1,6 +1,6 @@
 import "module-alias/register";
 import { BigNumber } from "ethers/utils";
-import { ethers } from "@nomiclabs/buidler";
+import { ethers } from "hardhat";
 
 import { Address, Account } from "@utils/types";
 import {} from "@utils/constants";

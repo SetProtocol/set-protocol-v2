@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account } from "@utils/types";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";

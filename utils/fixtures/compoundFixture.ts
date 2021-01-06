@@ -1,9 +1,9 @@
-import { JsonRpcProvider, Web3Provider } from "ethers/providers";
-import { BigNumber, BigNumberish } from "ethers/utils";
+import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
+import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import { Signer } from "ethers";
 
 import {
-  CeRc20,
+  CERc20,
   CEther,
   Comp,
   CompoundGovernorAlpha,
@@ -97,7 +97,7 @@ export class CompoundFixture {
     decimals: BigNumberish = 8,
     collateralFactor: BigNumber,
     currentPrice: BigNumber
-  ): Promise<CeRc20> {
+  ): Promise<CERc20> {
     const newCToken = await this._deployer.external.deployCeRc20(
       underlying,
       comptroller,

@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account, ContractTransaction } from "@utils/types";
 import { ZERO, PRECISE_UNIT, ADDRESS_ZERO } from "@utils/constants";
@@ -190,7 +190,7 @@ describe("AirdropModule", () => {
       anyoneAbsorb = true;
 
       protocolFee = ether(.15);
-      airdropAmounts = [new BigNumber(10 ** 10), ether(2)];
+      airdropAmounts = [BigNumber.from(10 ** 10), ether(2)];
       isInitialized = true;
     });
 
@@ -628,7 +628,7 @@ describe("AirdropModule", () => {
       anyoneAbsorb = true;
 
       protocolFee = ether(.15);
-      airdropAmounts = [new BigNumber(10 ** 10), ether(2)];
+      airdropAmounts = [BigNumber.from(10 ** 10), ether(2)];
       isInitialized = true;
     });
 
@@ -1110,7 +1110,7 @@ describe("AirdropModule", () => {
       anyoneAbsorb = true;
 
       protocolFee = ether(.15);
-      airdropAmounts = [new BigNumber(10 ** 10), ether(2)];
+      airdropAmounts = [BigNumber.from(10 ** 10), ether(2)];
       isInitialized = true;
     });
 

@@ -1,8 +1,8 @@
 import DeployHelper from "../deploys";
 import { Signer, ContractTransaction } from "ethers";
-import { JsonRpcProvider, Web3Provider } from "ethers/providers";
+import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { Address, Account } from "../types";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import {
   BFactory,
@@ -12,7 +12,7 @@ import {
 } from "../contracts/balancer";
 import { StandardTokenMock } from "../contracts";
 import { ether, bitcoin } from "../index";
-import { BPoolFactory } from "../../typechain/BPoolFactory";
+import { BPool__factory } from "../../typechain/factories/BPool__factory";
 import { Weth9 } from "../../typechain/Weth9";
 import { ONE } from "../constants";
 
@@ -37,7 +37,7 @@ export class BalancerFixture {
   public async initialize(_owner: Account, _weth: Weth9, _wbtc: StandardTokenMock, _dai: StandardTokenMock): Promise<void> {
     this.owner = _owner;
 
-    this.factory = await this._deployer.external.deployBFactory();
+    this.factory = await this._deployer.external.deployB__factory();
 
     this.wethDaiPool = await this.createNewPool(_weth, _dai, ether(400), ether(92000));
     this.wethWbtcPool = await this.createNewPool(_wbtc, _weth, ether(391.3043), bitcoin(10));
@@ -66,7 +66,7 @@ export class BalancerFixture {
     const tx = await this.factory.newBPool();
 
     const poolAddress = await this.getPoolAddressFromTransaction(tx);
-    const pool = await new BPoolFactory(this._ownerSigner).attach(poolAddress);
+    const pool = await new BPool__factory(this._ownerSigner).attach(poolAddress);
 
     await tokenOne.connect(this._ownerSigner).approve(poolAddress, tokenOneBalance);
     await pool.connect(this._ownerSigner).bind(tokenOne.address, tokenOneBalance, ether(5));

@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 import { Address, Account } from "@utils/types";
 import { ModuleBaseMock, SetToken, StandardTokenMock, StandardTokenWithFeeMock } from "@utils/contracts";
 import { MAX_UINT_256, ZERO } from "@utils/constants";

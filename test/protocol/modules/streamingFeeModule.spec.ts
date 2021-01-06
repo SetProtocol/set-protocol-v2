@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account, ContractTransaction, StreamingFeeState } from "@utils/types";
 import { ONE_YEAR_IN_SECONDS, ZERO, ADDRESS_ZERO, PRECISE_UNIT } from "@utils/constants";

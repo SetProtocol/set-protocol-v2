@@ -49,7 +49,7 @@ jobs:
           command: yarn chain
           background: true
       - run:
-          name: Buidler Test
+          name: Hardhat Test
           command: yarn test
 
   coverage:

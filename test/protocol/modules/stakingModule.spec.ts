@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account } from "@utils/types";
 import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
@@ -59,7 +59,7 @@ describe("StakingModule", () => {
 
     setToken = await setup.createSetToken(
       [setup.weth.address, setup.wbtc.address],
-      [ether(1), new BigNumber(10 ** 8)],
+      [ether(1), BigNumber.from(10 ** 8)],
       [setup.issuanceModule.address, stakingModule.address, dummyIssuanceModule.address]
     );
     await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);

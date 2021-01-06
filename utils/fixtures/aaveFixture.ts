@@ -1,8 +1,8 @@
 import DeployHelper from "../deploys";
 import { Signer } from "ethers";
-import { JsonRpcProvider, Web3Provider } from "ethers/providers";
+import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { Address } from "../types";
-import { BigNumber, BigNumberish } from "ethers/utils";
+import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 
 import {
   AavePropositionPower,
@@ -25,7 +25,7 @@ import { StandardTokenMock } from "../contracts";
 
 import { ether } from "../common";
 
-import { ATokenFactory } from "../../typechain/ATokenFactory";
+import { AToken__factory } from "../../typechain/factories/AToken__factory";
 
 export class AaveFixture {
   private _deployer: DeployHelper;
@@ -92,7 +92,7 @@ export class AaveFixture {
     // Deploy migration
     this.lendToken = await this._deployer.mocks.deployTokenMock(await this._ownerSigner.getAddress(), ether(1000000), 18);
     this.aaveToken = await this._deployer.mocks.deployTokenMock(await this._ownerSigner.getAddress(), ether(10000), 18);
-    this.aaveExchangeRatio = new BigNumber(100); // 100:1 LEND to AAVE ratio
+    this.aaveExchangeRatio = BigNumber.from(100); // 100:1 LEND to AAVE ratio
     this.lendToAaveMigrator = await this._deployer.external.deployLendToAaveMigrator(
       this.aaveToken.address,
       this.lendToken.address,
@@ -102,17 +102,17 @@ export class AaveFixture {
     // Deploy Governance
     this.assetVotingWeightPower = await this._deployer.external.deployAssetVotingWeightProvider(
       [this.aaveToken.address, this.lendToken.address],
-      [new BigNumber(1), new BigNumber(1)]
+      [BigNumber.from(1), BigNumber.from(1)]
     );
     this.aavePropositionPower = await this._deployer.external.deployAavePropositionPower(
       "Aave Proposition Power",
       "APP",
       18,
       [await this._ownerSigner.getAddress()],
-      new BigNumber(1)
+      BigNumber.from(1)
     );
     this.governanceParamsProvider = await this._deployer.external.deployGovernanceParamsProvider(
-      new BigNumber(1),
+      BigNumber.from(1),
       this.aavePropositionPower.address,
       this.assetVotingWeightPower.address
     );
@@ -128,7 +128,7 @@ export class AaveFixture {
   public async deployAToken(_underlyingAsset: Address, _decimals: BigNumberish = 18): Promise<AToken> {
     await this.lendingPoolConfigurator.initReserve(_underlyingAsset, _decimals, this.reserveInterestRateStrategy.address);
     const aTokenAddress = await this.lendingPoolCore.getReserveATokenAddress(_underlyingAsset);
-    return new ATokenFactory(this._ownerSigner).attach(aTokenAddress);
+    return new AToken__factory(this._ownerSigner).attach(aTokenAddress);
   }
 
   public async deployETHAToken(
@@ -145,6 +145,6 @@ export class AaveFixture {
       this.reserveInterestRateStrategy.address
     );
     const aTokenAddress = await this.lendingPoolCore.getReserveATokenAddress(_underlyingAsset);
-    return new ATokenFactory(this._ownerSigner).attach(aTokenAddress);
+    return new AToken__factory(this._ownerSigner).attach(aTokenAddress);
   }
 }

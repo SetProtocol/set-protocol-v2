@@ -8,15 +8,15 @@
 # Set Protocol V2 Contract Repository
 
 ## Contracts
-[Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Buidler](https://buidler.dev/) as a development environment for compiling, testing, and deploying our contracts.
+[Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Hardhat](https://hardhat.org/) as a development environment for compiling, testing, and deploying our contracts.
 
 ## Development
 
-To use console.log during Solidity development, do `import @nomiclabs/buidler/console.sol`
+To use console.log during Solidity development, follow the [guides](https://hardhat.org/guides/hardhat-console.html).
 
 ## Available Functionality
 
-### Run Buidler EVM
+### Run Hardhat EVM
 
 `yarn chain`
 

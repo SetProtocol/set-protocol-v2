@@ -1,7 +1,7 @@
 import "module-alias/register";
 import Web3 from "web3";
-import { BigNumber } from "ethers/utils";
-import { ethers } from "@nomiclabs/buidler";
+import { BigNumber } from "@ethersproject/bignumber";
+import { ethers } from "hardhat";
 
 import { Address, Account, Bytes } from "@utils/types";
 import {
@@ -74,7 +74,7 @@ describe("TradeModule", () => {
     oneInchExchangeMock = await deployer.mocks.deployOneInchExchangeMock(
       setup.wbtc.address,
       setup.weth.address,
-      new BigNumber(100000000), // 1 WBTC
+      BigNumber.from(100000000), // 1 WBTC
       wbtcRate, // Trades for 33 WETH
     );
     // 1inch function signature
@@ -128,7 +128,7 @@ describe("TradeModule", () => {
       // Selling WBTC
       sourceToken = setup.wbtc;
       destinationToken = setup.weth;
-      wbtcUnits = new BigNumber(100000000); // 1 WBTC in base units 1 * 10 ** 8
+      wbtcUnits = BigNumber.from(100000000); // 1 WBTC in base units 1 * 10 ** 8
 
       // Create Set token
       setToken = await setup.createSetToken(

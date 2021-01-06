@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account } from "@utils/types";
 import { ONE, TWO, THREE, MAX_UINT_256 } from "@utils/constants";

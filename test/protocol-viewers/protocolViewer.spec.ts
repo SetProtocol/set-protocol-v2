@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account, StreamingFeeState } from "@utils/types";
 import { ADDRESS_ZERO, ZERO, ONE, ONE_YEAR_IN_SECONDS } from "@utils/constants";
@@ -98,8 +98,8 @@ describe("ProtocolViewer", () => {
     it("should return the correct module states", async () => {
       const [setOneStates, setTwoStates] = await subject();
 
-      const setOneExpectedStates = [new BigNumber(2), new BigNumber(2), ONE];
-      const setTwoExpectedStates = [ONE, new BigNumber(2), ZERO];
+      const setOneExpectedStates = [BigNumber.from(2), BigNumber.from(2), ONE];
+      const setTwoExpectedStates = [ONE, BigNumber.from(2), ZERO];
 
       expect(setOneStates[0]).to.eq(setOneExpectedStates[0]);
       expect(setOneStates[1]).to.eq(setOneExpectedStates[1]);
