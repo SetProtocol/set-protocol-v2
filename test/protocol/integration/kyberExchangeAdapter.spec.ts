@@ -156,7 +156,7 @@ describe("KyberExchangeAdapter", () => {
 
     it("should return the correct trade calldata", async () => {
       const calldata = await subject();
-      const expectedCallData = kyberNetworkProxy.interface.functions.trade.encode([
+      const expectedCallData = kyberNetworkProxy.interface.encodeFunctionData("trade", [
         sourceAddress,
         sourceQuantity,
         destinationAddress,

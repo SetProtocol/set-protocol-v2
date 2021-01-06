@@ -9,7 +9,7 @@ import {
   AmmAdapterMock,
   ClaimAdapterMock,
   ContractCallerMock,
-  ExplicitErc20Mock,
+  ExplicitERC20Mock,
   GaugeControllerMock,
   GodModeMock,
   GovernanceAdapterMock,
@@ -18,8 +18,8 @@ import {
   ManagerIssuanceHookMock,
   ModuleIssuanceHookMock,
   ModuleBaseMock,
-  NavIssuanceCaller,
-  NavIssuanceHookMock,
+  NAVIssuanceCaller,
+  NAVIssuanceHookMock,
   OneInchExchangeMock,
   OracleAdapterMock,
   OracleMock,
@@ -71,7 +71,7 @@ export default class DeployMocks {
     this._deployerSigner = deployerSigner;
   }
 
-  public async deployExplicitErc20Mock(): Promise<ExplicitErc20Mock> {
+  public async deployExplicitErc20Mock(): Promise<ExplicitERC20Mock> {
     return await new ExplicitERC20Mock__factory(this._deployerSigner).deploy();
   }
 
@@ -87,11 +87,11 @@ export default class DeployMocks {
     return await new ModuleIssuanceHookMock__factory(this._deployerSigner).deploy();
   }
 
-  public async deployNavIssuanceHookMock(): Promise<NavIssuanceHookMock> {
+  public async deployNavIssuanceHookMock(): Promise<NAVIssuanceHookMock> {
     return await new NAVIssuanceHookMock__factory(this._deployerSigner).deploy();
   }
 
-  public async deployNAVIssuanceCaller(navIssuanceModule: Address): Promise<NavIssuanceCaller> {
+  public async deployNAVIssuanceCaller(navIssuanceModule: Address): Promise<NAVIssuanceCaller> {
     return await new NAVIssuanceCaller__factory(this._deployerSigner).deploy(navIssuanceModule);
   }
 

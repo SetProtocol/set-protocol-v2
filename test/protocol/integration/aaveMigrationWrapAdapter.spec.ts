@@ -114,7 +114,7 @@ describe("AaveMigrationWrapAdapter", () => {
     it("should return correct data for valid pair", async () => {
       const [targetAddress, ethValue, callData] = await subject();
 
-      const expectedCallData = aaveSetup.lendToAaveMigrator.interface.functions.migrateFromLEND.encode([subjectUnderlyingUnits]);
+      const expectedCallData = aaveSetup.lendToAaveMigrator.interface.encodeFunctionData("migrateFromLEND", [subjectUnderlyingUnits]);
 
       expect(targetAddress).to.eq(aaveSetup.lendToAaveMigrator.address);
       expect(ethValue).to.eq(ZERO);

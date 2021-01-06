@@ -135,7 +135,7 @@ describe("OneInchExchangeAdapter", () => {
       subjectSourceQuantity = ONE;
       subjectMinDestinationQuantity = ONE;
       // Get mock 1inch swap calldata
-      subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+      subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
         mockWbtc.address, // Send token
         mockWeth.address, // Receive token
         ONE, // Send quantity
@@ -181,7 +181,7 @@ describe("OneInchExchangeAdapter", () => {
       beforeEach(async () => {
         // Get random source token
         const randomToken = await getRandomAccount();
-        subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+        subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
           randomToken.address, // Send token
           mockWeth.address, // Receive token
           ONE, // Send quantity
@@ -204,7 +204,7 @@ describe("OneInchExchangeAdapter", () => {
       beforeEach(async () => {
         // Get random source token
         const randomToken = await getRandomAccount();
-        subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+        subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
           mockWbtc.address, // Send token
           randomToken.address, // Receive token
           ONE, // Send quantity
@@ -225,7 +225,7 @@ describe("OneInchExchangeAdapter", () => {
 
     describe("when send token quantity does not match calldata", async () => {
       beforeEach(async () => {
-        subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+        subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
           mockWbtc.address, // Send token
           mockWeth.address, // Receive token
           ZERO, // Send quantity
@@ -246,7 +246,7 @@ describe("OneInchExchangeAdapter", () => {
 
     describe("when min receive token quantity does not match calldata", async () => {
       beforeEach(async () => {
-        subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+        subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
           mockWbtc.address, // Send token
           mockWeth.address, // Receive token
           ONE, // Send quantity

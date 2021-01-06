@@ -9,7 +9,7 @@ import {
   getSystemFixture,
   getWaffleExpect
 } from "@utils/index";
-import { CeRc20 } from "../../typechain/CeRc20";
+import { CERc20 } from "../../typechain/CERc20";
 import { CEther } from "../../typechain/CEther";
 import { CompoundFixture, SystemFixture } from "@utils/fixtures";
 
@@ -36,7 +36,7 @@ describe("CompoundFixture", () => {
   addSnapshotBeforeRestoreAfterEach();
 
   describe("#createAndEnableCToken", async () => {
-    async function subject(): Promise<CeRc20> {
+    async function subject(): Promise<CERc20> {
       return await compoundSetup.createAndEnableCToken(
         setup.dai.address,
         ether(0.02),

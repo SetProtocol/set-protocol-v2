@@ -4,7 +4,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account, Address } from "@utils/types";
 import { MAX_UINT_256, ZERO } from "@utils/constants";
-import { ExplicitErc20Mock, StandardTokenMock, StandardTokenWithFeeMock } from "@utils/contracts";
+import { ExplicitERC20Mock, StandardTokenMock, StandardTokenWithFeeMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -21,7 +21,7 @@ describe("ExplicitErc20Mock", () => {
   let testAccount2: Account;
   let deployer: DeployHelper;
 
-  let explicitERC20Mock: ExplicitErc20Mock;
+  let explicitERC20Mock: ExplicitERC20Mock;
 
   beforeEach(async () => {
     [

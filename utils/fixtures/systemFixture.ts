@@ -13,7 +13,7 @@ import {
   SetValuer,
   StandardTokenMock,
   StreamingFeeModule,
-  Weth9,
+  WETH9,
   NavIssuanceModule
 } from "../contracts";
 import DeployHelper from "../deploys";
@@ -48,7 +48,7 @@ export class SystemFixture {
   public streamingFeeModule: StreamingFeeModule;
   public navIssuanceModule: NavIssuanceModule;
 
-  public weth: Weth9;
+  public weth: WETH9;
   public usdc: StandardTokenMock;
   public wbtc: StandardTokenMock;
   public dai: StandardTokenMock;

@@ -1,6 +1,6 @@
 import "module-alias/register";
-import { BigNumber, defaultAbiCoder } from "@ethersproject/bignumber";
-
+import { BigNumber } from "@ethersproject/bignumber";
+import { defaultAbiCoder } from "@ethersproject/abi";
 import { Address, Account, Bytes } from "@utils/types";
 import { EMPTY_BYTES, ONE, TWO, ZERO } from "@utils/constants";
 import { AaveGovernanceAdapter } from "@utils/contracts";
@@ -149,7 +149,7 @@ describe("AaveGovernanceAdapter", () => {
 
     it("should return correct data for voting with AAVE token", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = aaveSetup.aaveProtoGovernance.interface.functions.submitVoteByVoter.encode(
+      const expectedCallData = aaveSetup.aaveProtoGovernance.interface.encodeFunctionData("submitVoteByVoter",
         [subjectProposalId, ONE, aaveSetup.aaveToken.address]
       );
 
@@ -168,7 +168,7 @@ describe("AaveGovernanceAdapter", () => {
 
       it("should return correct data for voting", async () => {
         const [targetAddress, ethValue, callData] = await subject();
-        const expectedCallData = aaveSetup.aaveProtoGovernance.interface.functions.submitVoteByVoter.encode(
+        const expectedCallData = aaveSetup.aaveProtoGovernance.interface.encodeFunctionData("submitVoteByVoter",
           [subjectProposalId, ONE, aaveSetup.lendToken.address]
         );
 
@@ -188,7 +188,7 @@ describe("AaveGovernanceAdapter", () => {
 
       it("should return correct data for voting", async () => {
         const [targetAddress, ethValue, callData] = await subject();
-        const expectedCallData = aaveSetup.aaveProtoGovernance.interface.functions.submitVoteByVoter.encode(
+        const expectedCallData = aaveSetup.aaveProtoGovernance.interface.encodeFunctionData("submitVoteByVoter",
           [subjectProposalId, voteValue, aaveSetup.aaveToken.address]
         );
 
