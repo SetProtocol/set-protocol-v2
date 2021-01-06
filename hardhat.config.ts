@@ -29,9 +29,7 @@ internalTask(TASK_TEST_SETUP_TEST_ENVIRONMENT).setAction(async function setupNat
 
   try {
     changedFiles = replace.sync(options);
-    console.log(
-      "Step 4. Typechain fixing modified files:", 
-      changedFiles.map((f: { file: { toString: () => any; }; }) => f.file.toString()).join(", "))
+    console.log("Fixing gas cost type from number to string...")
     ;
   }
   catch (error) {

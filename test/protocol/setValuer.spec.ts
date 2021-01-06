@@ -102,7 +102,6 @@ describe("SetValuer", () => {
       ).add(preciseMul(
         normalizedUnitTwo, setup.component1Price
       ));
-
       expect(setTokenValuation).to.eq(expectedValuation);
     });
 
