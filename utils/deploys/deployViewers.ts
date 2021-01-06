@@ -3,7 +3,7 @@ import { Signer } from "ethers";
 import { ProtocolViewer } from "../contracts";
 
 
-import { ProtocolViewerFactory } from "../../typechain/ProtocolViewerFactory";
+import { ProtocolViewer__factory } from "../../typechain/factories/ProtocolViewer__factory";
 
 export default class DeployViewers {
   private _deployerSigner: Signer;
@@ -13,6 +13,6 @@ export default class DeployViewers {
   }
 
   public async deployProtocolViewer(): Promise<ProtocolViewer> {
-    return await new ProtocolViewerFactory(this._deployerSigner).deploy();
+    return await new ProtocolViewer__factory(this._deployerSigner).deploy();
   }
 }

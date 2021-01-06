@@ -14,7 +14,7 @@ import {
   bigNumberToData,
 } from "@utils/index";
 import { SystemFixture } from "@utils/fixtures";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 import { ADDRESS_ZERO, ONE, TWO, ZERO, EMPTY_BYTES } from "@utils/constants";
 
 const expect = getWaffleExpect();

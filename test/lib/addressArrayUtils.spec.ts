@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account } from "@utils/types";
 import { ONE, MAX_UINT_256 } from "@utils/constants";
@@ -56,7 +56,7 @@ describe("AddressArrayUtils", () => {
     it("should return the correct index and true", async () => {
       const [index, isIn] = await subject();
 
-      expect(index).to.eq(new BigNumber(1));
+      expect(index).to.eq(BigNumber.from(1));
       expect(isIn).to.be.true;
     });
 

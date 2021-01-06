@@ -13,7 +13,7 @@ import {
   getRandomAddress,
 } from "@utils/index";
 import { SystemFixture } from "@utils/fixtures";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 import { ZERO } from "@utils/constants";
 
 const expect = getWaffleExpect();

@@ -13,7 +13,7 @@ import {
 import { CurveFixture } from "@utils/fixtures";
 import { StandardTokenMock } from "../../typechain/StandardTokenMock";
 import { ZERO } from "@utils/constants";
-import { BigNumber, BigNumberish } from "ethers/utils";
+import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import { LiquidityGauge } from "@typechain/LiquidityGauge";
 
 const expect = getWaffleExpect();
@@ -239,7 +239,7 @@ describe("CurveFixture", () => {
       let subjectTimeFastForward: BigNumber;
 
       beforeEach(async () => {
-        subjectTimeFastForward = new BigNumber(86400 * 7); // one week
+        subjectTimeFastForward = BigNumber.from(86400 * 7); // one week
 
         await subjectGauge.deposit(subjectValue, {
           gasLimit: 5000000,

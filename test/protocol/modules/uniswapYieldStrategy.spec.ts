@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account, NAVIssuanceSettings } from "@utils/types";
 import { GodModeMock, UniswapPairPriceAdapter, UniswapYieldStrategy, SetToken } from "@utils/contracts";
@@ -76,7 +76,7 @@ describe("UniswapYieldStrategy", () => {
       [uniswapSetup.wethDaiPool.address, uniswapSetup.wethWbtcPool.address]
     );
 
-    await setup.controller.addResource(uniswapPriceAdapter.address, new BigNumber(3));
+    await setup.controller.addResource(uniswapPriceAdapter.address, BigNumber.from(3));
     await setup.priceOracle.addAdapter(uniswapPriceAdapter.address);
 
     yieldStrategy = await deployer.modules.deployUniswapYieldStrategy(

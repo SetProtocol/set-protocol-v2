@@ -40,7 +40,7 @@
 //     this.tokens = tokens;
 //     for (let i = 0; i < tokens.length; i++) {
 //       // Assumes all tokens are 18 decimals
-//       this[tokens[i]] = await this._deployer.mocks.deployTokenMock(this._owner.address, ether(1000), new BigNumber(18));
+//       this[tokens[i]] = await this._deployer.mocks.deployTokenMock(this._owner.address, ether(1000), BigNumber.from(18));
 //       this[tokens[i] + "Oracle"] = await this._deployer.mocks.deployOracleMock(prices[i]);
 //     }
 //   }

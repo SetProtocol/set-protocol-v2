@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account } from "@utils/types";
 import { UniswapPairPriceAdapter } from "@utils/contracts";
@@ -56,7 +56,7 @@ describe("UniswapPairPriceAdapter", () => {
       [uniswapSetup.wethDaiPool.address, uniswapSetup.wethWbtcPool.address]
     );
 
-    await setup.controller.addResource(uniswapPriceAdapter.address, new BigNumber(3));
+    await setup.controller.addResource(uniswapPriceAdapter.address, BigNumber.from(3));
     await setup.priceOracle.addAdapter(uniswapPriceAdapter.address);
 
     // Approve and add liquidity to pools
@@ -233,11 +233,11 @@ describe("UniswapPairPriceAdapter", () => {
 
       describe("when the contract is not a system resource", async () => {
         beforeEach(async () => {
-          await setup.controller.removeResource(new BigNumber(3));
+          await setup.controller.removeResource(BigNumber.from(3));
         });
 
         afterEach(async () => {
-          await setup.controller.addResource(uniswapPriceAdapter.address, new BigNumber(3));
+          await setup.controller.addResource(uniswapPriceAdapter.address, BigNumber.from(3));
         });
 
         it("should revert", async () => {

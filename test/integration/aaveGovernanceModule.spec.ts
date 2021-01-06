@@ -1,5 +1,6 @@
 import "module-alias/register";
-import { BigNumber, defaultAbiCoder, keccak256 } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
+import { keccak256, defaultAbiCoder } from "ethers/lib/utils";
 
 import { Address, Account, Bytes } from "@utils/types";
 import { ADDRESS_ZERO, EMPTY_BYTES, ONE_DAY_IN_SECONDS, ZERO } from "@utils/constants";

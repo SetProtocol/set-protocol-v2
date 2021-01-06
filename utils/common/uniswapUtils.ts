@@ -1,11 +1,11 @@
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 import { UniswapV2Pair, SetToken, StakingRewards, StandardTokenMock, Weth9, UniswapV2Router02 } from "../contracts";
 import { ZERO } from "../constants";
 import { ether, preciseMul } from "../index";
 import { preciseDiv } from "./mathUtils";
-import { Address } from "@nomiclabs/buidler/types";
+import { Address } from "@utils/types";
 
-const MINIMUM_LIQUIDITY = new BigNumber(1000);
+const MINIMUM_LIQUIDITY = BigNumber.from(1000);
 export const calculateLPTokensIssued = async(
   pool: UniswapV2Pair,
   amountOne: BigNumber,
@@ -146,14 +146,14 @@ const sqrt = (
   value: BigNumber
 ): BigNumber => {
   let z: BigNumber = value;
-  if (value > new BigNumber(3)) {
+  if (value > BigNumber.from(3)) {
     let x = value.div(2).add(1);
     while (x < z) {
       z = x;
       x = value.div(x).add(x).div(2);
     }
   } else if (value != ZERO) {
-    z = new BigNumber(1);
+    z = BigNumber.from(1);
   }
 
   return z;

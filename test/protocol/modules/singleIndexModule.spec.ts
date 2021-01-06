@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account, StreamingFeeState } from "@utils/types";
 import { ADDRESS_ZERO, MAX_UINT_256, ONE, TWO, THREE, ZERO, ONE_DAY_IN_SECONDS, PRECISE_UNIT } from "@utils/constants";
@@ -45,7 +45,7 @@ describe("SingleIndexModule", () => {
   const UNISWAP_ID = ONE;
   const SUSHISWAP_ID = TWO;
   const BALANCER_ID = THREE;
-  const ONE_MINUTE_IN_SECONDS: BigNumber = new BigNumber(60);
+  const ONE_MINUTE_IN_SECONDS: BigNumber = BigNumber.from(60);
 
   before(async () => {
     [
@@ -1149,7 +1149,7 @@ describe("SingleIndexModule", () => {
     describe("when passed exchange does not map to current exchange", async () => {
       beforeEach(async () => {
         subjectComponents = [setup.dai.address];
-        subjectExchanges = [new BigNumber(4)];
+        subjectExchanges = [BigNumber.from(4)];
       });
 
       it("should revert", async () => {

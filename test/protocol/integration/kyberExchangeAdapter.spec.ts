@@ -1,7 +1,7 @@
 import "module-alias/register";
 
-import { ethers } from "@nomiclabs/buidler";
-import { BigNumber } from "ethers/utils";
+import { ethers } from "hardhat";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account, Address, Bytes } from "@utils/types";
 import {
@@ -131,7 +131,7 @@ describe("KyberExchangeAdapter", () => {
 
     beforeEach(async () => {
       sourceAddress = setup.wbtc.address;          // WBTC Address
-      sourceQuantity = new BigNumber(100000000);   // Trade 1 WBTC
+      sourceQuantity = BigNumber.from(100000000);   // Trade 1 WBTC
       destinationAddress = setup.weth.address;     // WETH Address
       destinationQuantity = ether(33);             // Receive at least 33 ETH
 

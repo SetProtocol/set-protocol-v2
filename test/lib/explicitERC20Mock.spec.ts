@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account, Address } from "@utils/types";
 import { MAX_UINT_256, ZERO } from "@utils/constants";

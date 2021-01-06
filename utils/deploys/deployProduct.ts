@@ -1,11 +1,11 @@
 import { Signer } from "ethers";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { UniswapYieldHook } from "../contracts";
 import { AssetLimitHook } from "../contracts";
 
-import { UniswapYieldHookFactory } from "../../typechain/UniswapYieldHookFactory";
-import { AssetLimitHookFactory } from "../../typechain/AssetLimitHookFactory";
+import { UniswapYieldHook__factory } from "../../typechain/factories/UniswapYieldHook__factory";
+import { AssetLimitHook__factory } from "../../typechain/factories/AssetLimitHook__factory";
 import { Address } from "@utils/types";
 
 export default class DeployProduct {
@@ -19,17 +19,17 @@ export default class DeployProduct {
     _assets: Address[],
     _limits: BigNumber[]
   ): Promise<UniswapYieldHook> {
-    return await new UniswapYieldHookFactory(this._deployerSigner).deploy(_assets, _limits);
+    return await new UniswapYieldHook__factory(this._deployerSigner).deploy(_assets, _limits);
   }
 
   public async deployAssetLimitHook(
     _assets: Address[],
     _limits: BigNumber[]
   ): Promise<AssetLimitHook> {
-    return await new AssetLimitHookFactory(this._deployerSigner).deploy(_assets, _limits);
+    return await new AssetLimitHook__factory(this._deployerSigner).deploy(_assets, _limits);
   }
 
   public async getAssetLimitHook(assetLimitHookAddress: Address): Promise<AssetLimitHook> {
-    return await new AssetLimitHookFactory(this._deployerSigner).attach(assetLimitHookAddress);
+    return await new AssetLimitHook__factory(this._deployerSigner).attach(assetLimitHookAddress);
   }
 }

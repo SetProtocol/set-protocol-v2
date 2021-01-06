@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account, Address } from "@utils/types";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";
@@ -73,7 +73,7 @@ describe("Controller", () => {
     let resourceId: BigNumber;
 
     beforeEach(async () => {
-      resourceId = new BigNumber(1);
+      resourceId = BigNumber.from(1);
 
       subjectFactory = [mockSetTokenFactory.address];
       subjectModule = [mockBasicIssuanceModule.address];
@@ -569,7 +569,7 @@ describe("Controller", () => {
       }
 
       priceOracleAddress = mockPriceOracle.address;
-      resourceId = new BigNumber(0);
+      resourceId = BigNumber.from(0);
 
       subjectResource = priceOracleAddress;
       subjectResourceId = resourceId;
@@ -650,7 +650,7 @@ describe("Controller", () => {
         await controller.initialize([], [], [], []);
 
         resource = mockPriceOracle.address;
-        resourceId = new BigNumber(0);
+        resourceId = BigNumber.from(0);
 
         await controller.addResource(resource, resourceId);
       }
@@ -722,8 +722,8 @@ describe("Controller", () => {
       }
 
       subjectModule = mockBasicIssuanceModule.address;
-      subjectFeeType = new BigNumber(1);
-      subjectFeePercentage = new BigNumber(5);
+      subjectFeeType = BigNumber.from(1);
+      subjectFeePercentage = BigNumber.from(5);
       subjectCaller = owner;
     });
 
@@ -737,7 +737,7 @@ describe("Controller", () => {
 
       const feePercentage = await controller.getModuleFee(
         mockBasicIssuanceModule.address,
-        new BigNumber(1),
+        BigNumber.from(1),
       );
       expect(feePercentage).to.eq(5);
     });
@@ -787,10 +787,10 @@ describe("Controller", () => {
         await controller.initialize([], [], [], []);
 
         moduleAddress = mockBasicIssuanceModule.address;
-        feeType = new BigNumber(1);
+        feeType = BigNumber.from(1);
 
         await controller.addModule(mockBasicIssuanceModule.address);
-        await controller.addFee(moduleAddress, feeType, new BigNumber(10));
+        await controller.addFee(moduleAddress, feeType, BigNumber.from(10));
       }
 
       subjectModule = moduleAddress;

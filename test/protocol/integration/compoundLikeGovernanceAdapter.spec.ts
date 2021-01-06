@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber, defaultAbiCoder } from "ethers/utils";
+import { BigNumber, defaultAbiCoder } from "@ethersproject/bignumber";
 
 import { Address, Account, Bytes } from "@utils/types";
 import { ADDRESS_ZERO, EMPTY_BYTES, ZERO } from "@utils/constants";

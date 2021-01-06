@@ -1,11 +1,11 @@
-import { JsonRpcProvider, Web3Provider } from "ethers/providers";
+import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { Address } from "../types";
 import DeployHelper from "../deploys";
 import { Signer } from "ethers";
-import { CurvePoolErc20 } from "../../typechain/CurvePoolErc20";
+import { CurvePoolERC20 } from "../../typechain/CurvePoolERC20";
 import { Stableswap } from "../../typechain/Stableswap";
 import { CurveDeposit } from "../../typechain/CurveDeposit";
-import { CrvToken } from "../../typechain/CrvToken";
+import { CRVToken } from "../../typechain/CRVToken";
 import { GaugeController } from "../../typechain/GaugeController";
 import { Minter } from "../../typechain/Minter";
 import { LiquidityGaugeReward } from "../../typechain/LiquidityGaugeReward";
@@ -16,11 +16,11 @@ export class CurveFixture {
   private _deployer: DeployHelper;
   private _ownerSigner: Signer;
 
-  public poolToken: CurvePoolErc20;
+  public poolToken: CurvePoolERC20;
   public stableSwap: Stableswap;
   public deposit: CurveDeposit;
 
-  public crvToken: CrvToken;
+  public crvToken: CRVToken;
   public gaugeController: GaugeController;
   public minter: Minter;
 
@@ -33,7 +33,7 @@ export class CurveFixture {
    * Initializes a pool.
    * @param _tokens Expects 4 tokens
    */
-  public async initializePool(_tokens: string[]): Promise<void> {
+  public async initializePool(_tokens: [string, string, string, string]): Promise<void> {
     this.poolToken = await this._deployer.external.deployCurvePoolERC20(
       "Curve.fi DAI/USDC/USDT/sUSD",
       "crvUSD",

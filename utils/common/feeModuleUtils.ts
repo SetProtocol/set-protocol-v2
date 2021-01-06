@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { preciseMul, preciseMulCeilInt } from "./mathUtils";
 import { ONE_YEAR_IN_SECONDS, PRECISE_UNIT } from "../constants";

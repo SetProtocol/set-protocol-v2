@@ -1,7 +1,7 @@
 import "module-alias/register";
 
 import Web3 from "web3";
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account, Address, Position } from "@utils/types";
 import {
@@ -445,7 +445,7 @@ describe("SetToken", () => {
 
       describe("when the conversion results in a virtual unit of 0", async () => {
         beforeEach(async () => {
-          subjectNewUnit = new BigNumber(10 ** 2);
+          subjectNewUnit = BigNumber.from(10 ** 2);
           const hugePositionMultiplier = ether(1000000);
           await setToken.connect(subjectCaller.wallet).editPositionMultiplier(hugePositionMultiplier);
         });
@@ -584,7 +584,7 @@ describe("SetToken", () => {
         let hugePositionMultiplier: BigNumber;
 
         beforeEach(async () => {
-          subjectNewUnit = new BigNumber(10 ** 2).mul(-1);
+          subjectNewUnit = BigNumber.from(10 ** 2).mul(-1);
           hugePositionMultiplier = ether(10000000000000000);
           await setToken.connect(subjectCaller.wallet).editPositionMultiplier(hugePositionMultiplier);
         });
@@ -615,7 +615,7 @@ describe("SetToken", () => {
 
       describe("when the conversion results in a virtual unit of 0 (positive)", async () => {
         beforeEach(async () => {
-          subjectNewUnit = new BigNumber(10 ** 2);
+          subjectNewUnit = BigNumber.from(10 ** 2);
           const hugePositionMultiplier = ether(1000000);
           await setToken.connect(subjectCaller.wallet).editPositionMultiplier(hugePositionMultiplier);
         });

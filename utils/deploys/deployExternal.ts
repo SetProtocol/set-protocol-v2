@@ -1,5 +1,5 @@
 import { Signer } from "ethers";
-import { BigNumberish, BigNumber } from "ethers/utils";
+import { BigNumberish, BigNumber } from "@ethersproject/bignumber";
 import { ether } from "../common";
 
 import {
@@ -8,7 +8,7 @@ import {
   CompoundGovernorAlpha,
   CompoundTimelock,
   Comptroller,
-  CeRc20,
+  CERc20,
   CEther,
   PriceOracleProxy,
   Unitroller,
@@ -20,18 +20,18 @@ import {
 
 import { Address } from "./../types";
 
-import { CeRc20Factory } from "../../typechain/CeRc20Factory";
-import { CEtherFactory } from "../../typechain/CEtherFactory";
-import { CompoundPriceOracleMockFactory } from "../../typechain/CompoundPriceOracleMockFactory";
-import { CompFactory } from "../../typechain/CompFactory";
-import { CompoundGovernorAlphaFactory } from "../../typechain/CompoundGovernorAlphaFactory";
-import { CompoundTimelockFactory } from "../../typechain/CompoundTimelockFactory";
-import { ComptrollerFactory } from "../../typechain/ComptrollerFactory";
-import { PriceOracleProxyFactory } from "../../typechain/PriceOracleProxyFactory";
-import { UnitrollerFactory } from "../../typechain/UnitrollerFactory";
-import { Weth9Factory } from "../../typechain/Weth9Factory";
-import { WhitePaperInterestRateModelFactory } from "../../typechain/WhitePaperInterestRateModelFactory";
-import { LendingPoolAddressesProviderFactory } from "../../typechain/LendingPoolAddressesProviderFactory";
+import { CERc20__factory } from "../../typechain/factories/CERc20__factory";
+import { CEther__factory } from "../../typechain/factories/CEther__factory";
+import { CompoundPriceOracleMock__factory } from "../../typechain/factories/CompoundPriceOracleMock__factory";
+import { Comp__factory } from "../../typechain/factories/Comp__factory";
+import { CompoundGovernorAlpha__factory } from "../../typechain/factories/CompoundGovernorAlpha__factory";
+import { CompoundTimelock__factory } from "../../typechain/factories/CompoundTimelock__factory";
+import { Comptroller__factory } from "../../typechain/factories/Comptroller__factory";
+import { PriceOracleProxy__factory } from "../../typechain/factories/PriceOracleProxy__factory";
+import { Unitroller__factory } from "../../typechain/factories/Unitroller__factory";
+import { WETH9__factory } from "../../typechain/factories/WETH9__factory";
+import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/WhitePaperInterestRateModel__factory";
+import { LendingPoolAddressesProvider__factory } from "../../typechain/factories/LendingPoolAddressesProvider__factory";
 
 import {
   AavePropositionPower,
@@ -48,19 +48,19 @@ import {
   LendToAaveMigrator
 } from "../contracts/aave";
 
-import { AavePropositionPowerFactory } from "../../typechain/AavePropositionPowerFactory";
-import { AaveProtoGovernanceFactory } from "../../typechain/AaveProtoGovernanceFactory";
-import { AssetVotingWeightProviderFactory } from "../../typechain/AssetVotingWeightProviderFactory";
-import { LendingPoolCoreFactory, LendingPoolCoreLibraryAddresses } from "../../typechain/LendingPoolCoreFactory";
-import { CoreLibraryFactory } from "../../typechain/CoreLibraryFactory";
-import { GovernanceParamsProviderFactory } from "../../typechain/GovernanceParamsProviderFactory";
-import { LendingPoolFactory } from "../../typechain/LendingPoolFactory";
-import { DefaultReserveInterestRateStrategyFactory } from "../../typechain/DefaultReserveInterestRateStrategyFactory";
-import { LendingPoolConfiguratorFactory } from "../../typechain/LendingPoolConfiguratorFactory";
-import { LendingRateOracleFactory } from "../../typechain/LendingRateOracleFactory";
-import { LendingPoolDataProviderFactory } from "../../typechain/LendingPoolDataProviderFactory";
+import { AavePropositionPower__factory } from "../../typechain/factories/AavePropositionPower__factory";
+import { AaveProtoGovernance__factory } from "../../typechain/factories/AaveProtoGovernance__factory";
+import { AssetVotingWeightProvider__factory } from "../../typechain/factories/AssetVotingWeightProvider__factory";
+import { LendingPoolCore__factory, LendingPoolCoreLibraryAddresses } from "../../typechain/factories/LendingPoolCore__factory";
+import { CoreLibrary__factory } from "../../typechain/factories/CoreLibrary__factory";
+import { GovernanceParamsProvider__factory } from "../../typechain/factories/GovernanceParamsProvider__factory";
+import { LendingPool__factory } from "../../typechain/factories/LendingPool__factory";
+import { DefaultReserveInterestRateStrategy__factory } from "../../typechain/factories/DefaultReserveInterestRateStrategy__factory";
+import { LendingPoolConfigurator__factory } from "../../typechain/factories/LendingPoolConfigurator__factory";
+import { LendingRateOracle__factory } from "../../typechain/factories/LendingRateOracle__factory";
+import { LendingPoolDataProvider__factory } from "../../typechain/factories/LendingPoolDataProvider__factory";
 import { LendingPoolDataProvider } from "../../typechain/LendingPoolDataProvider";
-import { LendToAaveMigratorFactory } from "../../typechain/LendToAaveMigratorFactory";
+import { LendToAaveMigrator__factory } from "../../typechain/factories/LendToAaveMigrator__factory";
 
 import {
   CurveDeposit,
@@ -73,14 +73,14 @@ import {
   Stableswap,
 } from "../contracts/curve";
 
-import { CurvePoolErc20Factory } from "../../typechain/CurvePoolErc20Factory";
-import { StableswapFactory } from "../../typechain/StableswapFactory";
-import { CurveDepositFactory } from "../../typechain/CurveDepositFactory";
-import { CrvTokenFactory } from "../../typechain/CrvTokenFactory";
-import { GaugeControllerFactory } from "../../typechain/GaugeControllerFactory";
-import { LiquidityGaugeRewardFactory } from "../../typechain/LiquidityGaugeRewardFactory";
-import { MinterFactory } from "../../typechain/MinterFactory";
-import { LiquidityGaugeFactory } from "../../typechain/LiquidityGaugeFactory";
+import { CurvePoolERC20__factory } from "../../typechain/factories/CurvePoolERC20__factory";
+import { Stableswap__factory } from "../../typechain/factories/Stableswap__factory";
+import { CurveDeposit__factory } from "../../typechain/factories/CurveDeposit__factory";
+import { CRVToken__factory } from "../../typechain/factories/CRVToken__factory";
+import { GaugeController__factory } from "../../typechain/factories/GaugeController__factory";
+import { LiquidityGaugeReward__factory } from "../../typechain/factories/LiquidityGaugeReward__factory";
+import { Minter__factory } from "../../typechain/factories/Minter__factory";
+import { LiquidityGauge__factory } from "../../typechain/factories/LiquidityGauge__factory";
 
 import {
   StakingRewards,
@@ -92,22 +92,22 @@ import {
   UniswapV2Router02
 } from "../contracts/uniswap";
 
-import { StakingRewardsFactory } from "../../typechain/StakingRewardsFactory";
-import { UniFactory } from "../../typechain/UniFactory";
-import { UniswapGovernorAlphaFactory } from "../../typechain/UniswapGovernorAlphaFactory";
-import { UniswapTimelockFactory } from "../../typechain/UniswapTimelockFactory";
-import { UniswapV2FactoryFactory } from "../../typechain/UniswapV2FactoryFactory";
-import { UniswapV2PairFactory } from "../../typechain/UniswapV2PairFactory";
-import { UniswapV2Router02Factory } from "../../typechain/UniswapV2Router02Factory";
+import { StakingRewards__factory } from "../../typechain/factories/StakingRewards__factory";
+import { Uni__factory } from "../../typechain/factories/Uni__factory";
+import { UniswapGovernorAlpha__factory } from "../../typechain/factories/UniswapGovernorAlpha__factory";
+import { UniswapTimelock__factory } from "../../typechain/factories/UniswapTimelock__factory";
+import { UniswapV2Factory__factory } from "../../typechain/factories/UniswapV2Factory__factory";
+import { UniswapV2Pair__factory } from "../../typechain/factories/UniswapV2Pair__factory";
+import { UniswapV2Router02__factory } from "../../typechain/factories/UniswapV2Router02__factory";
 
 import {
   BFactory,
   BRegistry,
   ExchangeProxy
 } from "../contracts/balancer";
-import { BFactoryFactory } from "../../typechain/BFactoryFactory";
-import { BRegistryFactory } from "../../typechain/BRegistryFactory";
-import { ExchangeProxyFactory } from "../../typechain/ExchangeProxyFactory";
+import { BFactory__factory } from "../../typechain/factories/BFactory__factory";
+import { BRegistry__factory } from "../../typechain/factories/BRegistry__factory";
+import { ExchangeProxy__factory } from "../../typechain/factories/ExchangeProxy__factory";
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -118,15 +118,15 @@ export default class DeployExternalContracts {
 
   // COMPOUND
   public async deployComp(_account: Address): Promise<Comp> {
-    return await new CompFactory(this._deployerSigner).deploy(_account);
+    return await new Comp__factory(this._deployerSigner).deploy(_account);
   }
 
   public async deployCompoundTimelock(_admin: Address, _delay: BigNumber): Promise<CompoundTimelock> {
-    return await new CompoundTimelockFactory(this._deployerSigner).deploy(_admin, _delay);
+    return await new CompoundTimelock__factory(this._deployerSigner).deploy(_admin, _delay);
   }
 
   public async deployCompoundGovernorAlpha(_timelock: Address, _comp: Address, _guardian: Address): Promise<CompoundGovernorAlpha> {
-    return await new CompoundGovernorAlphaFactory(this._deployerSigner).deploy(_timelock, _comp, _guardian);
+    return await new CompoundGovernorAlpha__factory(this._deployerSigner).deploy(_timelock, _comp, _guardian);
   }
 
   public async deployCeRc20(
@@ -137,8 +137,8 @@ export default class DeployExternalContracts {
     name: string,
     symbol: string,
     decimals: BigNumberish
-  ): Promise<CeRc20> {
-    return await new CeRc20Factory(this._deployerSigner).deploy(
+  ): Promise<CERc20> {
+    return await new CERc20__factory(this._deployerSigner).deploy(
       underlying,
       comptroller,
       interestRateModel,
@@ -157,7 +157,7 @@ export default class DeployExternalContracts {
     symbol: string,
     decimals: BigNumberish
   ): Promise<CEther> {
-    return await new CEtherFactory(this._deployerSigner).deploy(
+    return await new CEther__factory(this._deployerSigner).deploy(
       comptroller,
       interestRateModel,
       initialExchangeRateMantissa,
@@ -168,7 +168,7 @@ export default class DeployExternalContracts {
   }
 
   public async deployCompoundPriceOracleMock(): Promise<CompoundPriceOracleMock> {
-    return await new CompoundPriceOracleMockFactory(this._deployerSigner).deploy();
+    return await new CompoundPriceOracleMock__factory(this._deployerSigner).deploy();
   }
 
   public async deployPriceOracleProxy(
@@ -180,7 +180,7 @@ export default class DeployExternalContracts {
     cDaiAddress: Address,
     cUsdtAddress: Address,
   ): Promise<PriceOracleProxy> {
-    return await new PriceOracleProxyFactory(this._deployerSigner).deploy(
+    return await new PriceOracleProxy__factory(this._deployerSigner).deploy(
       guardian,
       v1PriceOracle,
       cEthAddress,
@@ -192,28 +192,28 @@ export default class DeployExternalContracts {
   }
 
   public async deployComptroller(): Promise<Comptroller> {
-    return await new ComptrollerFactory(this._deployerSigner).deploy();
+    return await new Comptroller__factory(this._deployerSigner).deploy();
   }
 
   public async deployUnitroller(): Promise<Unitroller> {
-    return await new UnitrollerFactory(this._deployerSigner).deploy();
+    return await new Unitroller__factory(this._deployerSigner).deploy();
   }
 
   public async deployWhitePaperInterestRateModel(
     baseRate: BigNumberish,
     multiplier: BigNumberish
   ): Promise<WhitePaperInterestRateModel> {
-    return await new WhitePaperInterestRateModelFactory(this._deployerSigner).deploy(baseRate, multiplier);
+    return await new WhitePaperInterestRateModel__factory(this._deployerSigner).deploy(baseRate, multiplier);
   }
 
   // WETH
   public async deployWETH(): Promise<Weth9> {
-    return await new Weth9Factory(this._deployerSigner).deploy();
+    return await new WETH9__factory(this._deployerSigner).deploy();
   }
 
   // AAVE
   public async deployAaveProtoGovernance(govParamsProvider: Address): Promise<AaveProtoGovernance> {
-    return await new AaveProtoGovernanceFactory(this._deployerSigner).deploy(govParamsProvider);
+    return await new AaveProtoGovernance__factory(this._deployerSigner).deploy(govParamsProvider);
   }
 
   public async deployGovernanceParamsProvider(
@@ -221,7 +221,7 @@ export default class DeployExternalContracts {
     propositionPower: Address,
     assetVotingWeightProvider: Address
   ): Promise<GovernanceParamsProvider> {
-    return await new GovernanceParamsProviderFactory(this._deployerSigner).deploy(
+    return await new GovernanceParamsProvider__factory(this._deployerSigner).deploy(
       propositionPowerThreshold,
       propositionPower,
       assetVotingWeightProvider
@@ -235,7 +235,7 @@ export default class DeployExternalContracts {
     council: Address[],
     cap: BigNumber,
   ): Promise<AavePropositionPower> {
-    return await new AavePropositionPowerFactory(this._deployerSigner).deploy(
+    return await new AavePropositionPower__factory(this._deployerSigner).deploy(
       name,
       symbol,
       decimals,
@@ -248,33 +248,33 @@ export default class DeployExternalContracts {
     assets: Address[],
     weights: BigNumber[],
   ): Promise<AssetVotingWeightProvider> {
-    return await new AssetVotingWeightProviderFactory(this._deployerSigner).deploy(
+    return await new AssetVotingWeightProvider__factory(this._deployerSigner).deploy(
       assets,
       weights
     );
   }
 
   public async deployLendingPoolAddressesProvider(): Promise<LendingPoolAddressesProvider> {
-    return await new LendingPoolAddressesProviderFactory(this._deployerSigner).deploy();
+    return await new LendingPoolAddressesProvider__factory(this._deployerSigner).deploy();
   }
 
   public async deployCoreLibrary(): Promise<CoreLibrary> {
-    return await new CoreLibraryFactory(this._deployerSigner).deploy();
+    return await new CoreLibrary__factory(this._deployerSigner).deploy();
   }
 
   public async deployLendingPoolCore(coreLibraryAddress: Address): Promise<LendingPoolCore> {
     const lendingPoolCoreLibraryAddresses: LendingPoolCoreLibraryAddresses = {
       __CoreLibrary___________________________: coreLibraryAddress,
     };
-    return await new LendingPoolCoreFactory(lendingPoolCoreLibraryAddresses, this._deployerSigner).deploy();
+    return await new LendingPoolCore__factory(lendingPoolCoreLibraryAddresses, this._deployerSigner).deploy();
   }
 
   public async deployLendingPool(): Promise<LendingPool> {
-    return await new LendingPoolFactory(this._deployerSigner).deploy();
+    return await new LendingPool__factory(this._deployerSigner).deploy();
   }
 
   public async deployLendingPoolConfigurator(): Promise<LendingPoolConfigurator> {
-    return await new LendingPoolConfiguratorFactory(this._deployerSigner).deploy();
+    return await new LendingPoolConfigurator__factory(this._deployerSigner).deploy();
   }
 
   public async deployDefaultReserveInterestRateStrategy(
@@ -286,7 +286,7 @@ export default class DeployExternalContracts {
     _stableRateSlope1: BigNumberish = ether(1),
     _stableRateSlope2: BigNumberish = ether(1),
   ): Promise<DefaultReserveInterestRateStrategy> {
-    return await new DefaultReserveInterestRateStrategyFactory(this._deployerSigner).deploy(
+    return await new DefaultReserveInterestRateStrategy__factory(this._deployerSigner).deploy(
       _reserve,
       _AddressProvider,
       _baseVariableBorrowRate,
@@ -298,11 +298,11 @@ export default class DeployExternalContracts {
   }
 
   public async deployLendingRateOracle(): Promise<LendingRateOracle> {
-    return await new LendingRateOracleFactory(this._deployerSigner).deploy();
+    return await new LendingRateOracle__factory(this._deployerSigner).deploy();
   }
 
   public async deployLendingPoolDataProvider(): Promise<LendingPoolDataProvider> {
-    return await new LendingPoolDataProviderFactory(this._deployerSigner).deploy();
+    return await new LendingPoolDataProvider__factory(this._deployerSigner).deploy();
   }
 
   public async deployLendToAaveMigrator(
@@ -310,7 +310,7 @@ export default class DeployExternalContracts {
     _lendToken: Address,
     _aaveLendRatio: BigNumber,
   ): Promise<LendToAaveMigrator> {
-    return await new LendToAaveMigratorFactory(this._deployerSigner).deploy(
+    return await new LendToAaveMigrator__factory(this._deployerSigner).deploy(
       _aaveToken,
       _lendToken,
       _aaveLendRatio
@@ -318,17 +318,17 @@ export default class DeployExternalContracts {
   }
 
   public async getLendToAaveMigrator(lendToAaveMigratorAddress: Address): Promise<LendToAaveMigrator> {
-    return await new LendToAaveMigratorFactory(this._deployerSigner).attach(lendToAaveMigratorAddress);
+    return await new LendToAaveMigrator__factory(this._deployerSigner).attach(lendToAaveMigratorAddress);
   }
 
   // Curve
   public async deployCurveDeposit(
-    _coins: string[],
-    _underlying_coins: string[],
+    _coins: [string, string, string, string],
+    _underlying_coins: [string, string, string, string],
     _curve: string,
     _token: string,
   ): Promise<CurveDeposit> {
-    return await new CurveDepositFactory(this._deployerSigner).deploy(_coins, _underlying_coins, _curve, _token);
+    return await new CurveDeposit__factory(this._deployerSigner).deploy(_coins, _underlying_coins, _curve, _token);
   }
 
   public async deployCurvePoolERC20(
@@ -337,17 +337,17 @@ export default class DeployExternalContracts {
     _decimals: BigNumberish = 18,
     _supply: BigNumberish
   ): Promise<CurvePoolErc20> {
-    return await new CurvePoolErc20Factory(this._deployerSigner).deploy(_name, _symbol, _decimals, _supply);
+    return await new CurvePoolERC20__factory(this._deployerSigner).deploy(_name, _symbol, _decimals, _supply);
   }
 
   public async deployStableswap(
-    _coins: string[],
-    _underlying_coins: string[],
+    _coins: [string, string, string, string],
+    _underlying_coins: [string, string, string, string],
     _pool_token: string,
     _aCoefficient: BigNumberish = 1,
     _fee: BigNumberish = 0
   ): Promise<Stableswap> {
-    return await new StableswapFactory(this._deployerSigner).deploy(
+    return await new Stableswap__factory(this._deployerSigner).deploy(
       _coins,
       _underlying_coins,
       _pool_token,
@@ -357,11 +357,11 @@ export default class DeployExternalContracts {
   }
 
   public async deployCrvToken(_name: string, _symbol: string, _decimals: BigNumberish = 18): Promise<CrvToken> {
-    return await new CrvTokenFactory(this._deployerSigner).deploy(_name, _symbol, _decimals);
+    return await new CRVToken__factory(this._deployerSigner).deploy(_name, _symbol, _decimals);
   }
 
   public async deployGaugeController(_token: string, _voting_escrow: string): Promise<GaugeController> {
-    return await new GaugeControllerFactory(this._deployerSigner).deploy(_token, _voting_escrow);
+    return await new GaugeController__factory(this._deployerSigner).deploy(_token, _voting_escrow);
   }
 
   public async deployLiquidityGaugeReward(
@@ -370,7 +370,7 @@ export default class DeployExternalContracts {
     _reward_contract: string,
     _rewarded_token: string
   ): Promise<LiquidityGaugeReward> {
-    return await new LiquidityGaugeRewardFactory(this._deployerSigner).deploy(
+    return await new LiquidityGaugeReward__factory(this._deployerSigner).deploy(
       _lpAddr,
       _minter,
       _reward_contract,
@@ -379,36 +379,36 @@ export default class DeployExternalContracts {
   }
 
   public async deployLiquidityGauge(_lpAddr: string, _minter: string): Promise<LiquidityGauge> {
-    return await new LiquidityGaugeFactory(this._deployerSigner).deploy(_lpAddr, _minter);
+    return await new LiquidityGauge__factory(this._deployerSigner).deploy(_lpAddr, _minter);
   }
 
   public async deployMinter(_token: string, _controller: string): Promise<Minter> {
-    return await new MinterFactory(this._deployerSigner).deploy(_token, _controller);
+    return await new Minter__factory(this._deployerSigner).deploy(_token, _controller);
   }
 
   // Uniswap
   public async deployUni(_account: Address, _minter: Address, _mintingAllowedAfter: BigNumber): Promise<Uni> {
-    return await new UniFactory(this._deployerSigner).deploy(_account, _minter, _mintingAllowedAfter);
+    return await new Uni__factory(this._deployerSigner).deploy(_account, _minter, _mintingAllowedAfter);
   }
 
   public async deployUniswapTimelock(_admin: Address, _delay: BigNumber): Promise<UniswapTimelock> {
-    return await new UniswapTimelockFactory(this._deployerSigner).deploy(_admin, _delay);
+    return await new UniswapTimelock__factory(this._deployerSigner).deploy(_admin, _delay);
   }
 
   public async deployUniswapGovernorAlpha(_timelock: Address, _uni: Address): Promise<UniswapGovernorAlpha> {
-    return await new UniswapGovernorAlphaFactory(this._deployerSigner).deploy(_timelock, _uni);
+    return await new UniswapGovernorAlpha__factory(this._deployerSigner).deploy(_timelock, _uni);
   }
 
   public async deployUniswapV2Factory(_feeToSetter: string): Promise<UniswapV2Factory> {
-    return await new UniswapV2FactoryFactory(this._deployerSigner).deploy(_feeToSetter);
+    return await new UniswapV2Factory__factory(this._deployerSigner).deploy(_feeToSetter);
   }
 
   public async deployUniswapV2Router02(_factory: Address, _weth: Address): Promise<UniswapV2Router02> {
-    return await new UniswapV2Router02Factory(this._deployerSigner).deploy(_factory, _weth);
+    return await new UniswapV2Router02__factory(this._deployerSigner).deploy(_factory, _weth);
   }
 
   public async deployUniswapV2Pair(_factory: Address, _weth: Address): Promise<UniswapV2Pair> {
-    return await new UniswapV2PairFactory(this._deployerSigner).deploy();
+    return await new UniswapV2Pair__factory(this._deployerSigner).deploy();
   }
 
   public async deployStakingRewards(
@@ -416,22 +416,22 @@ export default class DeployExternalContracts {
     _rewardsToken: Address,
     _stakingToken: Address
   ): Promise<StakingRewards> {
-    return await new StakingRewardsFactory(this._deployerSigner).deploy(
+    return await new StakingRewards__factory(this._deployerSigner).deploy(
       _rewardsDistribution,
       _rewardsToken,
       _stakingToken
     );
   }
 
-  public async deployBFactory(): Promise<BFactory> {
-    return await new BFactoryFactory(this._deployerSigner).deploy();
+  public async deployB__factory(): Promise<BFactory> {
+    return await new BFactory__factory(this._deployerSigner).deploy();
   }
 
   public async deployExchangeProxy(weth: Address): Promise<ExchangeProxy> {
-    return await new ExchangeProxyFactory(this._deployerSigner).deploy(weth);
+    return await new ExchangeProxy__factory(this._deployerSigner).deploy(weth);
   }
 
   public async deployBRegistry(factory: Address): Promise<BRegistry> {
-    return await new BRegistryFactory(this._deployerSigner).deploy(factory);
+    return await new BRegistry__factory(this._deployerSigner).deploy(factory);
   }
 }

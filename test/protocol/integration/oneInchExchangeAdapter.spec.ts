@@ -1,7 +1,7 @@
 import "module-alias/register";
 import Web3 from "web3";
 
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account, Address, Bytes } from "@utils/types";
 import {
@@ -51,7 +51,7 @@ describe("OneInchExchangeAdapter", () => {
     oneInchExchangeMock = await deployer.mocks.deployOneInchExchangeMock(
       mockWbtc.address,
       mockWeth.address,
-      new BigNumber(100000000),
+      BigNumber.from(100000000),
       ether(33)
     );
     oneInchFunctionSignature = web3.eth.abi.encodeFunctionSignature(

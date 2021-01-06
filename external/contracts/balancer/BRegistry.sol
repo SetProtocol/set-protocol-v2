@@ -1,7 +1,5 @@
 pragma solidity 0.5.12;
 
-import "@nomiclabs/buidler/console.sol";
-
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";

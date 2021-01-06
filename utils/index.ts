@@ -1,11 +1,11 @@
-// These utils will be provider-aware of the buidler interface
-import { ethers } from "@nomiclabs/buidler";
+// These utils will be provider-aware of the hardhat interface
+import { ethers } from "hardhat";
 import { Address } from "./types";
 
 import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixture, UniswapFixture } from "./fixtures";
 import { Blockchain, ProtocolUtils } from "./common";
 
-// Buidler-Provider Aware Exports
+// Hardhat-Provider Aware Exports
 const provider = ethers.provider;
 export const getSystemFixture = (ownerAddress: Address) => new SystemFixture(provider, ownerAddress);
 export const getProtocolUtils = () => new ProtocolUtils(provider);
@@ -61,4 +61,4 @@ export {
   getRandomAddress,
   increaseTimeAsync,
   mineBlockAsync,
-} from "./buidler";
+} from "./test";

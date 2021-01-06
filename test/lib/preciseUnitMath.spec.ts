@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers/utils";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account } from "../../utils/types";
 import { PRECISE_UNIT, MIN_INT_256, MAX_INT_256, ZERO } from "../../utils/constants";
@@ -27,7 +27,7 @@ describe("PreciseUnitMath", () => {
   let mathMock: PreciseUnitMathMock;
 
   // Used to make sure rounding is done correctly, 1020408168544454473
-  const preciseNumber = new BigNumber("0x0e2937d2abffc749");
+  const preciseNumber = BigNumber.from("0x0e2937d2abffc749");
 
   before(async () => {
     [
@@ -290,8 +290,8 @@ describe("PreciseUnitMath", () => {
 
     describe("when a is the max int and b is -1", async () => {
       beforeEach(async () => {
-        subjectA = new BigNumber(MIN_INT_256);
-        subjectB = new BigNumber(-1);
+        subjectA = BigNumber.from(MIN_INT_256);
+        subjectB = BigNumber.from(-1);
       });
 
       it("should revert", async () => {
@@ -404,8 +404,8 @@ describe("PreciseUnitMath", () => {
     let subjectPower: BigNumber;
 
     beforeEach(async () => {
-      subjectBase = new BigNumber(10);
-      subjectPower = new BigNumber(5);
+      subjectBase = BigNumber.from(10);
+      subjectPower = BigNumber.from(5);
     });
 
     async function subject(): Promise<BigNumber> {
@@ -419,29 +419,29 @@ describe("PreciseUnitMath", () => {
       const result = await subject();
 
       const expectedResult =
-        new BigNumber(subjectBase).pow(subjectPower.toNumber());
+        BigNumber.from(subjectBase).pow(subjectPower.toNumber());
       expect(result).to.eq(expectedResult);
     });
 
     describe("when the the base is 1", async () => {
       beforeEach(async () => {
-        subjectBase = new BigNumber(1);
-        subjectPower = new BigNumber(5);
+        subjectBase = BigNumber.from(1);
+        subjectPower = BigNumber.from(5);
       });
 
       it("returns the correct value", async () => {
         const result = await subject();
 
         const expectedResult =
-          new BigNumber(subjectBase).pow(subjectPower.toNumber());
+          BigNumber.from(subjectBase).pow(subjectPower.toNumber());
         expect(result).to.eq(expectedResult);
       });
     });
 
     describe("when the values overflow", async () => {
       beforeEach(async () => {
-        subjectBase = new BigNumber(10000);
-        subjectPower = new BigNumber(100);
+        subjectBase = BigNumber.from(10000);
+        subjectPower = BigNumber.from(100);
       });
 
       it("should revert", async () => {
@@ -451,8 +451,8 @@ describe("PreciseUnitMath", () => {
 
     describe("when the the base is 0", async () => {
       beforeEach(async () => {
-        subjectBase = new BigNumber(0);
-        subjectPower = new BigNumber(5);
+        subjectBase = BigNumber.from(0);
+        subjectPower = BigNumber.from(5);
       });
 
       it("should revert", async () => {
