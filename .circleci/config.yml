@@ -3,7 +3,7 @@ version: 2
 jobs:
   checkout_and_compile:
     docker:
-      - image: circleci/node:10.11.0
+      - image: circleci/node:10.16.0
         environment:
           NODE_OPTIONS: --max_old_space_size=8192
     resource_class: large
@@ -14,6 +14,9 @@ jobs:
           docker_layer_caching: false
       - restore_cache:
           key: module-cache-{{ checksum "yarn.lock" }}
+      - run:
+          name: Set Up Environment Variables
+          command: cp .env.default .env
       - run:
           name: Fetch Dependencies
           command: yarn install
@@ -30,7 +33,7 @@ jobs:
             - ~/set-protocol-v2
   test:
     docker:
-      - image: circleci/node:10.11.0
+      - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
     parallelism: 3
     steps:
