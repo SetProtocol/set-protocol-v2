@@ -17,7 +17,7 @@ import {
 } from "@utils/index";
 import { SystemFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
-import { HashZero } from "ethers/constants";
+import { HashZero } from "@ethersproject/constants";
 
 const expect = getWaffleExpect();
 

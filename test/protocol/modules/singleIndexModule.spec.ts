@@ -599,7 +599,7 @@ describe("SingleIndexModule", () => {
         await indexModule.connect(owner.wallet).updateTraderStatus([contractCaller.address], [true]);
 
         subjectTarget = indexModule.address;
-        subjectCallData = indexModule.interface.functions.trade.encode([subjectComponent]);
+        subjectCallData = indexModule.interface.encodeFunctionData("trade", [subjectComponent]);
         subjectValue = ZERO;
       });
 
@@ -773,7 +773,7 @@ describe("SingleIndexModule", () => {
         await indexModule.connect(owner.wallet).updateTraderStatus([contractCaller.address], [true]);
 
         subjectTarget = indexModule.address;
-        subjectCallData = indexModule.interface.functions.trade.encode([subjectComponent]);
+        subjectCallData = indexModule.interface.encodeFunctionData("trade", [subjectComponent]);
         subjectValue = ZERO;
       });
 

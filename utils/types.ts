@@ -43,7 +43,7 @@ export interface NAVIssuanceSettings {
   managerRedemptionHook: Address;
   reserveAssets: Address[];
   feeRecipient: Address;
-  managerFees: BigNumber[];
+  managerFees: [BigNumber, BigNumber];
   maxManagerFee: BigNumber;
   premiumPercentage: BigNumber;
   maxPremiumPercentage: BigNumber;

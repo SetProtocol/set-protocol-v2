@@ -1,6 +1,6 @@
 import "module-alias/register";
-import { BigNumber, defaultAbiCoder } from "@ethersproject/bignumber";
-
+import { BigNumber } from "@ethersproject/bignumber";
+import { defaultAbiCoder } from "@ethersproject/abi";
 import { Address, Account, Bytes } from "@utils/types";
 import { ADDRESS_ZERO, EMPTY_BYTES, ZERO } from "@utils/constants";
 import { CompoundLikeGovernanceAdapter } from "@utils/contracts";
@@ -110,7 +110,7 @@ describe("CompoundLikeGovernanceAdapter", () => {
 
     it("should return correct data for creating a proposal", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = compoundSetup.compoundGovernorAlpha.interface.functions.propose.encode(
+      const expectedCallData = compoundSetup.compoundGovernorAlpha.interface.encodeFunctionData("propose",
         [targets, values, signatures, calldatas, description]
       );
 
@@ -133,7 +133,7 @@ describe("CompoundLikeGovernanceAdapter", () => {
 
     it("should return correct data for delegating", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = compoundSetup.comp.interface.functions.delegate.encode([subjectDelegatee]);
+      const expectedCallData = compoundSetup.comp.interface.encodeFunctionData("delegate", [subjectDelegatee]);
 
       expect(targetAddress).to.eq(compoundSetup.comp.address);
       expect(ethValue).to.eq(ZERO);
@@ -154,7 +154,7 @@ describe("CompoundLikeGovernanceAdapter", () => {
 
     it("should return correct data for registering", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = compoundSetup.comp.interface.functions.delegate.encode([mockSetToken.address]);
+      const expectedCallData = compoundSetup.comp.interface.encodeFunctionData("delegate", [mockSetToken.address]);
 
       expect(targetAddress).to.eq(compoundSetup.comp.address);
       expect(ethValue).to.eq(ZERO);
@@ -169,7 +169,7 @@ describe("CompoundLikeGovernanceAdapter", () => {
 
     it("should return correct data for revoking", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = compoundSetup.comp.interface.functions.delegate.encode([ADDRESS_ZERO]);
+      const expectedCallData = compoundSetup.comp.interface.encodeFunctionData("delegate", [ADDRESS_ZERO]);
 
       expect(targetAddress).to.eq(compoundSetup.comp.address);
       expect(ethValue).to.eq(ZERO);
@@ -194,7 +194,7 @@ describe("CompoundLikeGovernanceAdapter", () => {
 
     it("should return correct data for voting on a proposal", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = compoundSetup.compoundGovernorAlpha.interface.functions.castVote.encode(
+      const expectedCallData = compoundSetup.compoundGovernorAlpha.interface.encodeFunctionData("castVote",
         [subjectProposalId, subjectSupport]
       );
 

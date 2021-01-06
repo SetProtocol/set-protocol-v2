@@ -13,7 +13,7 @@ import {
 import { StandardTokenMock } from "../contracts";
 import { ether, bitcoin } from "../index";
 import { BPool__factory } from "../../typechain/factories/BPool__factory";
-import { Weth9 } from "../../typechain/Weth9";
+import { WETH9 } from "../../typechain/WETH9";
 import { ONE } from "../constants";
 
 export class BalancerFixture {
@@ -34,7 +34,7 @@ export class BalancerFixture {
     this._deployer = new DeployHelper(this._ownerSigner);
   }
 
-  public async initialize(_owner: Account, _weth: Weth9, _wbtc: StandardTokenMock, _dai: StandardTokenMock): Promise<void> {
+  public async initialize(_owner: Account, _weth: WETH9, _wbtc: StandardTokenMock, _dai: StandardTokenMock): Promise<void> {
     this.owner = _owner;
 
     this.factory = await this._deployer.external.deployB__factory();
@@ -58,8 +58,8 @@ export class BalancerFixture {
   }
 
   public async createNewPool(
-    tokenOne: StandardTokenMock | Weth9,
-    tokenTwo: StandardTokenMock | Weth9,
+    tokenOne: StandardTokenMock | WETH9,
+    tokenTwo: StandardTokenMock | WETH9,
     tokenOneBalance: BigNumber,
     tokenTwoBalance: BigNumber,
   ): Promise<BPool> {

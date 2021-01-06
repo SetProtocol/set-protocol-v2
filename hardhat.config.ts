@@ -1,7 +1,10 @@
 require("dotenv").config();
+const replace = require("replace-in-file");
+
+let changedFiles;
 
 import { HardhatUserConfig, internalTask } from "hardhat/config";
-import { TASK_COMPILE_SOLIDITY_COMPILE } from "hardhat/builtin-tasks/task-names";
+import { TASK_COMPILE_SOLIDITY_COMPILE, TASK_TEST_SETUP_TEST_ENVIRONMENT } from "hardhat/builtin-tasks/task-names";
 import { execSync } from "child_process";
 import { privateKeys } from "./utils/wallets";
 
@@ -11,6 +14,30 @@ import "solidity-coverage";
 import "hardhat-deploy";
 
 internalTask(TASK_COMPILE_SOLIDITY_COMPILE).setAction(setupNativeSolc);
+internalTask(TASK_TEST_SETUP_TEST_ENVIRONMENT).setAction(async function setupNativeSolc({ input }, { config }, runSuper) {
+  // Fix gas to be string instead of number in typechain files
+  const options = {
+    // Glob(s)
+    files: [
+      "./typechain/**/*.ts",
+    ],
+
+    // Replacement to make (string or regex)
+    from: /gas\: [0-9]+,/g,
+    to: (match: string) => match.replace(/gas: ([0-9]+),/g, 'gas: "$1",'),
+  };
+
+  try {
+    changedFiles = replace.sync(options);
+    console.log(
+      "Step 4. Typechain fixing modified files:", 
+      changedFiles.map((f: { file: { toString: () => any; }; }) => f.file.toString()).join(", "))
+    ;
+  }
+  catch (error) {
+    console.error("Error occurred:", error);
+  }
+});
 
 const config: HardhatUserConfig = {
   solidity: {

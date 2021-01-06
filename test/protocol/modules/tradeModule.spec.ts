@@ -13,7 +13,7 @@ import {
   TradeModule,
   SetToken,
   StandardTokenMock,
-  Weth9
+  WETH9
 } from "@utils/contracts";
 import { ADDRESS_ZERO, EMPTY_BYTES, ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
@@ -119,7 +119,7 @@ describe("TradeModule", () => {
   context("when there is a deployed SetToken with enabled TradeModule", async () => {
     let sourceToken: StandardTokenMock;
     let wbtcUnits: BigNumber;
-    let destinationToken: Weth9;
+    let destinationToken: WETH9;
     let setToken: SetToken;
     let issueQuantity: BigNumber;
     let mockPreIssuanceHook: ManagerIssuanceHookMock;
@@ -637,7 +637,7 @@ describe("TradeModule", () => {
           subjectSetToken = setToken.address;
           subjectAdapterName = oneInchAdapterName;
           // Encode function data. Inputs are unused in the mock One Inch contract
-          subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+          subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
             sourceToken.address, // Send token
             destinationToken.address, // Receive token
             sourceTokenQuantity, // Send quantity
@@ -725,7 +725,7 @@ describe("TradeModule", () => {
         describe("when function signature does not match 1inch", async () => {
           beforeEach(async () => {
             // Encode random function
-            subjectData = oneInchExchangeMock.interface.functions.addSetTokenAddress.encode([ADDRESS_ZERO]);
+            subjectData = oneInchExchangeMock.interface.encodeFunctionData("addSetTokenAddress", [ADDRESS_ZERO]);
           });
 
           it("should revert", async () => {
@@ -737,7 +737,7 @@ describe("TradeModule", () => {
           beforeEach(async () => {
             // Get random source token
             const randomToken = await getRandomAccount();
-            subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+            subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
               randomToken.address, // Send token
               destinationToken.address, // Receive token
               sourceTokenQuantity, // Send quantity
@@ -760,7 +760,7 @@ describe("TradeModule", () => {
           beforeEach(async () => {
             // Get random source token
             const randomToken = await getRandomAccount();
-            subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+            subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
               sourceToken.address, // Send token
               randomToken.address, // Receive token
               sourceTokenQuantity, // Send quantity
@@ -781,7 +781,7 @@ describe("TradeModule", () => {
 
         describe("when send token quantity does not match calldata", async () => {
           beforeEach(async () => {
-            subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+            subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
               sourceToken.address, // Send token
               destinationToken.address, // Receive token
               ZERO, // Send quantity
@@ -802,7 +802,7 @@ describe("TradeModule", () => {
 
         describe("when min receive token quantity does not match calldata", async () => {
           beforeEach(async () => {
-            subjectData = oneInchExchangeMock.interface.functions.swap.encode([
+            subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
               sourceToken.address, // Send token
               destinationToken.address, // Receive token
               sourceTokenQuantity, // Send quantity

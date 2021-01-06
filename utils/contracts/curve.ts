@@ -1,7 +1,7 @@
 // External Curve Contracts
 export { CurveDeposit } from "../../typechain/CurveDeposit";
-export { CurvePoolErc20 } from "../../typechain/CurvePoolErc20";
-export { CrvToken } from "../../typechain/CrvToken";
+export { CurvePoolERC20 } from "../../typechain/CurvePoolERC20";
+export { CRVToken } from "../../typechain/CRVToken";
 export { GaugeController } from "../../typechain/GaugeController";
 export { LiquidityGauge } from "../../typechain/LiquidityGauge";
 export { LiquidityGaugeReward } from "../../typechain/LiquidityGaugeReward";

@@ -1,10 +1,10 @@
 import "module-alias/register";
 
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 
 import { Address, Account, NAVIssuanceSettings } from "@utils/types";
 import { ONE, TWO, THREE, ZERO, ADDRESS_ZERO } from "@utils/constants";
-import { ManagerIssuanceHookMock, NavIssuanceHookMock, NavIssuanceModule, SetToken } from "@utils/contracts";
+import { ManagerIssuanceHookMock, NAVIssuanceHookMock, NavIssuanceModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   addSnapshotBeforeRestoreAfterEach,
@@ -27,7 +27,7 @@ import {
   usdc,
 } from "@utils/index";
 import { SystemFixture } from "@utils/fixtures";
-import { Erc20Factory } from "../../../typechain/Erc20Factory";
+import { ERC20__factory } from "../../../typechain/factories/ERC20__factory";
 
 const expect = getWaffleExpect();
 
@@ -91,7 +91,7 @@ describe("NavIssuanceModule", () => {
     let managerRedemptionHook: Address;
     let reserveAssets: Address[];
     let managerFeeRecipient: Address;
-    let managerFees: BigNumber[];
+    let managerFees: [BigNumberish, BigNumberish];
     let maxManagerFee: BigNumber;
     let premiumPercentage: BigNumber;
     let maxPremiumPercentage: BigNumber;
@@ -337,7 +337,7 @@ describe("NavIssuanceModule", () => {
       const reserveAssets = [setup.usdc.address, setup.weth.address];
       const managerFeeRecipient = feeRecipient.address;
       // Set manager issue fee to 0.1% and redeem to 0.2%
-      const managerFees = [ether(0.001), ether(0.002)];
+      const managerFees = [ether(0.001), ether(0.002)] as [BigNumberish, BigNumberish];
       // Set max managerFee to 2%
       const maxManagerFee = ether(0.02);
       // Set premium to 1%
@@ -1497,7 +1497,7 @@ describe("NavIssuanceModule", () => {
       });
 
       context("when there are fees, premiums and an issuance hooks", async () => {
-        let issuanceHookContract: NavIssuanceHookMock;
+        let issuanceHookContract: NAVIssuanceHookMock;
 
         before(async () => {
           issuanceHookContract = await deployer.mocks.deployNavIssuanceHookMock();
@@ -3129,7 +3129,7 @@ async function reconcileBalances(setToken: SetToken, subject: any, signer: Accou
   const currentSetTokenSupply = await setToken.totalSupply();
   const components = await setToken.getComponents();
   for (let i = 0; i < components.length; i++) {
-    const component = Erc20Factory.connect(components[i], signer.wallet);
+    const component = ERC20__factory.connect(components[i], signer.wallet);
     const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(component.address);
 
     const expectedBalance = preciseMul(defaultPositionUnit, currentSetTokenSupply);

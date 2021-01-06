@@ -3,7 +3,7 @@ import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
 import { Account, Address } from "@utils/types";
-import { ADDRESS_ZERO, ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, ONE } from "@utils/constants";
 import { Controller } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -12,7 +12,6 @@ import {
   getWaffleExpect,
   getAccounts,
 } from "@utils/index";
-import { One } from "ethers/constants";
 
 const expect = getWaffleExpect();
 
@@ -174,7 +173,7 @@ describe("Controller", () => {
     describe("when resource and resourceId lengths don't match", async () => {
       beforeEach(async () => {
         subjectResource = [mockPriceOracle.address];
-        subjectResourceId = [ZERO, One];
+        subjectResourceId = [ZERO, ONE];
       });
 
       it("should revert", async () => {

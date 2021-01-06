@@ -1,5 +1,7 @@
-// Hardhat automatically injects the waffle version into chai
 import chai from "chai";
+import { solidity } from "ethereum-waffle";
+
+chai.use(solidity);
 
 // Use HARDHAT version of providers
 import { ethers } from "hardhat";

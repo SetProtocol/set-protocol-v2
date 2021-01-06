@@ -4,7 +4,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Account, NAVIssuanceSettings } from "@utils/types";
 import { ZERO, ADDRESS_ZERO } from "@utils/constants";
-import { NavIssuanceCaller, NavIssuanceModule, SetToken, UniswapYieldHook } from "@utils/contracts";
+import { NAVIssuanceCaller, NavIssuanceModule, SetToken, UniswapYieldHook } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   addSnapshotBeforeRestoreAfterEach,
@@ -31,7 +31,7 @@ describe("UniswapYieldHook", () => {
   let setToken: SetToken;
 
   let hook: UniswapYieldHook;
-  let navIssuanceCaller: NavIssuanceCaller;
+  let navIssuanceCaller: NAVIssuanceCaller;
 
   const setRedeemLimit: BigNumber = ether(435);
   const usdcIssueLimit: BigNumber = usdc(100000);

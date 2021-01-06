@@ -15,7 +15,7 @@ import {
   WhitePaperInterestRateModel
 } from "./../contracts/compound";
 import {
-  Weth9
+  WETH9
 } from "./../contracts";
 
 import { Address } from "./../types";
@@ -64,8 +64,8 @@ import { LendToAaveMigrator__factory } from "../../typechain/factories/LendToAav
 
 import {
   CurveDeposit,
-  CurvePoolErc20,
-  CrvToken,
+  CurvePoolERC20,
+  CRVToken,
   GaugeController,
   LiquidityGauge,
   LiquidityGaugeReward,
@@ -207,7 +207,7 @@ export default class DeployExternalContracts {
   }
 
   // WETH
-  public async deployWETH(): Promise<Weth9> {
+  public async deployWETH(): Promise<WETH9> {
     return await new WETH9__factory(this._deployerSigner).deploy();
   }
 
@@ -336,7 +336,7 @@ export default class DeployExternalContracts {
     _symbol: string,
     _decimals: BigNumberish = 18,
     _supply: BigNumberish
-  ): Promise<CurvePoolErc20> {
+  ): Promise<CurvePoolERC20> {
     return await new CurvePoolERC20__factory(this._deployerSigner).deploy(_name, _symbol, _decimals, _supply);
   }
 
@@ -356,7 +356,7 @@ export default class DeployExternalContracts {
     );
   }
 
-  public async deployCrvToken(_name: string, _symbol: string, _decimals: BigNumberish = 18): Promise<CrvToken> {
+  public async deployCrvToken(_name: string, _symbol: string, _decimals: BigNumberish = 18): Promise<CRVToken> {
     return await new CRVToken__factory(this._deployerSigner).deploy(_name, _symbol, _decimals);
   }
 

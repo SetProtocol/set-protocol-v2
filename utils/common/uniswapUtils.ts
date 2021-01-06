@@ -1,5 +1,5 @@
 import { BigNumber } from "@ethersproject/bignumber";
-import { UniswapV2Pair, SetToken, StakingRewards, StandardTokenMock, Weth9, UniswapV2Router02 } from "../contracts";
+import { UniswapV2Pair, SetToken, StakingRewards, StandardTokenMock, WETH9, UniswapV2Router02 } from "../contracts";
 import { ZERO } from "../constants";
 import { ether, preciseMul } from "../index";
 import { preciseDiv } from "./mathUtils";
@@ -29,8 +29,8 @@ export const calculateLPTokensIssued = async(
 
 export const calculateEngageQuantities = async(
   setToken: SetToken,
-  assetOne: StandardTokenMock | Weth9,
-  assetTwo: StandardTokenMock | Weth9,
+  assetOne: StandardTokenMock | WETH9,
+  assetTwo: StandardTokenMock | WETH9,
   lpToken: UniswapV2Pair,
   stakingRewards: StakingRewards,
   reservePercentage: BigNumber,
@@ -58,8 +58,8 @@ export const calculateRebalanceFlows = async(
   setToken: SetToken,
   router: UniswapV2Router02,
   sellTokenQuantity: BigNumber,
-  assetOne: StandardTokenMock | Weth9,
-  assetTwo: StandardTokenMock | Weth9,
+  assetOne: StandardTokenMock | WETH9,
+  assetTwo: StandardTokenMock | WETH9,
   assetOneToTwoPrice: BigNumber,
   extraAssetOne: BigNumber = ZERO,
   extraAssetTwo: BigNumber = ZERO,
@@ -83,8 +83,8 @@ export const calculateRebalanceFlows = async(
 export const calculateRebalanceQuantity = async(
   sellTokenQuantity: BigNumber,
   setToken: SetToken,
-  assetOne: StandardTokenMock | Weth9,
-  assetTwo: StandardTokenMock | Weth9,
+  assetOne: StandardTokenMock | WETH9,
+  assetTwo: StandardTokenMock | WETH9,
   assetOneToTwoPrice: BigNumber,
   extraAssetOne: BigNumber = ZERO,
   extraAssetTwo: BigNumber = ZERO,
@@ -117,8 +117,8 @@ export const calculateRebalanceQuantity = async(
 
 export const calculateTokensInReserve = async(
   setToken: SetToken,
-  assetOne: StandardTokenMock | Weth9,
-  assetTwo: StandardTokenMock | Weth9,
+  assetOne: StandardTokenMock | WETH9,
+  assetTwo: StandardTokenMock | WETH9,
   lpToken: UniswapV2Pair,
   stakingRewards: StakingRewards,
 ): Promise<[BigNumber, BigNumber]> => {
