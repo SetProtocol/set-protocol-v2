@@ -19,7 +19,7 @@
     "chain": "npx hardhat node --no-deploy",
     "clean": "rm -f coverage.json; rm -rf .coverage_cache; rm -rf .coverage_contracts; rm -rf cache; rm -rf coverage; rm -rf typechain; rm -rf artifacts",
     "compile": "npx hardhat compile",
-    "coverage": "yarn clean && yarn build && npx hardhat coverage --temp artifacts --network coverage",
+    "coverage": "yarn clean && yarn build && npx hardhat coverage --temp artifacts",
     "etherscan:verify": "hardhat --network kovan etherscan-verify --solc-input --license 'None'",
     "fix-typechain": "node scripts/fix-typechain.js && yarn rename-extensions",
     "flatten": "npx waffle flatten",
