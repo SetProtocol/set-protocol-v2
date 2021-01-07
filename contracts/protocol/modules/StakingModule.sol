@@ -185,7 +185,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
      * @param _component                Address of token being staked
      * @param _setTokenQuantity         Quantity of SetToken being issued
      */
-    function issueHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external override onlyModule(_setToken) {
+    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external override onlyModule(_setToken) {
         address[] memory stakingContracts = getStakingContracts(_setToken, _component);
         for (uint256 i = 0; i < stakingContracts.length; i++) {
             // NOTE: We assume here that the calling module has transferred component tokens to the SetToken from the issuer
@@ -211,7 +211,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
      * @param _component                Address of token being staked
      * @param _setTokenQuantity         Quantity of SetToken being issued
      */
-    function redeemHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external override onlyModule(_setToken) {
+    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external override onlyModule(_setToken) {
         address[] memory stakingContracts = getStakingContracts(_setToken, _component);
         for (uint256 i = 0; i < stakingContracts.length; i++) {
             StakingPosition memory stakingPosition = getStakingPosition(_setToken, _component, stakingContracts[i]);
@@ -226,6 +226,9 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
             );
         }
     }
+
+    function moduleIssueHook(ISetToken _setToken, uint256 _setTokenQuantity) external override {}
+    function moduleRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity) external override {}
 
     /**
      * Initializes this module to the SetToken. Only callable by the SetToken's manager.

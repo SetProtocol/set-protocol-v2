@@ -15,7 +15,9 @@ export { CompoundLikeGovernanceAdapter } from "../../typechain/CompoundLikeGover
 export { ContractCallerMock } from "../../typechain/ContractCallerMock";
 export { Controller } from "../../typechain/Controller";
 export { CurveStakingAdapter } from "../../typechain/CurveStakingAdapter";
-export { ExplicitERC20Mock } from "../../typechain/ExplicitERC20Mock";
+export { DebtIssuanceModule } from "../../typechain/DebtIssuanceModule";
+export { DebtModuleMock } from "../../typechain/DebtModuleMock";
+export { ExplicitErc20Mock } from "../../typechain/ExplicitErc20Mock";
 export { GaugeControllerMock } from "../../typechain/GaugeControllerMock";
 export { GodModeMock } from "../../typechain/GodModeMock";
 export { GovernanceAdapterMock } from "../../typechain/GovernanceAdapterMock";
