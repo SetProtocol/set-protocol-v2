@@ -435,7 +435,7 @@ describe("Position", () => {
       subjectComponent = componentThree.address;
       subjectModule = moduleOne.address;
       subjectNewUnit = ether(3);
-      subjectData = "0x123";
+      subjectData = "0x1234";
     });
 
     async function subject(): Promise<any> {
@@ -470,7 +470,7 @@ describe("Position", () => {
         const data = await setToken.getExternalPositionData(subjectComponent, subjectModule);
         expect(postModules).to.contain(subjectModule);
         expect(unit).to.eq(subjectNewUnit);
-        expect(data).to.eq("0x0123");
+        expect(data).to.eq("0x1234");
       });
 
       describe("and calling module is calling with 0 unit", async () => {
@@ -533,7 +533,7 @@ describe("Position", () => {
         const data = await setToken.getExternalPositionData(subjectComponent, subjectModule);
         expect(modules).to.contain(subjectModule);
         expect(unit).to.eq(subjectNewUnit);
-        expect(data).to.eq("0x0123");
+        expect(data).to.eq("0x1234");
       });
     });
 

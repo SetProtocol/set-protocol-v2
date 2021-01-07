@@ -198,7 +198,7 @@ describe("CurveFixture", () => {
     });
 
     async function subject(): Promise<any> {
-      await subjectGauge.deposit(subjectValue, {
+      await subjectGauge.functions["deposit(uint256)"](subjectValue, {
         gasLimit: 5000000,
       });
     }
@@ -213,7 +213,7 @@ describe("CurveFixture", () => {
     describe("when user staked", async () => {
 
       beforeEach(async () => {
-        await subjectGauge.deposit(subjectValue, {
+        await subjectGauge.functions["deposit(uint256)"](subjectValue, {
           gasLimit: 5000000,
         });
       });
@@ -241,7 +241,7 @@ describe("CurveFixture", () => {
       beforeEach(async () => {
         subjectTimeFastForward = BigNumber.from(86400 * 7); // one week
 
-        await subjectGauge.deposit(subjectValue, {
+        await subjectGauge.functions["deposit(uint256)"](subjectValue, {
           gasLimit: 5000000,
         });
 
