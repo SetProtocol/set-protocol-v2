@@ -19,26 +19,7 @@ pragma solidity 0.6.10;
 
 import { ISetToken } from "./ISetToken.sol";
 
-
-/**
- * CHANGELOG:
- *      - Added a module level issue hook that can be used to set state ahead of component level
- *        issue hooks
- */
-interface IModuleIssuanceHook {
-
-    function moduleIssueHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
-    function moduleRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
-    
-    function componentIssueHook(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity,
-        address _component
-    ) external;
-
-    function componentRedeemHook(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity,
-        address _component
-    ) external;
+interface IDebtIssuanceModule {
+    function register(ISetToken _setToken) external;
+    function unregister(ISetToken _setToken) external;
 }

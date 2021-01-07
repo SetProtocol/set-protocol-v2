@@ -287,9 +287,9 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
         address[] memory externalPositionModules = _setToken.getExternalPositionModules(_component);
         for (uint256 i = 0; i < externalPositionModules.length; i++) {
             if (isIssue) {
-                IModuleIssuanceHook(externalPositionModules[i]).issueHook(_setToken, _setTokenQuantity, _component);
+                IModuleIssuanceHook(externalPositionModules[i]).componentIssueHook(_setToken, _setTokenQuantity, _component);
             } else {
-                IModuleIssuanceHook(externalPositionModules[i]).redeemHook(_setToken, _setTokenQuantity, _component);
+                IModuleIssuanceHook(externalPositionModules[i]).componentRedeemHook(_setToken, _setTokenQuantity, _component);
             }
         }
     }

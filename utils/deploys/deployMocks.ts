@@ -9,7 +9,8 @@ import {
   AmmAdapterMock,
   ClaimAdapterMock,
   ContractCallerMock,
-  ExplicitERC20Mock,
+  DebtModuleMock,
+  ExplicitErc20Mock,
   GaugeControllerMock,
   GodModeMock,
   GovernanceAdapterMock,
@@ -42,6 +43,7 @@ import { AddressArrayUtilsMock__factory } from "../../typechain/factories/Addres
 import { AmmAdapterMock__factory } from "../../typechain/factories/AmmAdapterMock__factory";
 import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapterMock__factory";
 import { ContractCallerMock__factory } from "../../typechain/factories/ContractCallerMock__factory";
+import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
 import { ExplicitERC20Mock__factory } from "../../typechain/factories/ExplicitERC20Mock__factory";
 import { GaugeControllerMock__factory } from "../../typechain/factories/GaugeControllerMock__factory";
 import { GodModeMock__factory } from "../../typechain/factories/GodModeMock__factory";
@@ -73,7 +75,7 @@ export default class DeployMocks {
     this._deployerSigner = deployerSigner;
   }
 
-  public async deployExplicitErc20Mock(): Promise<ExplicitERC20Mock> {
+  public async deployExplicitErc20Mock(): Promise<ExplicitErc20Mock> {
     return await new ExplicitERC20Mock__factory(this._deployerSigner).deploy();
   }
 
@@ -115,6 +117,10 @@ export default class DeployMocks {
 
   public async deployGodModeMock(controllerAddress: Address): Promise<GodModeMock> {
     return await new GodModeMock__factory(this._deployerSigner).deploy(controllerAddress);
+  }
+
+  public async deployDebtModuleMock(controllerAddress: Address, moduleAddress: Address): Promise<DebtModuleMock> {
+    return await new DebtModuleMock__factory(this._deployerSigner).deploy(controllerAddress, moduleAddress);
   }
 
   public async deployGovernanceAdapterMock(initialProposalId: BigNumberish): Promise<GovernanceAdapterMock> {
