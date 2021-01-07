@@ -379,12 +379,12 @@ describe("UniswapPairPriceAdapter", () => {
     }
 
     it("adds the address to the pools list", async () => {
-      const existingPools = await uniswapPriceAdapter.getAllowedUniswapPools();
+      let existingPools = await uniswapPriceAdapter.getAllowedUniswapPools();
 
       await subject();
 
       const newPools = await uniswapPriceAdapter.getAllowedUniswapPools();
-      existingPools.push(subjectPoolAddress);
+      existingPools = existingPools.concat(subjectPoolAddress);
       expect(newPools).to.deep.equal(existingPools);
     });
 

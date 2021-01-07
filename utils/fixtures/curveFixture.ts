@@ -73,8 +73,8 @@ export class CurveFixture {
   public async initializeGauge(_lpToken: string): Promise<LiquidityGauge> {
     const gauge = await this._deployer.external.deployLiquidityGauge(_lpToken, this.minter.address);
 
-    await this.gaugeController["add_gauge(address,int128,uint256)"](gauge.address, 0, ether(1));
-
+    await this.gaugeController.functions["add_gauge(address,int128,uint256)"](gauge.address, 0, ether(1));
+    console.log(gauge);
     return gauge;
   }
 

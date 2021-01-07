@@ -179,15 +179,15 @@ describe("PreciseUnitMath", () => {
       subjectB = ether(.03);
     });
 
-    async function subject(): Promise<BigNumber> {
-      return mathMock.preciseDiv(subjectA, subjectB);
+    async function subject(): Promise<[BigNumber]> {
+      return mathMock.functions["preciseDiv(uint256,uint256)"](subjectA, subjectB);
     }
 
     it("returns the correct number", async () => {
       const product = await subject();
 
       const expectedProduct = preciseDiv(subjectA, subjectB);
-      expect(product).to.eq(expectedProduct);
+      expect(product[0]).to.eq(expectedProduct);
     });
   });
 
