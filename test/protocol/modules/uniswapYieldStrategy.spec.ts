@@ -6,20 +6,22 @@ import { GodModeMock, UniswapPairPriceAdapter, UniswapYieldStrategy, SetToken } 
 import { MAX_UINT_256, ONE_HOUR_IN_SECONDS } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   calculateRebalanceFlows,
   calculateRebalanceQuantity,
   calculateTokensInReserve,
   ether,
+  min,
+  preciseMul,
+  preciseDiv,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
   getUniswapFixture,
   increaseTimeAsync,
-  min,
-  preciseMul,
-  preciseDiv,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";

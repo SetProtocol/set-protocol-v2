@@ -8,15 +8,17 @@ import { ADDRESS_ZERO, EMPTY_BYTES, ONE_DAY_IN_SECONDS, ZERO } from "@utils/cons
 import { AaveGovernanceAdapter, SetToken, GovernanceModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
   getAaveFixture,
   getRandomAddress,
   increaseTimeAsync,
-} from "@utils/index";
+} from "@utils/test/index";
 import { AaveFixture, SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

@@ -6,13 +6,15 @@ import { ETH_ADDRESS, ZERO } from "@utils/constants";
 import { AaveWrapAdapter, AaveLendingPoolMock, AaveLendingPoolCoreMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
-  getAccounts,
-  getWaffleExpect,
   addressToData,
   bigNumberToData
 } from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
+  getAccounts,
+  getWaffleExpect,
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 

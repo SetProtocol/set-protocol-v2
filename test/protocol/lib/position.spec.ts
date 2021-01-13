@@ -4,15 +4,17 @@ import { PositionMock, SetToken, StandardTokenMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
+  preciseMul,
+  preciseDiv,
+  preciseDivCeil,
+} from "@utils/index";
+import {
   getRandomAddress,
   getSystemFixture,
   getWaffleExpect,
   getAccounts,
   addSnapshotBeforeRestoreAfterEach,
-  preciseMul,
-  preciseDiv,
-  preciseDivCeil,
-} from "@utils/index";
+} from "@utils/test/index";
 
 import { Account, Address } from "@utils/types";
 import { ZERO, PRECISE_UNIT, ADDRESS_ZERO, ONE } from "@utils/constants";

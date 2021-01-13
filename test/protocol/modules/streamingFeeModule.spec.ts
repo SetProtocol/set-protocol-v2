@@ -7,21 +7,23 @@ import { ONE_YEAR_IN_SECONDS, ZERO, ADDRESS_ZERO, PRECISE_UNIT } from "@utils/co
 import { BasicIssuanceModule, StreamingFeeModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
-  getAccounts,
-  getLastBlockTimestamp,
   getPostFeePositionUnits,
-  getRandomAddress,
-  getRandomAccount,
   getStreamingFee,
   getStreamingFeeInflationAmount,
-  getTransactionTimestamp,
+  preciseMul,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
+  getAccounts,
+  getRandomAddress,
+  getRandomAccount,
   getWaffleExpect,
   getSystemFixture,
   increaseTimeAsync,
-  preciseMul,
-} from "@utils/index";
+  getLastBlockTimestamp,
+  getTransactionTimestamp,
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

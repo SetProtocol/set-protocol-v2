@@ -7,15 +7,17 @@ import { ZERO, ADDRESS_ZERO } from "@utils/constants";
 import { AssetLimitHook, NavIssuanceModule, SetToken, UniswapYieldHook } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   bitcoin,
   ether,
+  usdc,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
-  usdc,
   getRandomAccount,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

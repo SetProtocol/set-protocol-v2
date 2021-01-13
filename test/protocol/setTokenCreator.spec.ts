@@ -6,13 +6,15 @@ import { ADDRESS_ZERO, ZERO, ONE } from "@utils/constants";
 import { Controller, SetTokenCreator, StandardTokenMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getProtocolUtils,
   getRandomAddress,
   getWaffleExpect,
-} from "@utils/index";
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 const protocolUtils = getProtocolUtils();

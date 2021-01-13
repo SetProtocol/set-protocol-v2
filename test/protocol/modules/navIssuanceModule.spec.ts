@@ -7,10 +7,8 @@ import { ONE, TWO, THREE, ZERO, ADDRESS_ZERO } from "@utils/constants";
 import { ManagerIssuanceHookMock, NAVIssuanceHookMock, NavIssuanceModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   bitcoin,
   ether,
-  getAccounts,
   getExpectedIssuePositionMultiplier,
   getExpectedIssuePositionUnit,
   getExpectedPostFeeQuantity,
@@ -18,14 +16,18 @@ import {
   getExpectedReserveRedeemQuantity,
   getExpectedRedeemPositionMultiplier,
   getExpectedRedeemPositionUnit,
-  getProvider,
-  getRandomAddress,
-  getRandomAccount,
-  getWaffleExpect,
-  getSystemFixture,
   preciseMul,
   usdc,
 } from "@utils/index";
+import {
+  getAccounts,
+  getRandomAddress,
+  addSnapshotBeforeRestoreAfterEach,
+  getRandomAccount,
+  getProvider,
+  getWaffleExpect,
+  getSystemFixture,
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { ERC20__factory } from "../../../typechain/factories/ERC20__factory";
 

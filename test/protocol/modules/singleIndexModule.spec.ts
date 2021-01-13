@@ -6,9 +6,14 @@ import { ADDRESS_ZERO, MAX_UINT_256, ONE, TWO, THREE, ZERO, ONE_DAY_IN_SECONDS, 
 import { ContractCallerMock, SingleIndexModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   bitcoin,
   ether,
+  preciseDiv,
+  preciseMul
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
+  increaseTimeAsync,
   getAccounts,
   getBalancerFixture,
   getLastBlockTimestamp,
@@ -17,10 +22,7 @@ import {
   getSystemFixture,
   getUniswapFixture,
   getWaffleExpect,
-  increaseTimeAsync,
-  preciseDiv,
-  preciseMul
-} from "@utils/index";
+} from "@utils/test/index";
 import { BalancerFixture, SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
 

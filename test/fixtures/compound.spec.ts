@@ -2,13 +2,15 @@ import "module-alias/register";
 
 import { Account } from "@utils/types";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getCompoundFixture,
   getSystemFixture,
   getWaffleExpect
-} from "@utils/index";
+} from "@utils/test/index";
 import { CERc20 } from "../../typechain/CERc20";
 import { CEther } from "../../typechain/CEther";
 import { CompoundFixture, SystemFixture } from "@utils/fixtures";

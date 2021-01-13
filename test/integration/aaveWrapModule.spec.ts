@@ -6,13 +6,16 @@ import { ADDRESS_ZERO } from "@utils/constants";
 import { AaveWrapAdapter, SetToken, WrapModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  preciseMul,
+} from "@utils/index";
+import {
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
-  getAaveFixture, preciseMul,
-} from "@utils/index";
+  getAaveFixture,
+  addSnapshotBeforeRestoreAfterEach,
+} from "@utils/test/index";
 import { AaveFixture, SystemFixture } from "@utils/fixtures";
 import { AToken } from "@typechain/AToken";
 

@@ -2,12 +2,14 @@ import "module-alias/register";
 
 import { Account } from "@utils/types";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getSystemFixture,
   getBalancerFixture,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture, BalancerFixture } from "@utils/fixtures";
 import { THREE } from "@utils/constants";
 

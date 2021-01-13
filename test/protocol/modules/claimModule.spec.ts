@@ -4,14 +4,16 @@ import { Address, Account } from "@utils/types";
 import { ClaimModule, ClaimAdapterMock, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
   getRandomAccount,
   getRandomAddress,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "@ethersproject/bignumber";
 import { ZERO } from "@utils/constants";

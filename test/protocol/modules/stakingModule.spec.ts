@@ -6,15 +6,17 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
 import { SetToken, StakingAdapterMock, StakingModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  hashAdapterName,
+  preciseMul
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAccount,
   getSystemFixture,
   getWaffleExpect,
-  hashAdapterName,
-  preciseMul
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
 import { HashZero } from "@ethersproject/constants";

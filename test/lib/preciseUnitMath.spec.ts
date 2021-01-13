@@ -5,10 +5,7 @@ import { PRECISE_UNIT, MIN_INT_256, MAX_INT_256, ZERO } from "../../utils/consta
 import { PreciseUnitMathMock } from "../../utils/contracts";
 import DeployHelper from "../../utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
-  getAccounts,
-  getWaffleExpect,
   divDown,
   preciseDiv,
   preciseDivCeil,
@@ -17,6 +14,11 @@ import {
   preciseMulCeilInt,
   preciseDivCeilInt,
 } from "../../utils";
+import {
+  addSnapshotBeforeRestoreAfterEach,
+  getAccounts,
+  getWaffleExpect,
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 

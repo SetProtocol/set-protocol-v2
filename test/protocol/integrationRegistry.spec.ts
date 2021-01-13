@@ -5,12 +5,14 @@ import { ADDRESS_ZERO } from "@utils/constants";
 import { Controller, IntegrationRegistry } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
+  hashAdapterName
+} from "@utils/index";
+import {
   addSnapshotBeforeRestoreAfterEach,
   getWaffleExpect,
   getAccounts,
   getRandomAccount,
-  hashAdapterName
-} from "@utils/index";
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 

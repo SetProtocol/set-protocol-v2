@@ -11,7 +11,8 @@ import {
   getWaffleExpect,
   getCompoundFixture,
   getRandomAddress
-} from "@utils/index";
+} from "@utils/test/index";
+
 import { CompoundFixture } from "@utils/fixtures";
 
 

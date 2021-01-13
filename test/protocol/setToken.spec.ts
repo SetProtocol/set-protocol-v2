@@ -15,16 +15,18 @@ import {
 import { Controller, SetToken, StandardTokenMock, ModuleBaseMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  preciseMul,
+  divDown,
+} from "@utils/index";
+import {
   getAccounts,
   getEthBalance,
   getRandomAccount,
   getRandomAddress,
   getWaffleExpect,
-  preciseMul,
-  divDown,
-} from "@utils/index";
+  addSnapshotBeforeRestoreAfterEach,
+} from "@utils/test/index";
 
 const web3 = new Web3();
 const expect = getWaffleExpect();

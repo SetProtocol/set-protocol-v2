@@ -6,14 +6,16 @@ import { InvokeMock, SetToken, StandardTokenWithFeeMock } from "@utils/contracts
 import { ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
   getAccounts,
   getProvider,
   getRandomAddress,
   getSystemFixture,
   getWaffleExpect,
-} from "@utils/index";
+  addSnapshotBeforeRestoreAfterEach,
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
