@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ETH_ADDRESS, ZERO } from "@utils/constants";
 import { AaveWrapAdapter, AaveLendingPoolMock, AaveLendingPoolCoreMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

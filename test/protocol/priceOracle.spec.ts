@@ -3,7 +3,8 @@ import { ethers } from "hardhat";
 import { BigNumber } from "@ethersproject/bignumber";
 import { ContractTransaction } from "ethers";
 
-import { Account, Address } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { Controller, PriceOracle, OracleAdapterMock, OracleMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {

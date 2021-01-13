@@ -3,7 +3,8 @@ import "module-alias/register";
 import { ethers } from "hardhat";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Account, Address, Bytes } from "@utils/types";
+import { Address, Bytes } from "@utils/types";
+import { Account } from "@utils/test/types";
 import {
   ADDRESS_ZERO,
   EMPTY_BYTES,

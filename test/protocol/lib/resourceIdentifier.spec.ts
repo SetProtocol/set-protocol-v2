@@ -1,6 +1,7 @@
 import "module-alias/register";
 
-import { Address, Account } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ResourceIdentifierMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {

@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { BigNumber } from "@ethersproject/bignumber";
-import { Account, Address } from "../types";
+import { Address } from "../types";
+import { Account } from "./types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
 const provider = ethers.provider;

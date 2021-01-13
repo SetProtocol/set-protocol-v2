@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account, NAVIssuanceSettings } from "@utils/types";
+import { Address, NAVIssuanceSettings } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { GodModeMock, UniswapPairPriceAdapter, UniswapYieldStrategy, SetToken } from "@utils/contracts";
 import { MAX_UINT_256, ONE_HOUR_IN_SECONDS } from "@utils/constants";
 import DeployHelper from "@utils/deploys";

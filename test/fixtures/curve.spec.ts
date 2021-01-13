@@ -1,6 +1,7 @@
 import "module-alias/register";
 
-import { Account, Address } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import DeployHelper from "@utils/deploys";
 import {
   ether,

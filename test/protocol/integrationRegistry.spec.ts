@@ -1,6 +1,7 @@
 import "module-alias/register";
 
-import { Account, Address } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO } from "@utils/constants";
 import { Controller, IntegrationRegistry } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

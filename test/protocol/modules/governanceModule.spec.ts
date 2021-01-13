@@ -1,6 +1,7 @@
 import "module-alias/register";
 
-import { Address, Account, Bytes } from "@utils/types";
+import { Address, Bytes } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { GovernanceModule, GovernanceAdapterMock, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {

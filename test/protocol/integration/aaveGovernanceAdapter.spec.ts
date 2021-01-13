@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 import { defaultAbiCoder } from "@ethersproject/abi";
-import { Address, Account, Bytes } from "@utils/types";
+import { Address, Bytes } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { EMPTY_BYTES, ONE, TWO, ZERO } from "@utils/constants";
 import { AaveGovernanceAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

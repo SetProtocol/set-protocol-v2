@@ -2,7 +2,8 @@ import "module-alias/register";
 
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account, ContractTransaction, StreamingFeeState } from "@utils/types";
+import { Address, ContractTransaction, StreamingFeeState } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ONE_YEAR_IN_SECONDS, ZERO, ADDRESS_ZERO, PRECISE_UNIT } from "@utils/constants";
 import { BasicIssuanceModule, StreamingFeeModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

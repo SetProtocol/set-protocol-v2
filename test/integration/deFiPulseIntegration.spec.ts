@@ -3,7 +3,8 @@
 // const _ = require("lodash");
 // import { BigNumber } from "ethers/utils";
 
-// import { Address, Account, Position, StreamingFeeState } from "@utils/types";
+// import { Address, Position, StreamingFeeState } from "@utils/types";
+// import { Account } from "@utils/test/types";
 // import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ONE_YEAR_IN_SECONDS } from "@utils/constants";
 // import { SetToken } from "@utils/contracts";
 // import DeployHelper from "@utils/deploys";

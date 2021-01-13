@@ -2,7 +2,8 @@ import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 import { defaultAbiCoder } from "ethers/lib/utils";
 
-import { Address, Account, Bytes } from "@utils/types";
+import { Address, Bytes } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, EMPTY_BYTES, ONE, ONE_DAY_IN_SECONDS, ZERO } from "@utils/constants";
 import { CompoundLikeGovernanceAdapter, SetToken, GovernanceModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account, ContractTransaction } from "@utils/types";
+import { Address, ContractTransaction } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ZERO, PRECISE_UNIT, ADDRESS_ZERO } from "@utils/constants";
 import { AirdropModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

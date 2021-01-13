@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account, StreamingFeeState } from "@utils/types";
+import { Address, StreamingFeeState } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, MAX_UINT_256, ONE, TWO, THREE, ZERO, ONE_DAY_IN_SECONDS, PRECISE_UNIT } from "@utils/constants";
 import { ContractCallerMock, SingleIndexModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

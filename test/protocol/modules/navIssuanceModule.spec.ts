@@ -2,7 +2,8 @@ import "module-alias/register";
 
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 
-import { Address, Account, NAVIssuanceSettings } from "@utils/types";
+import { Address, NAVIssuanceSettings } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ONE, TWO, THREE, ZERO, ADDRESS_ZERO } from "@utils/constants";
 import { ManagerIssuanceHookMock, NAVIssuanceHookMock, NavIssuanceModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

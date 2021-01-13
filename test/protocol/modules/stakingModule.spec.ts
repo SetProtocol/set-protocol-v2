@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
 import { SetToken, StakingAdapterMock, StakingModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

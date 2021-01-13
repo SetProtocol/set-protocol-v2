@@ -2,7 +2,8 @@ import "module-alias/register";
 
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account, NAVIssuanceSettings } from "@utils/types";
+import { Address, NAVIssuanceSettings } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ZERO, ADDRESS_ZERO } from "@utils/constants";
 import { AssetLimitHook, NavIssuanceModule, SetToken, UniswapYieldHook } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
