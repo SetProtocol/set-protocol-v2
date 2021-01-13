@@ -6,13 +6,15 @@ import { ADDRESS_ZERO, ZERO } from "@utils/constants";
 import { AirdropModule, CurveStakingAdapter, SetToken, StakingModule, StandardTokenMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
-  getCurveFixture
-} from "@utils/index";
+  getCurveFixture,
+  addSnapshotBeforeRestoreAfterEach,
+} from "@utils/test/index";
 import { CurveFixture, SystemFixture } from "@utils/fixtures";
 import { LiquidityGauge } from "@utils/contracts/curve";
 

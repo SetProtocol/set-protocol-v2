@@ -6,11 +6,15 @@ import { ZERO } from "@utils/constants";
 import { CurveStakingAdapter, GaugeControllerMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach, bigNumberToData,
+  bigNumberToData,
   ether,
-  getAccounts, getRandomAddress,
-  getWaffleExpect,
 } from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
+  getAccounts,
+  getRandomAddress,
+  getWaffleExpect,
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 

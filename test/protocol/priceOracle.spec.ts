@@ -7,12 +7,14 @@ import { Account, Address } from "@utils/types";
 import { Controller, PriceOracle, OracleAdapterMock, OracleMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAccount,
   getWaffleExpect
-} from "@utils/index";
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 

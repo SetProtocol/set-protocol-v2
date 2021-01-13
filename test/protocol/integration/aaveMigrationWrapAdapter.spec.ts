@@ -6,12 +6,15 @@ import { ZERO } from "@utils/constants";
 import { AaveMigrationWrapAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
   getAaveFixture
-} from "@utils/index";
+} from "@utils/test/index";
+
 import { AaveFixture } from "@utils/fixtures";
 
 

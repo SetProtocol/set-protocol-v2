@@ -8,7 +8,7 @@ import {
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

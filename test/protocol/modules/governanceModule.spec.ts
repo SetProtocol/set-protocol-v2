@@ -4,15 +4,17 @@ import { Address, Account, Bytes } from "@utils/types";
 import { GovernanceModule, GovernanceAdapterMock, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  bigNumberToData,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
   getRandomAccount,
   getRandomAddress,
-  bigNumberToData,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "@ethersproject/bignumber";
 import { ADDRESS_ZERO, ONE, TWO, ZERO, EMPTY_BYTES } from "@utils/constants";

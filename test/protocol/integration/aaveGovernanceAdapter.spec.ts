@@ -11,7 +11,7 @@ import {
   getWaffleExpect,
   getAaveFixture,
   getRandomAddress
-} from "@utils/index";
+} from "@utils/test/index";
 import { AaveFixture } from "@utils/fixtures";
 
 

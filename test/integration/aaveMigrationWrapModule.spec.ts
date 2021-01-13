@@ -6,13 +6,15 @@ import { ADDRESS_ZERO } from "@utils/constants";
 import { AaveMigrationWrapAdapter, SetToken, WrapModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
   getAaveFixture,
-} from "@utils/index";
+} from "@utils/test/index";
 import { AaveFixture, SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

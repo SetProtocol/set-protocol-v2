@@ -8,13 +8,15 @@ import DeployHelper from "@utils/deploys";
 import {
   bitcoin,
   ether,
+  preciseDiv,
+  preciseMul,
+} from "@utils/index";
+import {
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
   getUniswapFixture,
-  preciseDiv,
-  preciseMul,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

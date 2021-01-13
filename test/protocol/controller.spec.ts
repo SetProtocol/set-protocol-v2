@@ -11,7 +11,7 @@ import {
   getRandomAccount,
   getWaffleExpect,
   getAccounts,
-} from "@utils/index";
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 

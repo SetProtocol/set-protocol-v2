@@ -6,15 +6,17 @@ import { ZERO, PRECISE_UNIT, ADDRESS_ZERO } from "@utils/constants";
 import { AirdropModule, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  preciseMul,
+  preciseDiv,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
-  preciseMul,
-  preciseDiv,
   getRandomAddress,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { AirdropSettings } from "@utils/types";
 

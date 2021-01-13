@@ -6,16 +6,18 @@ import { ADDRESS_ZERO, ZERO } from "@utils/constants";
 import { SetToken, WrapAdapterMock, WrapModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  preciseMul,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getProvider,
   getRandomAccount,
   getRandomAddress,
   getSystemFixture,
   getWaffleExpect,
-  preciseMul,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

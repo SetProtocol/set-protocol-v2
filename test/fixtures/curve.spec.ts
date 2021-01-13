@@ -3,13 +3,15 @@ import "module-alias/register";
 import { Account, Address } from "@utils/types";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getCurveFixture,
   getWaffleExpect,
   increaseTimeAsync,
-} from "@utils/index";
+} from "@utils/test/index";
 import { CurveFixture } from "@utils/fixtures";
 import { StandardTokenMock } from "../../typechain/StandardTokenMock";
 import { ZERO } from "@utils/constants";

@@ -6,16 +6,18 @@ import { ADDRESS_ZERO, ZERO, ONE } from "@utils/constants";
 import { IssuanceModule, ManagerIssuanceHookMock, ModuleIssuanceHookMock, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   bitcoin,
   ether,
+  preciseMul,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAccount,
   getRandomAddress,
   getWaffleExpect,
   getSystemFixture,
-  preciseMul,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

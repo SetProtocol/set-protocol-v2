@@ -8,10 +8,12 @@ import { ExplicitERC20Mock, StandardTokenMock, StandardTokenWithFeeMock } from "
 import DeployHelper from "@utils/deploys";
 import {
   ether,
+} from "@utils/index";
+import {
   getWaffleExpect,
   getAccounts,
   addSnapshotBeforeRestoreAfterEach,
-} from "@utils/index";
+} from "@utils/test/index";
 
 const expect = getWaffleExpect();
 

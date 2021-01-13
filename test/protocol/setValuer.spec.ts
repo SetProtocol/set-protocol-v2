@@ -5,13 +5,15 @@ import DeployHelper from "@utils/deploys";
 import {
   ether,
   usdc,
+  preciseDiv,
+  preciseMul,
+} from "@utils/index";
+import {
   getSystemFixture,
   getWaffleExpect,
   getAccounts,
   addSnapshotBeforeRestoreAfterEach,
-  preciseDiv,
-  preciseMul,
-} from "@utils/index";
+} from "@utils/test/index";
 
 import { Account, Address } from "@utils/types";
 import { SystemFixture } from "@utils/fixtures";

@@ -12,12 +12,14 @@ import {
 import { KyberExchangeAdapter, KyberNetworkProxyMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
-} from "@utils/index";
+} from "@utils/test/index";
 
 import { SystemFixture } from "@utils/fixtures";
 

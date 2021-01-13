@@ -18,13 +18,15 @@ import {
 import { ADDRESS_ZERO, EMPTY_BYTES, ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
+  ether,
+} from "@utils/index";
+import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAccount,
   getSystemFixture,
   getWaffleExpect,
-  ether,
-} from "@utils/index";
+} from "@utils/test/index";
 
 import { SystemFixture } from "@utils/fixtures";
 

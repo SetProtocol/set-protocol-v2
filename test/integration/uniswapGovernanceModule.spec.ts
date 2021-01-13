@@ -7,15 +7,17 @@ import { ADDRESS_ZERO, EMPTY_BYTES, ONE, ONE_DAY_IN_SECONDS, ZERO } from "@utils
 import { CompoundLikeGovernanceAdapter, SetToken, GovernanceModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
   getUniswapFixture,
   getRandomAddress,
   increaseTimeAsync,
-} from "@utils/index";
+  addSnapshotBeforeRestoreAfterEach,
+} from "@utils/test/index";
 import { UniswapFixture, SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

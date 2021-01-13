@@ -6,16 +6,18 @@ import { ModuleBaseMock, SetToken, StandardTokenMock, StandardTokenWithFeeMock }
 import { MAX_UINT_256, ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  hashAdapterName,
+  preciseMul,
+} from "@utils/index";
+import {
   getAccounts,
   getRandomAddress,
   getRandomAccount,
   getSystemFixture,
   getWaffleExpect,
-  hashAdapterName,
-  preciseMul,
-} from "@utils/index";
+  addSnapshotBeforeRestoreAfterEach,
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();

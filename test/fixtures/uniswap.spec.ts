@@ -2,13 +2,15 @@ import "module-alias/register";
 
 import { Account } from "@utils/types";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getSystemFixture,
   getUniswapFixture,
   getWaffleExpect,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { ZERO, MAX_UINT_256 } from "@utils/constants";
 import { BigNumber } from "@ethersproject/bignumber";

@@ -6,14 +6,16 @@ import { ADDRESS_ZERO, ZERO } from "@utils/constants";
 import { AmmModule, AmmAdapterMock, SetToken, } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  usdc,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAccount,
   getWaffleExpect,
   getSystemFixture,
-  usdc,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
