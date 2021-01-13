@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";
 import { SetToken, WrapAdapterMock, WrapModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

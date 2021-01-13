@@ -3,7 +3,8 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { keccak256 } from "ethers/lib/utils";
 import { defaultAbiCoder } from "ethers/lib/utils";
 
-import { Address, Account, Bytes } from "@utils/types";
+import { Address, Bytes } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, EMPTY_BYTES, ONE_DAY_IN_SECONDS, ZERO } from "@utils/constants";
 import { AaveGovernanceAdapter, SetToken, GovernanceModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

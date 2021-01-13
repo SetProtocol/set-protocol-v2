@@ -1,7 +1,7 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Account } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ONE, TWO, THREE, MAX_UINT_256 } from "@utils/constants";
 import { Uint256ArrayUtilsMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

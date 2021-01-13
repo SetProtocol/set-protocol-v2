@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { Account } from "@utils/types";
+import { Account } from "@utils/test/types";
 import {
   ether,
 } from "@utils/index";

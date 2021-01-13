@@ -1,7 +1,8 @@
 import "module-alias/register";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
 import { AaveMigrationWrapAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

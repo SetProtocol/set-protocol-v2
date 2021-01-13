@@ -2,7 +2,8 @@ import "module-alias/register";
 
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Account, Address } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { MAX_UINT_256, ZERO } from "@utils/constants";
 import { ExplicitERC20Mock, StandardTokenMock, StandardTokenWithFeeMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

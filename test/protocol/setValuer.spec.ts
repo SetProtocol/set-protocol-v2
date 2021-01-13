@@ -15,7 +15,8 @@ import {
   addSnapshotBeforeRestoreAfterEach,
 } from "@utils/test/index";
 
-import { Account, Address } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { SystemFixture } from "@utils/fixtures";
 import { ADDRESS_ZERO } from "@utils/constants";
 

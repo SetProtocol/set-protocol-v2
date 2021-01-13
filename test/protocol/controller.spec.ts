@@ -2,7 +2,8 @@ import "module-alias/register";
 
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Account, Address } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, ZERO, ONE } from "@utils/constants";
 import { Controller } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";

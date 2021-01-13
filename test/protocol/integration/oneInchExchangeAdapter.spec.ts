@@ -3,7 +3,8 @@ import Web3 from "web3";
 
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Account, Address, Bytes } from "@utils/types";
+import { Address, Bytes } from "@utils/types";
+import { Account } from "@utils/test/types";
 import {
   ADDRESS_ZERO,
   ONE,

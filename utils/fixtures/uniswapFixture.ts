@@ -1,7 +1,8 @@
 import DeployHelper from "../deploys";
 import { Signer } from "ethers";
 import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
-import { Address, Account } from "../types";
+import { Address } from "../types";
+import { Account } from "@utils/test/types";
 import { BigNumber } from "@ethersproject/bignumber";
 
 import {
