@@ -21,9 +21,11 @@ contract DebtModuleMock is ModuleBase {
     using SafeCast for int256;
     using SignedSafeMath for int256;
     using Position for ISetToken;
+    using Invoke for ISetToken;
 
     address public module;
-    bool public moduleHookCalled;
+    bool public moduleIssueHookCalled;
+    bool public moduleRedeemHookCalled;
 
     constructor(IController _controller, address _module) public ModuleBase(_controller) {
         module = _module;
@@ -33,7 +35,8 @@ contract DebtModuleMock is ModuleBase {
         _setToken.editExternalPosition(_token, address(this), _amount.toInt256().mul(-1), "");
     }
 
-    function moduleIssueHook(ISetToken /*_setToken*/, uint256 /*_setTokenQuantity*/) external { moduleHookCalled = true; }
+    function moduleIssueHook(ISetToken /*_setToken*/, uint256 /*_setTokenQuantity*/) external { moduleIssueHookCalled = true; }
+    function moduleRedeemHook(ISetToken /*_setToken*/, uint256 /*_setTokenQuantity*/) external { moduleRedeemHookCalled = true; }
     
     function componentIssueHook(
         ISetToken _setToken,
@@ -43,11 +46,24 @@ contract DebtModuleMock is ModuleBase {
         external
     {
         uint256 unitAmount = _setToken.getExternalPositionRealUnit(_component, address(this)).mul(-1).toUint256();
-        uint256 notionalAmount = _setToken.totalSupply().getDefaultTotalNotional(unitAmount);
+        uint256 notionalAmount = _setTokenQuantity.getDefaultTotalNotional(unitAmount);
         IERC20(_component).transfer(address(_setToken), notionalAmount);
     }
 
+    function componentRedeemHook(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity,
+        address _component
+    )
+        external
+    {
+        uint256 unitAmount = _setToken.getExternalPositionRealUnit(_component, address(this)).mul(-1).toUint256();
+        uint256 notionalAmount = _setTokenQuantity.getDefaultTotalNotional(unitAmount);
+        _setToken.invokeTransfer(_component, address(this), notionalAmount);
+    }
+
     function initialize(ISetToken _setToken) external {
+        _setToken.initializeModule();
         IDebtIssuanceModule(module).register(_setToken);
     }
 
