@@ -22,10 +22,12 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { Invoke } from "../../../protocol/lib/Invoke.sol";
+import { Position } from "../../../protocol/lib/Position.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 contract ModuleIssuanceHookMock {
     using Invoke for ISetToken;
+    using Position for ISetToken;
     using SafeCast for int256;
     using PreciseUnitMath for uint256;
 
@@ -33,7 +35,11 @@ contract ModuleIssuanceHookMock {
         _setToken.initializeModule();
     }
 
-    function issueHook(
+    function addExternalPosition(ISetToken _setToken, address _component, int256 _quantity) external {
+        _setToken.editExternalPosition(_component, address(this), _quantity, "");
+    }
+
+    function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
         address _component
@@ -45,7 +51,7 @@ contract ModuleIssuanceHookMock {
         _setToken.invokeTransfer(_component, address(this), totalNotionalExternalModule);
     }
 
-    function redeemHook(
+    function componentRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
         address _component

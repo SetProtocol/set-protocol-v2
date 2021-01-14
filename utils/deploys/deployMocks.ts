@@ -10,7 +10,7 @@ import {
   ClaimAdapterMock,
   ContractCallerMock,
   DebtModuleMock,
-  ExplicitErc20Mock,
+  ExplicitERC20Mock,
   GaugeControllerMock,
   GodModeMock,
   GovernanceAdapterMock,
@@ -73,7 +73,7 @@ export default class DeployMocks {
     this._deployerSigner = deployerSigner;
   }
 
-  public async deployExplicitErc20Mock(): Promise<ExplicitErc20Mock> {
+  public async deployExplicitErc20Mock(): Promise<ExplicitERC20Mock> {
     return await new ExplicitERC20Mock__factory(this._deployerSigner).deploy();
   }
 
