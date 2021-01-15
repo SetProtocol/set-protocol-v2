@@ -681,7 +681,7 @@ describe("StakingModule", () => {
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return stakingModule.connect(subjectCaller.wallet).issueHook(
+      return stakingModule.connect(subjectCaller.wallet).componentIssueHook(
         subjectSetToken,
         subjectSetTokenQuantity,
         subjectComponent
@@ -773,7 +773,7 @@ describe("StakingModule", () => {
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return stakingModule.connect(subjectCaller.wallet).redeemHook(
+      return stakingModule.connect(subjectCaller.wallet).componentRedeemHook(
         subjectSetToken,
         subjectSetTokenQuantity,
         subjectComponent
