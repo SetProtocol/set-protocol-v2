@@ -1,12 +1,11 @@
 import "module-alias/register";
 
-import { ethers } from "hardhat";
 import { BigNumber } from "@ethersproject/bignumber";
+import { defaultAbiCoder } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
-  ADDRESS_ZERO,
   EMPTY_BYTES,
   ZERO,
 } from "@utils/constants";
@@ -21,13 +20,14 @@ import {
   getSystemFixture,
   getUniswapFixture,
   getWaffleExpect,
+  getLastBlockTimestamp
 } from "@utils/test/index";
 
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe.only("UniswapV2ExchangeAdapter", () => {
+describe("UniswapV2ExchangeAdapter", () => {
   let owner: Account;
   let mockSetToken: Account;
   let deployer: DeployHelper;
@@ -105,9 +105,9 @@ describe.only("UniswapV2ExchangeAdapter", () => {
 
     beforeEach(async () => {
       sourceAddress = setup.wbtc.address;          // WBTC Address
-      sourceQuantity = BigNumber.from(100000000);   // Trade 1 WBTC
-      destinationAddress = setup.weth.address;     // WETH Address
-      destinationQuantity = ether(33);             // Receive at least 33 ETH
+      sourceQuantity = BigNumber.from(100000000);  // Trade 1 WBTC
+      destinationAddress = setup.dai.address;      // DAI Address
+      destinationQuantity = ether(30000);         // Receive at least 30k DAI
 
       subjectSourceToken = sourceAddress;
       subjectDestinationToken = destinationAddress;
@@ -130,15 +130,38 @@ describe.only("UniswapV2ExchangeAdapter", () => {
 
     it("should return the correct trade calldata", async () => {
       const calldata = await subject();
+      const callTimestamp = await getLastBlockTimestamp();
       const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapExactTokensForTokens", [
-        sourceAddress,
         sourceQuantity,
-        destinationAddress,
-        mockSetToken.address,
-        ethers.constants.MaxUint256,
-        ADDRESS_ZERO,
+        destinationQuantity,
+        [sourceAddress, destinationAddress],
+        subjectMockSetToken,
+        callTimestamp,
       ]);
       expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+    });
+
+    describe("when passed in custom path to trade data", async () => {
+      beforeEach(async () => {
+        const path = [sourceAddress, setup.weth.address, destinationAddress];
+        subjectData = defaultAbiCoder.encode(
+          ["address[]"],
+          [path]
+        );
+      });
+
+      it("should return the correct trade calldata", async () => {
+        const calldata = await subject();
+        const callTimestamp = await getLastBlockTimestamp();
+        const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapExactTokensForTokens", [
+          sourceQuantity,
+          destinationQuantity,
+          [sourceAddress, setup.weth.address, destinationAddress],
+          subjectMockSetToken,
+          callTimestamp,
+        ]);
+        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+      });
     });
   });
 });
