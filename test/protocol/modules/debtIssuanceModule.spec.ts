@@ -313,6 +313,20 @@ describe("DebtIssuanceModule", () => {
           expect(hookCalled).to.be.true;
         });
 
+        it("should emit the correct SetTokenIssued event", async () => {
+          const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+
+          await expect(subject()).to.emit(debtIssuance, "SetTokenIssued").withArgs(
+            setToken.address,
+            subjectCaller.address,
+            subjectTo,
+            preIssueHook,
+            subjectQuantity.add(feeQuantity),
+            feeQuantity,
+            ZERO
+          );
+        });
+
         describe("when an external equity position is in place", async () => {
           const externalUnits: BigNumber = ether(1);
 
@@ -546,6 +560,19 @@ describe("DebtIssuanceModule", () => {
           const hookCalled = await debtModule.moduleRedeemHookCalled();
 
           expect(hookCalled).to.be.true;
+        });
+
+        it("should emit the correct SetTokenRedeemed event", async () => {
+          const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+
+          await expect(subject()).to.emit(debtIssuance, "SetTokenRedeemed").withArgs(
+            setToken.address,
+            subjectCaller.address,
+            subjectTo,
+            subjectQuantity.sub(feeQuantity),
+            feeQuantity,
+            ZERO
+          );
         });
 
         describe("when an external equity position is in place", async () => {
