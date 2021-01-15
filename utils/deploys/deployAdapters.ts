@@ -8,7 +8,8 @@ import {
   OneInchExchangeAdapter,
   AaveMigrationWrapAdapter,
   AaveWrapAdapter,
-  UniswapPairPriceAdapter
+  UniswapPairPriceAdapter,
+  UniswapV2ExchangeAdapter
 } from "../contracts";
 
 import { Address, Bytes } from "./../types";
@@ -21,6 +22,7 @@ import { OneInchExchangeAdapter__factory } from "../../typechain/factories/OneIn
 import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/AaveMigrationWrapAdapter__factory";
 import { AaveWrapAdapter__factory } from "../../typechain/factories/AaveWrapAdapter__factory";
 import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/UniswapPairPriceAdapter__factory";
+import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/UniswapV2ExchangeAdapter__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -43,6 +45,10 @@ export default class DeployAdapters {
       exchangeAddress,
       swapFunctionSignature
     );
+  }
+
+  public async deployUniswapV2ExchangeAdapter(uniswapV2Router: Address): Promise<UniswapV2ExchangeAdapter> {
+    return await new UniswapV2ExchangeAdapter__factory(this._deployerSigner).deploy(uniswapV2Router);
   }
 
   public async deployAaveGovernanceAdapter(aaveProtoGovernance: Address, aaveToken: Address): Promise<AaveGovernanceAdapter> {

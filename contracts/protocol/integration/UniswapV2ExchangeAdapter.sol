@@ -16,11 +16,8 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity ^0.6.0;
+pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
-
-
-
 
 /**
  * @title UniswapV2TradeAdapter
@@ -28,12 +25,12 @@ pragma experimental "ABIEncoderV2";
  *
  * Exchange adapter for Uniswap V2 Router02 that encodes trade data
  */
-contract UniswapV2RouterTradeAdapter {
+contract UniswapV2ExchangeAdapter {
 
     /* ============ State Variables ============ */
 
     // Address of Uniswap V2 Router02 contract
-    UniswapV2Router02 public immutable router;
+    address public immutable router;
 
     /* ============ Constructor ============ */
 
@@ -42,12 +39,8 @@ contract UniswapV2RouterTradeAdapter {
      *
      * @param _router       Address of Uniswap V2 Router02 contract
      */
-    constructor(
-        address _router
-    )
-        public
-    {
-        router = UniswapV2Router02(_router);
+    constructor(address _router) public {
+        router = _router;
     }
 
     /* ============ External Getter Functions ============ */
@@ -57,9 +50,10 @@ contract UniswapV2RouterTradeAdapter {
      *
      * @param  _sourceToken              Address of source token to be sold
      * @param  _destinationToken         Address of destination token to buy
-     * @param _destinationAddress        Address that assets should be transferred to
+     * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Amount of source token to sell
      * @param  _minDestinationQuantity   Min amount of destination token to buy
+     * @param  _data                     Arbitrage bytes containing trade call data
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
@@ -78,15 +72,24 @@ contract UniswapV2RouterTradeAdapter {
         returns (address, uint256, bytes memory)
     {   
         address[] memory path;
+
         if(_data.length == 0){
             path = new address[](2);
             path[0] = _sourceToken;
             path[1] = _destinationToken;
         } else {
-            path = abi.decode(_data,(address[]));
+            path = abi.decode(_data, (address[]));
         }
-        bytes memory callData = abi.encodeWithSignature("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)", _sourceQuantity,_minDestinationQuantity,path, _destinationAddress, block.timestamp);
-        return (address(router), 0, callData);
+
+        bytes memory callData = abi.encodeWithSignature(
+            "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+            _sourceQuantity,
+            _minDestinationQuantity,
+            path,
+            _destinationAddress,
+            block.timestamp
+        );
+        return (router, 0, callData);
     }
 
     /**
@@ -99,6 +102,6 @@ contract UniswapV2RouterTradeAdapter {
         view
         returns (address)
     {
-        return address(router);
+        return router;
     }
 } 
