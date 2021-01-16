@@ -199,7 +199,7 @@ describe("ProtocolViewer", () => {
       const symbol = await setTokenOne.symbol();
       const modules = await setTokenOne.getModules();
       const positions = await setTokenOne.getPositions();
-      console.log(positions);
+
       expect(details.name).to.eq(name);
       expect(details.symbol).to.eq(symbol);
       expect(JSON.stringify(details.modules)).to.eq(JSON.stringify(modules));
