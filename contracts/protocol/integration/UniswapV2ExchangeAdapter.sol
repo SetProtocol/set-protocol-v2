@@ -53,7 +53,7 @@ contract UniswapV2ExchangeAdapter {
      * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Amount of source token to sell
      * @param  _minDestinationQuantity   Min amount of destination token to buy
-     * @param  _data                     Arbitrage bytes containing trade call data
+     * @param  _data                     Arbitrary bytes containing trade call data
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
