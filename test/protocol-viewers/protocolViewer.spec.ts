@@ -185,7 +185,7 @@ describe("ProtocolViewer", () => {
     });
   });
 
-  describe.only("#getSetDetails", async () => {
+  describe("#getSetDetails", async () => {
     let subjectSetToken: Address;
     let subjectModules: Address[];
 
