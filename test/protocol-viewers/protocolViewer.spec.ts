@@ -55,7 +55,9 @@ describe("ProtocolViewer", () => {
       [setup.weth.address],
       [ether(1)],
       [setup.issuanceModule.address, setup.streamingFeeModule.address, dummyModule.address],
-      managerOne.address
+      managerOne.address,
+      "FirstSetToken",
+      "ONE"
     );
 
     setTokenTwo = await setup.createSetToken(
@@ -176,6 +178,32 @@ describe("ProtocolViewer", () => {
       expect(setTwoFeeInfo.streamingFeePercentage).to.eq(ether(.04));
       expect(setOneFeeInfo.unaccruedFees).to.eq(expectedFeePercentOne);
       expect(setTwoFeeInfo.unaccruedFees).to.eq(expectedFeePercentTwo);
+    });
+  });
+
+  describe("#getSetDetails", async () => {
+    let subjectSetToken: Address;
+
+    beforeEach(async () => {
+      subjectSetToken = setTokenOne.address;
+    });
+
+    async function subject(): Promise<any> {
+      return viewer.getSetDetails(subjectSetToken);
+    }
+
+    it("should return the correct set details", async () => {
+      const details: any = await subject();
+
+      const name = await setTokenOne.name();
+      const symbol = await setTokenOne.symbol();
+      const modules = await setTokenOne.getModules();
+      const positions = await setTokenOne.getPositions();
+      console.log(positions);
+      expect(details.name).to.eq(name);
+      expect(details.symbol).to.eq(symbol);
+      expect(JSON.stringify(details.modules)).to.eq(JSON.stringify(modules));
+      expect(JSON.stringify(details.positions)).to.eq(JSON.stringify(positions));
     });
   });
 });
