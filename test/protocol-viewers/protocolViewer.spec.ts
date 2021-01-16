@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, StreamingFeeState } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ADDRESS_ZERO, ZERO, ONE, ONE_YEAR_IN_SECONDS } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, ONE, TWO, ONE_YEAR_IN_SECONDS } from "@utils/constants";
 import { ProtocolViewer, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -25,6 +25,7 @@ const expect = getWaffleExpect();
 describe("ProtocolViewer", () => {
   let owner: Account;
   let dummyModule: Account;
+  let pendingModule: Account;
   let managerOne: Account;
   let managerTwo: Account;
 
@@ -42,6 +43,7 @@ describe("ProtocolViewer", () => {
       dummyModule,
       managerOne,
       managerTwo,
+      pendingModule,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -64,7 +66,9 @@ describe("ProtocolViewer", () => {
       [setup.wbtc.address],
       [ether(1)],
       [setup.issuanceModule.address, setup.streamingFeeModule.address],
-      managerTwo.address
+      managerTwo.address,
+      "SecondSetToken",
+      "TWO"
     );
 
     const streamingFeeStateOne = {
@@ -181,28 +185,43 @@ describe("ProtocolViewer", () => {
     });
   });
 
-  describe("#getSetDetails", async () => {
+  describe.only("#getSetDetails", async () => {
     let subjectSetToken: Address;
+    let subjectModules: Address[];
 
     beforeEach(async () => {
-      subjectSetToken = setTokenOne.address;
+      await setup.controller.addModule(pendingModule.address);
+      await setTokenTwo.connect(managerTwo.wallet).addModule(pendingModule.address);
+
+      subjectSetToken = setTokenTwo.address;
+      subjectModules = [
+        dummyModule.address,
+        setup.streamingFeeModule.address,
+        setup.issuanceModule.address,
+        pendingModule.address,
+      ];
     });
 
     async function subject(): Promise<any> {
-      return viewer.getSetDetails(subjectSetToken);
+      return viewer.getSetDetails(subjectSetToken, subjectModules);
     }
 
     it("should return the correct set details", async () => {
       const details: any = await subject();
 
-      const name = await setTokenOne.name();
-      const symbol = await setTokenOne.symbol();
-      const modules = await setTokenOne.getModules();
-      const positions = await setTokenOne.getPositions();
+      const name = await setTokenTwo.name();
+      const symbol = await setTokenTwo.symbol();
+      const manager = await setTokenTwo.manager();
+      const modules = await setTokenTwo.getModules();
+      const positions = await setTokenTwo.getPositions();
+
+      const expectedStatuses = [ZERO.toNumber(), TWO.toNumber(), ONE.toNumber(), ONE.toNumber()];
 
       expect(details.name).to.eq(name);
       expect(details.symbol).to.eq(symbol);
+      expect(details.manager).to.eq(manager);
       expect(JSON.stringify(details.modules)).to.eq(JSON.stringify(modules));
+      expect(JSON.stringify(details.moduleStatuses)).to.eq(JSON.stringify(expectedStatuses));
       expect(JSON.stringify(details.positions)).to.eq(JSON.stringify(positions));
     });
   });

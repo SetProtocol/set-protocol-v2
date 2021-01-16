@@ -37,7 +37,9 @@ contract SetTokenViewer {
     struct SetDetails {
         string name;
         string symbol;
+        address manager;
         address[] modules;
+        ISetToken.ModuleState[] moduleStatuses;
         ISetToken.Position[] positions;
     }
 
@@ -51,10 +53,10 @@ contract SetTokenViewer {
     }
 
     function batchFetchModuleStates(
-        ISetToken[] calldata _setTokens,
+        ISetToken[] memory _setTokens,
         address[] calldata _modules
     )
-        external
+        public
         view
         returns (ISetToken.ModuleState[][] memory)
     {
@@ -69,11 +71,19 @@ contract SetTokenViewer {
         return states;
     }
 
-    function getSetDetails(ISetToken _setToken) external view returns(SetDetails memory) {
+    function getSetDetails(
+        ISetToken _setToken,
+        address[] calldata _moduleList
+    ) external view returns(SetDetails memory) {
+        ISetToken[] memory _setTokens = new ISetToken[](1);
+        _setTokens[0] = _setToken;
+        
         return SetDetails({
             name: ERC20(address(_setToken)).name(),
             symbol: ERC20(address(_setToken)).symbol(),
+            manager: _setToken.manager(),
             modules: _setToken.getModules(),
+            moduleStatuses: batchFetchModuleStates(_setTokens, _moduleList)[0],
             positions: _setToken.getPositions()
         });
     }
