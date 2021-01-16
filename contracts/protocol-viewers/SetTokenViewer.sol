@@ -19,6 +19,7 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
 
 
@@ -27,8 +28,18 @@ import { ISetToken } from "../interfaces/ISetToken.sol";
  * @author Set Protocol
  *
  * SetTokenViewer enables batch queries of SetToken state.
+ *
+ * UPDATE:
+ * - Added getSetDetails functions
  */
 contract SetTokenViewer {
+
+    struct SetDetails {
+        string name;
+        string symbol;
+        address[] modules;
+        ISetToken.Position[] positions;
+    }
 
     function batchFetchManagers(ISetToken[] memory _setTokens) external view returns (address[] memory) {
         address[] memory managers = new address[](_setTokens.length);
@@ -56,5 +67,14 @@ contract SetTokenViewer {
             states[i] = moduleStates;
         }
         return states;
+    }
+
+    function getSetDetails(ISetToken _setToken) external view returns(SetDetails memory) {
+        return SetDetails({
+            name: ERC20(address(_setToken)).name(),
+            symbol: ERC20(address(_setToken)).symbol(),
+            modules: _setToken.getModules(),
+            positions: _setToken.getPositions()
+        });
     }
 }
