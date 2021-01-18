@@ -210,19 +210,25 @@ describe("ProtocolViewer", () => {
       const details: any = await subject();
 
       const name = await setTokenTwo.name();
+      expect(details.name).to.eq(name);
+
       const symbol = await setTokenTwo.symbol();
+      expect(details.symbol).to.eq(symbol);
+
       const manager = await setTokenTwo.manager();
+      expect(details.manager).to.eq(manager);
+
       const modules = await setTokenTwo.getModules();
-      const positions = await setTokenTwo.getPositions();
+      expect(JSON.stringify(details.modules)).to.eq(JSON.stringify(modules));
 
       const expectedStatuses = [ZERO.toNumber(), TWO.toNumber(), ONE.toNumber(), ONE.toNumber()];
-
-      expect(details.name).to.eq(name);
-      expect(details.symbol).to.eq(symbol);
-      expect(details.manager).to.eq(manager);
-      expect(JSON.stringify(details.modules)).to.eq(JSON.stringify(modules));
       expect(JSON.stringify(details.moduleStatuses)).to.eq(JSON.stringify(expectedStatuses));
+
+      const positions = await setTokenTwo.getPositions();
       expect(JSON.stringify(details.positions)).to.eq(JSON.stringify(positions));
+
+      const totalSupply = await setTokenTwo.totalSupply();
+      expect(details.totalSupply).to.eq(totalSupply);
     });
   });
 });

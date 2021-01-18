@@ -41,6 +41,7 @@ contract SetTokenViewer {
         address[] modules;
         ISetToken.ModuleState[] moduleStatuses;
         ISetToken.Position[] positions;
+        uint256 totalSupply;
     }
 
     function batchFetchManagers(ISetToken[] memory _setTokens) external view returns (address[] memory) {
@@ -84,7 +85,8 @@ contract SetTokenViewer {
             manager: _setToken.manager(),
             modules: _setToken.getModules(),
             moduleStatuses: batchFetchModuleStates(_setTokens, _moduleList)[0],
-            positions: _setToken.getPositions()
+            positions: _setToken.getPositions(),
+            totalSupply: _setToken.totalSupply()
         });
     }
 }
