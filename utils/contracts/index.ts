@@ -64,3 +64,5 @@ export { UniswapYieldStrategy } from "../../typechain/UniswapYieldStrategy";
 export { WETH9 } from "../../typechain/WETH9";
 export { WrapAdapterMock } from "../../typechain/WrapAdapterMock";
 export { WrapModule } from "../../typechain/WrapModule";
+export { ZeroExApiAdapter } from "../../typechain/ZeroExApiAdapter";
+export { ZeroExMock } from "../../typechain/ZeroExMock";

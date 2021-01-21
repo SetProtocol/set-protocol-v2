@@ -9,7 +9,8 @@ import {
   AaveMigrationWrapAdapter,
   AaveWrapAdapter,
   UniswapPairPriceAdapter,
-  UniswapV2ExchangeAdapter
+  UniswapV2ExchangeAdapter,
+  ZeroExApiAdapter,
 } from "../contracts";
 
 import { Address, Bytes } from "./../types";
@@ -19,6 +20,7 @@ import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factorie
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
 import { OneInchExchangeAdapter__factory } from "../../typechain/factories/OneInchExchangeAdapter__factory";
+import { ZeroExApiAdapter__factory } from "../../typechain/factories/ZeroExApiAdapter__factory";
 import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/AaveMigrationWrapAdapter__factory";
 import { AaveWrapAdapter__factory } from "../../typechain/factories/AaveWrapAdapter__factory";
 import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/UniswapPairPriceAdapter__factory";
@@ -85,5 +87,9 @@ export default class DeployAdapters {
 
   public async getUniswapPairPriceAdapter(uniswapAdapterAddress: Address): Promise<UniswapPairPriceAdapter> {
     return await new UniswapPairPriceAdapter__factory(this._deployerSigner).attach(uniswapAdapterAddress);
+  }
+
+  public async deployZeroExApiAdapter(zeroExAddress: Address): Promise<ZeroExApiAdapter> {
+    return await new ZeroExApiAdapter__factory(this._deployerSigner).deploy(zeroExAddress);
   }
 }

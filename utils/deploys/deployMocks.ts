@@ -31,6 +31,7 @@ import {
   StandardTokenWithFeeMock,
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
+  ZeroExMock,
 } from "../contracts";
 
 import { ether } from "../common";
@@ -63,6 +64,7 @@ import { StandardTokenMock__factory } from "../../typechain/factories/StandardTo
 import { StandardTokenWithFeeMock__factory } from "../../typechain/factories/StandardTokenWithFeeMock__factory";
 import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint256ArrayUtilsMock__factory";
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
+import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -131,6 +133,10 @@ export default class DeployMocks {
       sendQuantity,
       receiveQuantity,
     );
+  }
+
+  public async deployZeroExMock(): Promise<ZeroExMock> {
+    return await new ZeroExMock__factory(this._deployerSigner).deploy();
   }
 
   public async deployOracleMock(initialValue: BigNumberish): Promise<OracleMock> {
