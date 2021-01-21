@@ -51,6 +51,7 @@ contract ZeroExApiAdapter {
      *
      * @param  _sourceToken              Address of source token to be sold
      * @param  _destinationToken         Address of destination token to buy
+     * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Amount of source token to sell
      * @param  _minDestinationQuantity   Min amount of destination token to buy
      * @param  _data                     Arbitrage bytes containing trade call data
