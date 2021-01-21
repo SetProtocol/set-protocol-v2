@@ -66,7 +66,7 @@ contract ZeroExApiAdapter {
         address _destinationAddress,
         uint256 _sourceQuantity,
         uint256 _minDestinationQuantity,
-        bytes memory _data
+        bytes calldata _data
     )
         external
         view
@@ -80,38 +80,37 @@ contract ZeroExApiAdapter {
         uint256 inputTokenAmount;
         uint256 minOutputTokenAmount;
 
+        {
+            require(_data.length >= 4, "Invalid calldata");
+            bytes4 selector;
+            assembly {
+                selector := and(
+                    // Read the first 4 bytes of the _data array from calldata.
+                    calldataload(add(36, calldataload(164))), // 164 = 5 * 32 + 4
+                    0xffffffff00000000000000000000000000000000000000000000000000000000
+                )
+            }
 
-        bytes4 selector;
-        require(_data.length >= 4, "Invalid calldata");
-        assembly {
-            selector := and(
-                mload(add(_data, 32)),
-                0xffffffff00000000000000000000000000000000000000000000000000000000
-            )
-            // Chop off the first 4 bytes of the _data byte array
-            mstore(add(_data, 4), sub(mload(_data), 4))
-            _data := add(_data, 4)
-        }
-
-        if (selector == 0x415565b0) {
-            // transformERC20()
-            (inputToken, outputToken, inputTokenAmount, minOutputTokenAmount) =
-                abi.decode(_data, (address, address, uint256, uint256));
-        } else if (selector == 0xf7fcd384) {
-            // sellToLiquidityProvider()
-            (inputToken, outputToken, , recipient, inputTokenAmount, minOutputTokenAmount) =
-                abi.decode(_data, (address, address, address, address, uint256, uint256));
-            supportsRecipient = true;
-        } else if (selector == 0xd9627aa4) {
-            // sellToUniswap()
-            address[] memory path;
-            (path, inputTokenAmount, minOutputTokenAmount) =
-                abi.decode(_data, (address[], uint256, uint256));
-            require(path.length > 1, "Uniswap token path too short");
-            inputToken = path[0];
-            outputToken = path[path.length - 1];
-        } else {
-            revert("Unsupported 0xAPI function selector");
+            if (selector == 0x415565b0) {
+                // transformERC20()
+                (inputToken, outputToken, inputTokenAmount, minOutputTokenAmount) =
+                    abi.decode(_data[4:], (address, address, uint256, uint256));
+            } else if (selector == 0xf7fcd384) {
+                // sellToLiquidityProvider()
+                (inputToken, outputToken, , recipient, inputTokenAmount, minOutputTokenAmount) =
+                    abi.decode(_data[4:], (address, address, address, address, uint256, uint256));
+                supportsRecipient = true;
+            } else if (selector == 0xd9627aa4) {
+                // sellToUniswap()
+                address[] memory path;
+                (path, inputTokenAmount, minOutputTokenAmount) =
+                    abi.decode(_data[4:], (address[], uint256, uint256));
+                require(path.length > 1, "Uniswap token path too short");
+                inputToken = path[0];
+                outputToken = path[path.length - 1];
+            } else {
+                revert("Unsupported 0xAPI function selector");
+            }
         }
 
         require(inputToken == _sourceToken, "Mismatched input token");
@@ -119,14 +118,6 @@ contract ZeroExApiAdapter {
         require(!supportsRecipient || recipient == _destinationAddress, "Mismatched recipient");
         require(inputTokenAmount == _sourceQuantity, "Mismatched input token quantity");
         require(minOutputTokenAmount >= _minDestinationQuantity, "Mismatched output token quantity");
-
-        // Prepend the original first 4 bytes to the _data byte array
-        assembly {
-            let len := add(mload(_data), 4)
-            mstore(_data, shr(224, selector))
-            _data := sub(_data, 4)
-            mstore(_data, len)
-        }
 
         return (
             zeroExAddress,
