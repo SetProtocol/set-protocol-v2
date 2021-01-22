@@ -30,6 +30,9 @@ contract ZeroExApiAdapter {
 
     /* ============ State Variables ============ */
 
+    // ETH pseudo-token address used by 0x API.
+    address private constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     // Address of the deployed ZeroEx contract.
     address public immutable zeroExAddress;
 
@@ -121,7 +124,8 @@ contract ZeroExApiAdapter {
 
         return (
             zeroExAddress,
-            0, // callValue cannot be determined from calldata.
+            // Note: Does not account for limit order protocol fees.
+            inputToken == ETH_ADDRESS ? inputTokenAmount : 0,
             _data
         );
     }
