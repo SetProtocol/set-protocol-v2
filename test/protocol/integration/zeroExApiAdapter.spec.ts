@@ -8,7 +8,7 @@ import { addSnapshotBeforeRestoreAfterEach, getAccounts, getWaffleExpect } from 
 
 const expect = getWaffleExpect();
 
-describe("ZeroExApiAdapter", () => {
+describe.only("ZeroExApiAdapter", () => {
   let owner: Account;
   const sourceToken = "0x6cf5f1d59fddae3a688210953a512b6aee6ea643";
   const destToken = "0x5e5d0bea9d4a15db2d0837aff0435faba166190d";
@@ -58,6 +58,18 @@ describe("ZeroExApiAdapter", () => {
         "0x01234567" + data.slice(10),
       );
       await expect(tx).to.be.revertedWith("Unsupported 0xAPI function selector");
+    });
+
+    it("rejects data with less than 4 length", async () => {
+      const tx = zeroExApiAdapter.getTradeCalldata(
+        sourceToken,
+        destToken,
+        destination,
+        sourceQuantity,
+        minDestinationQuantity,
+        "0x",
+      );
+      await expect(tx).to.be.revertedWith("Invalid calldata");
     });
 
     describe("transformERC20", () => {
@@ -250,6 +262,24 @@ describe("ZeroExApiAdapter", () => {
           data,
         );
         await expect(tx).to.be.revertedWith("Mismatched output token quantity");
+      });
+
+      it("rejects invalid uniswap path", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("sellToUniswap", [
+          [sourceToken],
+          sourceQuantity,
+          otherQuantity,
+          false,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Uniswap token path too short");
       });
     });
 
