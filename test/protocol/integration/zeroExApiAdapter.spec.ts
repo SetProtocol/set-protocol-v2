@@ -8,7 +8,7 @@ import { addSnapshotBeforeRestoreAfterEach, getAccounts, getWaffleExpect } from 
 
 const expect = getWaffleExpect();
 
-describe.only("ZeroExApiAdapter", () => {
+describe("ZeroExApiAdapter", () => {
   let owner: Account;
   const sourceToken = "0x6cf5f1d59fddae3a688210953a512b6aee6ea643";
   const destToken = "0x5e5d0bea9d4a15db2d0837aff0435faba166190d";
