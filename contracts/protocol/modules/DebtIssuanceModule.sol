@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
-import "hardhat/console.sol";
 
 
 /**
@@ -68,17 +67,20 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     );
     event SetTokenRedeemed(
         address indexed _setToken,
-        address _redeemer,
-        address _to,
+        address indexed _redeemer,
+        address indexed _to,
         uint256 _quantity,
         uint256 _managerFee,
         uint256 _protocolFee
     );
     event FeeRecipientUpdated(address indexed _setToken, address _newFeeRecipient);
+    event IssueFeeUpdated(address indexed _setToken, uint256 _newIssueFee);
+    event RedeemFeeUpdated(address indexed _setToken, uint256 _newRedeemFee);
 
     /* ============ Structs ============ */
 
     struct IssuanceSettings {
+        uint256 maxManagerFee;
         uint256 managerIssueFee;
         uint256 managerRedeemFee;
         address feeRecipient;
@@ -88,7 +90,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
     /* ============ Constants ============ */
 
-    uint256 public constant ISSUANCE_MODULE_PROTOCOL_FEE_SPLIT_INDEX = 0;
+    uint256 private constant ISSUANCE_MODULE_PROTOCOL_FEE_SPLIT_INDEX = 0;
 
     /* ============ State ============ */
 
@@ -163,11 +165,11 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     /**
      * Returns components from the SetToken, unwinds any external module component positions and burns 
      * the SetToken. If the token has a debt position all debt will be paid down first then equity positions
-     * will be returned to the minting address. If specified, a fee will be charged on issuance.
+     * will be returned to the minting address. If specified, a fee will be charged on redeem.
      *
-     * @param _setToken         Instance of the SetToken to issue
-     * @param _quantity         Quanity of SetToken to issue
-     * @param _to               Address to mint SetToken to
+     * @param _setToken         Instance of the SetToken to redeem
+     * @param _quantity         Quanity of SetToken to redeem
+     * @param _to               Address to send collateral to
      */
     function redeem(
         ISetToken _setToken,
@@ -217,7 +219,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     /**
      * MANAGER ONLY: Updates address receiving issue/redeem fees for a given SetToken.
      *
-     * @param _setToken             Instance of the SetToken to issue
+     * @param _setToken             Instance of the SetToken to update fee recipient
      * @param _newFeeRecipient      New fee recipient address
      */
     function updateFeeRecipient(
@@ -232,6 +234,46 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         issuanceSettings[_setToken].feeRecipient = _newFeeRecipient;
 
         emit FeeRecipientUpdated(address(_setToken), _newFeeRecipient);
+    }
+
+    /**
+     * MANAGER ONLY: Updates issue fee for passed SetToken
+     *
+     * @param _setToken             Instance of the SetToken to update issue fee
+     * @param _newIssueFee          New fee amount in preciseUnits (1% = 10^16)
+     */
+    function updateIssueFee(
+        ISetToken _setToken,
+        uint256 _newIssueFee
+    )
+        external
+        onlyManagerAndValidSet(_setToken)
+    {
+        require(_newIssueFee <= issuanceSettings[_setToken].maxManagerFee, "Issue fee can't exceed maximum");
+
+        issuanceSettings[_setToken].managerIssueFee = _newIssueFee;
+
+        emit IssueFeeUpdated(address(_setToken), _newIssueFee);
+    }
+
+    /**
+     * MANAGER ONLY: Updates redeem fee for passed SetToken
+     *
+     * @param _setToken             Instance of the SetToken to update redeem fee
+     * @param _newRedeemFee         New fee amount in preciseUnits (1% = 10^16)
+     */
+    function updateRedeemFee(
+        ISetToken _setToken,
+        uint256 _newRedeemFee
+    )
+        external
+        onlyManagerAndValidSet(_setToken)
+    {
+        require(_newRedeemFee <= issuanceSettings[_setToken].maxManagerFee, "Redeem fee can't exceed maximum");
+
+        issuanceSettings[_setToken].managerRedeemFee = _newRedeemFee;
+
+        emit RedeemFeeUpdated(address(_setToken), _newRedeemFee);
     }
 
     /**
@@ -261,6 +303,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      * by the SetToken's manager. Hook addresses are optional. Address(0) means that no hook will be called
      *
      * @param _setToken                     Instance of the SetToken to issue
+     * @param _maxManagerFee                Maximum fee that can be charged on issue and redeem
      * @param _managerIssueFee              Fee to charge on issuance
      * @param _managerRedeemFee             Fee to charge on redemption
      * @param _feeRecipient                 Address to send fees to
@@ -268,6 +311,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      */
     function initialize(
         ISetToken _setToken,
+        uint256 _maxManagerFee,
         uint256 _managerIssueFee,
         uint256 _managerRedeemFee,
         address _feeRecipient,
@@ -277,6 +321,11 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
+        require(_maxManagerFee > 0, "Maximum fee must be greater than 0.");
+        require(_managerIssueFee < _maxManagerFee, "Issue fee can't exceed maximum fee");
+        require(_managerRedeemFee < _maxManagerFee, "Redeem fee can't exceed maximum fee");
+
+        issuanceSettings[_setToken].maxManagerFee = _maxManagerFee;
         issuanceSettings[_setToken].managerIssueFee = _managerIssueFee;
         issuanceSettings[_setToken].managerRedeemFee = _managerRedeemFee;
         issuanceSettings[_setToken].feeRecipient = _feeRecipient;
@@ -287,6 +336,8 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     function removeModule() external override {
         delete issuanceSettings[ISetToken(msg.sender)];
     }
+
+    /* ============ External Getter Functions ============ */
 
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity of Sets as well as amount of debt that will
@@ -341,14 +392,17 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Calculates the manager fee, protocol fee and resulting totalQuantity to use when calculating unit amounts. If fees are charged they
-     * are added to the total issue quantity, for example 1% fee on 100 Sets means 101 Sets are minted by caller while _to address only
-     * receives 100. Conversely, on redemption the redeemer will only receive the collateral that collateralizes 99 Sets.
+     * are added to the total issue quantity, for example 1% fee on 100 Sets means 101 Sets are minted by caller, the _to address receives
+     * 100 and the feeRecipient receives 1. Conversely, on redemption the redeemer will only receive the collateral that collateralizes 99
+     * Sets, while the additional Set is given to the feeRecipient.
      *
      * @param _setToken         Instance of the SetToken to issue
+     * @param _quantity         Amount of SetToken issuer wants to receive/redeem
+     * @param _isIssue          If issuing or redeeming
      *
-     * @return address[]        Array of component addresses making up the Set
-     * @return uint256[]        Array of equity unit amounts of each component, respectively, represented as uint256
-     * @return uint256[]        Array of debt unit amounts of each component, respectively, represented as uint256
+     * @return uint256          Total amount of Sets to be issued/redeemed net of fees
+     * @return uint256          Sets minted to the manager
+     * @return uint256          Sets minted to the protocol
      */
     function _calculateTotalFees(
         ISetToken _setToken,
@@ -401,9 +455,9 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
                 for (uint256 j = 0; j < externalPositions.length; j++) { 
                     int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(component, externalPositions[j]);
                     if (externalPositionUnit > 0) {
-                        cumulativeEquity += externalPositionUnit;
+                        cumulativeEquity = cumulativeEquity.add(externalPositionUnit);
                     } else {
-                        cumulativeDebt += externalPositionUnit;
+                        cumulativeDebt = cumulativeDebt.add(externalPositionUnit);
                     }
                 }
             }
@@ -541,7 +595,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      * For each component's external module positions, calculate the total notional quantity, and 
      * call the module's issue hook or redeem hook.
      * Note: It is possible that these hooks can cause the states of other modules to change.
-     * It can be problematic if the a hook called an external function that called back into a module, resulting in state inconsistencies.
+     * It can be problematic if the hook called an external function that called back into a module, resulting in state inconsistencies.
      */
     function _executeExternalPositionHooks(
         ISetToken _setToken,

@@ -10,6 +10,8 @@ import {
   addSnapshotBeforeRestoreAfterEach,
   ether,
   getAccounts,
+  getRandomAccount,
+  getRandomAddress,
   getSystemFixture,
   getWaffleExpect,
   preciseMul,
@@ -74,6 +76,7 @@ describe("DebtIssuanceModule", () => {
 
   describe("#initialize", async () => {
     let subjectSetToken: Address;
+    let subjectMaxManagerFee: BigNumber;
     let subjectManagerIssueFee: BigNumber;
     let subjectManagerRedeemFee: BigNumber;
     let subjectFeeRecipient: Address;
@@ -82,6 +85,7 @@ describe("DebtIssuanceModule", () => {
 
     beforeEach(async () => {
       subjectSetToken = setToken.address;
+      subjectMaxManagerFee = ether(0.02);
       subjectManagerIssueFee = ether(0.005);
       subjectManagerRedeemFee = ether(0.004);
       subjectFeeRecipient = feeRecipient.address;
@@ -92,6 +96,7 @@ describe("DebtIssuanceModule", () => {
     async function subject(): Promise<ContractTransaction> {
       return debtIssuance.connect(subjectCaller.wallet).initialize(
         subjectSetToken,
+        subjectMaxManagerFee,
         subjectManagerIssueFee,
         subjectManagerRedeemFee,
         subjectFeeRecipient,
@@ -104,10 +109,88 @@ describe("DebtIssuanceModule", () => {
 
       const settings: any = await debtIssuance.issuanceSettings(subjectSetToken);
 
+      expect(settings.maxManagerFee).to.eq(subjectMaxManagerFee);
       expect(settings.managerIssueFee).to.eq(subjectManagerIssueFee);
       expect(settings.managerRedeemFee).to.eq(subjectManagerRedeemFee);
       expect(settings.feeRecipient).to.eq(subjectFeeRecipient);
       expect(settings.managerIssuanceHook).to.eq(subjectManagerIssuanceHook);
+    });
+
+    describe("when the maximum fee is 0", async () => {
+      beforeEach(async () => {
+        subjectMaxManagerFee = ZERO;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Maximum fee must be greater than 0.");
+      });
+    });
+
+    describe("when the issue fee is greater than the maximum fee", async () => {
+      beforeEach(async () => {
+        subjectManagerIssueFee = ether(0.03);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Issue fee can't exceed maximum fee");
+      });
+    });
+
+    describe("when the redeem fee is greater than the maximum fee", async () => {
+      beforeEach(async () => {
+        subjectManagerRedeemFee = ether(0.03);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Redeem fee can't exceed maximum fee");
+      });
+    });
+
+    describe("when the caller is not the SetToken manager", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      });
+    });
+
+    describe("when SetToken is not in pending state", async () => {
+      beforeEach(async () => {
+        const newModule = await getRandomAddress();
+        await setup.controller.addModule(newModule);
+
+        const issuanceModuleNotPendingSetToken = await setup.createSetToken(
+          [setup.weth.address],
+          [ether(1)],
+          [newModule],
+          manager.address
+        );
+
+        subjectSetToken = issuanceModuleNotPendingSetToken.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be pending initialization");
+      });
+    });
+
+    describe("when the SetToken is not enabled on the controller", async () => {
+      beforeEach(async () => {
+        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+          [setup.weth.address],
+          [ether(1)],
+          [debtIssuance.address],
+          manager.address
+        );
+
+        subjectSetToken = nonEnabledSetToken.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be controller-enabled SetToken");
+      });
     });
   });
 
@@ -117,6 +200,7 @@ describe("DebtIssuanceModule", () => {
     beforeEach(async () => {
       await debtIssuance.connect(manager.wallet).initialize(
         setToken.address,
+        ether(0.02),
         ether(.005),
         ether(.005),
         feeRecipient.address,
@@ -145,19 +229,28 @@ describe("DebtIssuanceModule", () => {
   context("DebtIssuanceModule has been initialized", async () => {
     let preIssueHook: Address;
     let initialize: boolean;
+    let maxFee: BigNumber;
     let issueFee: BigNumber;
     let redeemFee: BigNumber;
 
     before(async () => {
       preIssueHook = ADDRESS_ZERO;
       initialize = true;
+      maxFee = ether(0.02);
       issueFee = ether(0.005);
       redeemFee = ether(0.005);
     });
 
     beforeEach(async () => {
       if (initialize) {
-        await debtIssuance.connect(manager.wallet).initialize(setToken.address, issueFee, redeemFee, feeRecipient.address, preIssueHook);
+        await debtIssuance.connect(manager.wallet).initialize(
+          setToken.address,
+          maxFee,
+          issueFee,
+          redeemFee,
+          feeRecipient.address,
+          preIssueHook
+        );
       }
     });
 
@@ -741,6 +834,13 @@ describe("DebtIssuanceModule", () => {
           expect(settings.feeRecipient).to.eq(subjectNewFeeRecipient);
         });
 
+        it("should emit the correct FeeRecipientUpdated event", async () => {
+          await expect(subject()).to.emit(debtIssuance, "FeeRecipientUpdated").withArgs(
+            subjectSetToken,
+            subjectNewFeeRecipient
+          );
+        });
+
         describe("when fee recipient address is null address", async () => {
           beforeEach(async () => {
             subjectNewFeeRecipient = ADDRESS_ZERO;
@@ -776,6 +876,148 @@ describe("DebtIssuanceModule", () => {
           it("should revert", async () => {
             await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
           });
+        });
+      });
+    });
+
+    describe("#updateIssueFee", async () => {
+      let subjectSetToken: Address;
+      let subjectNewIssueFee: BigNumber;
+      let subjectCaller: Account;
+
+      beforeEach(async () => {
+        subjectNewIssueFee = ether(.01);
+        subjectSetToken = setToken.address;
+        subjectCaller = manager;
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return debtIssuance.connect(subjectCaller.wallet).updateIssueFee(
+          subjectSetToken,
+          subjectNewIssueFee
+        );
+      }
+
+      it("should have set the new fee recipient address", async () => {
+        await subject();
+
+        const settings: any = await debtIssuance.issuanceSettings(subjectSetToken);
+
+        expect(settings.managerIssueFee).to.eq(subjectNewIssueFee);
+      });
+
+      it("should emit the correct IssueFeeUpdated event", async () => {
+        await expect(subject()).to.emit(debtIssuance, "IssueFeeUpdated").withArgs(
+          subjectSetToken,
+          subjectNewIssueFee
+        );
+      });
+
+      describe("when new issue fee is greater than max fee", async () => {
+        beforeEach(async () => {
+          subjectNewIssueFee = ether(0.03);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Issue fee can't exceed maximum");
+        });
+      });
+
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+            [setup.weth.address],
+            [ether(1)],
+            [debtIssuance.address],
+            manager.address
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = owner;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+    });
+
+    describe("#updateRedeemFee", async () => {
+      let subjectSetToken: Address;
+      let subjectNewRedeemFee: BigNumber;
+      let subjectCaller: Account;
+
+      beforeEach(async () => {
+        subjectNewRedeemFee = ether(.01);
+        subjectSetToken = setToken.address;
+        subjectCaller = manager;
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return debtIssuance.connect(subjectCaller.wallet).updateRedeemFee(
+          subjectSetToken,
+          subjectNewRedeemFee
+        );
+      }
+
+      it("should have set the new fee recipient address", async () => {
+        await subject();
+
+        const settings: any = await debtIssuance.issuanceSettings(subjectSetToken);
+
+        expect(settings.managerRedeemFee).to.eq(subjectNewRedeemFee);
+      });
+
+      it("should emit the correct RedeemFeeUpdated event", async () => {
+        await expect(subject()).to.emit(debtIssuance, "RedeemFeeUpdated").withArgs(
+          subjectSetToken,
+          subjectNewRedeemFee
+        );
+      });
+
+      describe("when new redeem fee is greater than max fee", async () => {
+        beforeEach(async () => {
+          subjectNewRedeemFee = ether(0.03);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Redeem fee can't exceed maximum");
+        });
+      });
+
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+            [setup.weth.address],
+            [ether(1)],
+            [debtIssuance.address],
+            manager.address
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = owner;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
         });
       });
     });
