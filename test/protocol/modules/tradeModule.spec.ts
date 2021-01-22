@@ -16,7 +16,9 @@ import {
   StandardTokenMock,
   TradeModule,
   UniswapV2ExchangeAdapter,
-  WETH9
+  WETH9,
+  ZeroExApiAdapter,
+  ZeroExMock,
 } from "@utils/contracts";
 import { ADDRESS_ZERO, EMPTY_BYTES, MAX_UINT_256, ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
@@ -52,10 +54,14 @@ describe("TradeModule", () => {
   let oneInchExchangeMock: OneInchExchangeMock;
   let oneInchExchangeAdapter: OneInchExchangeAdapter;
   let oneInchAdapterName: string;
-  
+
   // let uniswapPairMock: OneInchExchangeMock;
   let uniswapExchangeAdapter: UniswapV2ExchangeAdapter;
   let uniswapAdapterName: string;
+
+  let zeroExMock: ZeroExMock;
+  let zeroExApiAdapter: ZeroExApiAdapter;
+  let zeroExApiAdapterName: string;
 
   let wbtcRate: BigNumber;
   let setup: SystemFixture;
@@ -111,17 +117,28 @@ describe("TradeModule", () => {
     );
     uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapter(uniswapSetup.router.address);
 
+
+    zeroExMock = await deployer.mocks.deployZeroExMock(
+        setup.wbtc.address,
+        setup.weth.address,
+        BigNumber.from(100000000), // 1 WBTC
+        wbtcRate, // Trades for 33 WETH
+    );
+    zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExMock.address);
+
+
     kyberAdapterName = "KYBER";
     oneInchAdapterName = "ONEINCH";
     uniswapAdapterName = "UNISWAPV2";
+    zeroExApiAdapterName = "ZERO_EX";
 
     tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);
     await setup.controller.addModule(tradeModule.address);
 
     await setup.integrationRegistry.batchAddIntegration(
-      [tradeModule.address, tradeModule.address, tradeModule.address],
-      [kyberAdapterName, oneInchAdapterName, uniswapAdapterName],
-      [kyberExchangeAdapter.address, oneInchExchangeAdapter.address, uniswapExchangeAdapter.address]
+      [tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address],
+      [kyberAdapterName, oneInchAdapterName, uniswapAdapterName, zeroExApiAdapterName],
+      [kyberExchangeAdapter.address, oneInchExchangeAdapter.address, uniswapExchangeAdapter.address, zeroExApiAdapter.address]
     );
   });
 
@@ -665,7 +682,7 @@ describe("TradeModule", () => {
           subjectSourceQuantity = sourceTokenQuantity;
           subjectSetToken = setToken.address;
           subjectAdapterName = uniswapAdapterName;
-          subjectData = EMPTY_BYTES
+          subjectData = EMPTY_BYTES;
           subjectMinDestinationQuantity = destinationTokenQuantity.sub(ether(1)); // Receive a min of 32 WETH for 1 WBTC
           subjectCaller = manager;
         });
@@ -690,7 +707,7 @@ describe("TradeModule", () => {
             [subjectSourceToken, subjectDestinationToken]
           );
 
-          await subject();  
+          await subject();
 
           const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
           const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
@@ -753,12 +770,12 @@ describe("TradeModule", () => {
 
           it("should transfer the correct components to the SetToken", async () => {
             const oldDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
-            const [x,y,expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
+            const [, , expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
               subjectSourceQuantity,
               [subjectSourceToken, setup.weth.address, subjectDestinationToken]
             );
 
-            await subject();  
+            await subject();
 
             const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
             const newDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
@@ -992,6 +1009,210 @@ describe("TradeModule", () => {
 
           it("should revert", async () => {
             await expect(subject()).to.be.revertedWith("Min destination quantity mismatch");
+          });
+        });
+      });
+
+      context("when trading a Default component on 0xAPI", async () => {
+        beforeEach(async () => {
+          // Add Set token as token sender / recipient
+          zeroExMock = zeroExMock.connect(owner.wallet);
+          await zeroExMock.addSetTokenAddress(setToken.address);
+
+          // Fund One Inch exchange with destinationToken WETH
+          await destinationToken.transfer(zeroExMock.address, ether(1000));
+
+          tradeModule = tradeModule.connect(manager.wallet);
+          await tradeModule.initialize(setToken.address);
+
+          // Trade 1 WBTC. Note: 1inch mock is hardcoded to trade 1 WBTC unit regardless of Set supply
+          sourceTokenQuantity = wbtcUnits;
+          const sourceTokenDecimals = await sourceToken.decimals();
+          destinationTokenQuantity = wbtcRate.mul(sourceTokenQuantity).div(10 ** sourceTokenDecimals);
+
+          // Transfer sourceToken from owner to manager for issuance
+          sourceToken = sourceToken.connect(owner.wallet);
+          await sourceToken.transfer(manager.address, wbtcUnits.mul(100));
+
+          // Approve tokens to Controller and call issue
+          sourceToken = sourceToken.connect(manager.wallet);
+          await sourceToken.approve(setup.issuanceModule.address, ethers.constants.MaxUint256);
+
+          // Deploy mock issuance hook and initialize issuance module
+          setup.issuanceModule = setup.issuanceModule.connect(manager.wallet);
+          mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
+          await setup.issuanceModule.initialize(setToken.address, mockPreIssuanceHook.address);
+
+          // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1 WBTC unit regardless of Set supply
+          issueQuantity = ether(1);
+          await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+          subjectSourceToken = sourceToken.address;
+          subjectDestinationToken = destinationToken.address;
+          subjectSourceQuantity = sourceTokenQuantity;
+          subjectSetToken = setToken.address;
+          subjectAdapterName = zeroExApiAdapterName;
+          // Encode function data. Inputs are unused in the mock One Inch contract
+          subjectData = zeroExMock.interface.encodeFunctionData("transformERC20", [
+            sourceToken.address, // Send token
+            destinationToken.address, // Receive token
+            sourceTokenQuantity, // Send quantity
+            destinationTokenQuantity.sub(ether(1)), // Min receive quantity
+            [],
+          ]);
+          subjectMinDestinationQuantity = destinationTokenQuantity.sub(ether(1)); // Receive a min of 32 WETH for 1 WBTC
+          subjectCaller = manager;
+        });
+
+        async function subject(): Promise<any> {
+          tradeModule = tradeModule.connect(subjectCaller.wallet);
+          return tradeModule.trade(
+            subjectSetToken,
+            subjectAdapterName,
+            subjectSourceToken,
+            subjectSourceQuantity,
+            subjectDestinationToken,
+            subjectMinDestinationQuantity,
+            subjectData
+          );
+        }
+
+        it("should transfer the correct components to the SetToken", async () => {
+          const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+
+          await subject();
+
+          const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(totalDestinationQuantity);
+          const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+        });
+
+        it("should transfer the correct components from the SetToken", async () => {
+          const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+
+          await subject();
+
+          const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+          const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
+          const newSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+        });
+
+        it("should transfer the correct components to the exchange", async () => {
+          const oldSourceTokenBalance = await sourceToken.balanceOf(zeroExMock.address);
+
+          await subject();
+
+          const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+          const newSourceTokenBalance = await sourceToken.balanceOf(zeroExMock.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+        });
+
+        it("should transfer the correct components from the exchange", async () => {
+          const oldDestinationTokenBalance = await destinationToken.balanceOf(zeroExMock.address);
+
+          await subject();
+
+          const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+          const newDestinationTokenBalance = await destinationToken.balanceOf(zeroExMock.address);
+          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+        });
+
+        it("should update the positions on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          // All WBTC is sold for WETH
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+
+          expect(initialPositions.length).to.eq(1);
+          expect(currentPositions.length).to.eq(1);
+          expect(newFirstPosition.component).to.eq(destinationToken.address);
+          expect(newFirstPosition.unit).to.eq(destinationTokenQuantity);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        describe("when function signature is not supported", async () => {
+          beforeEach(async () => {
+            // Encode random function
+            subjectData = zeroExMock.interface.encodeFunctionData("addSetTokenAddress", [ADDRESS_ZERO]);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Unsupported 0xAPI function selector");
+          });
+        });
+
+        describe("when send token does not match calldata", async () => {
+          beforeEach(async () => {
+            // Get random source token
+            const randomToken = await getRandomAccount();
+            subjectData = zeroExMock.interface.encodeFunctionData("transformERC20", [
+              randomToken.address, // Send token
+              destinationToken.address, // Receive token
+              sourceTokenQuantity, // Send quantity
+              destinationTokenQuantity.sub(ether(1)), // Min receive quantity
+              [],
+            ]);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Mismatched input token");
+          });
+        });
+
+        describe("when receive token does not match calldata", async () => {
+          beforeEach(async () => {
+            // Get random source token
+            const randomToken = await getRandomAccount();
+            subjectData = zeroExMock.interface.encodeFunctionData("transformERC20", [
+              sourceToken.address, // Send token
+              randomToken.address, // Receive token
+              sourceTokenQuantity, // Send quantity
+              destinationTokenQuantity.sub(ether(1)), // Min receive quantity
+              [],
+            ]);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Mismatched output token");
+          });
+        });
+
+        describe("when send token quantity does not match calldata", async () => {
+          beforeEach(async () => {
+            subjectData = zeroExMock.interface.encodeFunctionData("transformERC20", [
+              sourceToken.address, // Send token
+              destinationToken.address, // Receive token
+              ZERO, // Send quantity
+              destinationTokenQuantity.sub(ether(1)), // Min receive quantity
+              [],
+            ]);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Mismatched input token quantity");
+          });
+        });
+
+        describe("when min receive token quantity does not match calldata", async () => {
+          beforeEach(async () => {
+            subjectData = zeroExMock.interface.encodeFunctionData("transformERC20", [
+              sourceToken.address, // Send token
+              destinationToken.address, // Receive token
+              sourceTokenQuantity, // Send quantity
+              ZERO, // Min receive quantity
+              [],
+            ]);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Mismatched output token quantity");
           });
         });
       });

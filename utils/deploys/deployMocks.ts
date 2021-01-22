@@ -135,8 +135,18 @@ export default class DeployMocks {
     );
   }
 
-  public async deployZeroExMock(): Promise<ZeroExMock> {
-    return await new ZeroExMock__factory(this._deployerSigner).deploy();
+  public async deployZeroExMock(
+    sendToken: Address,
+    receiveToken: Address,
+    sendQuantity: BigNumber,
+    receiveQuantity: BigNumber,
+  ): Promise<ZeroExMock> {
+    return await new ZeroExMock__factory(this._deployerSigner).deploy(
+        sendToken,
+        receiveToken,
+        sendQuantity,
+        receiveQuantity,
+    );
   }
 
   public async deployOracleMock(initialValue: BigNumberish): Promise<OracleMock> {

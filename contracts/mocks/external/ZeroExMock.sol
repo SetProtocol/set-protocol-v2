@@ -19,12 +19,38 @@
 pragma solidity 0.6.10;
 pragma experimental ABIEncoderV2;
 
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
 // Minimal 0x Exchange Proxy contract interface.
 contract ZeroExMock {
 
     struct Transformation {
         uint32 deploymentNonce;
         bytes data;
+    }
+
+    address public mockReceiveToken;
+    address public mockSendToken;
+    uint256 public mockReceiveAmount;
+    uint256 public mockSendAmount;
+    // Address of SetToken which will send/receive token
+    address public setTokenAddress;
+
+    constructor(
+        address _mockSendToken,
+        address _mockReceiveToken,
+        uint256 _mockSendAmount,
+        uint256 _mockReceiveAmount
+    ) public {
+        mockSendToken = _mockSendToken;
+        mockReceiveToken = _mockReceiveToken;
+        mockSendAmount = _mockSendAmount;
+        mockReceiveAmount = _mockReceiveAmount;
+    }
+
+    // Initialize SetToken address which will send/receive tokens for the trade
+    function addSetTokenAddress(address _setTokenAddress) external {
+        setTokenAddress = _setTokenAddress;
     }
 
     function transformERC20(
@@ -36,8 +62,11 @@ contract ZeroExMock {
     )
         external
         payable
-        returns (uint256 outputTokenAmount)
-    { }
+        returns (uint256)
+    {
+        require(ERC20(mockSendToken).transferFrom(setTokenAddress, address(this), mockSendAmount), "ERC20 TransferFrom failed");
+        require(ERC20(mockReceiveToken).transfer(setTokenAddress, mockReceiveAmount), "ERC20 transfer failed");
+    }
 
     function sellToUniswap(
         address[] calldata /* tokens */,
@@ -47,8 +76,11 @@ contract ZeroExMock {
     )
         external
         payable
-        returns (uint256 buyAmount)
-    { }
+        returns (uint256)
+    {
+        require(ERC20(mockSendToken).transferFrom(setTokenAddress, address(this), mockSendAmount), "ERC20 TransferFrom failed");
+        require(ERC20(mockReceiveToken).transfer(setTokenAddress, mockReceiveAmount), "ERC20 transfer failed");
+    }
 
     function sellToLiquidityProvider(
         address /* inputToken */,
@@ -61,6 +93,9 @@ contract ZeroExMock {
     )
         external
         payable
-        returns (uint256 boughtAmount)
-    { }
+        returns (uint256)
+    {
+        require(ERC20(mockSendToken).transferFrom(setTokenAddress, address(this), mockSendAmount), "ERC20 TransferFrom failed");
+        require(ERC20(mockReceiveToken).transfer(setTokenAddress, mockReceiveAmount), "ERC20 transfer failed");
+    }
 }

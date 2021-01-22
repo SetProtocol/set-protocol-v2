@@ -29,7 +29,12 @@ describe("ZeroExApiAdapter", () => {
     deployer = new DeployHelper(owner.wallet);
 
     // Mock OneInch exchange that allows for only fixed exchange amounts
-    zeroExMock = await deployer.mocks.deployZeroExMock();
+    zeroExMock = await deployer.mocks.deployZeroExMock(
+        ADDRESS_ZERO,
+        ADDRESS_ZERO,
+        ZERO,
+        ZERO,
+    );
     zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExMock.address);
   });
 
