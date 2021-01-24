@@ -143,13 +143,9 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
         _resolveEquityPositions(_setToken, totalQuantity, _to, true, components, equityUnits);
         _resolveDebtPositions(_setToken, totalQuantity, true, components, debtUnits);
+        _resolveFees(_setToken, managerFee, protocolFee);
 
         _setToken.mint(_to, _quantity);
-
-        if (managerFee > 0) {
-            _setToken.mint(issuanceSettings[_setToken].feeRecipient, managerFee);
-            _setToken.mint(controller.feeRecipient(), protocolFee);
-        }
 
         emit SetTokenIssued(
             address(_setToken),
@@ -200,11 +196,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
         _resolveDebtPositions(_setToken, totalQuantity, false, components, debtUnits);
         _resolveEquityPositions(_setToken, totalQuantity, _to, false, components, equityUnits);
-
-        if (managerFee > 0) {
-            _setToken.mint(issuanceSettings[_setToken].feeRecipient, managerFee);
-            _setToken.mint(controller.feeRecipient(), protocolFee);
-        }
+        _resolveFees(_setToken, managerFee, protocolFee);
 
         emit SetTokenRedeemed(
             address(_setToken),
@@ -576,6 +568,15 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
                     );
                     _executeExternalPositionHooks(_setToken, _quantity, component, false);
                 }
+            }
+        }
+    }
+
+    function _resolveFees(ISetToken _setToken, uint256 managerFee, uint256 protocolFee) internal {
+        if (managerFee > 0) {
+            _setToken.mint(issuanceSettings[_setToken].feeRecipient, managerFee);
+            if (protocolFee > 0) {
+                _setToken.mint(controller.feeRecipient(), protocolFee);
             }
         }
     }
