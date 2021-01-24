@@ -44,7 +44,13 @@ contract SetTokenViewer {
         uint256 totalSupply;
     }
 
-    function batchFetchManagers(ISetToken[] memory _setTokens) external view returns (address[] memory) {
+    function batchFetchManagers(
+        ISetToken[] memory _setTokens
+    )
+        external
+        view
+        returns (address[] memory) 
+    {
         address[] memory managers = new address[](_setTokens.length);
 
         for (uint256 i = 0; i < _setTokens.length; i++) {
@@ -72,21 +78,44 @@ contract SetTokenViewer {
         return states;
     }
 
+    function batchFetchDetails(
+        ISetToken[] memory _setTokens,
+        address[] calldata _moduleList
+    )
+        public
+        view
+        returns (SetDetails[] memory)
+    {
+        ISetToken.ModuleState[][] memory moduleStates = batchFetchModuleStates(_setTokens, _moduleList);
+
+        SetDetails[] memory details = new SetDetails[](_setTokens.length);
+        for (uint256 i = 0; i < _setTokens.length; i++) {
+            ISetToken setToken = _setTokens[i];
+
+            details[i] = SetDetails({
+                name: ERC20(address(setToken)).name(),
+                symbol: ERC20(address(setToken)).symbol(),
+                manager: setToken.manager(),
+                modules: setToken.getModules(),
+                moduleStatuses: moduleStates[i],
+                positions: setToken.getPositions(),
+                totalSupply: setToken.totalSupply()
+            });
+        }
+        return details;
+    }
+
     function getSetDetails(
         ISetToken _setToken,
         address[] calldata _moduleList
-    ) external view returns(SetDetails memory) {
-        ISetToken[] memory _setTokens = new ISetToken[](1);
-        _setTokens[0] = _setToken;
-        
-        return SetDetails({
-            name: ERC20(address(_setToken)).name(),
-            symbol: ERC20(address(_setToken)).symbol(),
-            manager: _setToken.manager(),
-            modules: _setToken.getModules(),
-            moduleStatuses: batchFetchModuleStates(_setTokens, _moduleList)[0],
-            positions: _setToken.getPositions(),
-            totalSupply: _setToken.totalSupply()
-        });
+    )
+        external
+        view
+        returns(SetDetails memory)
+    {
+        ISetToken[] memory setAddressForBatchFetch = new ISetToken[](1);
+        setAddressForBatchFetch[0] = _setToken;
+
+        return batchFetchDetails(setAddressForBatchFetch, _moduleList)[0];
     }
 }
