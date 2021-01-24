@@ -139,7 +139,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             address[] memory components,
             uint256[] memory equityUnits,
             uint256[] memory debtUnits
-        ) = getRequiredComponentIssuanceUnits(_setToken, totalQuantity, true);
+        ) = _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, true);
 
         _resolveEquityPositions(_setToken, totalQuantity, _to, true, components, equityUnits);
         _resolveDebtPositions(_setToken, totalQuantity, true, components, debtUnits);
@@ -194,7 +194,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             address[] memory components,
             uint256[] memory equityUnits,
             uint256[] memory debtUnits
-        ) = getRequiredComponentIssuanceUnits(_setToken, totalQuantity, false);
+        ) = _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, false);
 
         _setToken.burn(msg.sender, _quantity);
 
@@ -283,8 +283,8 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      * @param _setToken             Instance of the SetToken to issue
      */
     function register(ISetToken _setToken) external onlyModule(_setToken) {
-        // Make sure _setToken has initialized DebtIssuanceModule
         require(_setToken.isInitializedModule(address(this)), "DebtIssuanceModule not initialized");
+        require(!issuanceSettings[_setToken].moduleIssuanceHooks.contains(msg.sender), "Module already registered.");
         issuanceSettings[_setToken].moduleIssuanceHooks.push(msg.sender);
     }
 
@@ -295,6 +295,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      * @param _setToken             Instance of the SetToken to issue
      */
     function unregister(ISetToken _setToken) external onlyModule(_setToken) {
+        require(issuanceSettings[_setToken].moduleIssuanceHooks.contains(msg.sender), "Module not registered.");
         issuanceSettings[_setToken].moduleIssuanceHooks = issuanceSettings[_setToken].moduleIssuanceHooks.remove(msg.sender);
     }
 
@@ -334,6 +335,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     function removeModule() external override {
+        require(issuanceSettings[ISetToken(msg.sender)].moduleIssuanceHooks.length == 0, "Registered modules must be removed.");
         delete issuanceSettings[ISetToken(msg.sender)];
     }
 
@@ -342,7 +344,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity of Sets as well as amount of debt that will
      * be returned to caller. Can also be used to determine how much collateral will be returned on redemption as well as how much debt
-     * needs to be paid down to redeem. Values DO NOT take into account manager fees.
+     * needs to be paid down to redeem. Values DO NOT take into account any updates from pre action manager or module hooks.
      *
      * @param _setToken         Instance of the SetToken to issue
      * @param _quantity         Amount of Sets to be issued/redeemed
@@ -357,31 +359,15 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 _quantity,
         bool _isIssue
     )
-        public
+        external
         view
         returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         (
-            address[] memory components,
-            uint256[] memory equityUnits,
-            uint256[] memory debtUnits
-        ) = _getTotalIssuanceUnits(_setToken);
+            uint256 totalQuantity,,
+        ) = _calculateTotalFees(_setToken, _quantity, _isIssue);
 
-        uint256[] memory totalEquityUnits = new uint256[](components.length);
-        uint256[] memory totalDebtUnits = new uint256[](components.length);
-        for (uint256 i = 0; i < components.length; i++) {
-            // Use preciseMulCeil to round up to ensure overcollateration when small issue quantities are provided
-            // and preciseMul to round down to ensure overcollateration when small redeem quantities are provided
-            totalEquityUnits[i] = _isIssue ?
-                equityUnits[i].preciseMulCeil(_quantity) :
-                equityUnits[i].preciseMul(_quantity);
-
-            totalDebtUnits[i] = _isIssue ?
-                debtUnits[i].preciseMul(_quantity) :
-                debtUnits[i].preciseMulCeil(_quantity);
-        }
-
-        return (components, totalEquityUnits, totalDebtUnits);
+        return _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, _isIssue);
     }
 
     function getModuleIssuanceHooks(ISetToken _setToken) external view returns(address[] memory) {
@@ -423,6 +409,51 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 totalQuantity = _isIssue ? _quantity.add(totalFee) : _quantity.sub(totalFee);
 
         return (totalQuantity, managerFee, protocolFee);
+    }
+
+    /**
+     * Calculates the amount of each component needed to collateralize passed issue quantity of Sets as well as amount of debt that will
+     * be returned to caller. Can also be used to determine how much collateral will be returned on redemption as well as how much debt
+     * needs to be paid down to redeem. Values DO NOT take into account manager fees.
+     *
+     * @param _setToken         Instance of the SetToken to issue
+     * @param _quantity         Amount of Sets to be issued/redeemed
+     * @param _isIssue          Whether Sets are being issued or redeemed
+     *
+     * @return address[]        Array of component addresses making up the Set
+     * @return uint256[]        Array of equity notional amounts of each component, respectively, represented as uint256
+     * @return uint256[]        Array of debt notional amounts of each component, respectively, represented as uint256
+     */
+    function _calculateRequiredComponentIssuanceUnits(
+        ISetToken _setToken,
+        uint256 _quantity,
+        bool _isIssue
+    )
+        internal
+        view
+        returns (address[] memory, uint256[] memory, uint256[] memory)
+    {
+        (
+            address[] memory components,
+            uint256[] memory equityUnits,
+            uint256[] memory debtUnits
+        ) = _getTotalIssuanceUnits(_setToken);
+
+        uint256[] memory totalEquityUnits = new uint256[](components.length);
+        uint256[] memory totalDebtUnits = new uint256[](components.length);
+        for (uint256 i = 0; i < components.length; i++) {
+            // Use preciseMulCeil to round up to ensure overcollateration when small issue quantities are provided
+            // and preciseMul to round down to ensure overcollateration when small redeem quantities are provided
+            totalEquityUnits[i] = _isIssue ?
+                equityUnits[i].preciseMulCeil(_quantity) :
+                equityUnits[i].preciseMul(_quantity);
+
+            totalDebtUnits[i] = _isIssue ?
+                debtUnits[i].preciseMul(_quantity) :
+                debtUnits[i].preciseMulCeil(_quantity);
+        }
+
+        return (components, totalEquityUnits, totalDebtUnits);
     }
 
     /**
