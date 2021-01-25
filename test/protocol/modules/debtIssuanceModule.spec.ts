@@ -23,7 +23,7 @@ import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe("DebtIssuanceModule", () => {
+describe.only("DebtIssuanceModule", () => {
   let owner: Account;
   let manager: Account;
   let feeRecipient: Account;
@@ -372,7 +372,6 @@ describe("DebtIssuanceModule", () => {
       describe("#getRequiredComponentIssuanceUnits", async () => {
         let subjectSetToken: Address;
         let subjectQuantity: BigNumber;
-        let subjectIsIssue: boolean;
 
         const debtUnits: BigNumber = ether(100);
 
@@ -381,14 +380,12 @@ describe("DebtIssuanceModule", () => {
 
           subjectSetToken = setToken.address;
           subjectQuantity = ether(1);
-          subjectIsIssue = true;
         });
 
         async function subject(): Promise<any> {
           return debtIssuance.getRequiredComponentIssuanceUnits(
             subjectSetToken,
-            subjectQuantity,
-            subjectIsIssue
+            subjectQuantity
           );
         }
 
@@ -456,18 +453,58 @@ describe("DebtIssuanceModule", () => {
             expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
           });
         });
+      });
 
-        describe("when trying to get redeem flows", async () => {
+      describe("#getRequiredComponentRedemptionUnits", async () => {
+        let subjectSetToken: Address;
+        let subjectQuantity: BigNumber;
+
+        const debtUnits: BigNumber = ether(100);
+
+        beforeEach(async () => {
+          await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
+
+          subjectSetToken = setToken.address;
+          subjectQuantity = ether(1);
+        });
+
+        async function subject(): Promise<any> {
+          return debtIssuance.getRequiredComponentRedemptionUnits(
+            subjectSetToken,
+            subjectQuantity
+          );
+        }
+
+        it("should return the correct redeem token amounts", async () => {
+          const [components, equityFlows, debtFlows] = await subject();
+
+          const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
+          const daiFlows = preciseMulCeil( mintQuantity, debtUnits);
+          const wethFlows = preciseMul(mintQuantity, ether(1));
+
+          const expectedComponents = await setToken.getComponents();
+          const expectedEquityFlows = [wethFlows, ZERO];
+          const expectedDebtFlows = [ZERO, daiFlows];
+
+          expect(JSON.stringify(expectedComponents)).to.eq(JSON.stringify(components));
+          expect(JSON.stringify(expectedEquityFlows)).to.eq(JSON.stringify(equityFlows));
+          expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
+        });
+
+
+        describe("when an additive external equity position is in place", async () => {
+          const externalUnits: BigNumber = ether(1);
+
           beforeEach(async () => {
-            subjectIsIssue = false;
+            await externalPositionModule.addExternalPosition(setToken.address, setup.weth.address, externalUnits);
           });
 
           it("should return the correct redeem token amounts", async () => {
             const [components, equityFlows, debtFlows] = await subject();
 
             const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
-            const daiFlows = preciseMulCeil( mintQuantity, debtUnits);
-            const wethFlows = preciseMul(mintQuantity, ether(1));
+            const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
+            const wethFlows = preciseMul(mintQuantity, ether(1).add(externalUnits));
 
             const expectedComponents = await setToken.getComponents();
             const expectedEquityFlows = [wethFlows, ZERO];
@@ -477,54 +514,30 @@ describe("DebtIssuanceModule", () => {
             expect(JSON.stringify(expectedEquityFlows)).to.eq(JSON.stringify(equityFlows));
             expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
           });
+        });
 
-          describe("when an additive external equity position is in place", async () => {
-            const externalUnits: BigNumber = ether(1);
+        describe("when a non-additive external equity position is in place", async () => {
+          const externalUnits: BigNumber = bitcoin(0.5);
 
-            beforeEach(async () => {
-              await externalPositionModule.addExternalPosition(setToken.address, setup.weth.address, externalUnits);
-            });
-
-            it("should return the correct redeem token amounts", async () => {
-              const [components, equityFlows, debtFlows] = await subject();
-
-              const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
-              const wethFlows = preciseMul(mintQuantity, ether(1).add(externalUnits));
-
-              const expectedComponents = await setToken.getComponents();
-              const expectedEquityFlows = [wethFlows, ZERO];
-              const expectedDebtFlows = [ZERO, daiFlows];
-
-              expect(JSON.stringify(expectedComponents)).to.eq(JSON.stringify(components));
-              expect(JSON.stringify(expectedEquityFlows)).to.eq(JSON.stringify(equityFlows));
-              expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
-            });
+          beforeEach(async () => {
+            await externalPositionModule.addExternalPosition(setToken.address, setup.wbtc.address, externalUnits);
           });
 
-          describe("when a non-additive external equity position is in place", async () => {
-            const externalUnits: BigNumber = bitcoin(0.5);
+          it("should return the correct redeem token amounts", async () => {
+            const [components, equityFlows, debtFlows] = await subject();
 
-            beforeEach(async () => {
-              await externalPositionModule.addExternalPosition(setToken.address, setup.wbtc.address, externalUnits);
-            });
+            const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
+            const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
+            const wethFlows = preciseMul(mintQuantity, ether(1));
+            const wbtcFlows = preciseMul(mintQuantity, externalUnits);
 
-            it("should return the correct redeem token amounts", async () => {
-              const [components, equityFlows, debtFlows] = await subject();
+            const expectedComponents = await setToken.getComponents();
+            const expectedEquityFlows = [wethFlows, ZERO, wbtcFlows];
+            const expectedDebtFlows = [ZERO, daiFlows, ZERO];
 
-              const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
-              const wethFlows = preciseMul(mintQuantity, ether(1));
-              const wbtcFlows = preciseMul(mintQuantity, externalUnits);
-
-              const expectedComponents = await setToken.getComponents();
-              const expectedEquityFlows = [wethFlows, ZERO, wbtcFlows];
-              const expectedDebtFlows = [ZERO, daiFlows, ZERO];
-
-              expect(JSON.stringify(expectedComponents)).to.eq(JSON.stringify(components));
-              expect(JSON.stringify(expectedEquityFlows)).to.eq(JSON.stringify(equityFlows));
-              expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
-            });
+            expect(JSON.stringify(expectedComponents)).to.eq(JSON.stringify(components));
+            expect(JSON.stringify(expectedEquityFlows)).to.eq(JSON.stringify(equityFlows));
+            expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
           });
         });
       });
@@ -541,7 +554,7 @@ describe("DebtIssuanceModule", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1), true);
+          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
           await setup.weth.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
 
           subjectSetToken = setToken.address;
@@ -783,7 +796,7 @@ describe("DebtIssuanceModule", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1), true);
+          const [, equityFlows, ] = await debtIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
           await setup.weth.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
 
           await debtIssuance.issue(setToken.address, ether(1), owner.address);
