@@ -335,12 +335,10 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity of Sets as well as amount of debt that will
-     * be returned to caller. Can also be used to determine how much collateral will be returned on redemption as well as how much debt
-     * needs to be paid down to redeem. Values DO NOT take into account any updates from pre action manager or module hooks.
+     * be returned to caller. Values DO NOT take into account any updates from pre action manager or module hooks.
      *
      * @param _setToken         Instance of the SetToken to issue
      * @param _quantity         Amount of Sets to be issued/redeemed
-     * @param _isIssue          Whether Sets are being issued or redeemed
      *
      * @return address[]        Array of component addresses making up the Set
      * @return uint256[]        Array of equity notional amounts of each component, respectively, represented as uint256
@@ -348,8 +346,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      */
     function getRequiredComponentIssuanceUnits(
         ISetToken _setToken,
-        uint256 _quantity,
-        bool _isIssue
+        uint256 _quantity
     )
         external
         view
@@ -357,9 +354,35 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     {
         (
             uint256 totalQuantity,,
-        ) = _calculateTotalFees(_setToken, _quantity, _isIssue);
+        ) = _calculateTotalFees(_setToken, _quantity, true);
 
-        return _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, _isIssue);
+        return _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, true);
+    }
+
+    /**
+     * Calculates the amount of each component will be returned on redemption as well as how much debt needs to be paid down to redeem.
+     * Values DO NOT take into account any updates from pre action manager or module hooks.
+     *
+     * @param _setToken         Instance of the SetToken to issue
+     * @param _quantity         Amount of Sets to be issued/redeemed
+     *
+     * @return address[]        Array of component addresses making up the Set
+     * @return uint256[]        Array of equity notional amounts of each component, respectively, represented as uint256
+     * @return uint256[]        Array of debt notional amounts of each component, respectively, represented as uint256
+     */
+    function getRequiredComponentRedemptionUnits(
+        ISetToken _setToken,
+        uint256 _quantity
+    )
+        external
+        view
+        returns (address[] memory, uint256[] memory, uint256[] memory)
+    {
+        (
+            uint256 totalQuantity,,
+        ) = _calculateTotalFees(_setToken, _quantity, false);
+
+        return _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, false);
     }
 
     function getModuleIssuanceHooks(ISetToken _setToken) external view returns(address[] memory) {
