@@ -195,38 +195,6 @@ describe("DebtIssuanceModule", () => {
     });
   });
 
-  describe("#removeModule", async () => {
-    let subjectModule: Address;
-
-    beforeEach(async () => {
-      await debtIssuance.connect(manager.wallet).initialize(
-        setToken.address,
-        ether(0.02),
-        ether(.005),
-        ether(.005),
-        feeRecipient.address,
-        issuanceHook.address
-      );
-
-      subjectModule = debtIssuance.address;
-    });
-
-    async function subject(): Promise<ContractTransaction> {
-      return setToken.connect(manager.wallet).removeModule(subjectModule);
-    }
-
-    it("should set the correct state", async () => {
-      await subject();
-
-      const settings: any = await debtIssuance.issuanceSettings(setToken.address);
-
-      expect(settings.managerIssueFee).to.eq(ZERO);
-      expect(settings.managerRedeemFee).to.eq(ZERO);
-      expect(settings.feeRecipient).to.eq(ADDRESS_ZERO);
-      expect(settings.managerIssuanceHook).to.eq(ADDRESS_ZERO);
-    });
-  });
-
   context("DebtIssuanceModule has been initialized", async () => {
     let preIssueHook: Address;
     let initialize: boolean;
@@ -253,6 +221,43 @@ describe("DebtIssuanceModule", () => {
           preIssueHook
         );
       }
+    });
+
+    describe("#removeModule", async () => {
+      let subjectModule: Address;
+
+      beforeEach(async () => {
+        subjectModule = debtIssuance.address;
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return setToken.connect(manager.wallet).removeModule(subjectModule);
+      }
+
+      it("should set the correct state", async () => {
+        await subject();
+
+        const settings: any = await debtIssuance.issuanceSettings(setToken.address);
+
+        expect(settings.managerIssueFee).to.eq(ZERO);
+        expect(settings.managerRedeemFee).to.eq(ZERO);
+        expect(settings.feeRecipient).to.eq(ADDRESS_ZERO);
+        expect(settings.managerIssuanceHook).to.eq(ADDRESS_ZERO);
+      });
+
+      describe("when a module is still registered with the DebtIssuanceModule", async () => {
+        beforeEach(async () => {
+          await setup.controller.addModule(dummyModule.address);
+          await setToken.connect(manager.wallet).addModule(dummyModule.address);
+          await setToken.connect(dummyModule.wallet).initializeModule();
+
+          await debtIssuance.connect(dummyModule.wallet).register(setToken.address);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Registered modules must be removed.");
+        });
+      });
     });
 
     describe("#register", async () => {
