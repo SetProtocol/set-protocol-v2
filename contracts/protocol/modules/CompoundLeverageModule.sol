@@ -134,7 +134,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     /* ============ Constants ============ */
 
     // String identifying the DebtIssuanceModule in the IntegrationRegistry. Note: Governance must add DefaultIssuanceModule as
-    // the string on the Integration
+    // the string as the integration name
     string constant internal DEFAULT_ISSUANCE_MODULE_NAME = "DefaultIssuanceModule";
 
     // 0 index stores protocol fee % on the controller, charged in the trade function
