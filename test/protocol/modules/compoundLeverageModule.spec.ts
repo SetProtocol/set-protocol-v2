@@ -184,6 +184,13 @@ describe("CompoundLeverageModule", () => {
       "ONEINCHSLIPPAGE",
       oneInchExchangeAdapterWithSlippage.address
     );
+
+    // Add debt issuance address to integration
+    await setup.integrationRegistry.addIntegration(
+      compoundLeverageModule.address,
+      "DefaultIssuanceModule",
+      debtIssuanceMock.address
+    );
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -322,6 +329,25 @@ describe("CompoundLeverageModule", () => {
       await subject();
       const isRegistered = await debtIssuanceMock.isRegistered(setToken.address);
       expect(isRegistered).to.be.true;
+    });
+
+    describe("when debt issuance module is not added to integration registry", async () => {
+      beforeEach(async () => {
+        await setup.integrationRegistry.removeIntegration(compoundLeverageModule.address, "DefaultIssuanceModule");
+      });
+
+      afterEach(async () => {
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          compoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be valid adapter");
+      });
     });
 
     describe("when collateral asset does not exist on Compound", async () => {
@@ -2685,6 +2711,25 @@ describe("CompoundLeverageModule", () => {
       expect(isRegistered).to.be.false;
     });
 
+    describe("when debt issuance module is not added to integration registry", async () => {
+      beforeEach(async () => {
+        await setup.integrationRegistry.removeIntegration(compoundLeverageModule.address, "DefaultIssuanceModule");
+      });
+
+      afterEach(async () => {
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          compoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be valid adapter");
+      });
+    });
+
     describe("when borrow balance exists", async () => {
       beforeEach(async () => {
         // Add Set token as token sender / recipient
@@ -2755,94 +2800,6 @@ describe("CompoundLeverageModule", () => {
 
       expect(JSON.stringify(currentCompoundMarkets)).to.eq(JSON.stringify(expectedCompoundMarkets));
       expect(underlyingToCToken).to.eq(cWbtc.address);
-    });
-  });
-
-  describe("#addRegister", async () => {
-    let setToken: SetToken;
-    let isInitialized: boolean;
-    let subjectSetToken: Address;
-    let subjectDebtIssuanceModule: Address;
-
-    before(async () => {
-      isInitialized = true;
-    });
-
-    beforeEach(async () => {
-      setToken = await setup.createSetToken(
-        [cEther.address],
-        [BigNumber.from(10000000000)],
-        [compoundLeverageModule.address, setup.issuanceModule.address]
-      );
-      // Initialize module if set to true
-      if (isInitialized) {
-        await compoundLeverageModule.initialize(
-          setToken.address,
-          [setup.weth.address, setup.dai.address, compoundSetup.comp.address], // Enable COMP that is not a Set position
-          [setup.dai.address, setup.weth.address, compoundSetup.comp.address]
-        );
-      }
-      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
-
-      // Add debt issuance mock after initializing Compound leverage module, so register is never called
-      await setToken.addModule(debtIssuanceMock.address);
-      await debtIssuanceMock.initialize(setToken.address);
-
-      subjectSetToken = setToken.address;
-      subjectDebtIssuanceModule = debtIssuanceMock.address;
-    });
-
-    async function subject(): Promise<any> {
-      return compoundLeverageModule.addRegister(subjectSetToken, subjectDebtIssuanceModule);
-    }
-
-    it("should register on the debt issuance module", async () => {
-      const previousIsRegistered = await debtIssuanceMock.isRegistered(setToken.address);
-      await subject();
-      const currentIsRegistered = await debtIssuanceMock.isRegistered(setToken.address);
-      expect(previousIsRegistered).to.be.false;
-      expect(currentIsRegistered).to.be.true;
-    });
-
-    describe("when module is not initialized", async () => {
-      before(async () => {
-        isInitialized = false;
-      });
-
-      after(async () => {
-        isInitialized = true;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-
-    describe("when SetToken is not valid", async () => {
-      beforeEach(async () => {
-        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
-          [ether(1)],
-          [compoundLeverageModule.address],
-          owner.address
-        );
-
-        subjectSetToken = nonEnabledSetToken.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-
-    describe("when debt issuance module is not initialized on SetToken", async () => {
-      beforeEach(async () => {
-        await setToken.removeModule(debtIssuanceMock.address);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Debt issuance module must be initialized on SetToken");
-      });
     });
   });
 
