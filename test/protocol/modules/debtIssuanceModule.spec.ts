@@ -2,22 +2,25 @@ import "module-alias/register";
 
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { Address, Account } from "@utils/types";
+import { Address } from "@utils/types";
+import { Account } from "@utils/test/types";
 import { ZERO, ADDRESS_ZERO } from "@utils/constants";
 import { DebtIssuanceModule, DebtModuleMock, ModuleIssuanceHookMock, SetToken, ManagerIssuanceHookMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   ether,
+  preciseMul,
+  preciseMulCeil,
+  bitcoin,
+} from "@utils/index";
+import {
+  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAccount,
   getRandomAddress,
   getSystemFixture,
   getWaffleExpect,
-  preciseMul,
-  preciseMulCeil,
-  bitcoin,
-} from "@utils/index";
+} from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
 
