@@ -133,6 +133,10 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
 
     /* ============ Constants ============ */
 
+    // String identifying the DebtIssuanceModule in the IntegrationRegistry. Note: Governance must add DefaultIssuanceModule as
+    // the string on the Integration
+    string constant internal DEFAULT_ISSUANCE_MODULE_NAME = "DefaultIssuanceModule";
+
     // 0 index stores protocol fee % on the controller, charged in the trade function
     uint256 constant internal PROTOCOL_TRADE_FEE_INDEX = 0;
 
@@ -494,14 +498,12 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         // Initialize module before trying register
         _setToken.initializeModule();
 
-        // Try if register exists on any of the modules
-        address[] memory modules = _setToken.getModules();
-        for(uint256 i = 0; i < modules.length; i++) {
-            // Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function needs to be called
-            // if the debt issuance module is later added and initialized to prevent state inconsistencies
-            _register(_setToken, modules[i]);
-        }
-        
+        // Get debt issuance module registered to this module and call register
+        IDebtIssuanceModule debtIssuanceModule = IDebtIssuanceModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME));
+
+        //  Note: this ensures that the DebtIssuanceModule must be initialized first. The logic for requiring initialization is in the debt issuance module
+        debtIssuanceModule.register(_setToken);
+
         // Enable collateral and borrow assets on Compound
         for(uint256 i = 0; i < _collateralAssets.length; i++) {
             addCollateralAsset(_setToken, _collateralAssets[i]);
@@ -541,13 +543,9 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         
         delete compoundSettings[setToken];
 
-        // Try if unregister exists on any of the modules
-        address[] memory modules = setToken.getModules();
-        for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).unregister(setToken) {
-                IDebtIssuanceModule(modules[i]).unregister(setToken);
-            } catch {}
-        }
+        // Unregister on the DebtIssuanceModule. Note: this ensures that the DebtIssuanceModule cannot be removed before this module
+        IDebtIssuanceModule debtIssuanceModule = IDebtIssuanceModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME));
+        debtIssuanceModule.unregister(setToken);
     }
 
     /**
@@ -566,21 +564,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
                 }
             }
         }
-    }
-
-    /**
-     * ANYONE CALLABLE: Add registration of this module on debt issuance module for the SetToken. Note: if the debt issuance module is not added to SetToken
-     * before this module is initialized, then this function needs to be called if the debt issuance module is later added and initialized to prevent state
-     * inconsistencies
-     *
-     * @param _setToken             Instance of the SetToken
-     * @param _debtIssuanceModule   Debt issuance module address to register
-     */
-    function addRegister(ISetToken _setToken, address _debtIssuanceModule) external onlyValidAndInitializedSet(_setToken) {
-        require(_setToken.isInitializedModule(_debtIssuanceModule), "Debt issuance module must be initialized on SetToken");
-
-        // Note: if the interface of the module being registered does not contain the register() interface, then function call will still succeed.
-        _register(_setToken, _debtIssuanceModule);
     }
 
     /**
