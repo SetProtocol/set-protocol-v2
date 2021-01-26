@@ -4,7 +4,9 @@ import {
   AirdropModule,
   AmmModule,
   BasicIssuanceModule,
+  CompoundLeverageModule,
   ClaimModule,
+  DebtIssuanceModule,
   GovernanceModule,
   IssuanceModule,
   NavIssuanceModule,
@@ -20,7 +22,9 @@ import { Address } from "../types";
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
+import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
 import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__factory";
+import { DebtIssuanceModule__factory } from "../../typechain/factories/DebtIssuanceModule__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
@@ -44,6 +48,10 @@ export default class DeployModules {
 
   public async deployIssuanceModule(controller: Address): Promise<IssuanceModule> {
     return await new IssuanceModule__factory(this._deployerSigner).deploy(controller);
+  }
+
+  public async deployDebtIssuanceModule(controller: Address): Promise<DebtIssuanceModule> {
+    return await new DebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployAmmModule(controller: Address): Promise<AmmModule> {
@@ -134,5 +142,21 @@ export default class DeployModules {
 
   public async deployGovernanceModule(controller: Address): Promise<GovernanceModule> {
     return await new GovernanceModule__factory(this._deployerSigner).deploy(controller);
+  }
+
+  public async deployCompoundLeverageModule(
+    controller: Address,
+    compToken: Address,
+    comptroller: Address,
+    cEth: Address,
+    weth: Address
+  ): Promise<CompoundLeverageModule> {
+    return await new CompoundLeverageModule__factory(this._deployerSigner).deploy(
+      controller,
+      compToken,
+      comptroller,
+      cEth,
+      weth,
+    );
   }
 }

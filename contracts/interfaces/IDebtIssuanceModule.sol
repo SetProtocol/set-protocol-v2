@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -19,26 +19,23 @@ pragma solidity 0.6.10;
 
 import { ISetToken } from "./ISetToken.sol";
 
-
 /**
- * CHANGELOG:
- *      - Added a module level issue hook that can be used to set state ahead of component level
- *        issue hooks
+ * @title IDebtIssuanceModule
+ * @author Set Protocol
+ *
+ * Interface for interacting with Debt Issuance module interface.
  */
-interface IModuleIssuanceHook {
+interface IDebtIssuanceModule {
 
-    function moduleIssueHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
-    function moduleRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
-    
-    function componentIssueHook(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity,
-        address _component
-    ) external;
+    /**
+     * Called by another module to register itself on debt issuance module. Any logic can be included
+     * in case checks need to be made or state needs to be updated.
+     */
+    function register(ISetToken _setToken) external;
 
-    function componentRedeemHook(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity,
-        address _component
-    ) external;
+    /**
+     * Called by another module to unregister itself on debt issuance module. Any logic can be included
+     * in case checks need to be made or state needs to be cleared.
+     */
+    function unregister(ISetToken _setToken) external;
 }

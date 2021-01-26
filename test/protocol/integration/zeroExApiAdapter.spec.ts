@@ -60,6 +60,18 @@ describe("ZeroExApiAdapter", () => {
       await expect(tx).to.be.revertedWith("Unsupported 0xAPI function selector");
     });
 
+    it("rejects data with less than 4 length", async () => {
+      const tx = zeroExApiAdapter.getTradeCalldata(
+        sourceToken,
+        destToken,
+        destination,
+        sourceQuantity,
+        minDestinationQuantity,
+        "0x",
+      );
+      await expect(tx).to.be.revertedWith("Invalid calldata");
+    });
+
     describe("transformERC20", () => {
       it("validates data", async () => {
         const data = zeroExMock.interface.encodeFunctionData("transformERC20", [
@@ -250,6 +262,24 @@ describe("ZeroExApiAdapter", () => {
           data,
         );
         await expect(tx).to.be.revertedWith("Mismatched output token quantity");
+      });
+
+      it("rejects invalid uniswap path", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("sellToUniswap", [
+          [sourceToken],
+          sourceQuantity,
+          otherQuantity,
+          false,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Uniswap token path too short");
       });
     });
 
