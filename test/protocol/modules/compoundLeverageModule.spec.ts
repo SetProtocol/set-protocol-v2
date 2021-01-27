@@ -355,6 +355,11 @@ describe("CompoundLeverageModule", () => {
         await setToken.removeModule(debtIssuanceMock.address);
       });
 
+      afterEach(async () => {
+        await setToken.addModule(debtIssuanceMock.address);
+        await debtIssuanceMock.initialize(setToken.address);
+      });
+
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Debt issuance module must be initialized on SetToken");
       });
@@ -2129,14 +2134,22 @@ describe("CompoundLeverageModule", () => {
           "ONEINCHCOMP",
           oneInchExchangeAdapterFromComp.address
         );
+
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          secondCompoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
       });
 
       beforeEach(async () => {
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
-          [secondCompoundLeverageModule.address, setup.issuanceModule.address]
+          [secondCompoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
         await gulpComptrollerMock.addSetTokenAddress(setToken.address);
         // Initialize module if set to true
         if (isInitialized) {
@@ -2464,12 +2477,19 @@ describe("CompoundLeverageModule", () => {
           "ONEINCHCOMP",
           oneInchExchangeAdapterFromComp.address
         );
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          secondCompoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
 
         setToken = await setup.createSetToken(
           [cEther.address, compoundSetup.comp.address],
           [BigNumber.from(10000000000), ether(10)],
-          [secondCompoundLeverageModule.address, setup.issuanceModule.address]
+          [secondCompoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
         await gulpComptrollerMock.addSetTokenAddress(setToken.address);
         // Initialize module if set to true
         await secondCompoundLeverageModule.initialize(
@@ -2585,12 +2605,19 @@ describe("CompoundLeverageModule", () => {
           "ONEINCHUNUSED",
           oneInchExchangeAdapterToWeth.address
         );
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          secondCompoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
 
         setToken = await setup.createSetToken(
           [cComp.address],
           [BigNumber.from(10000000000)],
-          [secondCompoundLeverageModule.address, setup.issuanceModule.address]
+          [secondCompoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
         await gulpComptrollerMock.addSetTokenAddress(setToken.address);
         // Initialize module if set to true
         await secondCompoundLeverageModule.initialize(
@@ -2922,8 +2949,9 @@ describe("CompoundLeverageModule", () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address]
+        [compoundLeverageModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
       // Initialize module if set to true
       if (isInitialized) {
         await compoundLeverageModule.initialize(
@@ -3058,8 +3086,9 @@ describe("CompoundLeverageModule", () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address]
+        [compoundLeverageModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
       // Initialize module if set to true
       if (isInitialized) {
         await compoundLeverageModule.initialize(
@@ -3196,8 +3225,9 @@ describe("CompoundLeverageModule", () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address, setup.issuanceModule.address]
+        [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
 
       // Initialize module if set to true
@@ -3316,8 +3346,9 @@ describe("CompoundLeverageModule", () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address, setup.issuanceModule.address]
+        [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
       // Initialize module if set to true
       if (isInitialized) {
@@ -3436,8 +3467,9 @@ describe("CompoundLeverageModule", () => {
         setToken = await setup.createSetToken(
           [cEther.address, cDai.address],
           [BigNumber.from(10000000000), BigNumber.from(100000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -3627,8 +3659,9 @@ describe("CompoundLeverageModule", () => {
         setToken = await setup.createSetToken(
           [cEther.address, cDai.address],
           [BigNumber.from(10000000000), BigNumber.from(100000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -3821,8 +3854,9 @@ describe("CompoundLeverageModule", () => {
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -3951,8 +3985,9 @@ describe("CompoundLeverageModule", () => {
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
