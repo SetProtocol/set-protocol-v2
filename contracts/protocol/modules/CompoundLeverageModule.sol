@@ -500,7 +500,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
 
         // Get debt issuance module registered to this module and require that it is initialized
         address debtIssuanceModule = getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME);
-        require(_setToken.isInitializedModule(debtIssuanceModule), "Debt issuance module must be initialized");
+        require(_setToken.isInitializedModule(debtIssuanceModule), "Debt issuance module must be initialized on SetToken");
 
         // Try if register exists on any of the modules
         address[] memory modules = _setToken.getModules();

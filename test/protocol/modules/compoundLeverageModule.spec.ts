@@ -350,6 +350,16 @@ describe("CompoundLeverageModule", () => {
       });
     });
 
+    describe("when debt issuance module is not initialized on SetToken", async () => {
+      beforeEach(async () => {
+        await setToken.removeModule(debtIssuanceMock.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Debt issuance module must be initialized on SetToken");
+      });
+    });
+
     describe("when collateral asset does not exist on Compound", async () => {
       beforeEach(async () => {
         subjectCollateralAssets = [setup.dai.address, await getRandomAddress()];
