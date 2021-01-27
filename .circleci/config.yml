@@ -36,6 +36,7 @@ jobs:
       - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
     parallelism: 3
+    resource_class: large
     steps:
       - setup_remote_docker:
           docker_layer_caching: false
@@ -59,6 +60,7 @@ jobs:
     docker:
       - image: circleci/node:10.11.0
     working_directory: ~/set-protocol-v2
+    resource_class: large
     steps:
       - setup_remote_docker:
           docker_layer_caching: false
