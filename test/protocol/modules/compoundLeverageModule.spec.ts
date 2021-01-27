@@ -2748,25 +2748,6 @@ describe("CompoundLeverageModule", () => {
       expect(isRegistered).to.be.false;
     });
 
-    describe("when debt issuance module is not added to integration registry", async () => {
-      beforeEach(async () => {
-        await setup.integrationRegistry.removeIntegration(compoundLeverageModule.address, "DefaultIssuanceModule");
-      });
-
-      afterEach(async () => {
-        // Add debt issuance address to integration
-        await setup.integrationRegistry.addIntegration(
-          compoundLeverageModule.address,
-          "DefaultIssuanceModule",
-          debtIssuanceMock.address
-        );
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be valid adapter");
-      });
-    });
-
     describe("when borrow balance exists", async () => {
       beforeEach(async () => {
         // Add Set token as token sender / recipient
