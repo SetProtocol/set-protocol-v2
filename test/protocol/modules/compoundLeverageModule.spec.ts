@@ -2803,6 +2803,99 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
+  describe("#addRegister", async () => {
+    let setToken: SetToken;
+    let otherIssuanceModule: DebtIssuanceMock;
+    let isInitialized: boolean;
+    let subjectSetToken: Address;
+    let subjectDebtIssuanceModule: Address;
+
+    before(async () => {
+      isInitialized = true;
+    });
+
+    beforeEach(async () => {
+      otherIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
+      await setup.controller.addModule(otherIssuanceModule.address);
+
+      setToken = await setup.createSetToken(
+        [cEther.address],
+        [BigNumber.from(10000000000)],
+        [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
+      );
+      await debtIssuanceMock.initialize(setToken.address);
+      // Initialize module if set to true
+      if (isInitialized) {
+        await compoundLeverageModule.initialize(
+          setToken.address,
+          [setup.weth.address, setup.dai.address, compoundSetup.comp.address], // Enable COMP that is not a Set position
+          [setup.dai.address, setup.weth.address, compoundSetup.comp.address]
+        );
+      }
+      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+
+      // Add other issuance mock after initializing Compound leverage module, so register is never called
+      await setToken.addModule(otherIssuanceModule.address);
+      await otherIssuanceModule.initialize(setToken.address);
+
+      subjectSetToken = setToken.address;
+      subjectDebtIssuanceModule = otherIssuanceModule.address;
+    });
+
+    async function subject(): Promise<any> {
+      return compoundLeverageModule.addRegister(subjectSetToken, subjectDebtIssuanceModule);
+    }
+
+    it("should register on the other issuance module", async () => {
+      const previousIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
+      await subject();
+      const currentIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
+      expect(previousIsRegistered).to.be.false;
+      expect(currentIsRegistered).to.be.true;
+    });
+
+    describe("when module is not initialized", async () => {
+      before(async () => {
+        isInitialized = false;
+      });
+
+      after(async () => {
+        isInitialized = true;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+
+    describe("when SetToken is not valid", async () => {
+      beforeEach(async () => {
+        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+          [setup.weth.address],
+          [ether(1)],
+          [compoundLeverageModule.address],
+          owner.address
+        );
+
+        subjectSetToken = nonEnabledSetToken.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+
+    describe("when debt issuance module is not initialized on SetToken", async () => {
+      beforeEach(async () => {
+        await setToken.removeModule(otherIssuanceModule.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Debt issuance module must be initialized on SetToken");
+      });
+    });
+  });
+
   describe("#addCollateralAsset", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
