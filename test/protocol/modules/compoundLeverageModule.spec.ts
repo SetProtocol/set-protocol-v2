@@ -381,7 +381,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is already enabled");
+        await expect(subject()).to.be.revertedWith("Collateral cToken is enabled");
       });
     });
 
@@ -401,7 +401,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow is already enabled");
+        await expect(subject()).to.be.revertedWith("Borrow is enabled");
       });
     });
 
@@ -2977,7 +2977,7 @@ describe("CompoundLeverageModule", () => {
       );
     });
 
-    describe("when markets are already entered", async () => {
+    describe("when markets are entered", async () => {
       beforeEach(async () => {
         await compoundLeverageModule.addBorrowAsset(
           setToken.address,
@@ -3002,13 +3002,13 @@ describe("CompoundLeverageModule", () => {
       });
     });
 
-    describe("when collateral asset is already enabled on module", async () => {
+    describe("when collateral asset is enabled on module", async () => {
       beforeEach(async () => {
         subjectCollateralAsset = setup.weth.address;
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is already enabled");
+        await expect(subject()).to.be.revertedWith("Collateral cToken is enabled");
       });
     });
 
@@ -3116,7 +3116,7 @@ describe("CompoundLeverageModule", () => {
       );
     });
 
-    describe("when markets are already entered", async () => {
+    describe("when markets are entered", async () => {
       beforeEach(async () => {
         await compoundLeverageModule.addCollateralAsset(
           setToken.address,
@@ -3141,13 +3141,13 @@ describe("CompoundLeverageModule", () => {
       });
     });
 
-    describe("when borrow asset is already enabled on module", async () => {
+    describe("when borrow asset is enabled on module", async () => {
       beforeEach(async () => {
         subjectBorrowAsset = setup.weth.address;
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow is already enabled");
+        await expect(subject()).to.be.revertedWith("Borrow is enabled");
       });
     });
 
@@ -3282,7 +3282,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow is already not enabled");
+        await expect(subject()).to.be.revertedWith("Borrow is not enabled");
       });
     });
 
@@ -3400,7 +3400,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral is already not enabled");
+        await expect(subject()).to.be.revertedWith("Collateral is not enabled");
       });
     });
 
