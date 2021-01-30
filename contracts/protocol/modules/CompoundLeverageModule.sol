@@ -51,6 +51,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     using Invoke for ISetToken;
     using Position for ISetToken;
     using PreciseUnitMath for uint256;
+    using PreciseUnitMath for int256;
     using SafeCast for int256;
     using SafeCast for uint256;
     using SafeMath for uint256;
@@ -445,12 +446,18 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         // Loop through collateral assets
         for(uint256 i = 0; i < compoundSettings[_setToken].collateralCTokens.length; i++) {
             address collateralCToken = compoundSettings[_setToken].collateralCTokens[i];
-            uint256 previousPositionUnit = _setToken.getDefaultPositionRealUnit(collateralCToken).toUint256();
-            uint256 newPositionUnit = _getCollateralPosition(_setToken, collateralCToken, setTotalSupply);
+            // Note: get balance of vs getting position units of collateral cToken asset. This prevents division by 0 errors when other modules (e.g. debt issuance)
+            // calls this function in hooks when Set total supply is 0.
+            uint256 previousPositionBalance = _setToken
+                .getDefaultPositionRealUnit(collateralCToken)
+                .toUint256()
+                .preciseMul(setTotalSupply);
+            uint256 newPositionBalance = IERC20(collateralCToken).balanceOf(address(_setToken));
 
-            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings
-            if (previousPositionUnit != newPositionUnit) {
-              _updateCollateralPosition(_setToken, collateralCToken, newPositionUnit);
+            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings. Position balance is divided by
+            // Set total supply
+            if (previousPositionBalance != newPositionBalance) {
+              _updateCollateralPosition(_setToken, collateralCToken, newPositionBalance.preciseDiv(setTotalSupply));
             }
         }
 
@@ -458,19 +465,21 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         for(uint256 i = 0; i < compoundSettings[_setToken].borrowCTokens.length; i++) {
             address borrowCToken = compoundSettings[_setToken].borrowCTokens[i];
             address borrowAsset = compoundSettings[_setToken].borrowAssets[i];
+            // Note: get notional debt balance vs getting position units of borrow cToken asset. This prevents division by 0 errors when other modules (e.g. debt issuance)
+            // calls this function in hooks when Set total supply is 0.
+            int256 previousPositionBalance = _setToken
+                .getExternalPositionRealUnit(borrowAsset, address(this))
+                .preciseMul(setTotalSupply.toInt256());
 
-            int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(borrowAsset, address(this));
+            int256 newBorrowBalance = ICErc20(borrowCToken)
+                .borrowBalanceCurrent(address(_setToken))
+                .toInt256()
+                .mul(-1);
 
-            int256 newPositionUnit = _getBorrowPosition(
-                _setToken,
-                borrowCToken,
-                borrowAsset,
-                setTotalSupply
-            );
-
-            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings
-            if (newPositionUnit != previousPositionUnit) {
-                _updateBorrowPosition(_setToken, borrowAsset, newPositionUnit);
+            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings. Position balance is divided by
+            // Set total supply
+            if (newBorrowBalance != previousPositionBalance) {
+                _updateBorrowPosition(_setToken, borrowAsset, newBorrowBalance.conservativePreciseDiv(setTotalSupply.toInt256()));
             }
         }
 
@@ -499,14 +508,11 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         _setToken.initializeModule();
 
         // Get debt issuance module registered to this module and require that it is initialized
-        address debtIssuanceModule = getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME);
-        require(_setToken.isInitializedModule(debtIssuanceModule), "Debt issuance module must be initialized on SetToken");
+        require(_setToken.isInitializedModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)), "Debt issuance must be initialized");
 
-        // Try if register exists on any of the modules
+        // Try if register exists on any of the modules including the debt issuance module
         address[] memory modules = _setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            // Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function needs to be called
-            // if the debt issuance module is later added and initialized to prevent state inconsistencies
             _register(_setToken, modules[i]);
         }
         
@@ -552,9 +558,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).unregister(setToken) {
-                IDebtIssuanceModule(modules[i]).unregister(setToken);
-            } catch {}
+            try IDebtIssuanceModule(modules[i]).unregister(setToken) {} catch {}
         }
     }
 
@@ -585,7 +589,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      * @param _debtIssuanceModule   Debt issuance module address to register
      */
     function addRegister(ISetToken _setToken, address _debtIssuanceModule) external onlyValidAndInitializedSet(_setToken) {
-        require(_setToken.isInitializedModule(_debtIssuanceModule), "Debt issuance module must be initialized on SetToken");
+        require(_setToken.isInitializedModule(_debtIssuanceModule), "Debt issuance must be initialized");
 
         // Note: if the interface of the module being registered does not contain the register() interface, then function call will still succeed.
         _register(_setToken, _debtIssuanceModule);
@@ -599,8 +603,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      */
     function addCollateralAsset(ISetToken _setToken, address _newCollateralAsset) public onlyManagerAndValidSet(_setToken) {
         address cToken = underlyingToCToken[_newCollateralAsset];
-        require(cToken != address(0), "cToken must exist in Compound");
-        require(!isCollateralCTokenEnabled[_setToken][cToken], "Collateral cToken is already enabled");
+        require(cToken != address(0), "cToken must exist");
+        require(!isCollateralCTokenEnabled[_setToken][cToken], "Collateral is enabled");
         
         // Note: Will only enter market if cToken is not enabled as a borrow asset as well
         if (!isBorrowCTokenEnabled[_setToken][cToken]) {
@@ -627,7 +631,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         sync(_setToken);
 
         address cToken = underlyingToCToken[_collateralAsset];
-        require(isCollateralCTokenEnabled[_setToken][cToken], "Collateral cToken is already not enabled");
+        require(isCollateralCTokenEnabled[_setToken][cToken], "Collateral is not enabled");
         
         // Note: Will only exit market if cToken is not enabled as a borrow asset as well
         // If there is an existing borrow balance, will revert and market cannot be exited on Compound
@@ -649,8 +653,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      */
     function addBorrowAsset(ISetToken _setToken, address _newBorrowAsset) public onlyManagerAndValidSet(_setToken) {
         address cToken = underlyingToCToken[_newBorrowAsset];
-        require(cToken != address(0), "cToken must exist in Compound");
-        require(!isBorrowCTokenEnabled[_setToken][cToken], "Borrow cToken is already enabled");
+        require(cToken != address(0), "cToken must exist");
+        require(!isBorrowCTokenEnabled[_setToken][cToken], "Borrow is enabled");
         
         // Note: Will only enter market if cToken is not enabled as a borrow asset as well
         if (!isCollateralCTokenEnabled[_setToken][cToken]) {
@@ -678,7 +682,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         sync(_setToken);
 
         address cToken = underlyingToCToken[_borrowAsset];
-        require(isBorrowCTokenEnabled[_setToken][cToken], "Borrow cToken is already not enabled");
+        require(isBorrowCTokenEnabled[_setToken][cToken], "Borrow is not enabled");
         
         // Note: Will only exit market if cToken is not enabled as a collateral asset as well
         // If there is an existing borrow balance, will revert and market cannot be exited on Compound
@@ -746,16 +750,12 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
 
     /* ============ External Getter Functions ============ */
 
-    function getEnabledCollateralCTokens(ISetToken _setToken) external view returns(address[] memory) {
-        return compoundSettings[_setToken].collateralCTokens;
-    }
-
-    function getEnabledBorrowCTokens(ISetToken _setToken) external view returns(address[] memory) {
-        return compoundSettings[_setToken].borrowCTokens;
-    }
-
-    function getEnabledBorrowAssets(ISetToken _setToken) external view returns(address[] memory) {
-        return compoundSettings[_setToken].borrowAssets;
+    function getEnabledAssets(ISetToken _setToken) external view returns(address[] memory, address[] memory, address[] memory) {
+        return (
+            compoundSettings[_setToken].collateralCTokens,
+            compoundSettings[_setToken].borrowCTokens,
+            compoundSettings[_setToken].borrowAssets
+        );
     }
 
     /* ============ Internal Functions ============ */
@@ -810,7 +810,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         actionInfo.setTotalSupply = _setToken.totalSupply();
         
         // Validate collateral is enabled
-        require(isCollateralCTokenEnabled[_setToken][actionInfo.collateralCTokenAsset], "Collateral cToken is not enabled");
+        require(isCollateralCTokenEnabled[_setToken][actionInfo.collateralCTokenAsset], "Collateral is not enabled");
         
         // Snapshot COMP balances pre claim
         uint256 preClaimCompBalance = IERC20(compToken).balanceOf(address(_setToken));
@@ -830,9 +830,9 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     }
 
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
-        require(isCollateralCTokenEnabled[_actionInfo.setToken][_actionInfo.collateralCTokenAsset], "Collateral cToken is not enabled");
-        require(isBorrowCTokenEnabled[_actionInfo.setToken][_actionInfo.borrowCTokenAsset], "Borrow cToken is not enabled");
-        require(_actionInfo.collateralCTokenAsset != _actionInfo.borrowCTokenAsset, "Collateral and borrow assets must be different");
+        require(isCollateralCTokenEnabled[_actionInfo.setToken][_actionInfo.collateralCTokenAsset], "Collateral is not enabled");
+        require(isBorrowCTokenEnabled[_actionInfo.setToken][_actionInfo.borrowCTokenAsset], "Borrow is not enabled");
+        require(_actionInfo.collateralCTokenAsset != _actionInfo.borrowCTokenAsset, "Must be different");
         require(_actionInfo.notionalSendQuantity > 0, "Token to sell must be nonzero");
     }
 
@@ -1038,9 +1038,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      * Internal function that tries to register SetToken to module
      */
     function _register(ISetToken _setToken, address _module) internal {
-        try IDebtIssuanceModule(_module).register(_setToken) {
-            IDebtIssuanceModule(_module).register(_setToken);
-        } catch {}
+        try IDebtIssuanceModule(_module).register(_setToken) {} catch {}
     }
 
     function _getCollateralPosition(ISetToken _setToken, address _cToken, uint256 _setTotalSupply) internal view returns (uint256) {
