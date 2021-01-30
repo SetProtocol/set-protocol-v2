@@ -303,8 +303,8 @@ describe("CompoundLeverageModule", () => {
 
     it("should set the Compound settings and mappings", async () => {
       await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
+      const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
+      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
       const isCEtherCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cEther.address);
       const isCDaiCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cDai.address);
       const isCDaiBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cDai.address);
@@ -361,7 +361,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Debt issuance module must be initialized on SetToken");
+        await expect(subject()).to.be.revertedWith("Debt issuance must be initialized");
       });
     });
 
@@ -371,7 +371,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
+        await expect(subject()).to.be.revertedWith("cToken must exist");
       });
     });
 
@@ -391,7 +391,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
+        await expect(subject()).to.be.revertedWith("cToken must exist");
       });
     });
 
@@ -401,7 +401,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow cToken is already enabled");
+        await expect(subject()).to.be.revertedWith("Borrow is already enabled");
       });
     });
 
@@ -855,7 +855,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral cToken is not enabled");
+          await expect(subject()).to.be.revertedWith("Collateral is not enabled");
         });
       });
 
@@ -865,7 +865,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow cToken is not enabled");
+          await expect(subject()).to.be.revertedWith("Borrow is not enabled");
         });
       });
 
@@ -875,7 +875,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral and borrow assets must be different");
+          await expect(subject()).to.be.revertedWith("Must be different");
         });
       });
 
@@ -1533,7 +1533,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow cToken is not enabled");
+          await expect(subject()).to.be.revertedWith("Borrow is not enabled");
         });
       });
 
@@ -1543,7 +1543,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral cToken is not enabled");
+          await expect(subject()).to.be.revertedWith("Collateral is not enabled");
         });
       });
 
@@ -1553,7 +1553,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral and borrow assets must be different");
+          await expect(subject()).to.be.revertedWith("Must be different");
         });
       });
 
@@ -2394,7 +2394,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral cToken is not enabled");
+          await expect(subject()).to.be.revertedWith("Collateral is not enabled");
         });
       });
 
@@ -2720,8 +2720,8 @@ describe("CompoundLeverageModule", () => {
 
     it("should delete the Compound settings and mappings", async () => {
       await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
+      const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
+      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
       const isCEtherCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cEther.address);
       const isCDaiCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cDai.address);
       const isCDaiBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cDai.address);
@@ -2909,7 +2909,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Debt issuance module must be initialized on SetToken");
+        await expect(subject()).to.be.revertedWith("Debt issuance must be initialized");
       });
     });
   });
@@ -2955,7 +2955,7 @@ describe("CompoundLeverageModule", () => {
 
     it("should add the collateral asset to Compound settings and mappings", async () => {
       await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
+      const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
       const isCCompCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cComp.address);
 
       expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address, cComp.address]));
@@ -2998,7 +2998,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
+        await expect(subject()).to.be.revertedWith("cToken must exist");
       });
     });
 
@@ -3092,8 +3092,8 @@ describe("CompoundLeverageModule", () => {
 
     it("should add the borrow asset to Compound settings and mappings", async () => {
       await subject();
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
-      const borrowAssets = await compoundLeverageModule.getEnabledBorrowAssets(setToken.address);
+      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[2];
       const isCCompBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cComp.address);
 
       expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address, cComp.address]));
@@ -3137,7 +3137,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
+        await expect(subject()).to.be.revertedWith("cToken must exist");
       });
     });
 
@@ -3147,7 +3147,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow cToken is already enabled");
+        await expect(subject()).to.be.revertedWith("Borrow is already enabled");
       });
     });
 
@@ -3238,8 +3238,8 @@ describe("CompoundLeverageModule", () => {
 
     it("should remove the borrow asset from Compound settings and mappings", async () => {
       await subject();
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
-      const borrowAssets = await compoundLeverageModule.getEnabledBorrowAssets(setToken.address);
+      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[2];
       const isCCompBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cComp.address);
       expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address]));
       expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address]));
@@ -3282,7 +3282,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow cToken is already not enabled");
+        await expect(subject()).to.be.revertedWith("Borrow is already not enabled");
       });
     });
 
@@ -3358,7 +3358,7 @@ describe("CompoundLeverageModule", () => {
 
     it("should remove the collateral asset from Compound settings and mappings", async () => {
       await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
+      const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
       const isCCompCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cComp.address);
       expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address]));
       expect(isCCompCollateral).to.be.false;
@@ -3400,7 +3400,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is already not enabled");
+        await expect(subject()).to.be.revertedWith("Collateral is already not enabled");
       });
     });
 
