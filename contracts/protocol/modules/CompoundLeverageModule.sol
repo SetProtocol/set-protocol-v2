@@ -513,7 +513,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         // Try if register exists on any of the modules including the debt issuance module
         address[] memory modules = _setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            _register(_setToken, modules[i]);
+            try IDebtIssuanceModule(modules[i]).register(_setToken) {} catch {}
         }
         
         // Enable collateral and borrow assets on Compound
@@ -591,8 +591,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     function addRegister(ISetToken _setToken, address _debtIssuanceModule) external onlyValidAndInitializedSet(_setToken) {
         require(_setToken.isInitializedModule(_debtIssuanceModule), "Debt issuance must be initialized");
 
-        // Note: if the interface of the module being registered does not contain the register() interface, then function call will still succeed.
-        _register(_setToken, _debtIssuanceModule);
+        IDebtIssuanceModule(_debtIssuanceModule).register(_setToken);
     }
 
     /**
@@ -726,9 +725,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         int256 componentDebt = _setToken.getExternalPositionRealUnit(_component, address(this));
         uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
 
-        address cToken = underlyingToCToken[_component];
-
-        _borrow(_setToken, cToken, notionalDebt);
+        _borrow(_setToken, underlyingToCToken[_component], notionalDebt);
     }
 
     /**
@@ -742,18 +739,22 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         int256 componentDebt = _setToken.getExternalPositionRealUnit(_component, address(this));
         uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
 
-        address cToken = underlyingToCToken[_component];
-
-        _repayBorrow(_setToken, cToken, _component, notionalDebt);
+        _repayBorrow(_setToken, underlyingToCToken[_component], _component, notionalDebt);
     }
 
 
     /* ============ External Getter Functions ============ */
 
-    function getEnabledAssets(ISetToken _setToken) external view returns(address[] memory, address[] memory, address[] memory) {
+    /**
+     * Get enabled assets for SetToken. Returns an array of enabled cTokens that are collateral assets and an
+     * array of underlying that are borrow assets.
+     *
+     * @return                    Collateral cToken assets that are enabled
+     * @return                    Underlying borrowed assets that are enabled.
+     */
+    function getEnabledAssets(ISetToken _setToken) external view returns(address[] memory, address[] memory) {
         return (
             compoundSettings[_setToken].collateralCTokens,
-            compoundSettings[_setToken].borrowCTokens,
             compoundSettings[_setToken].borrowAssets
         );
     }
@@ -1032,13 +1033,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         bytes memory claimCallData = abi.encodeWithSignature("claimComp(address)", address(_setToken));
 
         _setToken.invoke(address(comptroller), 0, claimCallData);
-    }
-
-    /**
-     * Internal function that tries to register SetToken to module
-     */
-    function _register(ISetToken _setToken, address _module) internal {
-        try IDebtIssuanceModule(_module).register(_setToken) {} catch {}
     }
 
     function _getCollateralPosition(ISetToken _setToken, address _cToken, uint256 _setTotalSupply) internal view returns (uint256) {
