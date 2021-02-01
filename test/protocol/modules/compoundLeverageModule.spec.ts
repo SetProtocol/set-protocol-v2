@@ -304,7 +304,8 @@ describe("CompoundLeverageModule", () => {
     it("should set the Compound settings and mappings", async () => {
       await subject();
       const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
-      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
       const isCEtherCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cEther.address);
       const isCDaiCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cDai.address);
       const isCDaiBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cDai.address);
@@ -381,7 +382,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is enabled");
+        await expect(subject()).to.be.revertedWith("Collateral is enabled");
       });
     });
 
@@ -2721,7 +2722,8 @@ describe("CompoundLeverageModule", () => {
     it("should delete the Compound settings and mappings", async () => {
       await subject();
       const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
-      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
       const isCEtherCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cEther.address);
       const isCDaiCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cDai.address);
       const isCDaiBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cDai.address);
@@ -2830,12 +2832,11 @@ describe("CompoundLeverageModule", () => {
 
     before(async () => {
       isInitialized = true;
+      otherIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
+      await setup.controller.addModule(otherIssuanceModule.address);
     });
 
     beforeEach(async () => {
-      otherIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
-      await setup.controller.addModule(otherIssuanceModule.address);
-
       setToken = await setup.createSetToken(
         [cEther.address],
         [BigNumber.from(10000000000)],
@@ -2851,11 +2852,9 @@ describe("CompoundLeverageModule", () => {
         );
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
-
       // Add other issuance mock after initializing Compound leverage module, so register is never called
       await setToken.addModule(otherIssuanceModule.address);
       await otherIssuanceModule.initialize(setToken.address);
-
       subjectSetToken = setToken.address;
       subjectDebtIssuanceModule = otherIssuanceModule.address;
     });
@@ -3008,7 +3007,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is enabled");
+        await expect(subject()).to.be.revertedWith("Collateral is enabled");
       });
     });
 
@@ -3092,8 +3091,9 @@ describe("CompoundLeverageModule", () => {
 
     it("should add the borrow asset to Compound settings and mappings", async () => {
       await subject();
-      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
-      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[2];
+      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
+
       const isCCompBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cComp.address);
 
       expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address, cComp.address]));
@@ -3238,8 +3238,8 @@ describe("CompoundLeverageModule", () => {
 
     it("should remove the borrow asset from Compound settings and mappings", async () => {
       await subject();
-      const borrowCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
-      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[2];
+      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
       const isCCompBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cComp.address);
       expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address]));
       expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address]));
