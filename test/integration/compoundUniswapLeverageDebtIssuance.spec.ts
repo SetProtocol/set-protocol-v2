@@ -225,12 +225,11 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         );
       }
 
-      it("should update the collateral position on the SetToken correctly", async () => {
+      it("should not update the collateral position on the SetToken", async () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
 
-        // cEther position is increased
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
 
@@ -242,7 +241,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
-      it("should update the borrow position on the SetToken correctly", async () => {
+      it("should not have a borrow position", async () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
