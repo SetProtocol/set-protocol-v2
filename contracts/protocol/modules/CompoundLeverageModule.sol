@@ -713,6 +713,9 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * GOVERNANCE ONLY: Add Compound market to module with stored underlying to cToken mapping in case of market additions to Compound.
+     *
+     * @param _cToken                   Address of cToken to add
+     * @param _underlying               Address of underlying token that maps to cToken
      */
     function addCompoundMarket(address _cToken, address _underlying) external onlyOwner {
         require(underlyingToCToken[_underlying] == address(0), "cToken already enabled");
