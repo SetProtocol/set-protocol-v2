@@ -169,12 +169,14 @@ describe("NavIssuanceModule", () => {
 
     it("should enable the Module on the SetToken", async () => {
       await subject();
+
       const isModuleEnabled = await setToken.isInitializedModule(navIssuanceModule.address);
       expect(isModuleEnabled).to.eq(true);
     });
 
     it("should properly set reserve assets mapping", async () => {
       await subject();
+
       const isUsdcReserveAsset = await navIssuanceModule.isReserveAsset(subjectSetToken, setup.usdc.address);
       const isWethReserveAsset = await navIssuanceModule.isReserveAsset(subjectSetToken, setup.weth.address);
       expect(isUsdcReserveAsset).to.eq(true);
@@ -375,6 +377,7 @@ describe("NavIssuanceModule", () => {
 
     it("should delete reserve assets state", async () => {
       await subject();
+
       const isUsdcReserveAsset = await navIssuanceModule.isReserveAsset(setToken.address, setup.usdc.address);
       const isWethReserveAsset = await navIssuanceModule.isReserveAsset(setToken.address, setup.weth.address);
       expect(isUsdcReserveAsset).to.be.false;
@@ -1138,6 +1141,7 @@ describe("NavIssuanceModule", () => {
             ZERO, // Protocol direct fee
             premiumPercentage
           );
+
           await subject();
 
           const issuedBalance = await setToken.balanceOf(recipient.address);
@@ -1146,7 +1150,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited the reserve asset into the SetToken", async () => {
           const preIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
+          
           await subject();
+
           const postIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
           const expectedUSDCBalance = preIssueUSDCBalance.add(issueQuantity);
           expect(postIssueUSDCBalance).to.eq(expectedUSDCBalance);
@@ -1154,7 +1160,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(subjectReserveAsset);
 
@@ -1176,7 +1184,9 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -1226,6 +1236,7 @@ describe("NavIssuanceModule", () => {
               ZERO, // Protocol direct fee
               premiumPercentage
             );
+
             await subject();
 
             const issuedBalance = await setToken.balanceOf(recipient.address);
@@ -1235,7 +1246,9 @@ describe("NavIssuanceModule", () => {
 
           it("should have deposited the reserve asset into the SetToken", async () => {
             const preIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
+            
             await subject();
+
             const postIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
             const expectedUSDCBalance = preIssueUSDCBalance.add(subjectReserveQuantity);
 
@@ -1244,7 +1257,9 @@ describe("NavIssuanceModule", () => {
 
           it("should have updated the reserve asset position correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const usdcPositionUnit = await setToken.getDefaultPositionRealUnit(subjectReserveAsset);
 
@@ -1266,7 +1281,9 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -1301,7 +1318,9 @@ describe("NavIssuanceModule", () => {
 
           it("should have updated the reserve asset position correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const defaultUnit = await setToken.getDefaultPositionRealUnit(subjectReserveAsset);
 
@@ -1323,7 +1342,9 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -1446,7 +1467,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited the reserve asset into the SetToken", async () => {
           const preIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
+          
           await subject();
+
           const postIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
 
           const postFeeQuantity = getExpectedPostFeeQuantity(
@@ -1460,7 +1483,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const usdcPositionUnit = await setToken.getDefaultPositionRealUnit(subjectReserveAsset);
 
@@ -1482,7 +1507,9 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -1492,6 +1519,27 @@ describe("NavIssuanceModule", () => {
             currentSetTokenSupply
           );
           expect(postIssuePositionMultiplier).to.eq(expectedPositionMultiplier);
+        });
+
+        it("should have properly distributed the fees", async () => {
+          const preIssuedManagerBalance = await setup.usdc.balanceOf(feeRecipient.address);
+
+          const protocolFeeRecipientAddress = await setup.controller.feeRecipient();
+          const preIssuedProtocolFeeRecipientBalance = await setup.usdc.balanceOf(protocolFeeRecipientAddress);
+
+          await subject();
+
+          const postIssuedProtocolFeeRecipientBalance = await setup.usdc.balanceOf(protocolFeeRecipientAddress);
+          const protocolFeePercentage = preciseMul(managerFees[0], protocolManagerFee).add(protocolDirectFee);
+          const protocolFeeAmount = preciseMul(subjectReserveQuantity, protocolFeePercentage);
+          const expectedPostIssuanceBalance = preIssuedProtocolFeeRecipientBalance.add(protocolFeeAmount);
+          expect(postIssuedProtocolFeeRecipientBalance).to.eq(expectedPostIssuanceBalance);
+
+          const postIssuedManagerBalance = await setup.usdc.balanceOf(feeRecipient.address);
+          const realizedManagerFeePercent = managerFees[0].sub(preciseMul(managerFees[0], protocolManagerFee));
+          const managerFeeAmount = preciseMul(realizedManagerFeePercent, subjectReserveQuantity);
+          const expectedPostIssuanceManagerBalance = preIssuedManagerBalance.add(managerFeeAmount);
+          expect(postIssuedManagerBalance).to.eq(expectedPostIssuanceManagerBalance);
         });
 
         it("should reconcile balances", async () => {
@@ -1642,7 +1690,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited WETH into the SetToken", async () => {
           const preIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
+          
           await subject();
+
           const postIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
           const expectedWETHBalance = preIssueWETHBalance.add(issueQuantity);
           expect(postIssueWETHBalance).to.eq(expectedWETHBalance);
@@ -1650,7 +1700,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(setup.weth.address);
 
@@ -1671,7 +1723,9 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -1722,7 +1776,9 @@ describe("NavIssuanceModule", () => {
 
           it("should have updated the reserve asset position correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const defaultUnit = await setToken.getDefaultPositionRealUnit(setup.weth.address);
 
@@ -1744,7 +1800,9 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -1849,6 +1907,7 @@ describe("NavIssuanceModule", () => {
             protocolDirectFee, // Protocol direct fee
             premiumPercentage
           );
+
           await subject();
 
           const issuedBalance = await setToken.balanceOf(recipient.address);
@@ -1857,7 +1916,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited the reserve asset into the SetToken", async () => {
           const preIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
+          
           await subject();
+
           const postIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
 
           const postFeeQuantity = getExpectedPostFeeQuantity(
@@ -1871,7 +1932,9 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const wethPositionUnit = await setToken.getDefaultPositionRealUnit(setup.weth.address);
 
@@ -1893,7 +1956,9 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -1903,6 +1968,27 @@ describe("NavIssuanceModule", () => {
             currentSetTokenSupply
           );
           expect(postIssuePositionMultiplier).to.eq(expectedPositionMultiplier);
+        });
+
+        it("should have properly distributed the fees in WETH", async () => {
+          const preIssuedManagerBalance = await setup.weth.balanceOf(feeRecipient.address);
+
+          const protocolFeeRecipientAddress = await setup.controller.feeRecipient();
+          const preIssuedProtocolFeeRecipientBalance = await setup.weth.balanceOf(protocolFeeRecipientAddress);
+
+          await subject();
+
+          const postIssuedProtocolFeeRecipientBalance = await setup.weth.balanceOf(protocolFeeRecipientAddress);
+          const protocolFeePercentage = preciseMul(managerFees[0], protocolManagerFee).add(protocolDirectFee);
+          const protocolFeeAmount = preciseMul(subjectValue, protocolFeePercentage);
+          const expectedPostIssuanceBalance = preIssuedProtocolFeeRecipientBalance.add(protocolFeeAmount);
+          expect(postIssuedProtocolFeeRecipientBalance).to.eq(expectedPostIssuanceBalance);
+
+          const postIssuedManagerBalance = await setup.weth.balanceOf(feeRecipient.address);
+          const realizedManagerFeePercent = managerFees[0].sub(preciseMul(managerFees[0], protocolManagerFee));
+          const managerFeeAmount = preciseMul(realizedManagerFeePercent, subjectValue);
+          const expectedPostIssuanceManagerBalance = preIssuedManagerBalance.add(managerFeeAmount);
+          expect(postIssuedManagerBalance).to.eq(expectedPostIssuanceManagerBalance);
         });
 
         it("should reconcile balances", async () => {
@@ -2004,7 +2090,9 @@ describe("NavIssuanceModule", () => {
         it("should reduce the SetToken supply", async () => {
           const previousSupply = await setToken.totalSupply();
           const preRedeemBalance = await setToken.balanceOf(owner.address);
+          
           await subject();
+
           const currentSupply = await setToken.totalSupply();
           const postRedeemBalance = await setToken.balanceOf(owner.address);
 
@@ -2016,7 +2104,9 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             subjectReserveAsset
           );
+          
           await subject();
+
           const postIssueUSDCBalance = await setup.usdc.balanceOf(recipient.address);
           const expectedUSDCBalance = getExpectedReserveRedeemQuantity(
             subjectSetTokenQuantity,
@@ -2035,7 +2125,9 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             subjectReserveAsset
           );
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(subjectReserveAsset);
 
@@ -2060,7 +2152,9 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -2097,7 +2191,9 @@ describe("NavIssuanceModule", () => {
           it("should reduce the SetToken supply", async () => {
             const previousSupply = await setToken.totalSupply();
             const preRedeemBalance = await setToken.balanceOf(owner.address);
+            
             await subject();
+
             const currentSupply = await setToken.totalSupply();
             const postRedeemBalance = await setToken.balanceOf(owner.address);
 
@@ -2109,7 +2205,9 @@ describe("NavIssuanceModule", () => {
               subjectSetToken,
               subjectReserveAsset
             );
+            
             await subject();
+
             const postIssueUSDCBalance = await setup.usdc.balanceOf(recipient.address);
             const expectedUSDCBalance = getExpectedReserveRedeemQuantity(
               subjectSetTokenQuantity,
@@ -2128,7 +2226,9 @@ describe("NavIssuanceModule", () => {
               subjectSetToken,
               subjectReserveAsset
             );
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(subjectReserveAsset);
 
@@ -2152,7 +2252,9 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -2192,7 +2294,9 @@ describe("NavIssuanceModule", () => {
               subjectSetToken,
               subjectReserveAsset
             );
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(subjectReserveAsset);
 
@@ -2217,7 +2321,9 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
+            
             await subject();
+
             const currentSetTokenSupply = await setToken.totalSupply();
             const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -2412,6 +2518,44 @@ describe("NavIssuanceModule", () => {
           expect(postIssuePositionMultiplier).to.eq(expectedPositionMultiplier);
         });
 
+        it("should have properly distributed the fees", async () => {
+          // Get starting balance of reserve asset held by the SetToken
+          const preRedeemReserveAssetBalance = await setup.usdc.balanceOf(setToken.address);
+
+          // Get starting balance of manager
+          const preRedeemManagerBalance = await setup.usdc.balanceOf(feeRecipient.address);
+
+          // Get starting balance of the protocol fee recipient
+          const protocolFeeRecipientAddress = await setup.controller.feeRecipient();
+          const preRedeemProtocolFeeRecipientBalance = await setup.usdc.balanceOf(protocolFeeRecipientAddress);
+
+          // Get SetToken valuation
+          const setTokenValuation = await setup.setValuer.calculateSetTokenValuation(
+            subjectSetToken,
+            subjectReserveAsset
+          );
+
+          await subject();
+
+          // Calculate the redeemed reserve asset amount
+          const postRedeemReserveAssetBalance = await setup.usdc.balanceOf(setToken.address);
+          const redeemedReserveAssetAmont = preRedeemReserveAssetBalance.sub(postRedeemReserveAssetBalance);
+
+          // Calculate expected protocol fee from redeemed reserve asset amount
+          const postIssuedProtocolFeeRecipientBalance = await setup.usdc.balanceOf(protocolFeeRecipientAddress);
+          const protocolFeePercentage = preciseMul(managerFees[0], protocolManagerFee).add(protocolDirectFee);
+          const protocolFeeAmount = preciseMul(redeemedReserveAssetAmont, protocolFeePercentage);
+          const expectedPostRedeemBalance = preRedeemProtocolFeeRecipientBalance.add(protocolFeeAmount);
+          expect(postIssuedProtocolFeeRecipientBalance).to.eq(expectedPostRedeemBalance);
+
+          // Calculate expected manager fee from redeemed reserve asset amount
+          const postIssuedManagerBalance = await setup.usdc.balanceOf(feeRecipient.address);
+          const realizedManagerFeePercent = managerFees[0].sub(preciseMul(managerFees[0], protocolManagerFee));
+          const managerFeeAmount = preciseMul(realizedManagerFeePercent, redeemedReserveAssetAmont);
+          const expectedPostRedeemManagerBalance = preRedeemManagerBalance.add(managerFeeAmount);
+          expect(postIssuedManagerBalance).to.eq(expectedPostRedeemManagerBalance);
+        });
+
         it("should reconcile balances", async () => {
           await reconcileBalances(setToken, subject, owner);
         });
@@ -2438,6 +2582,7 @@ describe("NavIssuanceModule", () => {
 
         it("should properly call the pre-issue hooks", async () => {
           await subject();
+
           const retrievedSetToken = await issuanceHookContract.retrievedSetToken();
           const retrievedIssueQuantity = await issuanceHookContract.retrievedIssueQuantity();
           const retrievedSender = await issuanceHookContract.retrievedSender();
@@ -2541,7 +2686,9 @@ describe("NavIssuanceModule", () => {
         it("should reduce the SetToken supply", async () => {
           const previousSupply = await setToken.totalSupply();
           const preRedeemBalance = await setToken.balanceOf(owner.address);
+          
           await subject();
+
           const currentSupply = await setToken.totalSupply();
           const postRedeemBalance = await setToken.balanceOf(owner.address);
 
@@ -2555,7 +2702,9 @@ describe("NavIssuanceModule", () => {
             setup.weth.address
           );
           const preIssueETHBalance = await provider.getBalance(recipient.address);
+          
           await subject();
+
           const postIssueETHBalance = await provider.getBalance(recipient.address);
           const expectedETHBalance = getExpectedReserveRedeemQuantity(
             subjectSetTokenQuantity,
@@ -2574,7 +2723,9 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             setup.weth.address
           );
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(setup.weth.address);
 
@@ -2598,7 +2749,9 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -2725,7 +2878,9 @@ describe("NavIssuanceModule", () => {
         it("should reduce the SetToken supply", async () => {
           const previousSupply = await setToken.totalSupply();
           const preRedeemBalance = await setToken.balanceOf(owner.address);
+          
           await subject();
+
           const currentSupply = await setToken.totalSupply();
           const postRedeemBalance = await setToken.balanceOf(owner.address);
 
@@ -2739,7 +2894,9 @@ describe("NavIssuanceModule", () => {
             setup.weth.address
           );
           const preIssueETHBalance = await provider.getBalance(recipient.address);
+          
           await subject();
+
           const postIssueETHBalance = await provider.getBalance(recipient.address);
           const expectedETHBalance = getExpectedReserveRedeemQuantity(
             subjectSetTokenQuantity,
@@ -2758,7 +2915,9 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             setup.weth.address
           );
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(setup.weth.address);
 
@@ -2782,7 +2941,9 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
+          
           await subject();
+
           const currentSetTokenSupply = await setToken.totalSupply();
           const postIssuePositionMultiplier = await setToken.positionMultiplier();
 
@@ -2792,6 +2953,44 @@ describe("NavIssuanceModule", () => {
             currentSetTokenSupply
           );
           expect(postIssuePositionMultiplier).to.eq(expectedPositionMultiplier);
+        });
+
+        it("should have properly distributed the fees in WETH", async () => {
+          // Get starting balance of reserve asset held by the SetToken
+          const preRedeemReserveAssetBalance = await setup.weth.balanceOf(setToken.address);
+
+          // Get starting balance of manager
+          const preRedeemManagerBalance = await setup.weth.balanceOf(feeRecipient.address);
+
+          // Get starting balance of the protocol fee recipient
+          const protocolFeeRecipientAddress = await setup.controller.feeRecipient();
+          const preRedeemProtocolFeeRecipientBalance = await setup.weth.balanceOf(protocolFeeRecipientAddress);
+
+          // Get SetToken valuation
+          const setTokenValuation = await setup.setValuer.calculateSetTokenValuation(
+            subjectSetToken,
+            setup.weth.address
+          );
+
+          await subject();
+
+          // Calculate the redeemed reserve asset amount
+          const postRedeemReserveAssetBalance = await setup.weth.balanceOf(setToken.address);
+          const redeemedReserveAssetAmont = preRedeemReserveAssetBalance.sub(postRedeemReserveAssetBalance);
+
+          // Calculate expected protocol fee from redeemed reserve asset amount
+          const postRedeemProtocolFeeRecipientBalance = await setup.weth.balanceOf(protocolFeeRecipientAddress);
+          const protocolFeePercentage = preciseMul(managerFees[0], protocolManagerFee).add(protocolDirectFee);
+          const protocolFeeAmount = preciseMul(redeemedReserveAssetAmont, protocolFeePercentage);
+          const expectedPostIssuanceBalance = preRedeemProtocolFeeRecipientBalance.add(protocolFeeAmount);
+          expect(postRedeemProtocolFeeRecipientBalance).to.eq(expectedPostIssuanceBalance);
+
+          // Calculate expected manager fee from redeemed reserve asset amount
+          const postRedeemManagerBalance = await setup.weth.balanceOf(feeRecipient.address);
+          const realizedManagerFeePercent = managerFees[0].sub(preciseMul(managerFees[0], protocolManagerFee));
+          const managerFeeAmount = preciseMul(realizedManagerFeePercent, redeemedReserveAssetAmont);
+          const expectedPostIssuanceManagerBalance = preRedeemManagerBalance.add(managerFeeAmount);
+          expect(postRedeemManagerBalance).to.eq(expectedPostIssuanceManagerBalance);
         });
 
         it("should reconcile balances", async () => {

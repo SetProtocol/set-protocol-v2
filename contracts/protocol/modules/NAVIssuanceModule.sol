@@ -937,7 +937,7 @@ contract NavIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 managerRevenueSharePercentage = managerFeePercent.sub(protocolRevenueSharePercentage);
         uint256 totalProtocolFeePercentage = protocolRevenueSharePercentage.add(protocolDirectFeePercent);
 
-        return (managerRevenueSharePercentage, totalProtocolFeePercentage);
+        return (totalProtocolFeePercentage, managerRevenueSharePercentage);
     }
 
     function _getSetTokenMintQuantity(
