@@ -390,9 +390,17 @@ describe("CompoundLeverageModule", () => {
       });
     });
 
-    describe("when allowlist is toggled off", async () => {
+    describe("when any Set can initialize this module", async () => {
+      before(async () => {
+        isAllowlisted = false;
+      });
+
+      after(async () => {
+        isAllowlisted = true;
+      });
+
       beforeEach(async () => {
-        await compoundLeverageModule.updateAnySetInitializable(false);
+        await compoundLeverageModule.updateAnySetInitializable(true);
       });
 
       it("should enable the Module on the SetToken", async () => {
