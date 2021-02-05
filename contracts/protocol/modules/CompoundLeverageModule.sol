@@ -21,6 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Math } from "@openzeppelin/contracts/math/Math.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -46,12 +47,11 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * in a SetToken. This does not allow borrowing of assets from Compound alone. Each asset is leveraged when using this module.
  *
  */
-contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
+contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     using AddressArrayUtils for address[];
     using Invoke for ISetToken;
     using Position for ISetToken;
     using PreciseUnitMath for uint256;
-    using PreciseUnitMath for int256;
     using SafeCast for int256;
     using SafeCast for uint256;
     using SafeMath for uint256;
@@ -166,6 +166,12 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
 
     // Mapping of enabled collateral and borrow cTokens for syncing positions
     mapping(ISetToken => CompoundSettings) internal compoundSettings;
+
+    // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
+    mapping(ISetToken => bool) public allowList;
+
+    // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list
+    bool public anySetInitializable;
 
 
     /* ============ Constructor ============ */
@@ -443,46 +449,42 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     function sync(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
         uint256 setTotalSupply = _setToken.totalSupply();
 
-        // Loop through collateral assets
-        for(uint256 i = 0; i < compoundSettings[_setToken].collateralCTokens.length; i++) {
-            address collateralCToken = compoundSettings[_setToken].collateralCTokens[i];
-            // Note: get balance of vs getting position units of collateral cToken asset. This prevents division by 0 errors when other modules (e.g. debt issuance)
-            // calls this function in hooks when Set total supply is 0.
-            uint256 previousPositionBalance = _setToken
-                .getDefaultPositionRealUnit(collateralCToken)
-                .toUint256()
-                .preciseMul(setTotalSupply);
-            uint256 newPositionBalance = IERC20(collateralCToken).balanceOf(address(_setToken));
+        // Only sync positions when Set supply is not 0. This preserves debt and collateral positions on issuance / redemption
+        // and does not 
+        if (setTotalSupply > 0) {
+            // Loop through collateral assets
+            for(uint256 i = 0; i < compoundSettings[_setToken].collateralCTokens.length; i++) {
+                address collateralCToken = compoundSettings[_setToken].collateralCTokens[i];
+                uint256 previousPositionUnit = _setToken.getDefaultPositionRealUnit(collateralCToken).toUint256();
+                uint256 newPositionUnit = _getCollateralPosition(_setToken, collateralCToken, setTotalSupply);
 
-            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings. Position balance is divided by
-            // Set total supply
-            if (previousPositionBalance != newPositionBalance) {
-              _updateCollateralPosition(_setToken, collateralCToken, newPositionBalance.preciseDiv(setTotalSupply));
+                // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings
+                if (previousPositionUnit != newPositionUnit) {
+                  _updateCollateralPosition(_setToken, collateralCToken, newPositionUnit);
+                }
+            }
+
+            // Loop through borrow assets
+            for(uint256 i = 0; i < compoundSettings[_setToken].borrowCTokens.length; i++) {
+                address borrowCToken = compoundSettings[_setToken].borrowCTokens[i];
+                address borrowAsset = compoundSettings[_setToken].borrowAssets[i];
+
+                int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(borrowAsset, address(this));
+
+                int256 newPositionUnit = _getBorrowPosition(
+                    _setToken,
+                    borrowCToken,
+                    borrowAsset,
+                    setTotalSupply
+                );
+
+                // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings
+                // If borrow position unit is > 0 then update position
+                if (newPositionUnit != previousPositionUnit) {
+                    _updateBorrowPosition(_setToken, borrowAsset, newPositionUnit);
+                }
             }
         }
-
-        // Loop through borrow assets
-        for(uint256 i = 0; i < compoundSettings[_setToken].borrowCTokens.length; i++) {
-            address borrowCToken = compoundSettings[_setToken].borrowCTokens[i];
-            address borrowAsset = compoundSettings[_setToken].borrowAssets[i];
-            // Note: get notional debt balance vs getting position units of borrow cToken asset. This prevents division by 0 errors when other modules (e.g. debt issuance)
-            // calls this function in hooks when Set total supply is 0.
-            int256 previousPositionBalance = _setToken
-                .getExternalPositionRealUnit(borrowAsset, address(this))
-                .preciseMul(setTotalSupply.toInt256());
-
-            int256 newBorrowBalance = ICErc20(borrowCToken)
-                .borrowBalanceCurrent(address(_setToken))
-                .toInt256()
-                .mul(-1);
-
-            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings. Position balance is divided by
-            // Set total supply
-            if (newBorrowBalance != previousPositionBalance) {
-                _updateBorrowPosition(_setToken, borrowAsset, newBorrowBalance.conservativePreciseDiv(setTotalSupply.toInt256()));
-            }
-        }
-
         emit PositionsSynced(_setToken, msg.sender);
     }
 
@@ -504,6 +506,10 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
+        if (!anySetInitializable) {
+            require(allowList[_setToken], "Must be allowlisted");
+        }
+
         // Initialize module before trying register
         _setToken.initializeModule();
 
@@ -559,24 +565,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         address[] memory modules = setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
             try IDebtIssuanceModule(modules[i]).unregister(setToken) {} catch {}
-        }
-    }
-
-    /**
-     * ANYONE CALLABLE: Sync Compound markets with stored underlying to cToken mapping in case of market additions to Compound
-     */
-    function syncCompoundMarkets() external {
-        ICErc20[] memory cTokens = comptroller.getAllMarkets();
-
-        for(uint256 i = 0; i < cTokens.length; i++) {
-            if (address(cTokens[i]) != cEther) {
-                address underlying = cTokens[i].underlying();
-
-                // If cToken is not in mapping, then add it
-                if (underlyingToCToken[underlying] == address(0)) {
-                    underlyingToCToken[underlying] = address(cTokens[i]);
-                }
-            }
         }
     }
 
@@ -694,6 +682,42 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         compoundSettings[_setToken].borrowAssets = compoundSettings[_setToken].borrowAssets.remove(_borrowAsset);
 
         emit BorrowAssetRemoved(_setToken, _borrowAsset);
+    }
+
+    /**
+     * GOVERNANCE ONLY: Add allowed SetToken to initialize this module. Only callable by governance.
+     *
+     * @param _setToken             Instance of the SetToken
+     */
+    function addAllowedSetToken(ISetToken _setToken) external onlyOwner {
+        allowList[_setToken] = true;
+    }
+
+    /**
+     * GOVERNANCE ONLY: Remove SetToken allowed to initialize this module. Only callable by governance.
+     *
+     * @param _setToken             Instance of the SetToken
+     */
+    function removeAllowedSetToken(ISetToken _setToken) external onlyOwner {
+        allowList[_setToken] = false;
+    }
+
+    /**
+     * GOVERNANCE ONLY: Toggle whether any SetToken is allowed to initialize this module. Only callable by governance.
+     *
+     * @param _anySetInitializable             Bool indicating whether allowlist is enabled
+     */
+    function updateAnySetInitializable(bool _anySetInitializable) external onlyOwner {
+        anySetInitializable = _anySetInitializable;
+    }
+
+    /**
+     * GOVERNANCE ONLY: Add Compound market to module with stored underlying to cToken mapping in case of market additions to Compound.
+     */
+    function addCompoundMarket(address _cToken, address _underlying) external onlyOwner {
+        require(underlyingToCToken[_underlying] == address(0), "cToken already enabled");
+
+        underlyingToCToken[_underlying] = _cToken;
     }
 
     /**
