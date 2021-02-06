@@ -479,7 +479,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
                 );
 
                 // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings
-                // If borrow position unit is > 0 then update position
                 if (newPositionUnit != previousPositionUnit) {
                     _updateBorrowPosition(_setToken, borrowAsset, newPositionUnit);
                 }
