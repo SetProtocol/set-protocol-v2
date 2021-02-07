@@ -41,7 +41,8 @@ contract DebtModuleMock is ModuleBase {
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component
+        address _component,
+        bool /* _isEquity */
     )
         external
     {
@@ -53,7 +54,8 @@ contract DebtModuleMock is ModuleBase {
     function componentRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component
+        address _component,
+        bool /* _isEquity */
     )
         external
     {

@@ -79,13 +79,14 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
     /* ============ Structs ============ */
 
+    // NOTE: moduleIssuanceHooks uses address[] for compatibility with AddressArrayUtils library
     struct IssuanceSettings {
-        uint256 maxManagerFee;
-        uint256 managerIssueFee;
-        uint256 managerRedeemFee;
-        address feeRecipient;
-        IManagerIssuanceHook managerIssuanceHook;
-        address[] moduleIssuanceHooks;
+        uint256 maxManagerFee;                          // Max issue/redeem fee defined on instantiation
+        uint256 managerIssueFee;                        // Current manager issuance fees in precise units (10^16 = 1%)
+        uint256 managerRedeemFee;                       // Current manager redeem fees in precise units (10^16 = 1%)
+        address feeRecipient;                           // Address that receives all manager issue and redeem fees
+        IManagerIssuanceHook managerIssuanceHook;       // Instance of manager defined hook, can hold arbitrary logic
+        address[] moduleIssuanceHooks;                  // Array of modules that are registered with this module
     }
 
     /* ============ Constants ============ */
@@ -98,9 +99,6 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
     /* ============ Constructor ============ */
 
-    /**
-     * Set state controller state variable
-     */
     constructor(IController _controller) public ModuleBase(_controller) {}
 
     /* ============ External Functions ============ */
@@ -111,7 +109,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      * will be returned to the minting address. If specified, a fee will be charged on issuance.
      *
      * @param _setToken         Instance of the SetToken to issue
-     * @param _quantity         Quanity of SetToken to issue
+     * @param _quantity         Quantity of SetToken to issue
      * @param _to               Address to mint SetToken to
      */
     function issue(
@@ -130,7 +128,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         _callModulePreIssueHooks(_setToken, _quantity);
 
         (
-            uint256 totalQuantity,
+            uint256 quantityWithFees,
             uint256 managerFee,
             uint256 protocolFee
         ) = _calculateTotalFees(_setToken, _quantity, true);
@@ -139,10 +137,10 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             address[] memory components,
             uint256[] memory equityUnits,
             uint256[] memory debtUnits
-        ) = _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, true);
+        ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityWithFees, true);
 
-        _resolveEquityPositions(_setToken, totalQuantity, _to, true, components, equityUnits);
-        _resolveDebtPositions(_setToken, totalQuantity, true, components, debtUnits);
+        _resolveEquityPositions(_setToken, quantityWithFees, _to, true, components, equityUnits);
+        _resolveDebtPositions(_setToken, quantityWithFees, true, components, debtUnits);
         _resolveFees(_setToken, managerFee, protocolFee);
 
         _setToken.mint(_to, _quantity);
@@ -152,7 +150,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             msg.sender,
             _to,
             hookContract,
-            totalQuantity,
+            _quantity,
             managerFee,
             protocolFee
         );
@@ -164,7 +162,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      * will be returned to the minting address. If specified, a fee will be charged on redeem.
      *
      * @param _setToken         Instance of the SetToken to redeem
-     * @param _quantity         Quanity of SetToken to redeem
+     * @param _quantity         Quantity of SetToken to redeem
      * @param _to               Address to send collateral to
      */
     function redeem(
@@ -178,10 +176,12 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     {
         require(_quantity > 0, "Redeem quantity must be > 0");
 
+        _setToken.burn(msg.sender, _quantity);
+
         _callModulePreRedeemHooks(_setToken, _quantity);
 
         (
-            uint256 totalQuantity,
+            uint256 quantityNetFees,
             uint256 managerFee,
             uint256 protocolFee
         ) = _calculateTotalFees(_setToken, _quantity, false);
@@ -190,19 +190,17 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             address[] memory components,
             uint256[] memory equityUnits,
             uint256[] memory debtUnits
-        ) = _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, false);
+        ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityNetFees, false);
 
-        _setToken.burn(msg.sender, _quantity);
-
-        _resolveDebtPositions(_setToken, totalQuantity, false, components, debtUnits);
-        _resolveEquityPositions(_setToken, totalQuantity, _to, false, components, equityUnits);
+        _resolveDebtPositions(_setToken, quantityNetFees, false, components, debtUnits);
+        _resolveEquityPositions(_setToken, quantityNetFees, _to, false, components, equityUnits);
         _resolveFees(_setToken, managerFee, protocolFee);
 
         emit SetTokenRedeemed(
             address(_setToken),
             msg.sender,
             _to,
-            totalQuantity,
+            _quantity,
             managerFee,
             protocolFee
         );
@@ -274,8 +272,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken             Instance of the SetToken to issue
      */
-    function register(ISetToken _setToken) external onlyModule(_setToken) {
-        require(_setToken.isInitializedModule(address(this)), "DebtIssuanceModule not initialized");
+    function register(ISetToken _setToken) external onlyModule(_setToken) onlyValidAndInitializedSet(_setToken) {
         require(!issuanceSettings[_setToken].moduleIssuanceHooks.contains(msg.sender), "Module already registered.");
         issuanceSettings[_setToken].moduleIssuanceHooks.push(msg.sender);
     }
@@ -286,13 +283,13 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken             Instance of the SetToken to issue
      */
-    function unregister(ISetToken _setToken) external onlyModule(_setToken) {
+    function unregister(ISetToken _setToken) external onlyModule(_setToken) onlyValidAndInitializedSet(_setToken) {
         require(issuanceSettings[_setToken].moduleIssuanceHooks.contains(msg.sender), "Module not registered.");
         issuanceSettings[_setToken].moduleIssuanceHooks = issuanceSettings[_setToken].moduleIssuanceHooks.remove(msg.sender);
     }
 
     /**
-     * Initializes this module to the SetToken with issuance-related hooks and fee information. Only callable
+     * MANAGER ONLY: Initializes this module to the SetToken with issuance-related hooks and fee information. Only callable
      * by the SetToken's manager. Hook addresses are optional. Address(0) means that no hook will be called
      *
      * @param _setToken                     Instance of the SetToken to issue
@@ -314,7 +311,6 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
-        require(_maxManagerFee > 0, "Maximum fee must be greater than 0.");
         require(_managerIssueFee < _maxManagerFee, "Issue fee can't exceed maximum fee");
         require(_managerRedeemFee < _maxManagerFee, "Redeem fee can't exceed maximum fee");
 
@@ -326,6 +322,9 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         _setToken.initializeModule();
     }
 
+    /**
+     * SET TOKEN ONLY: Allows removal of module (and deletion of state) if no other modules are registered.
+     */
     function removeModule() external override {
         require(issuanceSettings[ISetToken(msg.sender)].moduleIssuanceHooks.length == 0, "Registered modules must be removed.");
         delete issuanceSettings[ISetToken(msg.sender)];
@@ -334,11 +333,11 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Calculates the amount of each component needed to collateralize passed issue quantity of Sets as well as amount of debt that will
-     * be returned to caller. Values DO NOT take into account any updates from pre action manager or module hooks.
+     * Calculates the amount of each component needed to collateralize passed issue quantity plus fees of Sets as well as amount of debt
+     * that will be returned to caller. Values DO NOT take into account any updates from pre action manager or module hooks.
      *
      * @param _setToken         Instance of the SetToken to issue
-     * @param _quantity         Amount of Sets to be issued/redeemed
+     * @param _quantity         Amount of Sets to be issued
      *
      * @return address[]        Array of component addresses making up the Set
      * @return uint256[]        Array of equity notional amounts of each component, respectively, represented as uint256
@@ -360,11 +359,11 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Calculates the amount of each component will be returned on redemption as well as how much debt needs to be paid down to redeem.
-     * Values DO NOT take into account any updates from pre action manager or module hooks.
+     * Calculates the amount of each component will be returned on redemption net of fees as well as how much debt needs to be paid down to.
+     * redeem. Values DO NOT take into account any updates from pre action manager or module hooks.
      *
      * @param _setToken         Instance of the SetToken to issue
-     * @param _quantity         Amount of Sets to be issued/redeemed
+     * @param _quantity         Amount of Sets to be redeemed
      *
      * @return address[]        Array of component addresses making up the Set
      * @return uint256[]        Array of equity notional amounts of each component, respectively, represented as uint256
@@ -401,7 +400,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
      * @param _quantity         Amount of SetToken issuer wants to receive/redeem
      * @param _isIssue          If issuing or redeeming
      *
-     * @return uint256          Total amount of Sets to be issued/redeemed net of fees
+     * @return uint256          Total amount of Sets to be issued/redeemed with fee adjustment
      * @return uint256          Sets minted to the manager
      * @return uint256          Sets minted to the protocol
      */
@@ -429,7 +428,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity of Sets as well as amount of debt that will
      * be returned to caller. Can also be used to determine how much collateral will be returned on redemption as well as how much debt
-     * needs to be paid down to redeem. Values DO NOT take into account manager fees.
+     * needs to be paid down to redeem.
      *
      * @param _setToken         Instance of the SetToken to issue
      * @param _quantity         Amount of Sets to be issued/redeemed
@@ -500,6 +499,8 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             if (externalPositions.length > 0) {
                 for (uint256 j = 0; j < externalPositions.length; j++) { 
                     int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(component, externalPositions[j]);
+
+                    // If positionUnit == 0 it will be "added" to debt position
                     if (externalPositionUnit > 0) {
                         cumulativeEquity = cumulativeEquity.add(externalPositionUnit);
                     } else {
@@ -527,13 +528,13 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         address _to,
         bool _isIssue,
         address[] memory _components,
-        uint256[] memory _componentQuantities
+        uint256[] memory _componentEquityQuantities
     )
         internal
     {
         for (uint256 i = 0; i < _components.length; i++) {
             address component = _components[i];
-            uint256 componentQuantity = _componentQuantities[i];
+            uint256 componentQuantity = _componentEquityQuantities[i];
             if (componentQuantity > 0) {
                 if (_isIssue) {
                     transferFrom(
@@ -543,9 +544,9 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
                         componentQuantity
                     );
 
-                    _executeExternalPositionHooks(_setToken, _quantity, component, true);
+                    _executeExternalPositionHooks(_setToken, _quantity, component, true, true);
                 } else {
-                    _executeExternalPositionHooks(_setToken, _quantity, component, false);
+                    _executeExternalPositionHooks(_setToken, _quantity, component, false, true);
 
                     _setToken.strictInvokeTransfer(
                         component,
@@ -567,16 +568,16 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 _quantity,
         bool _isIssue,
         address[] memory _components,
-        uint256[] memory _componentQuantities
+        uint256[] memory _componentDebtQuantities
     )
         internal
     {
         for (uint256 i = 0; i < _components.length; i++) {
             address component = _components[i];
-            uint256 componentQuantity = _componentQuantities[i];
+            uint256 componentQuantity = _componentDebtQuantities[i];
             if (componentQuantity > 0) {
                 if (_isIssue) {
-                    _executeExternalPositionHooks(_setToken, _quantity, component, true);
+                    _executeExternalPositionHooks(_setToken, _quantity, component, true, false);
                     _setToken.strictInvokeTransfer(
                         component,
                         msg.sender,
@@ -589,12 +590,16 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
                         address(_setToken),
                         componentQuantity
                     );
-                    _executeExternalPositionHooks(_setToken, _quantity, component, false);
+                    _executeExternalPositionHooks(_setToken, _quantity, component, false, false);
                 }
             }
         }
     }
 
+    /**
+     * If any manager fees mints Sets to the defined feeRecipient. If protocol fee is enabled mints Sets to protocol
+     * feeRecipient. 
+     */
     function _resolveFees(ISetToken _setToken, uint256 managerFee, uint256 protocolFee) internal {
         if (managerFee > 0) {
             _setToken.mint(issuanceSettings[_setToken].feeRecipient, managerFee);
@@ -627,7 +632,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * Calls all modules that have registered with the DebtIssuanceModule that they have a moduleIssueHook.
+     * Calls all modules that have registered with the DebtIssuanceModule that have a moduleIssueHook.
      */
     function _callModulePreIssueHooks(ISetToken _setToken, uint256 _quantity) internal {
         address[] memory issuanceHooks = issuanceSettings[_setToken].moduleIssuanceHooks;
@@ -637,7 +642,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Calls all modules that have registered with the DebtIssuanceModule that they have a moduleRedeemHook.
+     * Calls all modules that have registered with the DebtIssuanceModule that have a moduleRedeemHook.
      */
     function _callModulePreRedeemHooks(ISetToken _setToken, uint256 _quantity) internal {
         address[] memory issuanceHooks = issuanceSettings[_setToken].moduleIssuanceHooks;
@@ -656,16 +661,17 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         ISetToken _setToken,
         uint256 _setTokenQuantity,
         address _component,
-        bool _isIssue
+        bool _isIssue,
+        bool _isEquity
     )
         internal
     {
         address[] memory externalPositionModules = _setToken.getExternalPositionModules(_component);
         for (uint256 i = 0; i < externalPositionModules.length; i++) {
             if (_isIssue) {
-                IModuleIssuanceHook(externalPositionModules[i]).componentIssueHook(_setToken, _setTokenQuantity, _component);
+                IModuleIssuanceHook(externalPositionModules[i]).componentIssueHook(_setToken, _setTokenQuantity, _component, _isEquity);
             } else {
-                IModuleIssuanceHook(externalPositionModules[i]).componentRedeemHook(_setToken, _setTokenQuantity, _component);
+                IModuleIssuanceHook(externalPositionModules[i]).componentRedeemHook(_setToken, _setTokenQuantity, _component, _isEquity);
             }
         }
     }

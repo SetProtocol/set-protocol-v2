@@ -748,7 +748,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external onlyModule(_setToken) {
+    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component, bool /* _isEquity */) external onlyModule(_setToken) {
         int256 componentDebt = _setToken.getExternalPositionRealUnit(_component, address(this));
         uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
 
@@ -762,7 +762,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external onlyModule(_setToken) {
+    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component, bool /* _isEquity */) external onlyModule(_setToken) {
         int256 componentDebt = _setToken.getExternalPositionRealUnit(_component, address(this));
         uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
 

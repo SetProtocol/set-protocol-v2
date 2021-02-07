@@ -4038,6 +4038,7 @@ describe("CompoundLeverageModule", () => {
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
     let subjectComponent: Address;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
 
     context("when cETH is collateral and DAI is borrow asset", async () => {
@@ -4119,6 +4120,7 @@ describe("CompoundLeverageModule", () => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
+        subjectIsEquity = true;           // Unused by module
         subjectCaller = mockModule;
       });
 
@@ -4126,7 +4128,8 @@ describe("CompoundLeverageModule", () => {
         return compoundLeverageModule.connect(subjectCaller.wallet).componentIssueHook(
           subjectSetToken,
           subjectSetQuantity,
-          subjectComponent
+          subjectComponent,
+          subjectIsEquity
         );
       }
 
@@ -4171,6 +4174,7 @@ describe("CompoundLeverageModule", () => {
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
     let subjectComponent: Address;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
 
     context("when cETH is collateral and DAI is borrow asset", async () => {
@@ -4256,6 +4260,7 @@ describe("CompoundLeverageModule", () => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
+        subjectIsEquity = true;           // Unused by module
         subjectCaller = mockModule;
       });
 
@@ -4263,7 +4268,8 @@ describe("CompoundLeverageModule", () => {
         return compoundLeverageModule.connect(subjectCaller.wallet).componentRedeemHook(
           subjectSetToken,
           subjectSetQuantity,
-          subjectComponent
+          subjectComponent,
+          subjectIsEquity
         );
       }
 
