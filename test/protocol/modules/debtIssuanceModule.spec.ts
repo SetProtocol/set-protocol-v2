@@ -26,7 +26,7 @@ import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe("DebtIssuanceModule", () => {
+describe.only("DebtIssuanceModule", () => {
   let owner: Account;
   let manager: Account;
   let feeRecipient: Account;
@@ -118,16 +118,6 @@ describe("DebtIssuanceModule", () => {
       expect(settings.managerRedeemFee).to.eq(subjectManagerRedeemFee);
       expect(settings.feeRecipient).to.eq(subjectFeeRecipient);
       expect(settings.managerIssuanceHook).to.eq(subjectManagerIssuanceHook);
-    });
-
-    describe("when the maximum fee is 0", async () => {
-      beforeEach(async () => {
-        subjectMaxManagerFee = ZERO;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Maximum fee must be greater than 0.");
-      });
     });
 
     describe("when the issue fee is greater than the maximum fee", async () => {
@@ -299,7 +289,7 @@ describe("DebtIssuanceModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("DebtIssuanceModule not initialized");
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
         });
       });
 
@@ -627,7 +617,7 @@ describe("DebtIssuanceModule", () => {
             subjectCaller.address,
             subjectTo,
             preIssueHook,
-            subjectQuantity.add(feeQuantity),
+            subjectQuantity,
             feeQuantity,
             ZERO
           );
@@ -875,7 +865,7 @@ describe("DebtIssuanceModule", () => {
             setToken.address,
             subjectCaller.address,
             subjectTo,
-            subjectQuantity.sub(feeQuantity),
+            subjectQuantity,
             feeQuantity,
             ZERO
           );

@@ -643,6 +643,7 @@ describe("StakingModule", () => {
     let subjectSetToken: Address;
     let subjectComponent: Address;
     let subjectSetTokenQuantity: BigNumber;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
 
     before(async () => {
@@ -654,6 +655,7 @@ describe("StakingModule", () => {
       subjectSetToken = setToken.address;
       subjectComponent = setup.weth.address;
       subjectSetTokenQuantity = ether(.5);
+      subjectIsEquity = true;         // Unused by module
       subjectCaller = dummyIssuanceModule;
 
       issuedSupply = ether(2);
@@ -684,7 +686,8 @@ describe("StakingModule", () => {
       return stakingModule.connect(subjectCaller.wallet).componentIssueHook(
         subjectSetToken,
         subjectSetTokenQuantity,
-        subjectComponent
+        subjectComponent,
+        subjectIsEquity
       );
     }
 
@@ -735,6 +738,7 @@ describe("StakingModule", () => {
     let subjectSetToken: Address;
     let subjectComponent: Address;
     let subjectSetTokenQuantity: BigNumber;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
 
     before(async () => {
@@ -746,6 +750,7 @@ describe("StakingModule", () => {
       subjectSetToken = setToken.address;
       subjectComponent = setup.weth.address;
       subjectSetTokenQuantity = ether(.5);
+      subjectIsEquity = true;         // Unused by module
       subjectCaller = dummyIssuanceModule;
 
       issuedSupply = ether(2);
@@ -776,7 +781,8 @@ describe("StakingModule", () => {
       return stakingModule.connect(subjectCaller.wallet).componentRedeemHook(
         subjectSetToken,
         subjectSetTokenQuantity,
-        subjectComponent
+        subjectComponent,
+        subjectIsEquity
       );
     }
 

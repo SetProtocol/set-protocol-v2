@@ -33,12 +33,14 @@ interface IModuleIssuanceHook {
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component
+        address _component,
+        bool _isEquity
     ) external;
 
     function componentRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component
+        address _component,
+        bool _isEquity
     ) external;
 }
