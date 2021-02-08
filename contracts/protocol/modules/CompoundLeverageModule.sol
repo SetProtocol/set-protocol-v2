@@ -581,9 +581,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
             // Note: Will only enter market if cToken is not enabled as a borrow asset as well
             if (!isBorrowCTokenEnabled[_setToken][cToken]) {
-                address[] memory marketsToEnter = new address[](1);
-                marketsToEnter[0] = cToken;
-                _enterMarkets(_setToken, marketsToEnter);
+                _enterMarket(_setToken, cToken);
             }
 
             isCollateralCTokenEnabled[_setToken][cToken] = true;
@@ -635,9 +633,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
             // Note: Will only enter market if cToken is not enabled as a borrow asset as well
             if (!isCollateralCTokenEnabled[_setToken][cToken]) {
-                address[] memory marketsToEnter = new address[](1);
-                marketsToEnter[0] = cToken;
-                _enterMarkets(_setToken, marketsToEnter);
+                _enterMarket(_setToken, cToken);
             }
 
             isBorrowCTokenEnabled[_setToken][cToken] = true;
@@ -707,6 +703,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * GOVERNANCE ONLY: Add Compound market to module with stored underlying to cToken mapping in case of market additions to Compound.
      *
+     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit 
+     *
      * @param _cToken                   Address of cToken to add
      * @param _underlying               Address of underlying token that maps to cToken
      */
@@ -716,6 +714,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * GOVERNANCE ONLY: Remove Compound market on stored underlying to cToken mapping in case of market removals
+     *
+     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit 
      *
      * @param _underlying               Address of underlying token to remove
      */
@@ -791,18 +791,16 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * Invoke enter markets from SetToken
      */
-    function _enterMarkets(ISetToken _setToken, address[] memory _cTokens) internal {
+    function _enterMarket(ISetToken _setToken, address _cToken) internal {
+        address[] memory marketsToEnter = new address[](1);
+        marketsToEnter[0] = _cToken;
+
         // Compound's enter market function signature is: enterMarkets(address[] _cTokens)
         uint256[] memory returnValues = abi.decode(
-            _setToken.invoke(address(comptroller), 0, abi.encodeWithSignature("enterMarkets(address[])", _cTokens)),
+            _setToken.invoke(address(comptroller), 0, abi.encodeWithSignature("enterMarkets(address[])", marketsToEnter)),
             (uint256[])
         );
-        for (uint256 i = 0; i < _cTokens.length; i++) {
-            require(
-                returnValues[i] == 0,
-                "Entering failed"
-            );
-        }
+        require(returnValues[0] == 0, "Entering failed");
     }
 
     /**
@@ -1071,8 +1069,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         return collateralNotionalBalance.preciseDiv(_setTotalSupply);
     }
 
-    function _getBorrowPosition(ISetToken _setToken, address _cToken, uint256 _setTotalSupply) internal view returns (int256) {
-        uint256 borrowNotionalBalance = ICErc20(_cToken).borrowBalanceStored(address(_setToken));
+    function _getBorrowPosition(ISetToken _setToken, address _cToken, uint256 _setTotalSupply) internal returns (int256) {
+        uint256 borrowNotionalBalance = ICErc20(_cToken).borrowBalanceCurrent(address(_setToken));
         // Round negative away from 0
         return borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
     }
