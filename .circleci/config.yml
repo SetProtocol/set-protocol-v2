@@ -54,7 +54,9 @@ jobs:
           background: true
       - run:
           name: Hardhat Test
-          command: yarn test
+          command: |
+            TEST_FILES="$(circleci tests glob "./test/**/*.spec.ts" | circleci tests split --split-by=timings)"
+            yarn test
 
   coverage:
     docker:
