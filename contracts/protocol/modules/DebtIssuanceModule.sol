@@ -176,9 +176,10 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     {
         require(_quantity > 0, "Redeem quantity must be > 0");
 
-        _setToken.burn(msg.sender, _quantity);
-
         _callModulePreRedeemHooks(_setToken, _quantity);
+
+        // Place burn after pre-redeem hooks because burning tokens may lead to false accounting of synced positions
+        _setToken.burn(msg.sender, _quantity);
 
         (
             uint256 quantityNetFees,
