@@ -2443,7 +2443,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
+          await expect(subject()).to.be.revertedWith("Claim must be >0");
         });
       });
 
@@ -2917,6 +2917,66 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
+  describe.only("#removeCompoundMarket", async () => {
+    let cWbtc: CERc20;
+    let subjectUnderlying: Address;
+    let subjectCaller: Account;
+
+    beforeEach(async () => {
+      cWbtc = await compoundSetup.createAndEnableCToken(
+        setup.wbtc.address,
+        cTokenInitialMantissa,
+        compoundSetup.comptroller.address,
+        compoundSetup.interestRateModel.address,
+        "Compound WBTC",
+        "cWBTC",
+        8,
+        ether(0.75), // 75% collateral factor
+        ether(1)
+      );
+
+      await compoundLeverageModule.addCompoundMarket(cWbtc.address, setup.wbtc.address);
+
+      subjectUnderlying = setup.wbtc.address;
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      return compoundLeverageModule.connect(subjectCaller.wallet).removeCompoundMarket(subjectUnderlying);
+    }
+
+    it("should sync the underlying to cToken mapping", async () => {
+      await subject();
+
+      const underlyingToCToken = await compoundLeverageModule.underlyingToCToken(setup.wbtc.address);
+      const currentCompoundMarkets = await compoundSetup.comptroller.getAllMarkets();
+      const expectedCompoundMarkets = [cEther.address, cDai.address, cComp.address];
+
+      expect(JSON.stringify(currentCompoundMarkets)).to.eq(JSON.stringify(expectedCompoundMarkets));
+      expect(underlyingToCToken).to.eq(ADDRESS_ZERO);
+    });
+
+    describe("when not called by owner", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
+    });
+
+    describe("when underlying token does not exist", async () => {
+      beforeEach(async () => {
+        subjectUnderlying = setup.dai.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("cToken not enabled");
+      });
+    });
+  });
+
   describe("#addAllowedSetToken", async () => {
     let subjectSetToken: Address;
     let subjectCaller: Account;
@@ -3018,7 +3078,7 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#addRegister", async () => {
+  describe("#registerToModule", async () => {
     let setToken: SetToken;
     let otherIssuanceModule: DebtIssuanceMock;
     let isInitialized: boolean;
@@ -3057,7 +3117,7 @@ describe("CompoundLeverageModule", () => {
     });
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.addRegister(subjectSetToken, subjectDebtIssuanceModule);
+      return compoundLeverageModule.registerToModule(subjectSetToken, subjectDebtIssuanceModule);
     }
 
     it("should register on the other issuance module", async () => {
@@ -3110,12 +3170,12 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#addCollateralAsset", async () => {
+  describe.only("#addCollateralAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectCollateralAsset: Address;
+    let subjectCollateralAssets: Address[];
     let subjectCaller: Account;
 
     before(async () => {
@@ -3140,14 +3200,14 @@ describe("CompoundLeverageModule", () => {
         );
       }
       subjectSetToken = setToken.address;
-      subjectCollateralAsset = compoundSetup.comp.address;
+      subjectCollateralAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
     });
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).addCollateralAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).addCollateralAssets(
         subjectSetToken,
-        subjectCollateralAsset,
+        subjectCollateralAssets,
       );
     }
 
@@ -3168,18 +3228,18 @@ describe("CompoundLeverageModule", () => {
       expect(isCCompEntered).to.be.true;
     });
 
-    it("should emit the correct CollateralAssetAdded event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetAdded").withArgs(
+    it("should emit the correct CollateralAssetsAdded event", async () => {
+      await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetsAdded").withArgs(
         subjectSetToken,
-        subjectCollateralAsset,
+        subjectCollateralAssets,
       );
     });
 
     describe("when markets are entered", async () => {
       beforeEach(async () => {
-        await compoundLeverageModule.addBorrowAsset(
+        await compoundLeverageModule.addBorrowAssets(
           setToken.address,
-          compoundSetup.comp.address
+          [compoundSetup.comp.address]
         );
       });
 
@@ -3192,7 +3252,7 @@ describe("CompoundLeverageModule", () => {
 
     describe("when collateral asset does not exist on Compound", async () => {
       beforeEach(async () => {
-        subjectCollateralAsset = await getRandomAddress();
+        subjectCollateralAssets = [await getRandomAddress()];
       });
 
       it("should revert", async () => {
@@ -3202,7 +3262,7 @@ describe("CompoundLeverageModule", () => {
 
     describe("when collateral asset is enabled on module", async () => {
       beforeEach(async () => {
-        subjectCollateralAsset = setup.weth.address;
+        subjectCollateralAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
       });
 
       it("should revert", async () => {
@@ -3249,12 +3309,12 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#addBorrowAsset", async () => {
+  describe.only("#addBorrowAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectBorrowAsset: Address;
+    let subjectBorrowAssets: Address[];
     let subjectCaller: Account;
 
     before(async () => {
@@ -3279,14 +3339,14 @@ describe("CompoundLeverageModule", () => {
         );
       }
       subjectSetToken = setToken.address;
-      subjectBorrowAsset = compoundSetup.comp.address;
+      subjectBorrowAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
     });
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).addBorrowAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).addBorrowAssets(
         subjectSetToken,
-        subjectBorrowAsset,
+        subjectBorrowAssets,
       );
     }
 
@@ -3311,17 +3371,17 @@ describe("CompoundLeverageModule", () => {
     });
 
     it("should emit the correct BorrowAssetAdded event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetAdded").withArgs(
+      await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetsAdded").withArgs(
         subjectSetToken,
-        subjectBorrowAsset,
+        subjectBorrowAssets,
       );
     });
 
     describe("when markets are entered", async () => {
       beforeEach(async () => {
-        await compoundLeverageModule.addCollateralAsset(
+        await compoundLeverageModule.addCollateralAssets(
           setToken.address,
-          compoundSetup.comp.address
+          [compoundSetup.comp.address]
         );
       });
 
@@ -3334,7 +3394,7 @@ describe("CompoundLeverageModule", () => {
 
     describe("when borrow asset does not exist on Compound", async () => {
       beforeEach(async () => {
-        subjectBorrowAsset = await getRandomAddress();
+        subjectBorrowAssets = [await getRandomAddress()];
       });
 
       it("should revert", async () => {
@@ -3344,7 +3404,7 @@ describe("CompoundLeverageModule", () => {
 
     describe("when borrow asset is enabled on module", async () => {
       beforeEach(async () => {
-        subjectBorrowAsset = setup.weth.address;
+        subjectBorrowAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
       });
 
       it("should revert", async () => {
@@ -3391,12 +3451,12 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#removeBorrowAsset", async () => {
+  describe.only("#removeBorrowAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectBorrowAsset: Address;
+    let subjectBorrowAssets: Address[];
     let subjectCaller: Account;
 
     before(async () => {
@@ -3428,14 +3488,14 @@ describe("CompoundLeverageModule", () => {
       await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
 
       subjectSetToken = setToken.address;
-      subjectBorrowAsset = compoundSetup.comp.address;
+      subjectBorrowAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
     });
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).removeBorrowAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).removeBorrowAssets(
         subjectSetToken,
-        subjectBorrowAsset,
+        subjectBorrowAssets,
       );
     }
 
@@ -3460,15 +3520,15 @@ describe("CompoundLeverageModule", () => {
     it("should emit the correct BorrowAssetRemoved event", async () => {
       await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetRemoved").withArgs(
         subjectSetToken,
-        subjectBorrowAsset,
+        subjectBorrowAssets,
       );
     });
 
     describe("when borrow asset is still enabled as collateral", async () => {
       beforeEach(async () => {
-        await compoundLeverageModule.addCollateralAsset(
+        await compoundLeverageModule.addCollateralAssets(
           setToken.address,
-          compoundSetup.comp.address
+          [compoundSetup.comp.address]
         );
       });
 
@@ -3481,7 +3541,7 @@ describe("CompoundLeverageModule", () => {
 
     describe("when borrow asset is not enabled on module", async () => {
       beforeEach(async () => {
-        subjectBorrowAsset = setup.dai.address;
+        subjectBorrowAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
       });
 
       it("should revert", async () => {
@@ -3514,12 +3574,12 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#removeCollateralAsset", async () => {
+  describe.only("#removeCollateralAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectCollateralAsset: Address;
+    let subjectCollateralAssets: Address[];
     let subjectCaller: Account;
 
     before(async () => {
@@ -3550,14 +3610,14 @@ describe("CompoundLeverageModule", () => {
       await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
 
       subjectSetToken = setToken.address;
-      subjectCollateralAsset = compoundSetup.comp.address;
+      subjectCollateralAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
     });
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).removeCollateralAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).removeCollateralAssets(
         subjectSetToken,
-        subjectCollateralAsset,
+        subjectCollateralAssets,
       );
     }
 
@@ -3577,18 +3637,18 @@ describe("CompoundLeverageModule", () => {
       expect(isCCompEntered).to.be.false;
     });
 
-    it("should emit the correct CollateralAssetRemoved event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetRemoved").withArgs(
+    it("should emit the correct CollateralAssetsRemoved event", async () => {
+      await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetsRemoved").withArgs(
         subjectSetToken,
-        subjectCollateralAsset,
+        subjectCollateralAssets,
       );
     });
 
     describe("when collateral asset is still enabled as borrow", async () => {
       beforeEach(async () => {
-        await compoundLeverageModule.addBorrowAsset(
+        await compoundLeverageModule.addBorrowAssets(
           setToken.address,
-          compoundSetup.comp.address
+          [compoundSetup.comp.address]
         );
       });
 
@@ -3601,7 +3661,7 @@ describe("CompoundLeverageModule", () => {
 
     describe("when collateral asset is not enabled on module", async () => {
       beforeEach(async () => {
-        subjectCollateralAsset = setup.dai.address;
+        subjectCollateralAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
       });
 
       it("should revert", async () => {

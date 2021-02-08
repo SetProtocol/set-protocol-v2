@@ -20,13 +20,18 @@ pragma solidity 0.6.10;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { ExplicitERC20 } from "../../lib/ExplicitERC20.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IModule } from "../../interfaces/IModule.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { Invoke } from "./Invoke.sol";
+import { Position } from "./Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { ResourceIdentifier } from "./ResourceIdentifier.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
 /**
  * @title ModuleBase
@@ -35,9 +40,15 @@ import { ResourceIdentifier } from "./ResourceIdentifier.sol";
  * Abstract class that houses common Module-related state and functions.
  */
 abstract contract ModuleBase is IModule {
-    using PreciseUnitMath for uint256;
+    using AddressArrayUtils for address[];
     using Invoke for ISetToken;
+    using Position for ISetToken;
+    using PreciseUnitMath for uint256;
     using ResourceIdentifier for IController;
+    using SafeCast for int256;
+    using SafeCast for uint256;
+    using SafeMath for uint256;
+    using SignedSafeMath for int256;
 
     /* ============ State Variables ============ */
 
