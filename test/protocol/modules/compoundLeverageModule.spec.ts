@@ -2949,10 +2949,6 @@ describe("CompoundLeverageModule", () => {
       await subject();
 
       const underlyingToCToken = await compoundLeverageModule.underlyingToCToken(setup.wbtc.address);
-      const currentCompoundMarkets = await compoundSetup.comptroller.getAllMarkets();
-      const expectedCompoundMarkets = [cEther.address, cDai.address, cComp.address];
-
-      expect(JSON.stringify(currentCompoundMarkets)).to.eq(JSON.stringify(expectedCompoundMarkets));
       expect(underlyingToCToken).to.eq(ADDRESS_ZERO);
     });
 
@@ -2968,7 +2964,7 @@ describe("CompoundLeverageModule", () => {
 
     describe("when underlying token does not exist", async () => {
       beforeEach(async () => {
-        subjectUnderlying = setup.dai.address;
+        subjectUnderlying = await getRandomAddress();
       });
 
       it("should revert", async () => {
@@ -3517,8 +3513,8 @@ describe("CompoundLeverageModule", () => {
       expect(isCCompEntered).to.be.false;
     });
 
-    it("should emit the correct BorrowAssetRemoved event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetRemoved").withArgs(
+    it("should emit the correct BorrowAssetsRemoved event", async () => {
+      await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetsRemoved").withArgs(
         subjectSetToken,
         subjectBorrowAssets,
       );
