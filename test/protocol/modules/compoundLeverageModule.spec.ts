@@ -33,7 +33,7 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
 const expect = getWaffleExpect();
 const web3 = new Web3();
 
-describe.only("CompoundLeverageModule", () => {
+describe("CompoundLeverageModule", () => {
   let owner: Account;
   let mockModule: Account;
   let deployer: DeployHelper;

@@ -901,7 +901,6 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
         const setTotalSupply = await setToken.totalSupply();
         const currentSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
-        // Adjust to include the 1 USDC dust on the SetToken
         const usdcSetBalance = await setup.usdc.balanceOf(setToken.address);
         const adjustedSecondPositionBalance = currentSecondPositionBalance.mul(-1).add(usdcSetBalance);
         const newSecondPositionNotional = preciseMul(newSecondPosition.unit, setTotalSupply);
@@ -918,7 +917,6 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const preRedeemerCEtherBalance = await cEther.balanceOf(subjectCaller.address);
         const preSetCEtherBalance = await cEther.balanceOf(subjectSetToken);
         const preRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
-        const preSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
         const preExternalUsdcBalance = await setup.usdc.balanceOf(cUsdc.address);
 
         const redeemQuantity = preciseMul(subjectQuantity, ether(1).sub(redeemFee));
@@ -929,8 +927,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await subject();
 
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
-        const usdcFlowsCeil = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
-        const usdcFlowsFloor = preciseMul(redeemQuantity, debtPositionUnits.mul(-1));
+        const usdcFlows = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
 
         const postRedeemerCEtherBalance = await cEther.balanceOf(subjectCaller.address);
         const postSetCEtherBalance = await cEther.balanceOf(subjectSetToken);
@@ -939,10 +936,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const postExternalUsdcBalance = await setup.usdc.balanceOf(cUsdc.address);
         expect(postRedeemerCEtherBalance).to.eq(preRedeemerCEtherBalance.add(cEtherFlows));
         expect(postSetCEtherBalance).to.eq(preSetCEtherBalance.sub(cEtherFlows));
-        expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlowsCeil));
-        // 1 USDC unit of dust that is not reflected in positions as component units round up
-        expect(postSetUsdcBalance).to.eq(preSetUsdcBalance.add(usdcFlowsCeil).sub(usdcFlowsFloor));
-        expect(postExternalUsdcBalance).to.eq(preExternalUsdcBalance.add(usdcFlowsFloor));
+        expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
+        expect(postSetUsdcBalance).to.eq(ZERO);
+        expect(postExternalUsdcBalance).to.eq(preExternalUsdcBalance.add(usdcFlows));
       });
     });
 
@@ -1032,7 +1028,6 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
         const setTotalSupply = await setToken.totalSupply();
         const currentSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
-        // Adjust to include the 1 USDC dust on the SetToken
         const usdcSetBalance = await setup.usdc.balanceOf(setToken.address);
         const adjustedSecondPositionBalance = currentSecondPositionBalance.mul(-1).add(usdcSetBalance);
         const newSecondPositionNotional = preciseMul(newSecondPosition.unit, setTotalSupply);
@@ -1049,7 +1044,6 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const preRedeemerCEtherBalance = await cEther.balanceOf(subjectCaller.address);
         const preSetCEtherBalance = await cEther.balanceOf(subjectSetToken);
         const preRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
-        const preSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
         const preExternalUsdcBalance = await setup.usdc.balanceOf(cUsdc.address);
 
         const redeemQuantity = preciseMul(subjectQuantity, ether(1));
@@ -1059,8 +1053,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await subject();
 
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
-        const usdcFlowsCeil = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
-        const usdcFlowsFloor = preciseMul(redeemQuantity, debtPositionUnits.mul(-1));
+        const usdcFlows = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
 
         const postRedeemerCEtherBalance = await cEther.balanceOf(subjectCaller.address);
         const postSetCEtherBalance = await cEther.balanceOf(subjectSetToken);
@@ -1069,10 +1062,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const postExternalUsdcBalance = await setup.usdc.balanceOf(cUsdc.address);
         expect(postRedeemerCEtherBalance).to.eq(preRedeemerCEtherBalance.add(cEtherFlows));
         expect(postSetCEtherBalance).to.eq(preSetCEtherBalance.sub(cEtherFlows));
-        expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlowsCeil));
-        // 1 USDC unit of dust that is not reflected in positions as component units round up
-        expect(postSetUsdcBalance).to.eq(preSetUsdcBalance.add(usdcFlowsCeil).sub(usdcFlowsFloor));
-        expect(postExternalUsdcBalance).to.eq(preExternalUsdcBalance.add(usdcFlowsFloor));
+        expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
+        expect(postSetUsdcBalance).to.eq(ZERO);
+        expect(postExternalUsdcBalance).to.eq(preExternalUsdcBalance.add(usdcFlows));
       });
     });
 
@@ -1178,7 +1170,6 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const currentSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
         const setTotalSupply = await setToken.totalSupply();
 
-        // Adjust to include the 1 USDC dust on the SetToken
         const usdcSetBalance = await setup.usdc.balanceOf(setToken.address);
         const adjustedSecondPositionBalance = currentSecondPositionBalance.mul(-1).add(usdcSetBalance);
         const newSecondPositionNotional = preciseMul(newSecondPosition.unit, setTotalSupply);
@@ -1194,7 +1185,6 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const preRedeemerCEtherBalance = await cEther.balanceOf(subjectCaller.address);
         const preSetCEtherBalance = await cEther.balanceOf(subjectSetToken);
         const preRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
-        const preSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
         const preExternalUsdcBalance = await setup.usdc.balanceOf(cUsdc.address);
 
         await subject();
@@ -1204,8 +1194,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const cEtherFlows = preciseMul(redeemQuantity, newCEtherPositionUnits);
 
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
-        const usdcFlowsCeil = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
-        const usdcFlowsFloor = preciseMul(redeemQuantity, debtPositionUnits.mul(-1));
+        const usdcFlows = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
 
         const postRedeemerCEtherBalance = await cEther.balanceOf(subjectCaller.address);
         const postSetCEtherBalance = await cEther.balanceOf(subjectSetToken);
@@ -1215,10 +1204,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
         expect(postRedeemerCEtherBalance).to.eq(preRedeemerCEtherBalance.add(cEtherFlows));
         expect(postSetCEtherBalance).to.eq(preSetCEtherBalance.sub(cEtherFlows));
-        expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlowsCeil));
-        // 1 USDC unit of dust that is not reflected in positions as component units round up
-        expect(postSetUsdcBalance).to.eq(preSetUsdcBalance.add(usdcFlowsCeil).sub(usdcFlowsFloor));
-        expect(postExternalUsdcBalance).to.eq(preExternalUsdcBalance.add(usdcFlowsFloor));
+        expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
+        expect(postSetUsdcBalance).to.eq(ZERO);
+        expect(postExternalUsdcBalance).to.eq(preExternalUsdcBalance.add(usdcFlows));
       });
     });
   });
