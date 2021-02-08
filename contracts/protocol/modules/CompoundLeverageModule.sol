@@ -135,16 +135,16 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     mapping(address => address) public underlyingToCToken;
 
     // Wrapped Ether address
-    address public weth;
+    address internal weth;
 
     // Compound cEther address
-    address public cEther;
+    address internal cEther;
 
     // Compound Comptroller contract
-    IComptroller public comptroller;
+    IComptroller internal comptroller;
 
     // COMP token address
-    address public compToken;
+    address internal compToken;
 
     // Mapping to efficiently check if cToken market for collateral asset is valid in SetToken
     mapping(ISetToken => mapping(address => bool)) public isCollateralCTokenEnabled;
