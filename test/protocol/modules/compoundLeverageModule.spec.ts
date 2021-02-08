@@ -33,7 +33,7 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
 const expect = getWaffleExpect();
 const web3 = new Web3();
 
-describe("CompoundLeverageModule", () => {
+describe.only("CompoundLeverageModule", () => {
   let owner: Account;
   let mockModule: Account;
   let deployer: DeployHelper;
@@ -227,34 +227,6 @@ describe("CompoundLeverageModule", () => {
       expect(controller).to.eq(subjectController);
     });
 
-    it("should set the correct COMP token", async () => {
-      const compoundLeverageModule = await subject();
-
-      const compToken = await compoundLeverageModule.compToken();
-      expect(compToken).to.eq(subjectCompToken);
-    });
-
-    it("should set the correct Comptroller", async () => {
-      const compoundLeverageModule = await subject();
-
-      const comptroller = await compoundLeverageModule.comptroller();
-      expect(comptroller).to.eq(subjectComptroller);
-    });
-
-    it("should set the correct cEther address", async () => {
-      const compoundLeverageModule = await subject();
-
-      const cEther = await compoundLeverageModule.cEther();
-      expect(cEther).to.eq(subjectCEther);
-    });
-
-    it("should set the correct WETH address", async () => {
-      const compoundLeverageModule = await subject();
-
-      const weth = await compoundLeverageModule.weth();
-      expect(weth).to.eq(subjectWeth);
-    });
-
     it("should set the correct underlying to cToken mapping", async () => {
       const compoundLeverageModule = await subject();
 
@@ -372,7 +344,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Debt issuance must be initialized");
+        await expect(subject()).to.be.revertedWith("Issuance not initialized");
       });
     });
 
@@ -386,7 +358,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be allowlisted");
+        await expect(subject()).to.be.revertedWith("Not allowlisted");
       });
     });
 
@@ -426,7 +398,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral is enabled");
+        await expect(subject()).to.be.revertedWith("Collateral enabled");
       });
     });
 
@@ -446,7 +418,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow is enabled");
+        await expect(subject()).to.be.revertedWith("Borrow enabled");
       });
     });
 
@@ -460,7 +432,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Entering market failed");
+        await expect(subject()).to.be.revertedWith("Entering failed");
       });
     });
 
@@ -861,7 +833,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
+          await expect(subject()).to.be.revertedWith("Slippage too high");
         });
       });
 
@@ -881,7 +853,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
+          await expect(subject()).to.be.revertedWith("Quantity is 0");
         });
       });
 
@@ -902,7 +874,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral is not enabled");
+          await expect(subject()).to.be.revertedWith("Collateral not enabled");
         });
       });
 
@@ -912,7 +884,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow is not enabled");
+          await expect(subject()).to.be.revertedWith("Borrow not enabled");
         });
       });
 
@@ -1549,7 +1521,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
+          await expect(subject()).to.be.revertedWith("Quantity is 0");
         });
       });
 
@@ -1586,7 +1558,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow is not enabled");
+          await expect(subject()).to.be.revertedWith("Borrow not enabled");
         });
       });
 
@@ -1596,7 +1568,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral is not enabled");
+          await expect(subject()).to.be.revertedWith("Collateral not enabled");
         });
       });
 
@@ -1860,7 +1832,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
+          await expect(subject()).to.be.revertedWith("Slippage too high");
         });
       });
     });
@@ -2415,7 +2387,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
+          await expect(subject()).to.be.revertedWith("Slippage too high");
         });
       });
 
@@ -2443,7 +2415,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Claim must be >0");
+          await expect(subject()).to.be.revertedWith("Claim is 0");
         });
       });
 
@@ -2849,7 +2821,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Exiting market failed");
+        await expect(subject()).to.be.revertedWith("Exiting failed");
       });
     });
   });
@@ -2905,19 +2877,9 @@ describe("CompoundLeverageModule", () => {
         await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
       });
     });
-
-    describe("when underlying token already exists", async () => {
-      beforeEach(async () => {
-        subjectUnderlying = setup.dai.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken already enabled");
-      });
-    });
   });
 
-  describe.only("#removeCompoundMarket", async () => {
+  describe("#removeCompoundMarket", async () => {
     let cWbtc: CERc20;
     let subjectUnderlying: Address;
     let subjectCaller: Account;
@@ -2959,16 +2921,6 @@ describe("CompoundLeverageModule", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
-      });
-    });
-
-    describe("when underlying token does not exist", async () => {
-      beforeEach(async () => {
-        subjectUnderlying = await getRandomAddress();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken not enabled");
       });
     });
   });
@@ -3161,12 +3113,12 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Debt issuance must be initialized");
+        await expect(subject()).to.be.revertedWith("Issuance not initialized");
       });
     });
   });
 
-  describe.only("#addCollateralAssets", async () => {
+  describe("#addCollateralAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
@@ -3262,7 +3214,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral is enabled");
+        await expect(subject()).to.be.revertedWith("Collateral enabled");
       });
     });
 
@@ -3276,7 +3228,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Entering market failed");
+        await expect(subject()).to.be.revertedWith("Entering failed");
       });
     });
 
@@ -3305,7 +3257,7 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe.only("#addBorrowAssets", async () => {
+  describe("#addBorrowAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
@@ -3404,7 +3356,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow is enabled");
+        await expect(subject()).to.be.revertedWith("Borrow enabled");
       });
     });
 
@@ -3418,7 +3370,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Entering market failed");
+        await expect(subject()).to.be.revertedWith("Entering failed");
       });
     });
 
@@ -3447,7 +3399,7 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe.only("#removeBorrowAssets", async () => {
+  describe("#removeBorrowAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
@@ -3541,7 +3493,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow is not enabled");
+        await expect(subject()).to.be.revertedWith("Borrow not enabled");
       });
     });
 
@@ -3570,7 +3522,7 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe.only("#removeCollateralAssets", async () => {
+  describe("#removeCollateralAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
@@ -3661,7 +3613,7 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral is not enabled");
+        await expect(subject()).to.be.revertedWith("Collateral not enabled");
       });
     });
 
