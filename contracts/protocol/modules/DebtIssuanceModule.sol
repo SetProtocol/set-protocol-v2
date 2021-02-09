@@ -131,7 +131,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             uint256 quantityWithFees,
             uint256 managerFee,
             uint256 protocolFee
-        ) = _calculateTotalFees(_setToken, _quantity, true);
+        ) = calculateTotalFees(_setToken, _quantity, true);
 
         (
             address[] memory components,
@@ -185,7 +185,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             uint256 quantityNetFees,
             uint256 managerFee,
             uint256 protocolFee
-        ) = _calculateTotalFees(_setToken, _quantity, false);
+        ) = calculateTotalFees(_setToken, _quantity, false);
 
         (
             address[] memory components,
@@ -331,7 +331,42 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         delete issuanceSettings[ISetToken(msg.sender)];
     }
 
-    /* ============ External Getter Functions ============ */
+    /* ============ External View Functions ============ */
+
+    /**
+     * Calculates the manager fee, protocol fee and resulting totalQuantity to use when calculating unit amounts. If fees are charged they
+     * are added to the total issue quantity, for example 1% fee on 100 Sets means 101 Sets are minted by caller, the _to address receives
+     * 100 and the feeRecipient receives 1. Conversely, on redemption the redeemer will only receive the collateral that collateralizes 99
+     * Sets, while the additional Set is given to the feeRecipient.
+     *
+     * @param _setToken         Instance of the SetToken to issue
+     * @param _quantity         Amount of SetToken issuer wants to receive/redeem
+     * @param _isIssue          If issuing or redeeming
+     *
+     * @return uint256          Total amount of Sets to be issued/redeemed with fee adjustment
+     * @return uint256          Sets minted to the manager
+     * @return uint256          Sets minted to the protocol
+     */
+    function calculateTotalFees(
+        ISetToken _setToken,
+        uint256 _quantity,
+        bool _isIssue
+    )
+        public
+        view
+        returns (uint256, uint256, uint256)
+    {
+        uint256 protocolFeeSplit = controller.getModuleFee(address(this), ISSUANCE_MODULE_PROTOCOL_FEE_SPLIT_INDEX);
+        uint256 managerFeeRate = _isIssue ? issuanceSettings[_setToken].managerIssueFee : issuanceSettings[_setToken].managerRedeemFee;
+        
+        uint256 totalFee = managerFeeRate.preciseMul(_quantity);
+        uint256 protocolFee = totalFee.preciseMul(protocolFeeSplit);
+        uint256 managerFee = totalFee.sub(protocolFee);
+
+        uint256 totalQuantity = _isIssue ? _quantity.add(totalFee) : _quantity.sub(totalFee);
+
+        return (totalQuantity, managerFee, protocolFee);
+    }
 
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity plus fees of Sets as well as amount of debt
@@ -354,7 +389,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     {
         (
             uint256 totalQuantity,,
-        ) = _calculateTotalFees(_setToken, _quantity, true);
+        ) = calculateTotalFees(_setToken, _quantity, true);
 
         return _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, true);
     }
@@ -380,7 +415,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     {
         (
             uint256 totalQuantity,,
-        ) = _calculateTotalFees(_setToken, _quantity, false);
+        ) = calculateTotalFees(_setToken, _quantity, false);
 
         return _calculateRequiredComponentIssuanceUnits(_setToken, totalQuantity, false);
     }
@@ -390,41 +425,6 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     /* ============ Internal Functions ============ */
-
-    /**
-     * Calculates the manager fee, protocol fee and resulting totalQuantity to use when calculating unit amounts. If fees are charged they
-     * are added to the total issue quantity, for example 1% fee on 100 Sets means 101 Sets are minted by caller, the _to address receives
-     * 100 and the feeRecipient receives 1. Conversely, on redemption the redeemer will only receive the collateral that collateralizes 99
-     * Sets, while the additional Set is given to the feeRecipient.
-     *
-     * @param _setToken         Instance of the SetToken to issue
-     * @param _quantity         Amount of SetToken issuer wants to receive/redeem
-     * @param _isIssue          If issuing or redeeming
-     *
-     * @return uint256          Total amount of Sets to be issued/redeemed with fee adjustment
-     * @return uint256          Sets minted to the manager
-     * @return uint256          Sets minted to the protocol
-     */
-    function _calculateTotalFees(
-        ISetToken _setToken,
-        uint256 _quantity,
-        bool _isIssue
-    )
-        internal
-        view
-        returns (uint256, uint256, uint256)
-    {
-        uint256 protocolFeeSplit = controller.getModuleFee(address(this), ISSUANCE_MODULE_PROTOCOL_FEE_SPLIT_INDEX);
-        uint256 managerFeeRate = _isIssue ? issuanceSettings[_setToken].managerIssueFee : issuanceSettings[_setToken].managerRedeemFee;
-        
-        uint256 totalFee = managerFeeRate.preciseMul(_quantity);
-        uint256 protocolFee = totalFee.preciseMul(protocolFeeSplit);
-        uint256 managerFee = totalFee.sub(protocolFee);
-
-        uint256 totalQuantity = _isIssue ? _quantity.add(totalFee) : _quantity.sub(totalFee);
-
-        return (totalQuantity, managerFee, protocolFee);
-    }
 
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity of Sets as well as amount of debt that will
