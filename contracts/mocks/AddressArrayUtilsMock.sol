@@ -25,6 +25,8 @@ import { AddressArrayUtils } from "../lib/AddressArrayUtils.sol";
 contract AddressArrayUtilsMock {
     using AddressArrayUtils for address[];
 
+    address[] public storageArray;
+
     function testIndexOf(address[] memory A, address a) external pure returns (uint256, bool) {
         return A.indexOf(a);
     }
@@ -41,7 +43,19 @@ contract AddressArrayUtilsMock {
         return A.remove(a);
     }
 
+    function testRemoveStorage(address a) external {
+        storageArray.removeStorage(a);
+    }
+
     function testPop(address[] memory A, uint256 index) external pure returns (address[] memory, address) {
         return A.pop(index);
+    }
+
+    function setStorageArray(address[] memory A) external {
+        storageArray = A;
+    }
+
+    function getStorageArray() external view returns(address[] memory) {
+        return storageArray;
     }
 }

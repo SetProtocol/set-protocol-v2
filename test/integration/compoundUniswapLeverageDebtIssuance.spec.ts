@@ -199,7 +199,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
@@ -299,7 +299,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
@@ -427,7 +427,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
@@ -572,7 +572,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
@@ -752,7 +752,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
@@ -851,7 +851,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
@@ -982,7 +982,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
@@ -1113,7 +1113,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           ADDRESS_ZERO
         );
         // Add SetToken to allow list
-        await compoundLeverageModule.addAllowedSetToken(setToken.address);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await compoundLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],

@@ -31,11 +31,11 @@ interface IDebtIssuanceModule {
      * Called by another module to register itself on debt issuance module. Any logic can be included
      * in case checks need to be made or state needs to be updated.
      */
-    function register(ISetToken _setToken) external;
+    function registerToIssuanceModule(ISetToken _setToken) external;
 
     /**
      * Called by another module to unregister itself on debt issuance module. Any logic can be included
      * in case checks need to be made or state needs to be cleared.
      */
-    function unregister(ISetToken _setToken) external;
+    function unregisterFromIssuanceModule(ISetToken _setToken) external;
 }
