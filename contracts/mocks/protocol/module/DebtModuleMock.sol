@@ -66,10 +66,10 @@ contract DebtModuleMock is ModuleBase {
 
     function initialize(ISetToken _setToken) external {
         _setToken.initializeModule();
-        IDebtIssuanceModule(module).register(_setToken);
+        IDebtIssuanceModule(module).registerToIssuanceModule(_setToken);
     }
 
     function removeModule() external override {
-        IDebtIssuanceModule(module).unregister(ISetToken(msg.sender));
+        IDebtIssuanceModule(module).unregisterFromIssuanceModule(ISetToken(msg.sender));
     }
 }

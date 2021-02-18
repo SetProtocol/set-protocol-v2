@@ -17,6 +17,8 @@
 */
 pragma solidity 0.6.10;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { ISetToken } from "./ISetToken.sol";
 
 
@@ -33,14 +35,14 @@ interface IModuleIssuanceHook {
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component,
+        IERC20 _component,
         bool _isEquity
     ) external;
 
     function componentRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component,
+        IERC20 _component,
         bool _isEquity
     ) external;
 }

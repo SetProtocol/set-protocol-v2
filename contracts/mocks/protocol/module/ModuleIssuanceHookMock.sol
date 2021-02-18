@@ -46,25 +46,25 @@ contract ModuleIssuanceHookMock is IModuleIssuanceHook {
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component,
+        IERC20 _component,
         bool /* _isEquity */
     ) external override {
-        int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this));
+        int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 totalNotionalExternalModule = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
         // Invoke the SetToken to send the token of total notional to this address
-        _setToken.invokeTransfer(_component, address(this), totalNotionalExternalModule);
+        _setToken.invokeTransfer(address(_component), address(this), totalNotionalExternalModule);
     }
 
     function componentRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component,
+        IERC20 _component,
         bool /* _isEquity */
     ) external override {
         // Send the component to the settoken
-        int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(_component, address(this));
+        int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 totalNotionalExternalModule = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
-        IERC20(_component).transfer(address(_setToken), totalNotionalExternalModule);
+        _component.transfer(address(_setToken), totalNotionalExternalModule);
     }
 }
