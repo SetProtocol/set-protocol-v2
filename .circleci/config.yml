@@ -62,6 +62,7 @@ jobs:
     docker:
       - image: circleci/node:10.11.0
     working_directory: ~/set-protocol-v2
+    parallelism: 5
     resource_class: large
     steps:
       - setup_remote_docker:
@@ -75,8 +76,47 @@ jobs:
           name: Set Up Environment Variables
           command: cp .env.default .env
       - run:
+          name: Create shared coverage outputs folder
+          command: mkdir -p /tmp/coverage
+      - run:
           name: Coverage
-          command: yarn coverage && cat coverage/lcov.info | ./node_modules/.bin/coveralls
+          command: |
+            TEST_FILES="{$(circleci tests glob "./test/**/*.spec.ts" | \
+              circleci tests split --split-by=timings | xargs | sed -e 's/ /,/g')}"
+            yarn coverage -- --testfiles "$TEST_FILES"
+      - run:
+          name: Save coverage
+          command: |
+            cp coverage.json /tmp/coverage/cov_$CIRCLE_NODE_INDEX.json
+            chmod -R 777 /tmp/coverage/cov_$CIRCLE_NODE_INDEX.json
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - cov_0.json
+            - cov_1.json
+            - cov_2.json
+            - cov_3.json
+            - cov_4.json
+
+  report_coverage:
+    docker:
+      - image: circleci/node:10.11.0
+    working_directory: ~/set-protocol-v2
+    steps:
+      - attach_workspace:
+          at: /tmp/coverage
+      - restore_cache:
+          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: Combine coverage reports
+          command: |
+            mkdir -p reports
+            cp -R /tmp/coverage/* .
+            npx istanbul-combine-updated -r lcov cov_0.json cov_1.json cov_2.json cov_3.json cov_4.json
+      - run:
+          name: Upload coverage
+          command: |
+            cat coverage/lcov.info | node_modules/.bin/coveralls
 
 workflows:
   version: 2
@@ -89,3 +129,6 @@ workflows:
       - coverage:
           requires:
             - checkout_and_compile
+      - report_coverage:
+          requires:
+            - coverage
