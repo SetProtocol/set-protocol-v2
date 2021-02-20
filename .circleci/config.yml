@@ -62,6 +62,10 @@ jobs:
     docker:
       - image: circleci/node:10.11.0
     working_directory: ~/set-protocol-v2
+    # When changing the parallelism value, you also
+    # need to update the `persist_to_workspace` paths
+    # in this job (below) as well as the list of files passed
+    # to istanbul-combine in the `report_coverage` job
     parallelism: 5
     resource_class: large
     steps:
