@@ -2,4 +2,15 @@
 ## New Feature Review
 Before submitting a pull request for new review, make sure the following is done:
 * Design doc is created and posted here: [Insert Link]
-* Code cleanliness and completeness is addressed via [guidelines](https://docs.google.com/document/d/1v5KosCZZ27WVVUiyOs9kpwDz-cMxuy7qzskzTjTLajA/edit)
+* Code cleanliness and completeness is addressed via [guidelines](https://app.gitbook.com/@setprotocol-1/s/set/smart-contract-engineering/sc-code-review-process)
+
+Specific Checks
+* Add explanatory comments. If there is complex code that requires specific context or understanding, note that in a comment
+* Remove unncessary comments. Any comments that do not add additional context, information, etc. should be removed
+* Add javadocs. 
+* Scrub through the code for inconsistencies (e.g. removing extra spaces)
+
+
+Broader Considerations
+* Ensure variable, function and event naming is clear, consistent, and reflective for the scope of the code.
+* Consider if certain pieces of logic should be placed in a different library, module
