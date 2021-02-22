@@ -9,6 +9,7 @@ Specific Checks
 * Remove unncessary comments. Any comments that do not add additional context, information, etc. should be removed
 * Add javadocs. 
 * Scrub through the code for inconsistencies (e.g. removing extra spaces)
+* Ensure there are not any .onlys in spec files
 
 
 Broader Considerations
