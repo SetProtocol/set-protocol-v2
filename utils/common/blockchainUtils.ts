@@ -10,14 +10,19 @@ export class Blockchain {
     this._snapshotId = 0;
   }
 
-  public async saveSnapshotAsync(): Promise<void> {
+  public async saveSnapshotAsync(): Promise<string> {
     const response = await this.sendJSONRpcRequestAsync("evm_snapshot", []);
 
     this._snapshotId = response;
+    return response;
   }
 
   public async revertAsync(): Promise<void> {
     await this.sendJSONRpcRequestAsync("evm_revert", [this._snapshotId]);
+  }
+
+  public async revertByIdAsync(id: string): Promise<void> {
+    await this.sendJSONRpcRequestAsync("evm_revert", [id]);
   }
 
   public async resetAsync(): Promise<void> {

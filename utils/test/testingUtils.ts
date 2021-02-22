@@ -37,6 +37,34 @@ export const addSnapshotBeforeRestoreAfterEach = () => {
   });
 };
 
+
+// This is test sandboxing for nested snapshots. Can be used like a `beforeEach` statement.
+// The same caveats about time noted in the comment above apply.
+const SNAPSHOTS: string[] = [];
+
+export function cacheBeforeEach(initializer: Mocha.AsyncFunc): void {
+  let initialized = false;
+  const blockchain = new Blockchain(provider);
+
+  beforeEach(async function () {
+    if (!initialized) {
+      await initializer.call(this);
+      SNAPSHOTS.push(await blockchain.saveSnapshotAsync());
+      initialized = true;
+    } else {
+      const snapshotId = SNAPSHOTS.pop()!;
+      await blockchain.revertByIdAsync(snapshotId);
+      SNAPSHOTS.push(await blockchain.saveSnapshotAsync());
+    }
+  });
+
+  after(async function () {
+    if (initialized) {
+      SNAPSHOTS.pop();
+    }
+  });
+}
+
 export async function getTransactionTimestamp(asyncTxn: any): Promise<BigNumber> {
   const txData = await asyncTxn;
   return BigNumber.from((await provider.getBlock(txData.block)).timestamp);
