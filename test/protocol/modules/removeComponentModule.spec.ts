@@ -19,7 +19,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("RemoveComponentModule", () => {
+describe.only("RemoveComponentModule", () => {
   let owner: Account;
   let deployer: DeployHelper;
 
@@ -141,17 +141,19 @@ describe("RemoveComponentModule", () => {
     describe("#removeComponent", async () => {
       let subjectCaller: Account;
 
+      let addedComponent: Address;
       let addComponent: boolean;
 
       before(async () => {
         addComponent = true;
+        addedComponent = setup.usdc.address;
       });
 
       beforeEach(async () => {
         await removeComponentModule.initialize();
 
         if (addComponent) {
-          await removeComponentModule.addComponent();
+          await removeComponentModule.addComponent(addedComponent);
         }
 
         subjectCaller = owner;
@@ -199,17 +201,17 @@ describe("RemoveComponentModule", () => {
         });
       });
 
-      describe("when no duplicate entry exists", async () => {
+      describe("when no duplicate entry exists for the passed component", async () => {
         before(async () => {
-          addComponent = false;
+          addedComponent = setup.weth.address;
         });
 
         after(async () => {
-          addComponent = true;
+          addedComponent = setup.usdc.address;
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("No duplicate components in Set");
+          await expect(subject()).to.be.revertedWith("Component does not have duplicate");
         });
       });
 

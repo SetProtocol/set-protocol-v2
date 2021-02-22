@@ -19,7 +19,6 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
@@ -32,7 +31,6 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  * Single use module to remove duplicated component from array.
  */
 contract RemoveComponentModule is ModuleBase {
-    using AddressArrayUtils for address[];
 
     /* ============ State ============ */
     
@@ -60,7 +58,13 @@ contract RemoveComponentModule is ModuleBase {
         require(!used, "Module has been used");
 
         address[] memory components = setToken.getComponents();
-        require(components.hasDuplicate(), "No duplicate components in Set");
+        uint256 componentCount;
+        for (uint256 i = 0; i < components.length; i++) {
+            if (component == components[i]) {
+                componentCount = componentCount.add(1);
+            }
+        }
+        require(componentCount > 1, "Component does not have duplicate");
 
         setToken.removeComponent(component);
 

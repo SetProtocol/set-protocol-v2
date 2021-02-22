@@ -47,7 +47,7 @@ contract RemoveComponentModuleMock is RemoveComponentModule {
         RemoveComponentModule(_controller, _setToken, _component)
     {}
 
-    function addComponent() external {
-        setToken.addComponent(component);
+    function addComponent(address _component) external {
+        setToken.addComponent(_component);
     }
 }
