@@ -19,7 +19,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe.only("RemoveComponentModule", () => {
+describe("RemoveComponentModule", () => {
   let owner: Account;
   let deployer: DeployHelper;
 
