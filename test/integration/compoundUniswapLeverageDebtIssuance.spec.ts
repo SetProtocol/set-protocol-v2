@@ -20,7 +20,7 @@ import {
   preciseDivCeil
 } from "@utils/index";
 import {
-  addSnapshotBeforeRestoreAfterEach,
+  cacheBeforeEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
@@ -48,7 +48,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
   let cUsdc: CERc20;
   let cDai: CERc20;
 
-  before(async () => {
+  cacheBeforeEach(async () => {
     [
       owner,
       feeRecipient,
@@ -169,8 +169,6 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     );
   });
 
-  addSnapshotBeforeRestoreAfterEach();
-
   describe("#issuance", async () => {
     let setToken: SetToken;
     let issueFee: BigNumber;
@@ -181,9 +179,10 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     let subjectQuantity: BigNumber;
     let subjectTo: Address;
     let subjectCaller: Account;
+    let issueQuantity: BigNumber;
 
     context("when a default cToken position with 0 supply", async () => {
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         cEtherUnits = BigNumber.from(10000000000);
         setToken = await setup.createSetToken(
           [cEther.address],
@@ -211,8 +210,10 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cEther.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity;
         subjectTo = owner.address;
@@ -279,7 +280,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     });
 
     context("when a default cToken position and external borrow position", async () => {
-      beforeEach(async () => {
+      let issueQuantity: BigNumber;
+
+      cacheBeforeEach(async () => {
         cEtherUnits = BigNumber.from(10000000000);
         setToken = await setup.createSetToken(
           [cEther.address],
@@ -307,7 +310,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cEther.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever up
@@ -320,7 +323,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity;
         subjectTo = owner.address;
@@ -403,7 +408,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     });
 
     context("when a default cToken position and liquidated borrow position", async () => {
-      beforeEach(async () => {
+      let issueQuantity: BigNumber;
+
+      cacheBeforeEach(async () => {
         cEtherUnits = BigNumber.from(5000000000);
         setToken = await setup.createSetToken(
           [cEther.address],
@@ -431,7 +438,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cEther.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever up
@@ -460,6 +467,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cUsdc.liquidateBorrow(setToken.address, unitsToLiquidate, cEther.address);
 
         await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, ether(1000));
+      });
+
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity;
         subjectTo = owner.address;
@@ -541,7 +551,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     });
 
     context("when 2 default positions and 2 external borrow positions", async () => {
-      beforeEach(async () => {
+      let issueQuantity: BigNumber;
+
+      cacheBeforeEach(async () => {
         setToken = await setup.createSetToken(
           [cEther.address, setup.wbtc.address],
           [
@@ -572,7 +584,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await setup.wbtc.approve(debtIssuanceModule.address, MAX_UINT_256);
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever up
@@ -595,7 +607,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity;
         subjectTo = owner.address;
@@ -719,9 +733,10 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     let subjectQuantity: BigNumber;
     let subjectTo: Address;
     let subjectCaller: Account;
+    let issueQuantity: BigNumber;
 
     context("when a default cToken position and redeem will take supply to 0", async () => {
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         cEtherUnits = BigNumber.from(10000000000);
         setToken = await setup.createSetToken(
           [cEther.address],
@@ -748,9 +763,11 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cEther.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity;
         subjectTo = owner.address;
@@ -815,7 +832,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     });
 
     context("when a default cToken position and external borrow position", async () => {
-      beforeEach(async () => {
+      let issueQuantity: BigNumber;
+
+      cacheBeforeEach(async () => {
         cEtherUnits = BigNumber.from(10000000000);
         setToken = await setup.createSetToken(
           [cEther.address],
@@ -843,7 +862,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cEther.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever up
@@ -859,7 +878,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
         // Approve debt token to issuance module for redeem
         await setup.usdc.approve(debtIssuanceModule.address, MAX_UINT_256);
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity; // Redeem 1 SetToken so only fee supply is left
         subjectTo = owner.address;
@@ -943,7 +964,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     });
 
     context("when a default cToken position and external borrow position with redeem to supply to 0", async () => {
-      beforeEach(async () => {
+      let issueQuantity: BigNumber;
+
+      cacheBeforeEach(async () => {
         cEtherUnits = BigNumber.from(10000000000);
         setToken = await setup.createSetToken(
           [cEther.address],
@@ -970,7 +993,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cEther.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever up
@@ -986,7 +1009,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
         // Approve debt token to issuance module for redeem
         await setup.usdc.approve(debtIssuanceModule.address, MAX_UINT_256);
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity; // Redeem 1 SetToken so only fee supply is left
         subjectTo = owner.address;
@@ -1069,7 +1094,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     });
 
     context("when a default cToken position and liquidated borrow position", async () => {
-      beforeEach(async () => {
+      let issueQuantity: BigNumber;
+
+      cacheBeforeEach(async () => {
         cEtherUnits = BigNumber.from(5000000000);
         setToken = await setup.createSetToken(
           [cEther.address],
@@ -1097,7 +1124,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         await cEther.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever up
@@ -1128,7 +1155,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
         // Approve debt token to issuance module for redeem
         await setup.usdc.approve(debtIssuanceModule.address, MAX_UINT_256);
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity;
         subjectTo = owner.address;
