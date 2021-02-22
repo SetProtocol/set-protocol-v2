@@ -45,6 +45,8 @@ export { PositionMock } from "../../typechain/PositionMock";
 export { PreciseUnitMathMock } from "../../typechain/PreciseUnitMathMock";
 export { PriceOracle } from "../../typechain/PriceOracle";
 export { ProtocolViewer } from "../../typechain/ProtocolViewer";
+export { RemoveComponentModule } from "../../typechain/RemoveComponentModule";
+export { RemoveComponentModuleMock } from "../../typechain/RemoveComponentModuleMock";
 export { ResourceIdentifierMock } from "../../typechain/ResourceIdentifierMock";
 export { SetToken } from "../../typechain/SetToken";
 export { SetTokenCreator } from "../../typechain/SetTokenCreator";
