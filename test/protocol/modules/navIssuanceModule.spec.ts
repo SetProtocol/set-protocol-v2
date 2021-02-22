@@ -23,7 +23,7 @@ import {
 import {
   getAccounts,
   getRandomAddress,
-  addSnapshotBeforeRestoreAfterEach,
+  cacheBeforeEach,
   getRandomAccount,
   getProvider,
   getWaffleExpect,
@@ -43,7 +43,7 @@ describe("NavIssuanceModule", () => {
   let setup: SystemFixture;
   let navIssuanceModule: NavIssuanceModule;
 
-  before(async () => {
+  cacheBeforeEach(async () => {
     [
       owner,
       feeRecipient,
@@ -57,8 +57,6 @@ describe("NavIssuanceModule", () => {
     navIssuanceModule = await deployer.modules.deployNavIssuanceModule(setup.controller.address, setup.weth.address);
     await setup.controller.addModule(navIssuanceModule.address);
   });
-
-  addSnapshotBeforeRestoreAfterEach();
 
   describe("#constructor", async () => {
     let subjectController: Address;
@@ -104,12 +102,13 @@ describe("NavIssuanceModule", () => {
     let subjectSetToken: Address;
     let subjectCaller: Account;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address],
         [ether(1)],
         [navIssuanceModule.address]
       );
+
       managerIssuanceHook = await getRandomAddress();
       managerRedemptionHook = await getRandomAddress();
       reserveAssets = [setup.usdc.address, setup.weth.address];
@@ -124,7 +123,9 @@ describe("NavIssuanceModule", () => {
       maxPremiumPercentage = ether(0.1);
       // Set min SetToken supply to 100 units
       minSetTokenSupply = ether(100);
+    });
 
+    beforeEach(async () => {
       subjectSetToken = setToken.address;
       subjectNAVIssuanceSettings = {
         managerIssuanceHook,
@@ -330,7 +331,7 @@ describe("NavIssuanceModule", () => {
     let subjectSetToken: Address;
     let subjectModule: Address;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address],
         [ether(1)],
@@ -352,7 +353,6 @@ describe("NavIssuanceModule", () => {
       // Set min SetToken supply required
       const minSetTokenSupply = ether(1);
 
-      subjectSetToken = setToken.address;
       await navIssuanceModule.connect(owner.wallet).initialize(
         setToken.address,
         {
@@ -367,7 +367,10 @@ describe("NavIssuanceModule", () => {
           minSetTokenSupply,
         }
       );
+    });
 
+    beforeEach(() => {
+      subjectSetToken = setToken.address;
       subjectModule = navIssuanceModule.address;
     });
 
@@ -408,9 +411,10 @@ describe("NavIssuanceModule", () => {
   describe("#getReserveAssets", async () => {
     let reserveAssets: Address[];
     let subjectSetToken: Address;
+    let setToken:  SetToken;
 
-    beforeEach(async () => {
-      const setToken = await setup.createSetToken(
+    cacheBeforeEach(async () => {
+      setToken = await setup.createSetToken(
         [setup.weth.address],
         [ether(1)],
         [navIssuanceModule.address]
@@ -446,7 +450,9 @@ describe("NavIssuanceModule", () => {
         setToken.address,
         navIssuanceSettings
       );
+    });
 
+    beforeEach(() => {
       subjectSetToken = setToken.address;
     });
 
@@ -466,9 +472,10 @@ describe("NavIssuanceModule", () => {
     let subjectSetToken: Address;
     let subjectReserveAsset: Address;
     let subjectReserveQuantity: BigNumber;
+    let setToken: SetToken;
 
-    beforeEach(async () => {
-      const setToken = await setup.createSetToken(
+    cacheBeforeEach(async () => {
+      setToken = await setup.createSetToken(
         [setup.weth.address],
         [ether(1)],
         [navIssuanceModule.address]
@@ -504,7 +511,9 @@ describe("NavIssuanceModule", () => {
         setToken.address,
         navIssuanceSettings
       );
+    });
 
+    beforeEach(async () => {
       subjectSetToken = setToken.address;
       subjectReserveAsset = await getRandomAddress(); // Unused in NavIssuanceModule V1
       subjectReserveQuantity = ether(1); // Unused in NAVIssuanceModule V1
@@ -526,9 +535,10 @@ describe("NavIssuanceModule", () => {
     let subjectSetToken: Address;
     let subjectReserveAsset: Address;
     let subjectSetTokenQuantity: BigNumber;
+    let setToken: SetToken;
 
-    beforeEach(async () => {
-      const setToken = await setup.createSetToken(
+    cacheBeforeEach(async () => {
+      setToken = await setup.createSetToken(
         [setup.weth.address],
         [ether(1)],
         [navIssuanceModule.address]
@@ -564,7 +574,9 @@ describe("NavIssuanceModule", () => {
         setToken.address,
         navIssuanceSettings
       );
+    });
 
+    beforeEach(async () => {
       subjectSetToken = setToken.address;
       subjectReserveAsset = await getRandomAddress(); // Unused in NavIssuanceModule V1
       subjectSetTokenQuantity = ether(1); // Unused in NAVIssuanceModule V1
@@ -585,9 +597,10 @@ describe("NavIssuanceModule", () => {
     let managerFees: BigNumber[];
     let subjectSetToken: Address;
     let subjectFeeIndex: BigNumber;
+    let setToken: SetToken;
 
-    beforeEach(async () => {
-      const setToken = await setup.createSetToken(
+    cacheBeforeEach(async () => {
+      setToken = await setup.createSetToken(
         [setup.weth.address],
         [ether(1)],
         [navIssuanceModule.address]
@@ -623,7 +636,9 @@ describe("NavIssuanceModule", () => {
         setToken.address,
         navIssuanceSettings
       );
+    });
 
+    beforeEach(() => {
       subjectSetToken = setToken.address;
       subjectFeeIndex = ZERO;
     });
@@ -649,7 +664,7 @@ describe("NavIssuanceModule", () => {
     let protocolDirectFee: BigNumber;
     let premiumPercentage: BigNumber;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address],
         [ether(1)],
@@ -692,7 +707,9 @@ describe("NavIssuanceModule", () => {
 
       const protocolManagerFee = ether(.3);
       await setup.controller.addFee(navIssuanceModule.address, ZERO, protocolManagerFee);
+    });
 
+    beforeEach(() => {
       subjectSetToken = setToken.address;
       subjectReserveAsset = setup.usdc.address;
       subjectReserveQuantity = ether(1);
@@ -728,7 +745,7 @@ describe("NavIssuanceModule", () => {
     let protocolDirectFee: BigNumber;
     let premiumPercentage: BigNumber;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.usdc.address, setup.wbtc.address, setup.dai.address],
         [ether(1), usdc(270), bitcoin(1).div(10), ether(600)],
@@ -777,7 +794,9 @@ describe("NavIssuanceModule", () => {
 
       const protocolManagerFee = ether(.3);
       await setup.controller.addFee(navIssuanceModule.address, ONE, protocolManagerFee);
+    });
 
+    beforeEach(() => {
       subjectSetToken = setToken.address;
       subjectReserveAsset = setup.usdc.address;
       subjectSetTokenQuantity = ether(1);
@@ -812,7 +831,7 @@ describe("NavIssuanceModule", () => {
 
     let setToken: SetToken;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.usdc.address, setup.wbtc.address, setup.dai.address],
         [ether(1), usdc(270), bitcoin(1).div(10), ether(600)],
@@ -861,7 +880,9 @@ describe("NavIssuanceModule", () => {
 
       const protocolManagerFee = ether(.3);
       await setup.controller.addFee(navIssuanceModule.address, ZERO, protocolManagerFee);
+    });
 
+    beforeEach(() => {
       subjectSetToken = setToken.address;
       subjectReserveAsset = setup.usdc.address;
       subjectReserveQuantity = usdc(100);
@@ -918,7 +939,7 @@ describe("NavIssuanceModule", () => {
 
     let setToken: SetToken;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.usdc.address, setup.wbtc.address, setup.dai.address],
         [ether(1), usdc(270), bitcoin(1).div(10), ether(600)],
@@ -967,7 +988,9 @@ describe("NavIssuanceModule", () => {
 
       const protocolManagerFee = ether(.3);
       await setup.controller.addFee(navIssuanceModule.address, ONE, protocolManagerFee);
+    });
 
+    beforeEach(() => {
       subjectSetToken = setToken.address;
       subjectReserveAsset = setup.usdc.address;
       subjectSetTokenQuantity = ether(1);
@@ -1057,7 +1080,7 @@ describe("NavIssuanceModule", () => {
     let issueQuantity: BigNumber;
 
     context("when there are 4 components and reserve asset is USDC", async () => {
-      beforeEach(async () => {
+      const initializeContracts = async () => {
         // Valued at 2000 USDC
         units = [ether(1), usdc(270), bitcoin(1).div(10), ether(600)];
         setToken = await setup.createSetToken(
@@ -1065,6 +1088,7 @@ describe("NavIssuanceModule", () => {
           units, // Set is valued at 2000 USDC
           [setup.issuanceModule.address, navIssuanceModule.address]
         );
+
         const managerRedemptionHook = await getRandomAddress();
         const reserveAssets = [setup.usdc.address, setup.weth.address];
         const managerFeeRecipient = feeRecipient.address;
@@ -1102,14 +1126,16 @@ describe("NavIssuanceModule", () => {
         issueQuantity = usdc(1000);
 
         await setup.usdc.approve(navIssuanceModule.address, issueQuantity);
+      };
 
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectReserveAsset = setup.usdc.address;
         subjectReserveQuantity = issueQuantity;
         subjectMinSetTokenReceived = ether(0);
         subjectTo = recipient;
         subjectCaller = owner;
-      });
+      };
 
       context("when there are no fees and no issuance hooks", async () => {
         before(async () => {
@@ -1119,6 +1145,9 @@ describe("NavIssuanceModule", () => {
           // Set premium percentage to 50 bps
           premiumPercentage = ether(0.005);
         });
+
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
         async function subject(): Promise<any> {
           return navIssuanceModule.connect(subjectCaller.wallet).issue(
@@ -1150,7 +1179,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited the reserve asset into the SetToken", async () => {
           const preIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
-          
+
           await subject();
 
           const postIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
@@ -1160,7 +1189,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -1184,7 +1213,7 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -1246,7 +1275,7 @@ describe("NavIssuanceModule", () => {
 
           it("should have deposited the reserve asset into the SetToken", async () => {
             const preIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
-            
+
             await subject();
 
             const postIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
@@ -1257,7 +1286,7 @@ describe("NavIssuanceModule", () => {
 
           it("should have updated the reserve asset position correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -1281,7 +1310,7 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -1318,7 +1347,7 @@ describe("NavIssuanceModule", () => {
 
           it("should have updated the reserve asset position correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -1342,7 +1371,7 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -1430,7 +1459,10 @@ describe("NavIssuanceModule", () => {
           premiumPercentage = ether(0.005);
         });
 
+        cacheBeforeEach(initializeContracts);
+
         beforeEach(async () => {
+          initializeSubjectVariables();
           protocolDirectFee = ether(.02);
           await setup.controller.addFee(navIssuanceModule.address, TWO, protocolDirectFee);
 
@@ -1467,7 +1499,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited the reserve asset into the SetToken", async () => {
           const preIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
-          
+
           await subject();
 
           const postIssueUSDCBalance = await setup.usdc.balanceOf(setToken.address);
@@ -1483,7 +1515,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -1507,7 +1539,7 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -1550,10 +1582,15 @@ describe("NavIssuanceModule", () => {
       context("when there are fees, premiums and an issuance hooks", async () => {
         let issuanceHookContract: NAVIssuanceHookMock;
 
-        before(async () => {
-          issuanceHookContract = await deployer.mocks.deployNavIssuanceHookMock();
+        beforeEach(async () => {
+          managerIssuanceHook = ADDRESS_ZERO;
+          managerFees = [ether(0), ether(0)];
+          premiumPercentage = ether(0.005);
 
+          issuanceHookContract = await deployer.mocks.deployNavIssuanceHookMock();
           managerIssuanceHook = issuanceHookContract.address;
+          await initializeContracts();
+          initializeSubjectVariables();
         });
 
         async function subject(): Promise<any> {
@@ -1601,7 +1638,7 @@ describe("NavIssuanceModule", () => {
     let issueQuantity: BigNumber;
 
     context("when there are 4 components and reserve asset is ETH", async () => {
-      beforeEach(async () => {
+      const initializeContracts = async () => {
         // Valued at 2000 USDC
         units = [ether(1), usdc(270), bitcoin(1).div(10), ether(600)];
         setToken = await setup.createSetToken(
@@ -1644,13 +1681,15 @@ describe("NavIssuanceModule", () => {
 
         // Issue with 1 ETH
         issueQuantity = ether(0.1);
+      };
 
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectMinSetTokenReceived = ether(0);
         subjectTo = recipient;
         subjectValue = issueQuantity;
         subjectCaller = owner;
-      });
+      };
 
       context("when there are no fees and no issuance hooks", async () => {
         before(async () => {
@@ -1659,6 +1698,9 @@ describe("NavIssuanceModule", () => {
           managerFees = [ether(0), ether(0)];
           premiumPercentage = ether(0.005);
         });
+
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
         async function subject(): Promise<any> {
           return navIssuanceModule.connect(subjectCaller.wallet).issueWithEther(
@@ -1690,7 +1732,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited WETH into the SetToken", async () => {
           const preIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
-          
+
           await subject();
 
           const postIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
@@ -1700,7 +1742,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -1723,7 +1765,7 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -1776,7 +1818,7 @@ describe("NavIssuanceModule", () => {
 
           it("should have updated the reserve asset position correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -1800,7 +1842,7 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -1877,6 +1919,9 @@ describe("NavIssuanceModule", () => {
           premiumPercentage = ether(0.1);
         });
 
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
+
         beforeEach(async () => {
           protocolDirectFee = ether(.02);
           await setup.controller.addFee(navIssuanceModule.address, TWO, protocolDirectFee);
@@ -1916,7 +1961,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have deposited the reserve asset into the SetToken", async () => {
           const preIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
-          
+
           await subject();
 
           const postIssueWETHBalance = await setup.weth.balanceOf(setToken.address);
@@ -1932,7 +1977,7 @@ describe("NavIssuanceModule", () => {
 
         it("should have updated the reserve asset position correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -1956,7 +2001,7 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -2016,7 +2061,7 @@ describe("NavIssuanceModule", () => {
     let redeemQuantity: BigNumber;
 
     context("when there are 4 components and reserve asset is USDC", async () => {
-      beforeEach(async () => {
+      const initializeContracts = async () => {
         // Valued at 2000 USDC
         units = [ether(1), usdc(570), bitcoin(1).div(10), ether(300)];
         setToken = await setup.createSetToken(
@@ -2059,14 +2104,16 @@ describe("NavIssuanceModule", () => {
 
         // Redeem 1 SetToken
         redeemQuantity = ether(2.8);
+      };
 
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectReserveAsset = setup.usdc.address;
         subjectSetTokenQuantity = redeemQuantity;
         subjectMinReserveQuantityReceived = ether(0);
         subjectTo = recipient;
         subjectCaller = owner;
-      });
+      };
 
       context("when there are no fees and no redemption hooks", async () => {
         before(async () => {
@@ -2076,6 +2123,9 @@ describe("NavIssuanceModule", () => {
           // Set premium percentage to 50 bps
           premiumPercentage = ether(0.005);
         });
+
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
         async function subject(): Promise<any> {
           return navIssuanceModule.connect(subjectCaller.wallet).redeem(
@@ -2090,7 +2140,7 @@ describe("NavIssuanceModule", () => {
         it("should reduce the SetToken supply", async () => {
           const previousSupply = await setToken.totalSupply();
           const preRedeemBalance = await setToken.balanceOf(owner.address);
-          
+
           await subject();
 
           const currentSupply = await setToken.totalSupply();
@@ -2104,7 +2154,7 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             subjectReserveAsset
           );
-          
+
           await subject();
 
           const postIssueUSDCBalance = await setup.usdc.balanceOf(recipient.address);
@@ -2125,7 +2175,7 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             subjectReserveAsset
           );
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -2152,7 +2202,7 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -2191,7 +2241,7 @@ describe("NavIssuanceModule", () => {
           it("should reduce the SetToken supply", async () => {
             const previousSupply = await setToken.totalSupply();
             const preRedeemBalance = await setToken.balanceOf(owner.address);
-            
+
             await subject();
 
             const currentSupply = await setToken.totalSupply();
@@ -2205,7 +2255,7 @@ describe("NavIssuanceModule", () => {
               subjectSetToken,
               subjectReserveAsset
             );
-            
+
             await subject();
 
             const postIssueUSDCBalance = await setup.usdc.balanceOf(recipient.address);
@@ -2226,7 +2276,7 @@ describe("NavIssuanceModule", () => {
               subjectSetToken,
               subjectReserveAsset
             );
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -2252,7 +2302,7 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -2294,7 +2344,7 @@ describe("NavIssuanceModule", () => {
               subjectSetToken,
               subjectReserveAsset
             );
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -2321,7 +2371,7 @@ describe("NavIssuanceModule", () => {
           it("should have updated the position multiplier correctly", async () => {
             const previousSetTokenSupply = await setToken.totalSupply();
             const preIssuePositionMultiplier = await setToken.positionMultiplier();
-            
+
             await subject();
 
             const currentSetTokenSupply = await setToken.totalSupply();
@@ -2429,7 +2479,10 @@ describe("NavIssuanceModule", () => {
           premiumPercentage = ether(0.005);
         });
 
+        cacheBeforeEach(initializeContracts);
+
         beforeEach(async () => {
+          initializeSubjectVariables();
           protocolDirectFee = ether(.02);
           await setup.controller.addFee(navIssuanceModule.address, THREE, protocolDirectFee);
 
@@ -2564,10 +2617,14 @@ describe("NavIssuanceModule", () => {
       context("when there are fees, premiums and an redemption hook", async () => {
         let issuanceHookContract: ManagerIssuanceHookMock;
 
-        before(async () => {
-          issuanceHookContract = await deployer.mocks.deployManagerIssuanceHookMock();
+        beforeEach(async () => {
+          managerFees = [ether(0), ether(0)];
+          premiumPercentage = ether(0.005);
 
+          issuanceHookContract = await deployer.mocks.deployManagerIssuanceHookMock();
           managerRedemptionHook = issuanceHookContract.address;
+          await initializeContracts();
+          initializeSubjectVariables();
         });
 
         async function subject(): Promise<any> {
@@ -2614,7 +2671,7 @@ describe("NavIssuanceModule", () => {
     let redeemQuantity: BigNumber;
 
     context("when there are 4 components and reserve asset is USDC", async () => {
-      beforeEach(async () => {
+      const initializeContracts = async () => {
         // Valued at 2000 USDC
         units = [ether(1), usdc(270), bitcoin(1).div(10), ether(600)];
         setToken = await setup.createSetToken(
@@ -2657,13 +2714,15 @@ describe("NavIssuanceModule", () => {
 
         // Redeem 1 SetToken
         redeemQuantity = ether(1);
+      };
 
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectSetTokenQuantity = redeemQuantity;
         subjectMinReserveQuantityReceived = ether(0);
         subjectTo = recipient;
         subjectCaller = owner;
-      });
+      };
 
       context("when there are no fees and no redemption hooks", async () => {
         before(async () => {
@@ -2673,6 +2732,9 @@ describe("NavIssuanceModule", () => {
           // Set premium percentage to 50 bps
           premiumPercentage = ether(0.005);
         });
+
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
         async function subject(): Promise<any> {
           return navIssuanceModule.connect(subjectCaller.wallet).redeemIntoEther(
@@ -2686,7 +2748,7 @@ describe("NavIssuanceModule", () => {
         it("should reduce the SetToken supply", async () => {
           const previousSupply = await setToken.totalSupply();
           const preRedeemBalance = await setToken.balanceOf(owner.address);
-          
+
           await subject();
 
           const currentSupply = await setToken.totalSupply();
@@ -2702,7 +2764,7 @@ describe("NavIssuanceModule", () => {
             setup.weth.address
           );
           const preIssueETHBalance = await provider.getBalance(recipient.address);
-          
+
           await subject();
 
           const postIssueETHBalance = await provider.getBalance(recipient.address);
@@ -2723,7 +2785,7 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             setup.weth.address
           );
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -2749,7 +2811,7 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -2858,7 +2920,10 @@ describe("NavIssuanceModule", () => {
           premiumPercentage = ether(0.005);
         });
 
+        cacheBeforeEach(initializeContracts);
+
         beforeEach(async () => {
+          initializeSubjectVariables();
           protocolDirectFee = ether(.02);
           await setup.controller.addFee(navIssuanceModule.address, THREE, protocolDirectFee);
 
@@ -2878,7 +2943,7 @@ describe("NavIssuanceModule", () => {
         it("should reduce the SetToken supply", async () => {
           const previousSupply = await setToken.totalSupply();
           const preRedeemBalance = await setToken.balanceOf(owner.address);
-          
+
           await subject();
 
           const currentSupply = await setToken.totalSupply();
@@ -2894,7 +2959,7 @@ describe("NavIssuanceModule", () => {
             setup.weth.address
           );
           const preIssueETHBalance = await provider.getBalance(recipient.address);
-          
+
           await subject();
 
           const postIssueETHBalance = await provider.getBalance(recipient.address);
@@ -2915,7 +2980,7 @@ describe("NavIssuanceModule", () => {
             subjectSetToken,
             setup.weth.address
           );
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -2941,7 +3006,7 @@ describe("NavIssuanceModule", () => {
         it("should have updated the position multiplier correctly", async () => {
           const previousSetTokenSupply = await setToken.totalSupply();
           const preIssuePositionMultiplier = await setToken.positionMultiplier();
-          
+
           await subject();
 
           const currentSetTokenSupply = await setToken.totalSupply();
@@ -3006,7 +3071,7 @@ describe("NavIssuanceModule", () => {
 
     let setToken: SetToken;
 
-    before(async () => {
+    cacheBeforeEach(async () => {
       // Deploy a standard SetToken
       setToken = await setup.createSetToken(
         [setup.weth.address],
