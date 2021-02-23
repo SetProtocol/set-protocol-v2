@@ -188,7 +188,9 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
         for(uint256 i = 0; i < cTokens.length; i++) {
             ICErc20 cToken = cTokens[i];
-            underlyingToCToken[cToken == _cEther ? _weth : IERC20(cTokens[i].underlying())] = cToken;
+            underlyingToCToken[
+                cToken == _cEther ? _weth : IERC20(cTokens[i].underlying())
+            ] = cToken;
         }
     }
 
