@@ -201,6 +201,49 @@ describe("AddressArrayUtils", () => {
     });
   });
 
+  describe("#removeStorage", async () => {
+    let subjectAddress: Address;
+
+    beforeEach(async () => {
+      await addressArrayUtils.setStorageArray(baseArray);
+      subjectAddress = accountTwo.address;
+    });
+
+    async function subject(): Promise<any> {
+      return addressArrayUtils.testRemoveStorage(subjectAddress);
+    }
+
+    it("should make the correct updates to the storage array", async () => {
+      await subject();
+
+      const actualArray = await addressArrayUtils.getStorageArray();
+      expect(JSON.stringify(actualArray)).to.eq(JSON.stringify([accountOne.address, accountThree.address]));
+    });
+
+    describe("when item being removed is last in array", async () => {
+      beforeEach(async () => {
+        subjectAddress = accountThree.address;
+      });
+
+      it("should just pop off last item", async () => {
+        await subject();
+
+        const actualArray = await addressArrayUtils.getStorageArray();
+        expect(JSON.stringify(actualArray)).to.eq(JSON.stringify([accountOne.address, accountTwo.address]));
+      });
+    });
+
+    describe("when passed address is not in array", async () => {
+      beforeEach(async () => {
+        subjectAddress = unincludedAccount.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Address not in array.");
+      });
+    });
+  });
+
   describe("#pop", async () => {
     let subjectArray: Address[];
     let subjectIndex: BigNumber;

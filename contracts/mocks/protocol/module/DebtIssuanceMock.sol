@@ -31,11 +31,11 @@ contract DebtIssuanceMock {
 
     function removeModule() external {}
 
-    function register(ISetToken _setToken) external {
+    function registerToIssuanceModule(ISetToken _setToken) external {
         isRegistered[_setToken] = true;
     }
 
-    function unregister(ISetToken _setToken) external {
+    function unregisterFromIssuanceModule(ISetToken _setToken) external {
         isRegistered[_setToken] = false;
     }
 }
