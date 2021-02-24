@@ -12,7 +12,8 @@ import {
   UniswapV2ExchangeAdapter,
   UniswapV2ExchangeAdapterV2,
   ZeroExApiAdapter,
-  SnapshotGovernanceAdapter
+  SnapshotGovernanceAdapter,
+  SynthetixExchangeAdapter,
 } from "../contracts";
 
 import { Address, Bytes } from "./../types";
@@ -29,6 +30,7 @@ import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/Unis
 import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/UniswapV2ExchangeAdapter__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
+import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -103,5 +105,13 @@ export default class DeployAdapters {
 
   public async deploySnapshotGovernanceAdapter(delegateRegistry: Address): Promise<SnapshotGovernanceAdapter> {
     return await new SnapshotGovernanceAdapter__factory(this._deployerSigner).deploy(delegateRegistry);
+  }
+
+  public async deploySynthetixExchangeAdapter(
+    synthetixExchangerAddress: Address,
+  ): Promise<SynthetixExchangeAdapter> {
+    return await new SynthetixExchangeAdapter__factory(this._deployerSigner).deploy(
+      synthetixExchangerAddress
+    );
   }
 }
