@@ -27,7 +27,7 @@ import {
   bitcoin
 } from "@utils/index";
 import {
-  addSnapshotBeforeRestoreAfterEach,
+  cacheBeforeEach,
   getAccounts,
   getRandomAccount,
   getSystemFixture,
@@ -68,7 +68,7 @@ describe("TradeModule", () => {
   let uniswapSetup: UniswapFixture;
   let tradeModule: TradeModule;
 
-  before(async () => {
+  cacheBeforeEach(async () => {
     [
       owner,
       manager,
@@ -142,8 +142,6 @@ describe("TradeModule", () => {
     );
   });
 
-  addSnapshotBeforeRestoreAfterEach();
-
   describe("#constructor", async () => {
     let subjectTradeModule: TradeModule;
 
@@ -166,7 +164,7 @@ describe("TradeModule", () => {
     let issueQuantity: BigNumber;
     let mockPreIssuanceHook: ManagerIssuanceHookMock;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       // Selling WBTC
       sourceToken = setup.wbtc;
       destinationToken = setup.weth;
@@ -258,7 +256,7 @@ describe("TradeModule", () => {
           isInitialized = true;
         });
 
-        beforeEach(async () => {
+        const initializeContracts = async () => {
           // Fund Kyber reserve with destinationToken WETH
           destinationToken = destinationToken.connect(owner.wallet);
           await destinationToken.transfer(kyberNetworkProxy.address, ether(1000));
@@ -288,6 +286,9 @@ describe("TradeModule", () => {
           // Issue 10 SetTokens
           issueQuantity = ether(10);
           await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        };
+
+        const initializeSubjectVariables = () => {
           subjectSourceToken = sourceToken.address;
           subjectDestinationToken = destinationToken.address;
           subjectSourceQuantity = sourceTokenQuantity;
@@ -296,7 +297,7 @@ describe("TradeModule", () => {
           subjectData = EMPTY_BYTES;
           subjectMinDestinationQuantity = destinationTokenQuantity.sub(ether(0.5)); // Receive a min of 16 WETH for 0.5 WBTC
           subjectCaller = manager;
-        });
+        };
 
         async function subject(): Promise<any> {
           tradeModule = tradeModule.connect(subjectCaller.wallet);
@@ -311,100 +312,48 @@ describe("TradeModule", () => {
           );
         }
 
-        it("should transfer the correct components to the SetToken", async () => {
-          const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+        describe("when the module is initialized", () => {
+          cacheBeforeEach(initializeContracts);
+          beforeEach(initializeSubjectVariables);
 
-          await subject();
-          const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
-          const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(totalDestinationQuantity);
-          const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
-          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
-        });
-
-        it("should transfer the correct components from the SetToken", async () => {
-          const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
-
-          await subject();
-          const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
-          const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
-          const newSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
-          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-        });
-
-        it("should transfer the correct components to the exchange", async () => {
-          const oldSourceTokenBalance = await sourceToken.balanceOf(kyberNetworkProxy.address);
-
-          await subject();
-          const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
-          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-          const newSourceTokenBalance = await sourceToken.balanceOf(kyberNetworkProxy.address);
-          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-        });
-
-        it("should transfer the correct components from the exchange", async () => {
-          const oldDestinationTokenBalance = await destinationToken.balanceOf(kyberNetworkProxy.address);
-
-          await subject();
-          const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
-          const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
-          const newDestinationTokenBalance = await destinationToken.balanceOf(kyberNetworkProxy.address);
-          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
-        });
-
-        it("should update the positions on the SetToken correctly", async () => {
-          const initialPositions = await setToken.getPositions();
-          const initialFirstPosition = (await setToken.getPositions())[0];
-
-          await subject();
-
-          const currentPositions = await setToken.getPositions();
-          const newFirstPosition = (await setToken.getPositions())[0];
-          const newSecondPosition = (await setToken.getPositions())[1];
-
-          expect(initialPositions.length).to.eq(1);
-          expect(currentPositions.length).to.eq(2);
-          expect(newFirstPosition.component).to.eq(sourceToken.address);
-          expect(newFirstPosition.unit).to.eq(initialFirstPosition.unit.sub(sourceTokenQuantity));
-          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-          expect(newSecondPosition.component).to.eq(destinationToken.address);
-          expect(newSecondPosition.unit).to.eq(destinationTokenQuantity);
-          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
-        });
-
-        describe("when there is a protocol fee charged", async () => {
-          let feePercentage: BigNumber;
-
-          beforeEach(async () => {
-            feePercentage = ether(0.05);
-            setup.controller = setup.controller.connect(owner.wallet);
-            await setup.controller.addFee(
-              tradeModule.address,
-              ZERO, // Fee type on trade function denoted as 0
-              feePercentage // Set fee to 5 bps
-            );
-          });
-
-          it("should transfer the correct components minus fee to the SetToken", async () => {
+          it("should transfer the correct components to the SetToken", async () => {
             const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
 
             await subject();
             const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
-            const totalProtocolFee = feePercentage.mul(totalDestinationQuantity).div(ether(1));
-            const expectedDestinationTokenBalance = oldDestinationTokenBalance
-              .add(totalDestinationQuantity)
-              .sub(totalProtocolFee);
-
+            const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(totalDestinationQuantity);
             const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
             expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
           });
 
-          it("should transfer the correct components from the SetToken to the exchange", async () => {
+          it("should transfer the correct components from the SetToken", async () => {
             const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+
             await subject();
             const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
             const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
             const newSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
             expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should transfer the correct components to the exchange", async () => {
+            const oldSourceTokenBalance = await sourceToken.balanceOf(kyberNetworkProxy.address);
+
+            await subject();
+            const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+            const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+            const newSourceTokenBalance = await sourceToken.balanceOf(kyberNetworkProxy.address);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should transfer the correct components from the exchange", async () => {
+            const oldDestinationTokenBalance = await destinationToken.balanceOf(kyberNetworkProxy.address);
+
+            await subject();
+            const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
+            const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+            const newDestinationTokenBalance = await destinationToken.balanceOf(kyberNetworkProxy.address);
+            expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
           });
 
           it("should update the positions on the SetToken correctly", async () => {
@@ -417,48 +366,33 @@ describe("TradeModule", () => {
             const newFirstPosition = (await setToken.getPositions())[0];
             const newSecondPosition = (await setToken.getPositions())[1];
 
-            const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
             expect(initialPositions.length).to.eq(1);
             expect(currentPositions.length).to.eq(2);
             expect(newFirstPosition.component).to.eq(sourceToken.address);
             expect(newFirstPosition.unit).to.eq(initialFirstPosition.unit.sub(sourceTokenQuantity));
             expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
             expect(newSecondPosition.component).to.eq(destinationToken.address);
-            expect(newSecondPosition.unit).to.eq(destinationTokenQuantity.sub(unitProtocolFee));
+            expect(newSecondPosition.unit).to.eq(destinationTokenQuantity);
             expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
           });
 
-          it("should emit the correct ComponentExchanged event", async () => {
-            const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
-            const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
-            const totalProtocolFee = feePercentage.mul(totalDestinationQuantity).div(ether(1));
-
-            await expect(subject()).to.emit(tradeModule, "ComponentExchanged").withArgs(
-              setToken.address,
-              subjectSourceToken,
-              subjectDestinationToken,
-              kyberExchangeAdapter.address,
-              totalSourceQuantity,
-              totalDestinationQuantity.sub(totalProtocolFee),
-              totalProtocolFee
-            );
-          });
-
-          describe("when receive token is more than total position units tracked on SetToken", async () => {
-            let extraTokenQuantity: BigNumber;
+          describe("when there is a protocol fee charged", async () => {
+            let feePercentage: BigNumber;
 
             beforeEach(async () => {
-              extraTokenQuantity = ether(1);
-              destinationToken = destinationToken.connect(owner.wallet);
-              // Transfer destination token to SetToken
-              await destinationToken.transfer(setToken.address, extraTokenQuantity);
+              feePercentage = ether(0.05);
+              setup.controller = setup.controller.connect(owner.wallet);
+              await setup.controller.addFee(
+                tradeModule.address,
+                ZERO, // Fee type on trade function denoted as 0
+                feePercentage // Set fee to 5 bps
+              );
             });
 
             it("should transfer the correct components minus fee to the SetToken", async () => {
               const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
 
               await subject();
-
               const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
               const totalProtocolFee = feePercentage.mul(totalDestinationQuantity).div(ether(1));
               const expectedDestinationTokenBalance = oldDestinationTokenBalance
@@ -469,45 +403,11 @@ describe("TradeModule", () => {
               expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
             });
 
-            it("should update the positions on the SetToken correctly", async () => {
-              const initialPositions = await setToken.getPositions();
-              const initialFirstPosition = (await setToken.getPositions())[0];
-
-              await subject();
-
-              const currentPositions = await setToken.getPositions();
-              const newFirstPosition = (await setToken.getPositions())[0];
-              const newSecondPosition = (await setToken.getPositions())[1];
-
-              const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
-              expect(initialPositions.length).to.eq(1);
-              expect(currentPositions.length).to.eq(2);
-              expect(newFirstPosition.component).to.eq(sourceToken.address);
-              expect(newFirstPosition.unit).to.eq(initialFirstPosition.unit.sub(sourceTokenQuantity));
-              expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-              expect(newSecondPosition.component).to.eq(destinationToken.address);
-              expect(newSecondPosition.unit).to.eq(destinationTokenQuantity.sub(unitProtocolFee));
-              expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
-            });
-          });
-
-          describe("when send token is more than total position units tracked on SetToken", async () => {
-            let extraTokenQuantity: BigNumber;
-
-            beforeEach(async () => {
-              extraTokenQuantity = ether(1);
-              sourceToken = sourceToken.connect(owner.wallet);
-              // Transfer source token to SetToken
-              await sourceToken.transfer(setToken.address, extraTokenQuantity);
-            });
-
-            it("should transfer the correct components from the SetToken", async () => {
+            it("should transfer the correct components from the SetToken to the exchange", async () => {
               const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
-
               await subject();
               const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
               const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
-
               const newSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
               expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
             });
@@ -515,6 +415,7 @@ describe("TradeModule", () => {
             it("should update the positions on the SetToken correctly", async () => {
               const initialPositions = await setToken.getPositions();
               const initialFirstPosition = (await setToken.getPositions())[0];
+
               await subject();
 
               const currentPositions = await setToken.getPositions();
@@ -531,106 +432,209 @@ describe("TradeModule", () => {
               expect(newSecondPosition.unit).to.eq(destinationTokenQuantity.sub(unitProtocolFee));
               expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
             });
+
+            it("should emit the correct ComponentExchanged event", async () => {
+              const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+              const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
+              const totalProtocolFee = feePercentage.mul(totalDestinationQuantity).div(ether(1));
+
+              await expect(subject()).to.emit(tradeModule, "ComponentExchanged").withArgs(
+                setToken.address,
+                subjectSourceToken,
+                subjectDestinationToken,
+                kyberExchangeAdapter.address,
+                totalSourceQuantity,
+                totalDestinationQuantity.sub(totalProtocolFee),
+                totalProtocolFee
+              );
+            });
+
+            describe("when receive token is more than total position units tracked on SetToken", async () => {
+              let extraTokenQuantity: BigNumber;
+
+              beforeEach(async () => {
+                extraTokenQuantity = ether(1);
+                destinationToken = destinationToken.connect(owner.wallet);
+                // Transfer destination token to SetToken
+                await destinationToken.transfer(setToken.address, extraTokenQuantity);
+              });
+
+              it("should transfer the correct components minus fee to the SetToken", async () => {
+                const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+
+                await subject();
+
+                const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
+                const totalProtocolFee = feePercentage.mul(totalDestinationQuantity).div(ether(1));
+                const expectedDestinationTokenBalance = oldDestinationTokenBalance
+                  .add(totalDestinationQuantity)
+                  .sub(totalProtocolFee);
+
+                const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+                expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+              });
+
+              it("should update the positions on the SetToken correctly", async () => {
+                const initialPositions = await setToken.getPositions();
+                const initialFirstPosition = (await setToken.getPositions())[0];
+
+                await subject();
+
+                const currentPositions = await setToken.getPositions();
+                const newFirstPosition = (await setToken.getPositions())[0];
+                const newSecondPosition = (await setToken.getPositions())[1];
+
+                const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
+                expect(initialPositions.length).to.eq(1);
+                expect(currentPositions.length).to.eq(2);
+                expect(newFirstPosition.component).to.eq(sourceToken.address);
+                expect(newFirstPosition.unit).to.eq(initialFirstPosition.unit.sub(sourceTokenQuantity));
+                expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+                expect(newSecondPosition.component).to.eq(destinationToken.address);
+                expect(newSecondPosition.unit).to.eq(destinationTokenQuantity.sub(unitProtocolFee));
+                expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+              });
+            });
+
+            describe("when send token is more than total position units tracked on SetToken", async () => {
+              let extraTokenQuantity: BigNumber;
+
+              beforeEach(async () => {
+                extraTokenQuantity = ether(1);
+                sourceToken = sourceToken.connect(owner.wallet);
+                // Transfer source token to SetToken
+                await sourceToken.transfer(setToken.address, extraTokenQuantity);
+              });
+
+              it("should transfer the correct components from the SetToken", async () => {
+                const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+
+                await subject();
+                const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+                const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
+
+                const newSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+                expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+              });
+
+              it("should update the positions on the SetToken correctly", async () => {
+                const initialPositions = await setToken.getPositions();
+                const initialFirstPosition = (await setToken.getPositions())[0];
+                await subject();
+
+                const currentPositions = await setToken.getPositions();
+                const newFirstPosition = (await setToken.getPositions())[0];
+                const newSecondPosition = (await setToken.getPositions())[1];
+
+                const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
+                expect(initialPositions.length).to.eq(1);
+                expect(currentPositions.length).to.eq(2);
+                expect(newFirstPosition.component).to.eq(sourceToken.address);
+                expect(newFirstPosition.unit).to.eq(initialFirstPosition.unit.sub(sourceTokenQuantity));
+                expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+                expect(newSecondPosition.component).to.eq(destinationToken.address);
+                expect(newSecondPosition.unit).to.eq(destinationTokenQuantity.sub(unitProtocolFee));
+                expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+              });
+            });
           });
-        });
 
-        describe("when SetToken is locked", async () => {
-          beforeEach(async () => {
-            // Add mock module to controller
-            setup.controller = setup.controller.connect(owner.wallet);
-            await setup.controller.addModule(mockModule.address);
+          describe("when SetToken is locked", async () => {
+            beforeEach(async () => {
+              // Add mock module to controller
+              setup.controller = setup.controller.connect(owner.wallet);
+              await setup.controller.addModule(mockModule.address);
 
-            // Add new mock module to SetToken
-            setToken = setToken.connect(manager.wallet);
-            await setToken.addModule(mockModule.address);
+              // Add new mock module to SetToken
+              setToken = setToken.connect(manager.wallet);
+              await setToken.addModule(mockModule.address);
 
-            // Lock SetToken
-            setToken = setToken.connect(mockModule.wallet);
-            await setToken.initializeModule();
-            await setToken.lock();
+              // Lock SetToken
+              setToken = setToken.connect(mockModule.wallet);
+              await setToken.initializeModule();
+              await setToken.lock();
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("When locked, only the locker can call");
+            });
           });
 
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("When locked, only the locker can call");
-          });
-        });
+          describe("when the exchange is not valid", async () => {
+            beforeEach(async () => {
+              subjectAdapterName = "UNISWAP";
+            });
 
-        describe("when the exchange is not valid", async () => {
-          beforeEach(async () => {
-            subjectAdapterName = "UNISWAP";
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be valid adapter");
-          });
-        });
-
-        describe("when quantity of token to sell is 0", async () => {
-          beforeEach(async () => {
-            subjectSourceQuantity = ZERO;
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Must be valid adapter");
+            });
           });
 
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
-          });
-        });
+          describe("when quantity of token to sell is 0", async () => {
+            beforeEach(async () => {
+              subjectSourceQuantity = ZERO;
+            });
 
-        describe("when quantity sold is more than total units available", async () => {
-          beforeEach(async () => {
-            // Set to 1 base unit more WBTC
-            subjectSourceQuantity = wbtcUnits.add(1);
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Unit cant be greater than existing");
-          });
-        });
-
-        describe("when slippage is greater than allowed", async () => {
-          beforeEach(async () => {
-            // Set to 1 base unit above the exchange rate
-            subjectMinDestinationQuantity = wbtcRate.add(1);
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
+            });
           });
 
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
-          });
-        });
+          describe("when quantity sold is more than total units available", async () => {
+            beforeEach(async () => {
+              // Set to 1 base unit more WBTC
+              subjectSourceQuantity = wbtcUnits.add(1);
+            });
 
-        describe("when the caller is not the SetToken manager", async () => {
-          beforeEach(async () => {
-            subjectCaller = await getRandomAccount();
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Unit cant be greater than existing");
+            });
           });
 
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+          describe("when slippage is greater than allowed", async () => {
+            beforeEach(async () => {
+              // Set to 1 base unit above the exchange rate
+              subjectMinDestinationQuantity = wbtcRate.add(1);
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
+            });
+          });
+
+          describe("when the caller is not the SetToken manager", async () => {
+            beforeEach(async () => {
+              subjectCaller = await getRandomAccount();
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+            });
+          });
+
+          describe("when SetToken is not valid", async () => {
+            beforeEach(async () => {
+              const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+                [setup.weth.address],
+                [ether(1)],
+                [tradeModule.address],
+                manager.address
+              );
+
+              subjectSetToken = nonEnabledSetToken.address;
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+            });
           });
         });
 
         describe("when module is not initialized", async () => {
-          before(async () => {
-            isInitialized = false;
-          });
-
-          after(async () => {
-            isInitialized = true;
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-          });
-        });
-
-        describe("when SetToken is not valid", async () => {
           beforeEach(async () => {
-            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-              [setup.weth.address],
-              [ether(1)],
-              [tradeModule.address],
-              manager.address
-            );
-
-            subjectSetToken = nonEnabledSetToken.address;
+            isInitialized = false;
+            await initializeContracts();
+            initializeSubjectVariables();
           });
 
           it("should revert", async () => {
@@ -640,7 +644,7 @@ describe("TradeModule", () => {
       });
 
       context("when trading a Default component on Uniswap", async () => {
-        beforeEach(async () => {
+        cacheBeforeEach(async () => {
           await setup.weth.connect(owner.wallet).approve(uniswapSetup.router.address, ether(3400));
           await setup.wbtc.connect(owner.wallet).approve(uniswapSetup.router.address, bitcoin(100));
           await uniswapSetup.router.addLiquidity(
@@ -676,7 +680,9 @@ describe("TradeModule", () => {
 
           issueQuantity = ether(1);
           await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        });
 
+        beforeEach(() => {
           subjectSourceToken = sourceToken.address;
           subjectDestinationToken = destinationToken.address;
           subjectSourceQuantity = sourceTokenQuantity;
@@ -785,7 +791,7 @@ describe("TradeModule", () => {
       });
 
       context("when trading a Default component on One Inch", async () => {
-        beforeEach(async () => {
+        cacheBeforeEach(async () => {
           // Add Set token as token sender / recipient
           oneInchExchangeMock = oneInchExchangeMock.connect(owner.wallet);
           await oneInchExchangeMock.addSetTokenAddress(setToken.address);
@@ -817,7 +823,9 @@ describe("TradeModule", () => {
           // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1 WBTC unit regardless of Set supply
           issueQuantity = ether(1);
           await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        });
 
+        beforeEach(() => {
           subjectSourceToken = sourceToken.address;
           subjectDestinationToken = destinationToken.address;
           subjectSourceQuantity = sourceTokenQuantity;
@@ -1014,7 +1022,7 @@ describe("TradeModule", () => {
       });
 
       context("when trading a Default component on 0xAPI", async () => {
-        beforeEach(async () => {
+        cacheBeforeEach(async () => {
           // Add Set token as token sender / recipient
           zeroExMock = zeroExMock.connect(owner.wallet);
           await zeroExMock.addSetTokenAddress(setToken.address);
@@ -1046,7 +1054,9 @@ describe("TradeModule", () => {
           // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1 WBTC unit regardless of Set supply
           issueQuantity = ether(1);
           await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        });
 
+        beforeEach(() => {
           subjectSourceToken = sourceToken.address;
           subjectDestinationToken = destinationToken.address;
           subjectSourceQuantity = sourceTokenQuantity;
