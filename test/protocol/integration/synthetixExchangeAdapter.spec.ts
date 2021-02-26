@@ -6,7 +6,7 @@ import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
   EMPTY_BYTES,
-  ZERO,
+  ZERO
 } from "@utils/constants";
 
 import {
@@ -78,6 +78,7 @@ describe("SynthetixExchangeAdapter", () => {
       sUsd: "0x1111111100000000000000000000000000000000000000000000000000000000",
       sEth: "0x2222222200000000000000000000000000000000000000000000000000000000",
       sBtc: "0x3333333300000000000000000000000000000000000000000000000000000000",
+      invalid : "0x4444444400000000000000000000000000000000000000000000000000000000",
     };
 
     sUsd = await deployer.mocks.deploySynthMock(owner.address, currencyKeys.sUsd);
@@ -151,6 +152,28 @@ describe("SynthetixExchangeAdapter", () => {
       const expectedAmountReceived = ether(conversionRate.mul(btcQuantity));
       expect(actualAmountReceived).to.eq(expectedAmountReceived);
     });
+
+    describe("when source token does not implement currencyKey", () => {
+      beforeEach(async () => {
+        const standardToken = await deployer.mocks.deployTokenMock(owner.address);
+        subjectSourceToken = standardToken.address;
+      });
+
+      it("it should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid source token address");
+      });
+    });
+
+    describe("when destination token does not implement currencyKey", () => {
+      beforeEach(async () => {
+        const standardToken = await deployer.mocks.deployTokenMock(owner.address);
+        subjectDestinationToken = standardToken.address;
+      });
+
+      it("it should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid destination token address");
+      });
+    });
   });
 
   describe("getSpender", async () => {
@@ -217,6 +240,49 @@ describe("SynthetixExchangeAdapter", () => {
       ]);
       expect(JSON.stringify(calldata)).to
         .eq(JSON.stringify([exchanger.address, ZERO, expectedCallData]));
+    });
+
+    describe("when source quantity is zero", () => {
+      beforeEach(() => {
+        subjectSourceQuantity = ZERO;
+      });
+
+      it("it should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Source token quantity must be greater than 0");
+      });
+    });
+
+    describe("when source token and destination token addresses are the same", () => {
+      beforeEach(() => {
+        subjectSourceToken = sEth.address;
+        subjectDestinationToken = sEth.address;
+      });
+
+      it("it should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Source token cannot be same as destination token");
+      });
+    });
+
+    describe("when source token does not implement currencyKey", () => {
+      beforeEach(async () => {
+        const standardToken = await deployer.mocks.deployTokenMock(owner.address);
+        subjectSourceToken = standardToken.address;
+      });
+
+      it("it should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid source token address");
+      });
+    });
+
+    describe("when destination token does not implement currencyKey", () => {
+      beforeEach(async () => {
+        const standardToken = await deployer.mocks.deployTokenMock(owner.address);
+        subjectDestinationToken = standardToken.address;
+      });
+
+      it("it should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid destination token address");
+      });
     });
   });
 });

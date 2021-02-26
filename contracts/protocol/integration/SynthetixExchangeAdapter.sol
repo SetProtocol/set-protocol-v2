@@ -85,8 +85,33 @@ contract SynthetixExchangeAdapter {
     {
         SynthetixTradeInfo memory synthetixTradeInfo;
 
-        synthetixTradeInfo.sourceCurrencyKey = ISynth(_sourceToken).currencyKey();
-        synthetixTradeInfo.destinationCurrencyKey = ISynth(_destinationToken).currencyKey();
+        require(
+            _sourceQuantity > 0,
+            "Source token quantity must be greater than 0"
+        );
+
+        require(
+            _sourceToken != _destinationToken,
+            "Source token cannot be same as destination token"
+        );
+
+        try ISynth(_sourceToken).currencyKey() returns (bytes32 key){
+
+            synthetixTradeInfo.sourceCurrencyKey = key;
+
+        } catch (bytes memory /* data */) {
+
+            revert("Invalid source token address");
+        }
+
+        try ISynth(_destinationToken).currencyKey() returns (bytes32 key){
+
+            synthetixTradeInfo.destinationCurrencyKey = key;
+
+        } catch (bytes memory /* data */) {
+
+            revert("Invalid destination token address");
+        }
 
         // Encode method data for SetToken to invoke
         bytes memory methodData = abi.encodeWithSignature(
@@ -136,8 +161,23 @@ contract SynthetixExchangeAdapter {
     {
         SynthetixTradeInfo memory synthetixTradeInfo;
 
-        synthetixTradeInfo.sourceCurrencyKey = ISynth(_sourceToken).currencyKey();
-        synthetixTradeInfo.destinationCurrencyKey = ISynth(_destinationToken).currencyKey();
+        try ISynth(_sourceToken).currencyKey() returns (bytes32 key){
+
+            synthetixTradeInfo.sourceCurrencyKey = key;
+
+        } catch (bytes memory /* data */) {
+
+            revert("Invalid source token address");
+        }
+
+        try ISynth(_destinationToken).currencyKey() returns (bytes32 key){
+
+            synthetixTradeInfo.destinationCurrencyKey = key;
+
+        } catch (bytes memory /* data */) {
+
+            revert("Invalid destination token address");
+        }
 
         (amountReceived,,) = ISynthetixExchanger(synthetixExchangerAddress).getAmountsForExchange(
             _sourceQuantity,
