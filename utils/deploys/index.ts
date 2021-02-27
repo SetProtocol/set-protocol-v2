@@ -1,5 +1,6 @@
 import { Signer } from "ethers";
 
+import DeployLibraries from "./deployLibraries";
 import DeployMocks from "./deployMocks";
 import DeployModules from "./deployModules";
 import DeployCoreContracts from "./deployCoreContracts";
@@ -9,6 +10,7 @@ import DeployViewers from "./deployViewers";
 import DeployProduct from "./deployProduct";
 
 export default class DeployHelper {
+  public libraries: DeployLibraries;
   public mocks: DeployMocks;
   public modules: DeployModules;
   public core: DeployCoreContracts;
@@ -18,6 +20,7 @@ export default class DeployHelper {
   public product: DeployProduct;
 
   constructor(deployerSigner: Signer) {
+    this.libraries = new DeployLibraries(deployerSigner);
     this.mocks = new DeployMocks(deployerSigner);
     this.modules = new DeployModules(deployerSigner);
     this.core = new DeployCoreContracts(deployerSigner);

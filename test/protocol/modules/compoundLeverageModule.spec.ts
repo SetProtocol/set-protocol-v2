@@ -3,8 +3,9 @@ import Web3 from "web3";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
-  ComptrollerMock,
+  Compound,
   CompoundLeverageModule,
+  ComptrollerMock,
   DebtIssuanceMock,
   OneInchExchangeAdapter,
   OneInchExchangeMock,
@@ -40,6 +41,7 @@ describe("CompoundLeverageModule", () => {
   let setup: SystemFixture;
   let compoundSetup: CompoundFixture;
 
+  let compoundLibrary: Compound;
   let compoundLeverageModule: CompoundLeverageModule;
   let debtIssuanceMock: DebtIssuanceMock;
   let cEther: CEther;
@@ -51,6 +53,7 @@ describe("CompoundLeverageModule", () => {
   let oneInchExchangeMockFromWeth: OneInchExchangeMock;
   let oneInchExchangeMockWithSlippage: OneInchExchangeMock;
   let oneInchExchangeMockFromComp: OneInchExchangeMock;
+  let oneInchExchangeMockOneWei: OneInchExchangeMock;
 
   let oneInchExchangeAdapterToWeth: OneInchExchangeAdapter;
   let oneInchExchangeAdapterFromWeth: OneInchExchangeAdapter;
@@ -113,12 +116,15 @@ describe("CompoundLeverageModule", () => {
     debtIssuanceMock = await deployer.mocks.deployDebtIssuanceMock();
     await setup.controller.addModule(debtIssuanceMock.address);
 
+    compoundLibrary = await deployer.libraries.deployCompound();
     compoundLeverageModule = await deployer.modules.deployCompoundLeverageModule(
       setup.controller.address,
       compoundSetup.comp.address,
       compoundSetup.comptroller.address,
       cEther.address,
-      setup.weth.address
+      setup.weth.address,
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
+      compoundLibrary.address,
     );
     await setup.controller.addModule(compoundLeverageModule.address);
 
@@ -185,6 +191,25 @@ describe("CompoundLeverageModule", () => {
       oneInchExchangeAdapterWithSlippage.address
     );
 
+    // Setup Mock 1inch exchange that takes in 1 wei of DAI
+    oneInchExchangeMockOneWei = await deployer.mocks.deployOneInchExchangeMock(
+      setup.dai.address,
+      setup.weth.address,
+      BigNumber.from(1), // 1 wei of DAI
+      ether(1), // Trades for 1 WETH
+    );
+    const oneInchExchangeAdapterOneWei = await deployer.adapters.deployOneInchExchangeAdapter(
+      oneInchExchangeMockOneWei.address,
+      oneInchExchangeMockOneWei.address,
+      oneInchFunctionSignature
+    );
+
+    await setup.integrationRegistry.addIntegration(
+      compoundLeverageModule.address,
+      "ONEINCHWEI",
+      oneInchExchangeAdapterOneWei.address
+    );
+
     // Add debt issuance address to integration
     await setup.integrationRegistry.addIntegration(
       compoundLeverageModule.address,
@@ -215,6 +240,8 @@ describe("CompoundLeverageModule", () => {
         subjectComptroller,
         subjectCEther,
         subjectWeth,
+        "contracts/protocol/integration/lib/Compound.sol:Compound",
+        compoundLibrary.address,
       );
     }
 
@@ -719,6 +746,44 @@ describe("CompoundLeverageModule", () => {
             expect(newSecondPosition.positionState).to.eq(1); // External
             expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
             expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
+          });
+        });
+
+        describe("when levering only 1 wei", async () => {
+          cacheBeforeEach(async () => {
+            // Add Set token as token sender / recipient
+            oneInchExchangeMockOneWei = oneInchExchangeMockOneWei.connect(owner.wallet);
+            await oneInchExchangeMockOneWei.addSetTokenAddress(setToken.address);
+
+            // Fund One Inch exchange with destinationToken WETH
+            await setup.weth.transfer(oneInchExchangeMockOneWei.address, ether(10));
+            subjectBorrowQuantity = BigNumber.from(1);
+            subjectTradeAdapterName = "ONEINCHWEI";
+            subjectTradeData = oneInchExchangeMockOneWei.interface.encodeFunctionData("swap", [
+              setup.dai.address, // Send token
+              setup.weth.address, // Receive token
+              BigNumber.from(1), // Send quantity
+              subjectMinCollateralQuantity, // Min receive quantity
+              ZERO,
+              ADDRESS_ZERO,
+              [ADDRESS_ZERO],
+              EMPTY_BYTES,
+              [ZERO],
+              [ZERO],
+            ]);
+          });
+
+          it("should not update the borrow position on the SetToken", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            const currentPositions = await setToken.getPositions();
+            const borrowBalance = await cDai.borrowBalanceStored(setToken.address);
+
+            expect(initialPositions.length).to.eq(1);
+            expect(currentPositions.length).to.eq(1);
+            expect(borrowBalance).to.eq(1);
           });
         });
 
@@ -1864,6 +1929,7 @@ describe("CompoundLeverageModule", () => {
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
+    let subjectShouldAccrue: boolean;
     let subjectCaller: Account;
 
     context("when cETH and cDAI are collateral and WETH and DAI are borrow assets", async () => {
@@ -1961,11 +2027,12 @@ describe("CompoundLeverageModule", () => {
 
       const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
+        subjectShouldAccrue = true;
         subjectCaller = owner;
       };
 
       async function subject(): Promise<any> {
-        return compoundLeverageModule.connect(subjectCaller.wallet).sync(subjectSetToken);
+        return compoundLeverageModule.connect(subjectCaller.wallet).sync(subjectSetToken, subjectShouldAccrue);
       }
 
       describe("when module is initialized", () => {
@@ -2156,7 +2223,9 @@ describe("CompoundLeverageModule", () => {
           compoundSetup.comp.address,
           gulpComptrollerMock.address,
           cEther.address,
-          setup.weth.address
+          setup.weth.address,
+          "contracts/protocol/integration/lib/Compound.sol:Compound",
+          compoundLibrary.address,
         );
 
         // Setup Mock 1inch exchange for COMP to WETH trade
@@ -2508,7 +2577,9 @@ describe("CompoundLeverageModule", () => {
           compoundSetup.comp.address,
           gulpComptrollerMock.address,
           cEther.address,
-          setup.weth.address
+          setup.weth.address,
+          "contracts/protocol/integration/lib/Compound.sol:Compound",
+          compoundLibrary.address,
         );
 
         // Setup Mock 1inch exchange for COMP to WETH trade
@@ -2650,7 +2721,9 @@ describe("CompoundLeverageModule", () => {
           compoundSetup.comp.address,
           gulpComptrollerMock.address,
           cEther.address,
-          setup.weth.address
+          setup.weth.address,
+          "contracts/protocol/integration/lib/Compound.sol:Compound",
+          compoundLibrary.address,
         );
 
         // Setup Mock 1inch exchange which is unused
