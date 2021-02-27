@@ -1,4 +1,4 @@
-import { Signer } from "ethers";
+import { Signer, utils } from "ethers";
 
 import {
   AirdropModule,
@@ -149,9 +149,20 @@ export default class DeployModules {
     compToken: Address,
     comptroller: Address,
     cEth: Address,
-    weth: Address
+    weth: Address,
+    libraryName: string,
+    libraryAddress: Address
   ): Promise<CompoundLeverageModule> {
-    return await new CompoundLeverageModule__factory(this._deployerSigner).deploy(
+    const hashedLibName = utils.keccak256(utils.toUtf8Bytes(libraryName));
+    const libKey = `__$${hashedLibName.slice(2).slice(0, 34)}$__`;
+
+    return await new CompoundLeverageModule__factory(
+      // @ts-ignore
+      {
+        [libKey]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy(
       controller,
       compToken,
       comptroller,

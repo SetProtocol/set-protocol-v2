@@ -23,6 +23,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+import { Compound } from "../integration/lib/Compound.sol";
 import { ICErc20 } from "../../interfaces/external/ICErc20.sol";
 import { IComptroller } from "../../interfaces/external/IComptroller.sol";
 import { IController } from "../../interfaces/IController.sol";
@@ -44,6 +45,7 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  *
  */
 contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
+    using Compound for ISetToken;
 
     /* ============ Structs ============ */
 
@@ -266,7 +268,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             _getBorrowPosition(
                 leverInfo.setToken,
                 leverInfo.borrowCTokenAsset,
-                leverInfo.setTotalSupply
+                leverInfo.setTotalSupply,
+                false
             )
         );
 
@@ -343,7 +346,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         _updateBorrowPosition(
             deleverInfo.setToken,
             _repayAsset,
-            _getBorrowPosition(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, deleverInfo.setTotalSupply)
+            _getBorrowPosition(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, deleverInfo.setTotalSupply, false)
         );
 
         emit LeverageDecreased(
@@ -429,13 +432,13 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * - Collateral assets may come out of sync when a position is liquidated
      * - Borrow assets may come out of sync when interest is accrued or position is liquidated and borrow is repaid
      *
-     * @param _setToken             Instance of the SetToken
+     * @param _setToken               Instance of the SetToken
+     * @param _shouldAccrueInterest   Boolean indicating whether use current block interest rate value or stored value
      */
-    function sync(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
+    function sync(ISetToken _setToken, bool _shouldAccrueInterest) public nonReentrant onlyValidAndInitializedSet(_setToken) {
         uint256 setTotalSupply = _setToken.totalSupply();
 
         // Only sync positions when Set supply is not 0. This preserves debt and collateral positions on issuance / redemption
-        // and does not 
         if (setTotalSupply > 0) {
             // Loop through collateral assets
             address[] memory collateralCTokens = enabledAssets[_setToken].collateralCTokens;
@@ -462,7 +465,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
                 int256 newPositionUnit = _getBorrowPosition(
                     _setToken,
                     borrowCToken,
-                    setTotalSupply
+                    setTotalSupply,
+                    _shouldAccrueInterest
                 );
 
                 // Note: Accounts for if position does not exist on SetToken but is tracked in enabledAssets
@@ -521,7 +525,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         ISetToken setToken = ISetToken(msg.sender);
 
         // Sync Compound and SetToken positions prior to any removal action
-        sync(setToken);
+        sync(setToken, true);
 
         address[] memory borrowCTokens = enabledAssets[setToken].borrowCTokens;
         for (uint256 i = 0; i < borrowCTokens.length; i++) {
@@ -530,7 +534,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             // Will exit only if token isn't also being used as collateral
             if(!collateralCTokenEnabled[setToken][cToken]) {
                 // Note: if there is an existing borrow balance, will revert and market cannot be exited on Compound
-                _exitMarket(setToken, cToken);
+                setToken.invokeExitMarket(cToken, comptroller);
             }
 
             delete borrowCTokenEnabled[setToken][cToken];
@@ -540,7 +544,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         for (uint256 i = 0; i < collateralCTokens.length; i++) {
             ICErc20 cToken = ICErc20(collateralCTokens[i]);
 
-            _exitMarket(setToken, cToken);
+            setToken.invokeExitMarket(cToken, comptroller);
 
             delete collateralCTokenEnabled[setToken][cToken];
         }
@@ -582,7 +586,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
             // Note: Will only enter market if cToken is not enabled as a borrow asset as well
             if (!borrowCTokenEnabled[_setToken][cToken]) {
-                _enterMarket(_setToken, cToken);
+                _setToken.invokeEnterMarkets(cToken, comptroller);
             }
 
             collateralCTokenEnabled[_setToken][cToken] = true;
@@ -601,7 +605,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function removeCollateralAssets(ISetToken _setToken, IERC20[] memory _collateralAssets) external onlyManagerAndValidSet(_setToken) {
         // Sync Compound and SetToken positions prior to any removal action
-        sync(_setToken);
+        sync(_setToken, true);
 
         for(uint256 i = 0; i < _collateralAssets.length; i++) {
             ICErc20 cToken = underlyingToCToken[_collateralAssets[i]];
@@ -610,7 +614,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             // Note: Will only exit market if cToken is not enabled as a borrow asset as well
             // If there is an existing borrow balance, will revert and market cannot be exited on Compound
             if (!borrowCTokenEnabled[_setToken][cToken]) {
-                _exitMarket(_setToken, cToken);
+                _setToken.invokeExitMarket(cToken, comptroller);
             }
 
             delete collateralCTokenEnabled[_setToken][cToken];
@@ -635,7 +639,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
             // Note: Will only enter market if cToken is not enabled as a borrow asset as well
             if (!collateralCTokenEnabled[_setToken][cToken]) {
-                _enterMarket(_setToken, cToken);
+                _setToken.invokeEnterMarkets(cToken, comptroller);
             }
 
             borrowCTokenEnabled[_setToken][cToken] = true;
@@ -655,7 +659,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function removeBorrowAssets(ISetToken _setToken, IERC20[] memory _borrowAssets) external onlyManagerAndValidSet(_setToken) {
         // Sync Compound and SetToken positions prior to any removal action
-        sync(_setToken);
+        sync(_setToken, true);
 
         for(uint256 i = 0; i < _borrowAssets.length; i++) {
             ICErc20 cToken = underlyingToCToken[_borrowAssets[i]];
@@ -664,7 +668,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             // Note: Will only exit market if cToken is not enabled as a collateral asset as well
             // If there is an existing borrow balance, will revert and market cannot be exited on Compound
             if (!collateralCTokenEnabled[_setToken][cToken]) {
-                _exitMarket(_setToken, cToken);
+                _setToken.invokeExitMarket(cToken, comptroller);
             }
 
             delete borrowCTokenEnabled[_setToken][cToken];
@@ -726,16 +730,17 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setToken             Instance of the SetToken
      */
     function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
-        sync(_setToken);
+        sync(_setToken, false);
     }
 
     /**
-     * MODULE ONLY: Hook called prior to redemption to sync positions on SetToken. Only callable by valid module.
+     * MODULE ONLY: Hook called prior to redemption to sync positions on SetToken. For redemption, always use current borrowed balance after interest accrual.
+     * Only callable by valid module.
      *
      * @param _setToken             Instance of the SetToken
      */
     function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
-        sync(_setToken);
+        sync(_setToken, true);
     }
 
     /**
@@ -792,35 +797,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /* ============ Internal Functions ============ */
 
     /**
-     * Invoke enter markets from SetToken
-     */
-    function _enterMarket(ISetToken _setToken, ICErc20 _cToken) internal {
-        address[] memory marketsToEnter = new address[](1);
-        marketsToEnter[0] = address(_cToken);
-
-        // Compound's enter market function signature is: enterMarkets(address[] _cTokens)
-        uint256[] memory returnValues = abi.decode(
-            _setToken.invoke(address(comptroller), 0, abi.encodeWithSignature("enterMarkets(address[])", marketsToEnter)),
-            (uint256[])
-        );
-        require(returnValues[0] == 0, "Entering failed");
-    }
-
-    /**
-     * Invoke exit market from SetToken
-     */
-    function _exitMarket(ISetToken _setToken, ICErc20 _cToken) internal {
-        // Compound's exit market function signature is: exitMarket(address _cToken)
-        require(
-            abi.decode(
-                _setToken.invoke(address(comptroller), 0, abi.encodeWithSignature("exitMarket(address)", address(_cToken))),
-                (uint256)
-            ) == 0,
-            "Exiting failed"
-        );
-    }
-
-    /**
      * Mints the specified cToken from the underlying of the specified notional quantity. If cEther, the WETH must be 
      * unwrapped as it only accepts the underlying ETH.
      */
@@ -828,19 +804,11 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         if (_cToken == cEther) {
             _setToken.invokeUnwrapWETH(address(weth), _mintNotional);
 
-            // Compound's mint cEther function signature is: mint(). No return, reverts on error.
-            _setToken.invoke(address(_cToken), _mintNotional, abi.encodeWithSignature("mint()"));
+            _setToken.invokeMintCEther(_cToken, _mintNotional);
         } else {
             _setToken.invokeApprove(address(_underlyingToken), address(_cToken), _mintNotional);
 
-            // Compound's mint cToken function signature is: mint(uint256 _mintAmount). Returns 0 if success
-            require(
-                abi.decode(
-                    _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("mint(uint256)", _mintNotional)),
-                    (uint256)
-                ) == 0,
-                "Mint failed"
-            );
+            _setToken.invokeMintCToken(_cToken, _mintNotional);
         }
     }
 
@@ -848,14 +816,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Invoke redeem from SetToken. If cEther, then also wrap ETH into WETH.
      */
     function _redeemUnderlying(ISetToken _setToken, ICErc20 _cToken, uint256 _redeemNotional) internal {
-        // Compound's redeem function signature is: redeemUnderlying(uint256 _underlyingAmount)
-        require(
-            abi.decode(
-                _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("redeemUnderlying(uint256)", _redeemNotional)),
-                (uint256)
-            ) == 0,
-            "Redeem failed"
-        );
+        _setToken.invokeRedeemUnderlying(_cToken, _redeemNotional);
 
         if (_cToken == cEther) {
             _setToken.invokeWrapWETH(address(weth), _redeemNotional);
@@ -869,19 +830,11 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         if (_cToken == cEther) {
             _setToken.invokeUnwrapWETH(address(weth), _repayNotional);
 
-            // Compound's repay ETH function signature is: repayBorrow(). No return, revert on fail
-            _setToken.invoke(address(_cToken), _repayNotional, abi.encodeWithSignature("repayBorrow()"));
+            _setToken.invokeRepayBorrowCEther(_cToken, _repayNotional);
         } else {
             // Approve to cToken
             _setToken.invokeApprove(address(_underlyingToken), address(_cToken), _repayNotional);
-            // Compound's repay asset function signature is: repayBorrow(uint256 _repayAmount)
-            require(
-                abi.decode(
-                    _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("repayBorrow(uint256)", _repayNotional)),
-                    (uint256)
-                ) == 0,
-                "Repay failed"
-            );
+            _setToken.invokeRepayBorrowCToken(_cToken, _repayNotional);
         }
     }
 
@@ -889,14 +842,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Invoke the SetToken to interact with the specified cToken to borrow the cToken's underlying of the specified borrowQuantity.
      */
     function _borrow(ISetToken _setToken, ICErc20 _cToken, uint256 _notionalBorrowQuantity) internal {
-        // Compound's borrow function signature is: borrow(uint256 _borrowAmount). Note: Notional borrow quantity is in units of underlying asset
-        require(
-            abi.decode(
-                _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("borrow(uint256)", _notionalBorrowQuantity)),
-                (uint256)
-            ) == 0,
-            "Borrow failed"
-        );
+        _setToken.invokeBorrow(_cToken, _notionalBorrowQuantity);
         if (_cToken == cEther) {
             _setToken.invokeWrapWETH(address(weth), _notionalBorrowQuantity);
         }
@@ -1075,9 +1021,22 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         return collateralNotionalBalance.preciseDiv(_setTotalSupply);
     }
 
-    function _getBorrowPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _setTotalSupply) internal returns (int256) {
-        uint256 borrowNotionalBalance = _cToken.borrowBalanceCurrent(address(_setToken));
+    /**
+     * Get borrow position. If should accrue interest is true, then accrue interest on Compound and use current borrow balance, else use the stored value to save gas.
+     * Use the current value for debt redemption, when we need to calculate the exact units of debt that needs to be repaid.
+     *
+     * IMPORTANT: To account when preciseDivCeil rounds any remainder to -1, the unit will register as 0 on the SetToken and won't be removed. If the unit is -1, 
+     * round to 0 which will wipe the SetToken state. However, there will may be a unit of borrow balance in Compound which prevents this module from being removed.
+     * Managers can call the repayBorrowBehalf function on the cToken to wipe borrow balance instead.
+     */
+    function _getBorrowPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _setTotalSupply, bool _shouldAccrueInterest) internal returns (int256) {
+        uint256 borrowNotionalBalance = _shouldAccrueInterest ? _cToken.borrowBalanceCurrent(address(_setToken)) : _cToken.borrowBalanceStored(address(_setToken));
         // Round negative away from 0
-        return borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
+        int256 borrowPositionUnit = borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
+
+        if (borrowPositionUnit == -1) {
+            borrowPositionUnit = 0;
+        }
+        return borrowPositionUnit;
     }
 }
