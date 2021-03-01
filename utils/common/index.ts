@@ -34,3 +34,6 @@ export {
   calculateTokensInReserve,
   getReservesSafe
 } from "./uniswapUtils";
+export {
+  convertLibraryNameToLinkId
+} from "./libraryUtils";
