@@ -17,6 +17,7 @@
 coverage.json
 coverage/
 .env
+test-results.xml
 
 /.coverage_cache
 /.coverage_contracts

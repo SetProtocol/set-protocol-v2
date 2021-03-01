@@ -80,19 +80,29 @@ jobs:
           name: Set Up Environment Variables
           command: cp .env.default .env
       - run:
-          name: Create shared coverage outputs folder
-          command: mkdir -p /tmp/coverage
+          name: Create shared coverage outputs & timings folders
+          command: |
+            mkdir -p /tmp/coverage
+            mkdir ~/junit
       - run:
           name: Coverage
           command: |
-            TEST_FILES="{$(circleci tests glob "./test/**/*.spec.ts" | \
-              circleci tests split --split-by=timings | xargs | sed -e 's/ /,/g')}"
-            yarn coverage -- --testfiles "$TEST_FILES"
+            TEST_FILES="{$(circleci tests glob "${PWD}/test/**/*.spec.ts" | \
+              circleci tests split --split-by=timings | xargs | \
+              sed -e 's/ /,/g' | sed -e "s|$PWD/||g" ),}"
+            yarn coverage --testfiles "$TEST_FILES"
       - run:
-          name: Save coverage
+          name: Save coverage data
           command: |
             cp coverage.json /tmp/coverage/cov_$CIRCLE_NODE_INDEX.json
             chmod -R 777 /tmp/coverage/cov_$CIRCLE_NODE_INDEX.json
+      - run:
+          name: Save timings data
+          command: |
+            cp test-results.xml ~/junit/
+          when: always
+      - store_test_results:
+          path: ~/junit
       - persist_to_workspace:
           root: /tmp/coverage
           paths:
@@ -114,7 +124,6 @@ jobs:
       - run:
           name: Combine coverage reports
           command: |
-            mkdir -p reports
             cp -R /tmp/coverage/* .
             npx istanbul-combine-updated -r lcov cov_0.json cov_1.json cov_2.json cov_3.json cov_4.json
       - run:
