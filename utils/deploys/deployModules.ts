@@ -1,4 +1,5 @@
-import { Signer, utils } from "ethers";
+import { Signer } from "ethers";
+import { convertLibraryNameToLinkId } from "../common";
 
 import {
   AirdropModule,
@@ -153,13 +154,12 @@ export default class DeployModules {
     libraryName: string,
     libraryAddress: Address
   ): Promise<CompoundLeverageModule> {
-    const hashedLibName = utils.keccak256(utils.toUtf8Bytes(libraryName));
-    const libKey = `__$${hashedLibName.slice(2).slice(0, 34)}$__`;
+    const linkId = convertLibraryNameToLinkId(libraryName);
 
     return await new CompoundLeverageModule__factory(
       // @ts-ignore
       {
-        [libKey]: libraryAddress,
+        [linkId]: libraryAddress,
       },
       this._deployerSigner
     ).deploy(
