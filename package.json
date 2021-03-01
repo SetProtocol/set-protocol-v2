@@ -71,7 +71,7 @@
     "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",
     "lodash": "^4.17.4",
-    "mocha-junit-reporter": "^2.0.0",
+    "mocha-junit-reporter": "https://github.com/michaelleeallen/mocha-junit-reporter.git#v2.0.1",
     "mocha-multi-reporters": "^1.5.1",
     "solc": "^0.6.10",
     "solhint": "^3.1.0",
