@@ -92,6 +92,23 @@ library AddressArrayUtils {
     }
 
     /**
+     * @param A The input array to search
+     * @param a The address to remove
+     */
+    function removeStorage(address[] storage A, address a)
+        internal
+    {
+        (uint256 index, bool isIn) = indexOf(A, a);
+        if (!isIn) {
+            revert("Address not in array.");
+        } else {
+            uint256 lastIndex = A.length - 1; // If the array would be empty, the previous line would throw, so no underflow here
+            if (index != lastIndex) { A[index] = A[lastIndex]; }
+            A.pop();
+        }
+    }
+
+    /**
     * Removes specified index from array
     * @param A The input array to search
     * @param index The index to remove

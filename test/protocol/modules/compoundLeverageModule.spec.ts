@@ -18,7 +18,7 @@ import {
   preciseMul
 } from "@utils/index";
 import {
-  addSnapshotBeforeRestoreAfterEach,
+  cacheBeforeEach,
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
@@ -57,7 +57,7 @@ describe("CompoundLeverageModule", () => {
   let oneInchExchangeAdapterFromComp: OneInchExchangeAdapter;
   let cTokenInitialMantissa: BigNumber;
 
-  before(async () => {
+  cacheBeforeEach(async () => {
     [
       owner,
       mockModule,
@@ -184,9 +184,14 @@ describe("CompoundLeverageModule", () => {
       "ONEINCHSLIPPAGE",
       oneInchExchangeAdapterWithSlippage.address
     );
-  });
 
-  addSnapshotBeforeRestoreAfterEach();
+    // Add debt issuance address to integration
+    await setup.integrationRegistry.addIntegration(
+      compoundLeverageModule.address,
+      "DefaultIssuanceModule",
+      debtIssuanceMock.address
+    );
+  });
 
   describe("#constructor", async () => {
     let subjectController: Address;
@@ -220,34 +225,6 @@ describe("CompoundLeverageModule", () => {
       expect(controller).to.eq(subjectController);
     });
 
-    it("should set the correct COMP token", async () => {
-      const compoundLeverageModule = await subject();
-
-      const compToken = await compoundLeverageModule.compToken();
-      expect(compToken).to.eq(subjectCompToken);
-    });
-
-    it("should set the correct Comptroller", async () => {
-      const compoundLeverageModule = await subject();
-
-      const comptroller = await compoundLeverageModule.comptroller();
-      expect(comptroller).to.eq(subjectComptroller);
-    });
-
-    it("should set the correct cEther address", async () => {
-      const compoundLeverageModule = await subject();
-
-      const cEther = await compoundLeverageModule.cEther();
-      expect(cEther).to.eq(subjectCEther);
-    });
-
-    it("should set the correct WETH address", async () => {
-      const compoundLeverageModule = await subject();
-
-      const weth = await compoundLeverageModule.weth();
-      expect(weth).to.eq(subjectWeth);
-    });
-
     it("should set the correct underlying to cToken mapping", async () => {
       const compoundLeverageModule = await subject();
 
@@ -261,12 +238,13 @@ describe("CompoundLeverageModule", () => {
 
   describe("#initialize", async () => {
     let setToken: SetToken;
+    let isAllowlisted: boolean;
     let subjectSetToken: Address;
     let subjectCollateralAssets: Address[];
     let subjectBorrowAssets: Address[];
     let subjectCaller: Account;
 
-    beforeEach(async () => {
+    const initializeContracts = async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
@@ -274,11 +252,18 @@ describe("CompoundLeverageModule", () => {
       );
       await debtIssuanceMock.initialize(setToken.address);
 
+      if (isAllowlisted) {
+        // Add SetToken to allow list
+          await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
+      }
+    };
+
+    const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
       subjectCollateralAssets = [setup.weth.address, setup.dai.address];
       subjectBorrowAssets = [setup.dai.address, setup.weth.address];
       subjectCaller = owner;
-    });
+    };
 
     async function subject(): Promise<any> {
       return compoundLeverageModule.connect(subjectCaller.wallet).initialize(
@@ -288,138 +273,209 @@ describe("CompoundLeverageModule", () => {
       );
     }
 
-    it("should enable the Module on the SetToken", async () => {
-      await subject();
-      const isModuleEnabled = await setToken.isInitializedModule(compoundLeverageModule.address);
-      expect(isModuleEnabled).to.eq(true);
+    describe("when isAllowlisted is true", () => {
+      before(async () => {
+        isAllowlisted = true;
+      });
+
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+
+      it("should enable the Module on the SetToken", async () => {
+        await subject();
+        const isModuleEnabled = await setToken.isInitializedModule(compoundLeverageModule.address);
+        expect(isModuleEnabled).to.eq(true);
+      });
+
+      it("should set the Compound settings and mappings", async () => {
+        await subject();
+        const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
+        const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+        const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
+        const isCEtherCollateral = await compoundLeverageModule.collateralCTokenEnabled(setToken.address, cEther.address);
+        const isCDaiCollateral = await compoundLeverageModule.collateralCTokenEnabled(setToken.address, cDai.address);
+        const isCDaiBorrow = await compoundLeverageModule.borrowCTokenEnabled(setToken.address, cDai.address);
+        const isCEtherBorrow = await compoundLeverageModule.borrowCTokenEnabled(setToken.address, cEther.address);
+        expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address, cDai.address]));
+        expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cDai.address, cEther.address]));
+        expect(isCEtherCollateral).to.be.true;
+        expect(isCDaiCollateral).to.be.true;
+        expect(isCDaiBorrow).to.be.true;
+        expect(isCEtherBorrow).to.be.true;
+      });
+
+      it("should enter markets in Compound", async () => {
+        await subject();
+        const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
+        const isCDaiEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cDai.address);
+        expect(isCEtherEntered).to.be.true;
+        expect(isCDaiEntered).to.be.true;
+      });
+
+      it("should register on the debt issuance module", async () => {
+        await subject();
+        const isRegistered = await debtIssuanceMock.isRegistered(setToken.address);
+        expect(isRegistered).to.be.true;
+      });
+
+      describe("when debt issuance module is not added to integration registry", async () => {
+        beforeEach(async () => {
+          await setup.integrationRegistry.removeIntegration(compoundLeverageModule.address, "DefaultIssuanceModule");
+        });
+
+        afterEach(async () => {
+          // Add debt issuance address to integration
+          await setup.integrationRegistry.addIntegration(
+            compoundLeverageModule.address,
+            "DefaultIssuanceModule",
+            debtIssuanceMock.address
+          );
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be valid adapter");
+        });
+      });
+
+      describe("when debt issuance module is not initialized on SetToken", async () => {
+        beforeEach(async () => {
+          await setToken.removeModule(debtIssuanceMock.address);
+        });
+
+        afterEach(async () => {
+          await setToken.addModule(debtIssuanceMock.address);
+          await debtIssuanceMock.initialize(setToken.address);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Issuance not initialized");
+        });
+      });
+
+      describe("when collateral asset does not exist on Compound", async () => {
+        beforeEach(async () => {
+          subjectCollateralAssets = [setup.dai.address, await getRandomAddress()];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("cToken must exist");
+        });
+      });
+
+      describe("when collateral asset is duplicated", async () => {
+        beforeEach(async () => {
+          subjectCollateralAssets = [setup.weth.address, setup.weth.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Collateral enabled");
+        });
+      });
+
+      describe("when borrow asset does not exist on Compound", async () => {
+        beforeEach(async () => {
+          subjectBorrowAssets = [await getRandomAddress(), setup.weth.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("cToken must exist");
+        });
+      });
+
+      describe("when borrow asset is duplicated", async () => {
+        beforeEach(async () => {
+          subjectBorrowAssets = [setup.weth.address, setup.weth.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Borrow enabled");
+        });
+      });
+
+      describe("when entering an invalid market", async () => {
+        beforeEach(async () => {
+          await compoundSetup.comptroller._setMaxAssets(0);
+        });
+
+        afterEach(async () => {
+          await compoundSetup.comptroller._setMaxAssets(10);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Entering failed");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+
+      describe("when SetToken is not in pending state", async () => {
+        beforeEach(async () => {
+          const newModule = await getRandomAddress();
+          await setup.controller.addModule(newModule);
+
+          const compoundLeverageModuleNotPendingSetToken = await setup.createSetToken(
+            [setup.weth.address],
+            [ether(1)],
+            [newModule]
+          );
+
+          subjectSetToken = compoundLeverageModuleNotPendingSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be pending initialization");
+        });
+      });
+
+      describe("when the SetToken is not enabled on the controller", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+            [setup.weth.address],
+            [ether(1)],
+            [compoundLeverageModule.address]
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be controller-enabled SetToken");
+        });
+      });
     });
 
-    it("should set the Compound settings and mappings", async () => {
-      await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
-      const isCEtherCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cEther.address);
-      const isCDaiCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cDai.address);
-      const isCDaiBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cDai.address);
-      const isCEtherBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cEther.address);
-      expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address, cDai.address]));
-      expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cDai.address, cEther.address]));
-      expect(isCEtherCollateral).to.be.true;
-      expect(isCDaiCollateral).to.be.true;
-      expect(isCDaiBorrow).to.be.true;
-      expect(isCEtherBorrow).to.be.true;
-    });
-
-    it("should enter markets in Compound", async () => {
-      await subject();
-      const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
-      const isCDaiEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cDai.address);
-      expect(isCEtherEntered).to.be.true;
-      expect(isCDaiEntered).to.be.true;
-    });
-
-    it("should register on the debt issuance module", async () => {
-      await subject();
-      const isRegistered = await debtIssuanceMock.isRegistered(setToken.address);
-      expect(isRegistered).to.be.true;
-    });
-
-    describe("when collateral asset does not exist on Compound", async () => {
-      beforeEach(async () => {
-        subjectCollateralAssets = [setup.dai.address, await getRandomAddress()];
+    describe("when isAllowlisted is false", async () => {
+      before(async () => {
+        isAllowlisted = false;
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
-      });
-    });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
 
-    describe("when collateral asset is duplicated", async () => {
-      beforeEach(async () => {
-        subjectCollateralAssets = [setup.weth.address, setup.weth.address];
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is already enabled");
-      });
-    });
-
-    describe("when borrow asset does not exist on Compound", async () => {
-      beforeEach(async () => {
-        subjectBorrowAssets = [await getRandomAddress(), setup.weth.address];
+      describe("when SetToken is not allowlisted", async () => {
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Not allowed SetToken");
+        });
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
-      });
-    });
+      describe("when any Set can initialize this module", async () => {
+        beforeEach(async () => {
+          await compoundLeverageModule.updateAnySetAllowed(true);
+        });
 
-    describe("when borrow asset is duplicated", async () => {
-      beforeEach(async () => {
-        subjectBorrowAssets = [setup.weth.address, setup.weth.address];
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow cToken is already enabled");
-      });
-    });
-
-    describe("when entering an invalid market", async () => {
-      beforeEach(async () => {
-        await compoundSetup.comptroller._setMaxAssets(0);
-      });
-
-      afterEach(async () => {
-        await compoundSetup.comptroller._setMaxAssets(10);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Entering market failed");
-      });
-    });
-
-    describe("when the caller is not the SetToken manager", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-      });
-    });
-
-    describe("when SetToken is not in pending state", async () => {
-      beforeEach(async () => {
-        const newModule = await getRandomAddress();
-        await setup.controller.addModule(newModule);
-
-        const compoundLeverageModuleNotPendingSetToken = await setup.createSetToken(
-          [setup.weth.address],
-          [ether(1)],
-          [newModule]
-        );
-
-        subjectSetToken = compoundLeverageModuleNotPendingSetToken.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be pending initialization");
-      });
-    });
-
-    describe("when the SetToken is not enabled on the controller", async () => {
-      beforeEach(async () => {
-        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
-          [ether(1)],
-          [compoundLeverageModule.address]
-        );
-
-        subjectSetToken = nonEnabledSetToken.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be controller-enabled SetToken");
+        it("should enable the Module on the SetToken", async () => {
+          await subject();
+          const isModuleEnabled = await setToken.isInitializedModule(compoundLeverageModule.address);
+          expect(isModuleEnabled).to.eq(true);
+        });
       });
     });
   });
@@ -439,17 +495,15 @@ describe("CompoundLeverageModule", () => {
     let subjectCaller: Account;
 
     context("when cETH is collateral asset and borrow positions is 0", async () => {
-      before(async () => {
-        isInitialized = true;
-      });
-
-      beforeEach(async () => {
+      const initializeContracts = async () => {
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
           [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
         );
         await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -480,6 +534,10 @@ describe("CompoundLeverageModule", () => {
         const issueQuantity = ether(1);
         destinationTokenQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+      };
+
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectBorrowAsset = setup.dai.address;
         subjectCollateralAsset = setup.weth.address;
@@ -499,7 +557,7 @@ describe("CompoundLeverageModule", () => {
           [ZERO],
         ]);
         subjectCaller = owner;
-      });
+      };
 
       async function subject(): Promise<any> {
         return compoundLeverageModule.connect(subjectCaller.wallet).lever(
@@ -513,104 +571,13 @@ describe("CompoundLeverageModule", () => {
         );
       }
 
-      it("should update the collateral position on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        // cEther position is increased
-        const currentPositions = await setToken.getPositions();
-        const newFirstPosition = (await setToken.getPositions())[0];
-
-        // Get expected cTokens minted
-        const newUnits = preciseDiv(destinationTokenQuantity, cTokenInitialMantissa);
-        const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
-
-        expect(initialPositions.length).to.eq(1);
-        expect(currentPositions.length).to.eq(2);
-        expect(newFirstPosition.component).to.eq(cEther.address);
-        expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
-        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-      });
-
-      it("should update the borrow position on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        // cEther position is increased
-        const currentPositions = await setToken.getPositions();
-        const newSecondPosition = (await setToken.getPositions())[1];
-
-        const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
-
-        expect(initialPositions.length).to.eq(1);
-        expect(currentPositions.length).to.eq(2);
-        expect(newSecondPosition.component).to.eq(setup.dai.address);
-        expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
-        expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
-      });
-
-      it("should transfer the correct components to the exchange", async () => {
-        const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
-
-        await subject();
-        const totalSourceQuantity = subjectBorrowQuantity;
-        const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-        const newSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
-        expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-      });
-
-      it("should transfer the correct components from the exchange", async () => {
-        const oldDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockToWeth.address);
-
-        await subject();
-        const totalDestinationQuantity = destinationTokenQuantity;
-        const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
-        const newDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockToWeth.address);
-        expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
-      });
-
-      describe("when the leverage position has been liquidated", async () => {
-        let ethSeized: BigNumber;
-
-        beforeEach(async () => {
-          // Lever up
-          await compoundLeverageModule.connect(subjectCaller.wallet).lever(
-            subjectSetToken,
-            subjectBorrowAsset,
-            subjectCollateralAsset,
-            subjectBorrowQuantity,
-            subjectMinCollateralQuantity,
-            subjectTradeAdapterName,
-            subjectTradeData
-          );
-
-          // Set price to be liquidated
-          const liquidationEthPrice = ether(250);
-          await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, liquidationEthPrice);
-
-          // Seize 1 ETH + 8% penalty as set on Comptroller
-          ethSeized = ether(1);
-          await setup.dai.approve(cDai.address, ether(100000));
-          await cDai.liquidateBorrow(setToken.address, preciseMul(ethSeized, liquidationEthPrice), cEther.address);
-
-          // ETH increases to $1500 to allow more borrow
-          await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, ether(1500));
-          subjectBorrowQuantity = ether(590);
+      describe("when module is initialized", async () => {
+        before(async () => {
+          isInitialized = true;
         });
 
-        it("should transfer the correct components to the exchange", async () => {
-          const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
-
-          await subject();
-          const totalSourceQuantity = subjectBorrowQuantity;
-          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-          const newSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
-          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-        });
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
         it("should update the collateral position on the SetToken correctly", async () => {
           const initialPositions = await setToken.getPositions();
@@ -623,84 +590,6 @@ describe("CompoundLeverageModule", () => {
 
           // Get expected cTokens minted
           const newUnits = preciseDiv(destinationTokenQuantity, cTokenInitialMantissa);
-          const compoundLiquidationPenalty = await compoundSetup.comptroller.liquidationIncentiveMantissa();
-          const liquidatedCEth = preciseDiv(preciseMul(ethSeized, compoundLiquidationPenalty), cTokenInitialMantissa);
-
-          const expectedPostLiquidationUnit = initialPositions[0].unit.sub(liquidatedCEth).add(newUnits);
-
-          expect(initialPositions.length).to.eq(2);
-          expect(currentPositions.length).to.eq(2);
-          expect(newFirstPosition.component).to.eq(cEther.address);
-          expect(newFirstPosition.positionState).to.eq(0); // Default
-          expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
-          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-        });
-
-        it("should update the borrow position on the SetToken correctly", async () => {
-          const initialPositions = await setToken.getPositions();
-
-          await subject();
-
-          // cEther position is increased
-          const currentPositions = await setToken.getPositions();
-          const newSecondPosition = (await setToken.getPositions())[1];
-
-          const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
-
-          expect(initialPositions.length).to.eq(2);
-          expect(currentPositions.length).to.eq(2);
-          expect(newSecondPosition.component).to.eq(setup.dai.address);
-          expect(newSecondPosition.positionState).to.eq(1); // External
-          expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
-          expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
-        });
-      });
-
-      describe("when there is a protocol fee charged", async () => {
-        let feePercentage: BigNumber;
-
-        beforeEach(async () => {
-          feePercentage = ether(0.05);
-          setup.controller = setup.controller.connect(owner.wallet);
-          await setup.controller.addFee(
-            compoundLeverageModule.address,
-            ZERO, // Fee type on trade function denoted as 0
-            feePercentage // Set fee to 5 bps
-          );
-        });
-
-        it("should transfer the correct components to the exchange", async () => {
-          const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
-
-          await subject();
-          const totalSourceQuantity = subjectBorrowQuantity;
-          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-          const newSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
-          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-        });
-
-        it("should transfer the correct protocol fee to the protocol", async () => {
-          const feeRecipient = await setup.controller.feeRecipient();
-          const oldFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
-
-          await subject();
-          const expectedFeeRecipientBalance = oldFeeRecipientBalance.add(preciseMul(feePercentage, destinationTokenQuantity));
-          const newFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
-          expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
-        });
-
-        it("should update the collateral position on the SetToken correctly", async () => {
-          const initialPositions = await setToken.getPositions();
-
-          await subject();
-
-          // cEther position is increased
-          const currentPositions = await setToken.getPositions();
-          const newFirstPosition = (await setToken.getPositions())[0];
-
-          // Get expected cTokens minted
-          const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
-          const newUnits = preciseDiv(destinationTokenQuantity.sub(unitProtocolFee), cTokenInitialMantissa);
           const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
 
           expect(initialPositions.length).to.eq(1);
@@ -730,148 +619,324 @@ describe("CompoundLeverageModule", () => {
           expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
         });
 
-        it("should emit the correct LeverageIncreased event", async () => {
-          const totalBorrowQuantity = subjectBorrowQuantity;
-          const totalCollateralQuantity = destinationTokenQuantity;
-          const totalProtocolFee = feePercentage.mul(totalCollateralQuantity).div(ether(1));
+        it("should transfer the correct components to the exchange", async () => {
+          const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
 
-          await expect(subject()).to.emit(compoundLeverageModule, "LeverageIncreased").withArgs(
-            setToken.address,
-            subjectBorrowAsset,
-            subjectCollateralAsset,
-            oneInchExchangeAdapterToWeth.address,
-            totalBorrowQuantity,
-            totalCollateralQuantity.sub(totalProtocolFee),
-            totalProtocolFee
-          );
-        });
-      });
-
-      describe("when slippage is greater than allowed", async () => {
-        beforeEach(async () => {
-          // Add Set token as token sender / recipient
-          oneInchExchangeMockWithSlippage = oneInchExchangeMockWithSlippage.connect(owner.wallet);
-          await oneInchExchangeMockWithSlippage.addSetTokenAddress(setToken.address);
-
-          // Fund One Inch exchange with destinationToken WETH
-          await setup.weth.transfer(oneInchExchangeMockWithSlippage.address, ether(10));
-
-          // Set to other mock exchange adapter with slippage
-          subjectTradeAdapterName = "ONEINCHSLIPPAGE";
-          subjectTradeData = oneInchExchangeMockWithSlippage.interface.encodeFunctionData("swap", [
-            setup.dai.address, // Send token
-            setup.weth.address, // Receive token
-            subjectBorrowQuantity, // Send quantity
-            subjectMinCollateralQuantity, // Min receive quantity
-            ZERO,
-            ADDRESS_ZERO,
-            [ADDRESS_ZERO],
-            EMPTY_BYTES,
-            [ZERO],
-            [ZERO],
-          ]);
+          await subject();
+          const totalSourceQuantity = subjectBorrowQuantity;
+          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+          const newSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
-        });
-      });
+        it("should transfer the correct components from the exchange", async () => {
+          const oldDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockToWeth.address);
 
-      describe("when the exchange is not valid", async () => {
-        beforeEach(async () => {
-          subjectTradeAdapterName = "UNISWAP";
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be valid adapter");
-        });
-      });
-
-      describe("when quantity of token to sell is 0", async () => {
-        beforeEach(async () => {
-          subjectBorrowQuantity = ZERO;
+          await subject();
+          const totalDestinationQuantity = destinationTokenQuantity;
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+          const newDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockToWeth.address);
+          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
-        });
-      });
+        describe("when the leverage position has been liquidated", async () => {
+          let ethSeized: BigNumber;
 
-      describe("when borrowing return data is a nonzero value", async () => {
-        beforeEach(async () => {
-          // Set borrow quantity to more than reserves
-          subjectBorrowQuantity = ether(100001);
+          cacheBeforeEach(async () => {
+            // Lever up
+            await compoundLeverageModule.connect(subjectCaller.wallet).lever(
+              subjectSetToken,
+              subjectBorrowAsset,
+              subjectCollateralAsset,
+              subjectBorrowQuantity,
+              subjectMinCollateralQuantity,
+              subjectTradeAdapterName,
+              subjectTradeData
+            );
+
+            // Set price to be liquidated
+            const liquidationEthPrice = ether(250);
+            await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, liquidationEthPrice);
+
+            // Seize 1 ETH + 8% penalty as set on Comptroller
+            ethSeized = ether(1);
+            await setup.dai.approve(cDai.address, ether(100000));
+            await cDai.liquidateBorrow(setToken.address, preciseMul(ethSeized, liquidationEthPrice), cEther.address);
+
+            // ETH increases to $1500 to allow more borrow
+            await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, ether(1500));
+            subjectBorrowQuantity = ether(590);
+          });
+
+          it("should transfer the correct components to the exchange", async () => {
+            const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
+
+            await subject();
+            const totalSourceQuantity = subjectBorrowQuantity;
+            const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+            const newSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should update the collateral position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            // cEther position is increased
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+
+            // Get expected cTokens minted
+            const newUnits = preciseDiv(destinationTokenQuantity, cTokenInitialMantissa);
+            const compoundLiquidationPenalty = await compoundSetup.comptroller.liquidationIncentiveMantissa();
+            const liquidatedCEth = preciseDiv(preciseMul(ethSeized, compoundLiquidationPenalty), cTokenInitialMantissa);
+
+            const expectedPostLiquidationUnit = initialPositions[0].unit.sub(liquidatedCEth).add(newUnits);
+
+            expect(initialPositions.length).to.eq(2);
+            expect(currentPositions.length).to.eq(2);
+            expect(newFirstPosition.component).to.eq(cEther.address);
+            expect(newFirstPosition.positionState).to.eq(0); // Default
+            expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+          });
+
+          it("should update the borrow position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            // cEther position is increased
+            const currentPositions = await setToken.getPositions();
+            const newSecondPosition = (await setToken.getPositions())[1];
+
+            const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
+
+            expect(initialPositions.length).to.eq(2);
+            expect(currentPositions.length).to.eq(2);
+            expect(newSecondPosition.component).to.eq(setup.dai.address);
+            expect(newSecondPosition.positionState).to.eq(1); // External
+            expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+            expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow failed");
-        });
-      });
+        describe("when there is a protocol fee charged", async () => {
+          let feePercentage: BigNumber;
 
-      describe("when collateral asset is not enabled", async () => {
-        beforeEach(async () => {
-          subjectCollateralAsset = setup.wbtc.address;
+          cacheBeforeEach(async () => {
+            feePercentage = ether(0.05);
+            setup.controller = setup.controller.connect(owner.wallet);
+            await setup.controller.addFee(
+              compoundLeverageModule.address,
+              ZERO, // Fee type on trade function denoted as 0
+              feePercentage // Set fee to 5 bps
+            );
+          });
+
+          it("should transfer the correct components to the exchange", async () => {
+            const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
+
+            await subject();
+            const totalSourceQuantity = subjectBorrowQuantity;
+            const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+            const newSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should transfer the correct protocol fee to the protocol", async () => {
+            const feeRecipient = await setup.controller.feeRecipient();
+            const oldFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
+
+            await subject();
+            const expectedFeeRecipientBalance = oldFeeRecipientBalance.add(preciseMul(feePercentage, destinationTokenQuantity));
+            const newFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
+            expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
+          });
+
+          it("should update the collateral position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            // cEther position is increased
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+
+            // Get expected cTokens minted
+            const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
+            const newUnits = preciseDiv(destinationTokenQuantity.sub(unitProtocolFee), cTokenInitialMantissa);
+            const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
+
+            expect(initialPositions.length).to.eq(1);
+            expect(currentPositions.length).to.eq(2);
+            expect(newFirstPosition.component).to.eq(cEther.address);
+            expect(newFirstPosition.positionState).to.eq(0); // Default
+            expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+          });
+
+          it("should update the borrow position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            // cEther position is increased
+            const currentPositions = await setToken.getPositions();
+            const newSecondPosition = (await setToken.getPositions())[1];
+
+            const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
+
+            expect(initialPositions.length).to.eq(1);
+            expect(currentPositions.length).to.eq(2);
+            expect(newSecondPosition.component).to.eq(setup.dai.address);
+            expect(newSecondPosition.positionState).to.eq(1); // External
+            expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+            expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
+          });
+
+          it("should emit the correct LeverageIncreased event", async () => {
+            const totalBorrowQuantity = subjectBorrowQuantity;
+            const totalCollateralQuantity = destinationTokenQuantity;
+            const totalProtocolFee = feePercentage.mul(totalCollateralQuantity).div(ether(1));
+
+            await expect(subject()).to.emit(compoundLeverageModule, "LeverageIncreased").withArgs(
+              setToken.address,
+              subjectBorrowAsset,
+              subjectCollateralAsset,
+              oneInchExchangeAdapterToWeth.address,
+              totalBorrowQuantity,
+              totalCollateralQuantity.sub(totalProtocolFee),
+              totalProtocolFee
+            );
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral cToken is not enabled");
-        });
-      });
+        describe("when slippage is greater than allowed", async () => {
+          cacheBeforeEach(async () => {
+            // Add Set token as token sender / recipient
+            oneInchExchangeMockWithSlippage = oneInchExchangeMockWithSlippage.connect(owner.wallet);
+            await oneInchExchangeMockWithSlippage.addSetTokenAddress(setToken.address);
 
-      describe("when borrow asset is not enabled", async () => {
-        beforeEach(async () => {
-          subjectBorrowAsset = await getRandomAddress();
+            // Fund One Inch exchange with destinationToken WETH
+            await setup.weth.transfer(oneInchExchangeMockWithSlippage.address, ether(10));
+
+            // Set to other mock exchange adapter with slippage
+            subjectTradeAdapterName = "ONEINCHSLIPPAGE";
+            subjectTradeData = oneInchExchangeMockWithSlippage.interface.encodeFunctionData("swap", [
+              setup.dai.address, // Send token
+              setup.weth.address, // Receive token
+              subjectBorrowQuantity, // Send quantity
+              subjectMinCollateralQuantity, // Min receive quantity
+              ZERO,
+              ADDRESS_ZERO,
+              [ADDRESS_ZERO],
+              EMPTY_BYTES,
+              [ZERO],
+              [ZERO],
+            ]);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Slippage too high");
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow cToken is not enabled");
-        });
-      });
+        describe("when the exchange is not valid", async () => {
+          beforeEach(async () => {
+            subjectTradeAdapterName = "UNISWAP";
+          });
 
-      describe("when borrow asset is same as collateral asset", async () => {
-        beforeEach(async () => {
-          subjectBorrowAsset = setup.weth.address;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral and borrow assets must be different");
-        });
-      });
-
-      describe("when the caller is not the SetToken manager", async () => {
-        beforeEach(async () => {
-          subjectCaller = await getRandomAccount();
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be valid adapter");
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        describe("when quantity of token to sell is 0", async () => {
+          beforeEach(async () => {
+            subjectBorrowQuantity = ZERO;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Quantity is 0");
+          });
+        });
+
+        describe("when borrowing return data is a nonzero value", async () => {
+          beforeEach(async () => {
+            // Set borrow quantity to more than reserves
+            subjectBorrowQuantity = ether(100001);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Borrow failed");
+          });
+        });
+
+        describe("when collateral asset is not enabled", async () => {
+          beforeEach(async () => {
+            subjectCollateralAsset = setup.wbtc.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Collateral not enabled");
+          });
+        });
+
+        describe("when borrow asset is not enabled", async () => {
+          beforeEach(async () => {
+            subjectBorrowAsset = await getRandomAddress();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Borrow not enabled");
+          });
+        });
+
+        describe("when borrow asset is same as collateral asset", async () => {
+          beforeEach(async () => {
+            subjectBorrowAsset = setup.weth.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be different");
+          });
+        });
+
+        describe("when the caller is not the SetToken manager", async () => {
+          beforeEach(async () => {
+            subjectCaller = await getRandomAccount();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+          });
+        });
+
+        describe("when SetToken is not valid", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+              [setup.weth.address],
+              [ether(1)],
+              [compoundLeverageModule.address],
+              owner.address
+            );
+
+            subjectSetToken = nonEnabledSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
         });
       });
 
       describe("when module is not initialized", async () => {
-        before(async () => {
-          isInitialized = false;
-        });
-
-        after(async () => {
-          isInitialized = true;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-        });
-      });
-
-      describe("when SetToken is not valid", async () => {
         beforeEach(async () => {
-          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-            [setup.weth.address],
-            [ether(1)],
-            [compoundLeverageModule.address],
-            owner.address
-          );
-
-          subjectSetToken = nonEnabledSetToken.address;
+          isInitialized = false;
+          await initializeContracts();
+          initializeSubjectVariables();
         });
 
         it("should revert", async () => {
@@ -885,13 +950,15 @@ describe("CompoundLeverageModule", () => {
         isInitialized = true;
       });
 
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         setToken = await setup.createSetToken(
           [cDai.address],
           [BigNumber.from(10000000000000)],
           [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
         );
         await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -922,6 +989,9 @@ describe("CompoundLeverageModule", () => {
         const issueQuantity = ether(1);
         destinationTokenQuantity = ether(590);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      });
+
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectBorrowAsset = setup.weth.address;
         subjectCollateralAsset = setup.dai.address;
@@ -1048,13 +1118,15 @@ describe("CompoundLeverageModule", () => {
         isInitialized = true;
       });
 
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         setToken = await setup.createSetToken(
           [cEther.address, setup.dai.address],
           [BigNumber.from(10000000000), ether(1)],
           [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
         );
         await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -1086,6 +1158,9 @@ describe("CompoundLeverageModule", () => {
         const issueQuantity = ether(1);
         destinationTokenQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      });
+
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectBorrowAsset = setup.dai.address;
         subjectCollateralAsset = setup.weth.address;
@@ -1182,17 +1257,16 @@ describe("CompoundLeverageModule", () => {
     let subjectCaller: Account;
 
     context("when cETH is collateral asset", async () => {
-      before(async () => {
-        isInitialized = true;
-      });
 
-      beforeEach(async () => {
+      const initializeContracts = async () => {
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
           [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
         );
         await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -1257,6 +1331,9 @@ describe("CompoundLeverageModule", () => {
         }
 
         destinationTokenQuantity = ether(590);
+      };
+
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectCollateralAsset = setup.weth.address;
         subjectRepayAsset = setup.dai.address;
@@ -1276,7 +1353,7 @@ describe("CompoundLeverageModule", () => {
           [ZERO],
         ]);
         subjectCaller = owner;
-      });
+      };
 
       async function subject(): Promise<any> {
         return compoundLeverageModule.connect(subjectCaller.wallet).delever(
@@ -1290,97 +1367,13 @@ describe("CompoundLeverageModule", () => {
         );
       }
 
-      it("should update the collateral position on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        // cEther position is increased
-        const currentPositions = await setToken.getPositions();
-        const newFirstPosition = (await setToken.getPositions())[0];
-
-        // Get expected cTokens minted
-        const removedUnits = preciseDiv(subjectRedeemQuantity, cTokenInitialMantissa);
-        const expectedFirstPositionUnit = initialPositions[0].unit.sub(removedUnits);
-
-        expect(initialPositions.length).to.eq(2);
-        expect(currentPositions.length).to.eq(2);
-        expect(newFirstPosition.component).to.eq(cEther.address);
-        expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
-        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-      });
-
-      it("should update the borrow position on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        // Most of cDai position is repaid
-        const currentPositions = await setToken.getPositions();
-        const newSecondPosition = (await setToken.getPositions())[1];
-        const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
-
-        expect(initialPositions.length).to.eq(2);
-        expect(currentPositions.length).to.eq(2);
-        expect(newSecondPosition.component).to.eq(setup.dai.address);
-        expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
-        expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
-      });
-
-      it("should transfer the correct components to the exchange", async () => {
-        const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
-
-        await subject();
-        const totalSourceQuantity = subjectRedeemQuantity;
-        const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-        const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
-        expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-      });
-
-      it("should transfer the correct components from the exchange", async () => {
-        const oldDestinationTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromWeth.address);
-
-        await subject();
-        const totalDestinationQuantity = destinationTokenQuantity;
-        const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
-        const newDestinationTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromWeth.address);
-        expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
-      });
-
-      describe("when there is a protocol fee charged", async () => {
-        let feePercentage: BigNumber;
-
-        beforeEach(async () => {
-          feePercentage = ether(0.05);
-          setup.controller = setup.controller.connect(owner.wallet);
-          await setup.controller.addFee(
-            compoundLeverageModule.address,
-            ZERO, // Fee type on trade function denoted as 0
-            feePercentage // Set fee to 5 bps
-          );
+      describe("when module is initialized", async () => {
+        before(async () => {
+          isInitialized = true;
         });
 
-        it("should transfer the correct components to the exchange", async () => {
-          const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
-
-          await subject();
-          const totalSourceQuantity = subjectRedeemQuantity;
-          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-          const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
-          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-        });
-
-        it("should transfer the correct protocol fee to the protocol", async () => {
-          const feeRecipient = await setup.controller.feeRecipient();
-          const oldFeeRecipientBalance = await setup.dai.balanceOf(feeRecipient);
-
-          await subject();
-          const expectedFeeRecipientBalance = oldFeeRecipientBalance.add(preciseMul(feePercentage, destinationTokenQuantity));
-          const newFeeRecipientBalance = await setup.dai.balanceOf(feeRecipient);
-          expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
-        });
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
         it("should update the collateral position on the SetToken correctly", async () => {
           const initialPositions = await setToken.getPositions();
@@ -1392,8 +1385,8 @@ describe("CompoundLeverageModule", () => {
           const newFirstPosition = (await setToken.getPositions())[0];
 
           // Get expected cTokens minted
-          const newUnits = preciseDiv(subjectRedeemQuantity, cTokenInitialMantissa);
-          const expectedFirstPositionUnit = initialPositions[0].unit.sub(newUnits);
+          const removedUnits = preciseDiv(subjectRedeemQuantity, cTokenInitialMantissa);
+          const expectedFirstPositionUnit = initialPositions[0].unit.sub(removedUnits);
 
           expect(initialPositions.length).to.eq(2);
           expect(currentPositions.length).to.eq(2);
@@ -1408,10 +1401,9 @@ describe("CompoundLeverageModule", () => {
 
           await subject();
 
-          // cEther position is increased
+          // Most of cDai position is repaid
           const currentPositions = await setToken.getPositions();
           const newSecondPosition = (await setToken.getPositions())[1];
-
           const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
 
           expect(initialPositions.length).to.eq(2);
@@ -1422,134 +1414,226 @@ describe("CompoundLeverageModule", () => {
           expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
         });
 
-        it("should emit the correct LeverageDecreased event", async () => {
-          const totalCollateralQuantity = subjectRedeemQuantity;
-          const totalRepayQuantity = destinationTokenQuantity;
-          const totalProtocolFee = feePercentage.mul(totalRepayQuantity).div(ether(1));
+        it("should transfer the correct components to the exchange", async () => {
+          const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
 
-          await expect(subject()).to.emit(compoundLeverageModule, "LeverageDecreased").withArgs(
-            setToken.address,
-            subjectCollateralAsset,
-            subjectRepayAsset,
-            oneInchExchangeAdapterFromWeth.address,
-            totalCollateralQuantity,
-            totalRepayQuantity.sub(totalProtocolFee),
-            totalProtocolFee
-          );
-        });
-      });
-
-      describe("when the exchange is not valid", async () => {
-        beforeEach(async () => {
-          subjectTradeAdapterName = "UNISWAP";
+          await subject();
+          const totalSourceQuantity = subjectRedeemQuantity;
+          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+          const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be valid adapter");
-        });
-      });
+        it("should transfer the correct components from the exchange", async () => {
+          const oldDestinationTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromWeth.address);
 
-      describe("when quantity of token to sell is 0", async () => {
-        beforeEach(async () => {
-          subjectRedeemQuantity = ZERO;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
-        });
-      });
-
-      describe("when redeeming return data is a nonzero value", async () => {
-        beforeEach(async () => {
-          // Set redeem quantity to more than account liquidity
-          subjectRedeemQuantity = ether(100001);
+          await subject();
+          const totalDestinationQuantity = destinationTokenQuantity;
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+          const newDestinationTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromWeth.address);
+          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Redeem failed");
+        describe("when there is a protocol fee charged", async () => {
+          let feePercentage: BigNumber;
+
+          cacheBeforeEach(async () => {
+            feePercentage = ether(0.05);
+            setup.controller = setup.controller.connect(owner.wallet);
+            await setup.controller.addFee(
+              compoundLeverageModule.address,
+              ZERO, // Fee type on trade function denoted as 0
+              feePercentage // Set fee to 5 bps
+            );
+          });
+
+          it("should transfer the correct components to the exchange", async () => {
+            const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+
+            await subject();
+            const totalSourceQuantity = subjectRedeemQuantity;
+            const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+            const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should transfer the correct protocol fee to the protocol", async () => {
+            const feeRecipient = await setup.controller.feeRecipient();
+            const oldFeeRecipientBalance = await setup.dai.balanceOf(feeRecipient);
+
+            await subject();
+            const expectedFeeRecipientBalance = oldFeeRecipientBalance.add(preciseMul(feePercentage, destinationTokenQuantity));
+            const newFeeRecipientBalance = await setup.dai.balanceOf(feeRecipient);
+            expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
+          });
+
+          it("should update the collateral position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            // cEther position is increased
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+
+            // Get expected cTokens minted
+            const newUnits = preciseDiv(subjectRedeemQuantity, cTokenInitialMantissa);
+            const expectedFirstPositionUnit = initialPositions[0].unit.sub(newUnits);
+
+            expect(initialPositions.length).to.eq(2);
+            expect(currentPositions.length).to.eq(2);
+            expect(newFirstPosition.component).to.eq(cEther.address);
+            expect(newFirstPosition.positionState).to.eq(0); // Default
+            expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+          });
+
+          it("should update the borrow position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            // cEther position is increased
+            const currentPositions = await setToken.getPositions();
+            const newSecondPosition = (await setToken.getPositions())[1];
+
+            const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
+
+            expect(initialPositions.length).to.eq(2);
+            expect(currentPositions.length).to.eq(2);
+            expect(newSecondPosition.component).to.eq(setup.dai.address);
+            expect(newSecondPosition.positionState).to.eq(1); // External
+            expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+            expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
+          });
+
+          it("should emit the correct LeverageDecreased event", async () => {
+            const totalCollateralQuantity = subjectRedeemQuantity;
+            const totalRepayQuantity = destinationTokenQuantity;
+            const totalProtocolFee = feePercentage.mul(totalRepayQuantity).div(ether(1));
+
+            await expect(subject()).to.emit(compoundLeverageModule, "LeverageDecreased").withArgs(
+              setToken.address,
+              subjectCollateralAsset,
+              subjectRepayAsset,
+              oneInchExchangeAdapterFromWeth.address,
+              totalCollateralQuantity,
+              totalRepayQuantity.sub(totalProtocolFee),
+              totalProtocolFee
+            );
+          });
         });
-      });
 
-      describe("when repay return data is a nonzero value", async () => {
-        beforeEach(async () => {
-          const newComptroller = await deployer.external.deployComptroller();
+        describe("when the exchange is not valid", async () => {
+          beforeEach(async () => {
+            subjectTradeAdapterName = "UNISWAP";
+          });
 
-          await cDai._setComptroller(newComptroller.address);
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be valid adapter");
+          });
         });
 
-        afterEach(async () => {
-          await cDai._setComptroller(compoundSetup.comptroller.address);
+        describe("when quantity of token to sell is 0", async () => {
+          beforeEach(async () => {
+            subjectRedeemQuantity = ZERO;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Quantity is 0");
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Repay failed");
-        });
-      });
+        describe("when redeeming return data is a nonzero value", async () => {
+          beforeEach(async () => {
+            // Set redeem quantity to more than account liquidity
+            subjectRedeemQuantity = ether(100001);
+          });
 
-      describe("when borrow / repay asset is not enabled", async () => {
-        beforeEach(async () => {
-          subjectRepayAsset = setup.wbtc.address;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow cToken is not enabled");
-        });
-      });
-
-      describe("when collateral asset is not enabled", async () => {
-        beforeEach(async () => {
-          subjectCollateralAsset = await getRandomAddress();
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Redeem failed");
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral cToken is not enabled");
-        });
-      });
+        describe("when repay return data is a nonzero value", async () => {
+          beforeEach(async () => {
+            const newComptroller = await deployer.external.deployComptroller();
 
-      describe("when borrow asset is same as collateral asset", async () => {
-        beforeEach(async () => {
-          subjectRepayAsset = setup.weth.address;
-        });
+            await cDai._setComptroller(newComptroller.address);
+          });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral and borrow assets must be different");
-        });
-      });
+          afterEach(async () => {
+            await cDai._setComptroller(compoundSetup.comptroller.address);
+          });
 
-      describe("when the caller is not the SetToken manager", async () => {
-        beforeEach(async () => {
-          subjectCaller = await getRandomAccount();
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Repay failed");
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        describe("when borrow / repay asset is not enabled", async () => {
+          beforeEach(async () => {
+            subjectRepayAsset = setup.wbtc.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Borrow not enabled");
+          });
+        });
+
+        describe("when collateral asset is not enabled", async () => {
+          beforeEach(async () => {
+            subjectCollateralAsset = await getRandomAddress();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Collateral not enabled");
+          });
+        });
+
+        describe("when borrow asset is same as collateral asset", async () => {
+          beforeEach(async () => {
+            subjectRepayAsset = setup.weth.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be different");
+          });
+        });
+
+        describe("when the caller is not the SetToken manager", async () => {
+          beforeEach(async () => {
+            subjectCaller = await getRandomAccount();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+          });
+        });
+
+        describe("when SetToken is not valid", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+              [setup.weth.address],
+              [ether(1)],
+              [compoundLeverageModule.address],
+              owner.address
+            );
+
+            subjectSetToken = nonEnabledSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
         });
       });
 
       describe("when module is not initialized", async () => {
-        before(async () => {
-          isInitialized = false;
-        });
-
-        after(async () => {
-          isInitialized = true;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-        });
-      });
-
-      describe("when SetToken is not valid", async () => {
         beforeEach(async () => {
-          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-            [setup.weth.address],
-            [ether(1)],
-            [compoundLeverageModule.address],
-            owner.address
-          );
-
-          subjectSetToken = nonEnabledSetToken.address;
+          isInitialized = false;
+          await initializeContracts();
+          initializeSubjectVariables();
         });
 
         it("should revert", async () => {
@@ -1563,13 +1647,15 @@ describe("CompoundLeverageModule", () => {
         isInitialized = true;
       });
 
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         setToken = await setup.createSetToken(
           [cDai.address],
           [BigNumber.from(10000000000000)],
           [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
         );
         await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -1634,6 +1720,9 @@ describe("CompoundLeverageModule", () => {
         }
 
         destinationTokenQuantity = ether(1);
+      });
+
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectCollateralAsset = setup.dai.address;
         subjectRepayAsset = setup.weth.address;
@@ -1764,7 +1853,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
+          await expect(subject()).to.be.revertedWith("Slippage too high");
         });
       });
     });
@@ -1778,17 +1867,16 @@ describe("CompoundLeverageModule", () => {
     let subjectCaller: Account;
 
     context("when cETH and cDAI are collateral and WETH and DAI are borrow assets", async () => {
-      before(async () => {
-        isInitialized = true;
-      });
 
-      beforeEach(async () => {
+      const initializeContracts = async () => {
         setToken = await setup.createSetToken(
           [cEther.address, cDai.address],
           [BigNumber.from(10000000000), BigNumber.from(100000000000)],
           [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
         );
         await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -1869,122 +1957,54 @@ describe("CompoundLeverageModule", () => {
             leverDaiTradeData
           );
         }
+      };
 
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectCaller = owner;
-      });
+      };
 
       async function subject(): Promise<any> {
         return compoundLeverageModule.connect(subjectCaller.wallet).sync(subjectSetToken);
       }
 
-      it("should update the collateral positions on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        // cEther position is increased
-        const currentPositions = await setToken.getPositions();
-        const newFirstPosition = (await setToken.getPositions())[0];
-        const newSecondPosition = (await setToken.getPositions())[1];
-
-        expect(initialPositions.length).to.eq(4);
-        expect(currentPositions.length).to.eq(4);
-        expect(newFirstPosition.component).to.eq(cEther.address);
-        expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
-        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-
-        expect(newSecondPosition.component).to.eq(cDai.address);
-        expect(newSecondPosition.positionState).to.eq(0); // Default
-        expect(newSecondPosition.unit).to.eq(initialPositions[1].unit);
-        expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
-      });
-
-      it("should update the borrow positions on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        // cEther position is increased
-        const currentPositions = await setToken.getPositions();
-        const newThirdPosition = (await setToken.getPositions())[2];
-        const newFourthPosition = (await setToken.getPositions())[3];
-
-        const expectedThirdPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
-        const expectedFourthPositionUnit = (await cEther.borrowBalanceStored(setToken.address)).mul(-1);
-
-        expect(initialPositions.length).to.eq(4);
-        expect(currentPositions.length).to.eq(4);
-        expect(newThirdPosition.component).to.eq(setup.dai.address);
-        expect(newThirdPosition.positionState).to.eq(1); // External
-        expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
-        expect(newThirdPosition.module).to.eq(compoundLeverageModule.address);
-
-        expect(newFourthPosition.component).to.eq(setup.weth.address);
-        expect(newFourthPosition.positionState).to.eq(1); // External
-        expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
-        expect(newFourthPosition.module).to.eq(compoundLeverageModule.address);
-      });
-
-      it("should emit the correct PositionsSynced event", async () => {
-        await expect(subject()).to.emit(compoundLeverageModule, "PositionsSynced").withArgs(
-          setToken.address,
-          subjectCaller.address
-        );
-      });
-
-      describe("when leverage position has been liquidated", async () => {
-        let liquidationRepayQuantity: BigNumber;
-
-        beforeEach(async () => {
-
-          // Set price to be liquidated
-          const liquidationEthPrice = ether(100);
-          await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, liquidationEthPrice);
-
-          // Seize 1 ETH + 8% penalty as set on Comptroller
-          liquidationRepayQuantity = ether(100);
-          await setup.dai.approve(cDai.address, ether(100000));
-          await cDai.liquidateBorrow(setToken.address, liquidationRepayQuantity, cEther.address);
+      describe("when module is initialized", () => {
+        before(async () => {
+          isInitialized = true;
         });
+
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
         it("should update the collateral positions on the SetToken correctly", async () => {
           const initialPositions = await setToken.getPositions();
 
           await subject();
 
+          // cEther position is increased
           const currentPositions = await setToken.getPositions();
           const newFirstPosition = (await setToken.getPositions())[0];
           const newSecondPosition = (await setToken.getPositions())[1];
 
-          // Get expected cTokens minted
-          const actualSeizedTokens = await compoundSetup.comptroller.liquidateCalculateSeizeTokens(
-            cDai.address,
-            cEther.address,
-            liquidationRepayQuantity
-          );
-
-          const expectedPostLiquidationUnit = initialPositions[0].unit.sub(actualSeizedTokens[1]);
           expect(initialPositions.length).to.eq(4);
           expect(currentPositions.length).to.eq(4);
           expect(newFirstPosition.component).to.eq(cEther.address);
           expect(newFirstPosition.positionState).to.eq(0); // Default
-          expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
+          expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
           expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
 
-          // cDAI position should stay the same
           expect(newSecondPosition.component).to.eq(cDai.address);
           expect(newSecondPosition.positionState).to.eq(0); // Default
-          expect(newSecondPosition.unit).to.eq(newSecondPosition.unit);
+          expect(newSecondPosition.unit).to.eq(initialPositions[1].unit);
           expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
         });
 
-        it("should update the borrow position on the SetToken correctly", async () => {
+        it("should update the borrow positions on the SetToken correctly", async () => {
           const initialPositions = await setToken.getPositions();
 
           await subject();
 
+          // cEther position is increased
           const currentPositions = await setToken.getPositions();
           const newThirdPosition = (await setToken.getPositions())[2];
           const newFourthPosition = (await setToken.getPositions())[3];
@@ -2004,32 +2024,99 @@ describe("CompoundLeverageModule", () => {
           expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
           expect(newFourthPosition.module).to.eq(compoundLeverageModule.address);
         });
-      });
 
+        describe("when leverage position has been liquidated", async () => {
+          let liquidationRepayQuantity: BigNumber;
+
+          beforeEach(async () => {
+
+            // Set price to be liquidated
+            const liquidationEthPrice = ether(100);
+            await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, liquidationEthPrice);
+
+            // Seize 1 ETH + 8% penalty as set on Comptroller
+            liquidationRepayQuantity = ether(100);
+            await setup.dai.approve(cDai.address, ether(100000));
+            await cDai.liquidateBorrow(setToken.address, liquidationRepayQuantity, cEther.address);
+          });
+
+          it("should update the collateral positions on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+            const newSecondPosition = (await setToken.getPositions())[1];
+
+            // Get expected cTokens minted
+            const actualSeizedTokens = await compoundSetup.comptroller.liquidateCalculateSeizeTokens(
+              cDai.address,
+              cEther.address,
+              liquidationRepayQuantity
+            );
+
+            const expectedPostLiquidationUnit = initialPositions[0].unit.sub(actualSeizedTokens[1]);
+            expect(initialPositions.length).to.eq(4);
+            expect(currentPositions.length).to.eq(4);
+            expect(newFirstPosition.component).to.eq(cEther.address);
+            expect(newFirstPosition.positionState).to.eq(0); // Default
+            expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+
+            // cDAI position should stay the same
+            expect(newSecondPosition.component).to.eq(cDai.address);
+            expect(newSecondPosition.positionState).to.eq(0); // Default
+            expect(newSecondPosition.unit).to.eq(newSecondPosition.unit);
+            expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+          });
+
+          it("should update the borrow position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            const currentPositions = await setToken.getPositions();
+            const newThirdPosition = (await setToken.getPositions())[2];
+            const newFourthPosition = (await setToken.getPositions())[3];
+
+            const expectedThirdPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
+            const expectedFourthPositionUnit = (await cEther.borrowBalanceStored(setToken.address)).mul(-1);
+
+            expect(initialPositions.length).to.eq(4);
+            expect(currentPositions.length).to.eq(4);
+            expect(newThirdPosition.component).to.eq(setup.dai.address);
+            expect(newThirdPosition.positionState).to.eq(1); // External
+            expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
+            expect(newThirdPosition.module).to.eq(compoundLeverageModule.address);
+
+            expect(newFourthPosition.component).to.eq(setup.weth.address);
+            expect(newFourthPosition.positionState).to.eq(1); // External
+            expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
+            expect(newFourthPosition.module).to.eq(compoundLeverageModule.address);
+          });
+        });
+
+        describe("when SetToken is not valid", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+              [setup.weth.address],
+              [ether(1)],
+              [compoundLeverageModule.address],
+              owner.address
+            );
+
+            subjectSetToken = nonEnabledSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
+        });
+      });
       describe("when module is not initialized", async () => {
-        before(async () => {
+        beforeEach(() => {
           isInitialized = false;
-        });
-
-        after(async () => {
-          isInitialized = true;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-        });
-      });
-
-      describe("when SetToken is not valid", async () => {
-        beforeEach(async () => {
-          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-            [setup.weth.address],
-            [ether(1)],
-            [compoundLeverageModule.address],
-            owner.address
-          );
-
-          subjectSetToken = nonEnabledSetToken.address;
         });
 
         it("should revert", async () => {
@@ -2055,9 +2142,7 @@ describe("CompoundLeverageModule", () => {
     let subjectCaller: Account;
 
     context("when cETH is collateral asset and borrow positions is 0", async () => {
-      before(async () => {
-        isInitialized = true;
-
+      const initializeContracts = async () => {
         // Deploy Comptroller mock as COMP address is hardcoded in Comptroller
         compAmount = ether(10);
         gulpComptrollerMock = await deployer.mocks.deployComptrollerMock(
@@ -2093,14 +2178,22 @@ describe("CompoundLeverageModule", () => {
           "ONEINCHCOMP",
           oneInchExchangeAdapterFromComp.address
         );
-      });
 
-      beforeEach(async () => {
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          secondCompoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
+
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
-          [secondCompoundLeverageModule.address, setup.issuanceModule.address]
+          [secondCompoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await secondCompoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await gulpComptrollerMock.addSetTokenAddress(setToken.address);
         // Initialize module if set to true
         if (isInitialized) {
@@ -2131,7 +2224,9 @@ describe("CompoundLeverageModule", () => {
         // Issue 1 SetToken
         const issueQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      };
 
+      const initializeSubjectVariables = () => {
         subjectSetToken = setToken.address;
         subjectCollateralAsset = setup.weth.address;
         subjectNotionalMinReceiveQuantity = ZERO;
@@ -2149,7 +2244,7 @@ describe("CompoundLeverageModule", () => {
           [ZERO],
         ]);
         subjectCaller = owner;
-      });
+      };
 
       async function subject(): Promise<any> {
         return secondCompoundLeverageModule.connect(subjectCaller.wallet).gulp(
@@ -2161,89 +2256,23 @@ describe("CompoundLeverageModule", () => {
         );
       }
 
-      it("should claim COMP", async () => {
-        const previousCompBalance = await compoundSetup.comp.balanceOf(setToken.address);
-
-        await subject();
-
-        const currentCompBalance = await compoundSetup.comp.balanceOf(setToken.address);
-
-        expect(previousCompBalance).to.eq(ZERO);
-        expect(currentCompBalance).to.eq(ZERO);
-      });
-
-      it("should update the collateral position on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        // cEther position is increased
-        const currentPositions = await setToken.getPositions();
-        const newFirstPosition = (await setToken.getPositions())[0];
-
-        // Get expected cTokens minted
-        const newUnits = preciseDiv(destinationTokenQuantity, cTokenInitialMantissa);
-        const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
-
-        expect(initialPositions.length).to.eq(1);
-        expect(currentPositions.length).to.eq(1);
-        expect(newFirstPosition.component).to.eq(cEther.address);
-        expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
-        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-      });
-
-      it("should transfer the correct components to the exchange", async () => {
-        const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromComp.address);
-
-        await subject();
-        const totalSourceQuantity = compAmount;
-        const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-        const newSourceTokenBalance = await compoundSetup.comp.balanceOf(oneInchExchangeMockFromComp.address);
-        expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-      });
-
-      it("should transfer the correct components from the exchange", async () => {
-        const oldDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromComp.address);
-
-        await subject();
-        const totalDestinationQuantity = destinationTokenQuantity;
-        const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
-        const newDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromComp.address);
-        expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
-      });
-
-      describe("when there is a protocol fee charged", async () => {
-        let feePercentage: BigNumber;
-
-        beforeEach(async () => {
-          feePercentage = ether(0.05);
-          setup.controller = setup.controller.connect(owner.wallet);
-          await setup.controller.addFee(
-            secondCompoundLeverageModule.address,
-            ZERO, // Fee type on trade function denoted as 0
-            feePercentage // Set fee to 5 bps
-          );
+      describe("when module is initialized", () => {
+        before(() => {
+          isInitialized = true;
         });
 
-        it("should transfer the correct components to the exchange", async () => {
-          const oldSourceTokenBalance = await compoundSetup.comp.balanceOf(oneInchExchangeMockFromComp.address);
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
+
+        it("should claim COMP", async () => {
+          const previousCompBalance = await compoundSetup.comp.balanceOf(setToken.address);
 
           await subject();
-          const totalSourceQuantity = compAmount;
-          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-          const newSourceTokenBalance = await compoundSetup.comp.balanceOf(oneInchExchangeMockFromComp.address);
-          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-        });
 
-        it("should transfer the correct protocol fee to the protocol", async () => {
-          const feeRecipient = await setup.controller.feeRecipient();
-          const oldFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
+          const currentCompBalance = await compoundSetup.comp.balanceOf(setToken.address);
 
-          await subject();
-          const expectedFeeRecipientBalance = oldFeeRecipientBalance.add(preciseMul(feePercentage, destinationTokenQuantity));
-          const newFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
-          expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
+          expect(previousCompBalance).to.eq(ZERO);
+          expect(currentCompBalance).to.eq(ZERO);
         });
 
         it("should update the collateral position on the SetToken correctly", async () => {
@@ -2256,8 +2285,7 @@ describe("CompoundLeverageModule", () => {
           const newFirstPosition = (await setToken.getPositions())[0];
 
           // Get expected cTokens minted
-          const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
-          const newUnits = preciseDiv(destinationTokenQuantity.sub(unitProtocolFee), cTokenInitialMantissa);
+          const newUnits = preciseDiv(destinationTokenQuantity, cTokenInitialMantissa);
           const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
 
           expect(initialPositions.length).to.eq(1);
@@ -2268,121 +2296,195 @@ describe("CompoundLeverageModule", () => {
           expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
         });
 
-        it("should emit the correct CompGulped event", async () => {
-          const totalProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
-          await expect(subject()).to.emit(secondCompoundLeverageModule, "CompGulped").withArgs(
-            setToken.address,
-            subjectCollateralAsset,
-            oneInchExchangeAdapterFromComp.address,
-            compAmount,
-            destinationTokenQuantity.sub(totalProtocolFee),
-            totalProtocolFee
-          );
-        });
-      });
+        it("should transfer the correct components to the exchange", async () => {
+          const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromComp.address);
 
-      describe("when slippage is greater than allowed", async () => {
-        beforeEach(async () => {
-          // Add Set token as token sender / recipient
-          oneInchExchangeMockWithSlippage = oneInchExchangeMockWithSlippage.connect(owner.wallet);
-          await oneInchExchangeMockWithSlippage.addSetTokenAddress(setToken.address);
-
-          // Fund One Inch exchange with destinationToken WETH
-          await setup.weth.transfer(oneInchExchangeMockWithSlippage.address, ether(10));
-
-          // Set to other mock exchange adapter with slippage
-          subjectNotionalMinReceiveQuantity = ether(10);
-          subjectTradeData = oneInchExchangeMockFromComp.interface.encodeFunctionData("swap", [
-            compoundSetup.comp.address, // Send token
-            setup.weth.address, // Receive token
-            compAmount, // Send quantity
-            subjectNotionalMinReceiveQuantity, // Min receive quantity
-            ZERO,
-            ADDRESS_ZERO,
-            [ADDRESS_ZERO],
-            EMPTY_BYTES,
-            [ZERO],
-            [ZERO],
-          ]);
+          await subject();
+          const totalSourceQuantity = compAmount;
+          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+          const newSourceTokenBalance = await compoundSetup.comp.balanceOf(oneInchExchangeMockFromComp.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Slippage greater than allowed");
-        });
-      });
+        it("should transfer the correct components from the exchange", async () => {
+          const oldDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromComp.address);
 
-      describe("when the exchange is not valid", async () => {
-        beforeEach(async () => {
-          subjectTradeAdapterName = "UNISWAP";
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be valid adapter");
-        });
-      });
-
-      describe("when quantity of token to sell is 0", async () => {
-        beforeEach(async () => {
-          await secondCompoundLeverageModule.connect(subjectCaller.wallet).gulp(
-            subjectSetToken,
-            subjectCollateralAsset,
-            subjectNotionalMinReceiveQuantity,
-            subjectTradeAdapterName,
-            subjectTradeData
-          );
-          // Change COMP transfer amount in mock
-          await gulpComptrollerMock.setCompAmount(0);
+          await subject();
+          const totalDestinationQuantity = destinationTokenQuantity;
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+          const newDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromComp.address);
+          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Token to sell must be nonzero");
-        });
-      });
+        describe("when there is a protocol fee charged", async () => {
+          let feePercentage: BigNumber;
 
-      describe("when collateral asset is not enabled", async () => {
-        beforeEach(async () => {
-          subjectCollateralAsset = await getRandomAddress();
+          beforeEach(async () => {
+            feePercentage = ether(0.05);
+            setup.controller = setup.controller.connect(owner.wallet);
+            await setup.controller.addFee(
+              secondCompoundLeverageModule.address,
+              ZERO, // Fee type on trade function denoted as 0
+              feePercentage // Set fee to 5 bps
+            );
+          });
+
+          it("should transfer the correct components to the exchange", async () => {
+            const oldSourceTokenBalance = await compoundSetup.comp.balanceOf(oneInchExchangeMockFromComp.address);
+
+            await subject();
+            const totalSourceQuantity = compAmount;
+            const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+            const newSourceTokenBalance = await compoundSetup.comp.balanceOf(oneInchExchangeMockFromComp.address);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should transfer the correct protocol fee to the protocol", async () => {
+            const feeRecipient = await setup.controller.feeRecipient();
+            const oldFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
+
+            await subject();
+            const expectedFeeRecipientBalance = oldFeeRecipientBalance.add(preciseMul(feePercentage, destinationTokenQuantity));
+            const newFeeRecipientBalance = await setup.weth.balanceOf(feeRecipient);
+            expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
+          });
+
+          it("should update the collateral position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            // cEther position is increased
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+
+            // Get expected cTokens minted
+            const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
+            const newUnits = preciseDiv(destinationTokenQuantity.sub(unitProtocolFee), cTokenInitialMantissa);
+            const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
+
+            expect(initialPositions.length).to.eq(1);
+            expect(currentPositions.length).to.eq(1);
+            expect(newFirstPosition.component).to.eq(cEther.address);
+            expect(newFirstPosition.positionState).to.eq(0); // Default
+            expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+          });
+
+          it("should emit the correct COMPGulped event", async () => {
+            const totalProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
+            await expect(subject()).to.emit(secondCompoundLeverageModule, "COMPGulped").withArgs(
+              setToken.address,
+              subjectCollateralAsset,
+              oneInchExchangeAdapterFromComp.address,
+              compAmount,
+              destinationTokenQuantity.sub(totalProtocolFee),
+              totalProtocolFee
+            );
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral cToken is not enabled");
-        });
-      });
+        describe("when slippage is greater than allowed", async () => {
+          beforeEach(async () => {
+            // Add Set token as token sender / recipient
+            oneInchExchangeMockWithSlippage = oneInchExchangeMockWithSlippage.connect(owner.wallet);
+            await oneInchExchangeMockWithSlippage.addSetTokenAddress(setToken.address);
 
-      describe("when the caller is not the SetToken manager", async () => {
-        beforeEach(async () => {
-          subjectCaller = await getRandomAccount();
+            // Fund One Inch exchange with destinationToken WETH
+            await setup.weth.transfer(oneInchExchangeMockWithSlippage.address, ether(10));
+
+            // Set to other mock exchange adapter with slippage
+            subjectNotionalMinReceiveQuantity = ether(10);
+            subjectTradeData = oneInchExchangeMockFromComp.interface.encodeFunctionData("swap", [
+              compoundSetup.comp.address, // Send token
+              setup.weth.address, // Receive token
+              compAmount, // Send quantity
+              subjectNotionalMinReceiveQuantity, // Min receive quantity
+              ZERO,
+              ADDRESS_ZERO,
+              [ADDRESS_ZERO],
+              EMPTY_BYTES,
+              [ZERO],
+              [ZERO],
+            ]);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Slippage too high");
+          });
         });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        describe("when the exchange is not valid", async () => {
+          beforeEach(async () => {
+            subjectTradeAdapterName = "UNISWAP";
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be valid adapter");
+          });
+        });
+
+        describe("when quantity of token to sell is 0", async () => {
+          beforeEach(async () => {
+            await secondCompoundLeverageModule.connect(subjectCaller.wallet).gulp(
+              subjectSetToken,
+              subjectCollateralAsset,
+              subjectNotionalMinReceiveQuantity,
+              subjectTradeAdapterName,
+              subjectTradeData
+            );
+            // Change COMP transfer amount in mock
+            await gulpComptrollerMock.setCompAmount(0);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Claim is 0");
+          });
+        });
+
+        describe("when collateral asset is not enabled", async () => {
+          beforeEach(async () => {
+            subjectCollateralAsset = await getRandomAddress();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Collateral is not enabled");
+          });
+        });
+
+        describe("when the caller is not the SetToken manager", async () => {
+          beforeEach(async () => {
+            subjectCaller = await getRandomAccount();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+          });
+        });
+
+        describe("when SetToken is not valid", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+              [setup.weth.address],
+              [ether(1)],
+              [compoundLeverageModule.address],
+              owner.address
+            );
+
+            subjectSetToken = nonEnabledSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
         });
       });
 
       describe("when module is not initialized", async () => {
-        before(async () => {
-          isInitialized = false;
-        });
-
-        after(async () => {
-          isInitialized = true;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-        });
-      });
-
-      describe("when SetToken is not valid", async () => {
         beforeEach(async () => {
-          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-            [setup.weth.address],
-            [ether(1)],
-            [compoundLeverageModule.address],
-            owner.address
-          );
-
-          subjectSetToken = nonEnabledSetToken.address;
+          isInitialized = false;
+          await initializeContracts();
+          initializeSubjectVariables();
         });
 
         it("should revert", async () => {
@@ -2428,12 +2530,21 @@ describe("CompoundLeverageModule", () => {
           "ONEINCHCOMP",
           oneInchExchangeAdapterFromComp.address
         );
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          secondCompoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
 
         setToken = await setup.createSetToken(
           [cEther.address, compoundSetup.comp.address],
           [BigNumber.from(10000000000), ether(10)],
-          [secondCompoundLeverageModule.address, setup.issuanceModule.address]
+          [secondCompoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await secondCompoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await gulpComptrollerMock.addSetTokenAddress(setToken.address);
         // Initialize module if set to true
         await secondCompoundLeverageModule.initialize(
@@ -2549,12 +2660,21 @@ describe("CompoundLeverageModule", () => {
           "ONEINCHUNUSED",
           oneInchExchangeAdapterToWeth.address
         );
+        // Add debt issuance address to integration
+        await setup.integrationRegistry.addIntegration(
+          secondCompoundLeverageModule.address,
+          "DefaultIssuanceModule",
+          debtIssuanceMock.address
+        );
 
         setToken = await setup.createSetToken(
           [cComp.address],
           [BigNumber.from(10000000000)],
-          [secondCompoundLeverageModule.address, setup.issuanceModule.address]
+          [secondCompoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await secondCompoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         await gulpComptrollerMock.addSetTokenAddress(setToken.address);
         // Initialize module if set to true
         await secondCompoundLeverageModule.initialize(
@@ -2619,16 +2739,18 @@ describe("CompoundLeverageModule", () => {
     let setToken: SetToken;
     let subjectModule: Address;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       setToken = await setup.createSetToken(
         [cEther.address],
         [BigNumber.from(10000000000)],
         [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
       );
       await debtIssuanceMock.initialize(setToken.address);
+      // Add SetToken to allow list
+      await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
       await compoundLeverageModule.initialize(
         setToken.address,
-        [setup.weth.address, setup.dai.address],
+        [setup.weth.address],
         [setup.weth.address, setup.dai.address],
       );
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2641,7 +2763,9 @@ describe("CompoundLeverageModule", () => {
       await cEther.approve(setup.issuanceModule.address, ether(100000));
 
       await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
+    });
 
+    beforeEach(() => {
       subjectModule = compoundLeverageModule.address;
     });
 
@@ -2657,12 +2781,13 @@ describe("CompoundLeverageModule", () => {
 
     it("should delete the Compound settings and mappings", async () => {
       await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
-      const isCEtherCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cEther.address);
-      const isCDaiCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cDai.address);
-      const isCDaiBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cDai.address);
-      const isCEtherBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cEther.address);
+      const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
+      const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+      const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
+      const isCEtherCollateral = await compoundLeverageModule.collateralCTokenEnabled(setToken.address, cEther.address);
+      const isCDaiCollateral = await compoundLeverageModule.collateralCTokenEnabled(setToken.address, cDai.address);
+      const isCDaiBorrow = await compoundLeverageModule.borrowCTokenEnabled(setToken.address, cDai.address);
+      const isCEtherBorrow = await compoundLeverageModule.borrowCTokenEnabled(setToken.address, cEther.address);
       expect(collateralCTokens.length).to.eq(0);
       expect(borrowCTokens.length).to.eq(0);
       expect(isCEtherCollateral).to.be.false;
@@ -2720,15 +2845,18 @@ describe("CompoundLeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Exiting market failed");
+        await expect(subject()).to.be.revertedWith("Exiting failed");
       });
     });
   });
 
-  describe("#syncCompoundMarkets", async () => {
+  describe("#addCompoundMarket", async () => {
     let cWbtc: CERc20;
+    let subjectCToken: Address;
+    let subjectUnderlying: Address;
+    let subjectCaller: Account;
 
-    beforeEach(async () => {
+    cacheBeforeEach(async () => {
       cWbtc = await compoundSetup.createAndEnableCToken(
         setup.wbtc.address,
         cTokenInitialMantissa,
@@ -2742,8 +2870,17 @@ describe("CompoundLeverageModule", () => {
       );
     });
 
+    beforeEach(() => {
+      subjectCToken = cWbtc.address;
+      subjectUnderlying = setup.wbtc.address;
+      subjectCaller = owner;
+    });
+
     async function subject(): Promise<any> {
-      return compoundLeverageModule.syncCompoundMarkets();
+      return compoundLeverageModule.connect(subjectCaller.wallet).addCompoundMarket(
+        subjectCToken,
+        subjectUnderlying
+      );
     }
 
     it("should sync the underlying to cToken mapping", async () => {
@@ -2756,24 +2893,206 @@ describe("CompoundLeverageModule", () => {
       expect(JSON.stringify(currentCompoundMarkets)).to.eq(JSON.stringify(expectedCompoundMarkets));
       expect(underlyingToCToken).to.eq(cWbtc.address);
     });
+
+    describe("when market already added", async () => {
+      beforeEach(async () => {
+        await subject();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Already added");
+      });
+    });
+
+    describe("when not called by owner", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
+    });
   });
 
-  describe("#addRegister", async () => {
+  describe("#removeCompoundMarket", async () => {
+    let cWbtc: CERc20;
+    let subjectUnderlying: Address;
+    let subjectCaller: Account;
+
+    cacheBeforeEach(async () => {
+      cWbtc = await compoundSetup.createAndEnableCToken(
+        setup.wbtc.address,
+        cTokenInitialMantissa,
+        compoundSetup.comptroller.address,
+        compoundSetup.interestRateModel.address,
+        "Compound WBTC",
+        "cWBTC",
+        8,
+        ether(0.75), // 75% collateral factor
+        ether(1)
+      );
+
+      await compoundLeverageModule.addCompoundMarket(cWbtc.address, setup.wbtc.address);
+    });
+
+    beforeEach(() => {
+      subjectUnderlying = setup.wbtc.address;
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      return compoundLeverageModule.connect(subjectCaller.wallet).removeCompoundMarket(subjectUnderlying);
+    }
+
+    it("should sync the underlying to cToken mapping", async () => {
+      await subject();
+
+      const underlyingToCToken = await compoundLeverageModule.underlyingToCToken(setup.wbtc.address);
+      expect(underlyingToCToken).to.eq(ADDRESS_ZERO);
+    });
+
+    describe("when market not added", async () => {
+      beforeEach(async () => {
+        await subject();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Not added");
+      });
+    });
+
+    describe("when not called by owner", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
+    });
+  });
+
+  describe("#updateAllowedSetToken", async () => {
+    let subjectSetToken: Address;
+    let subjectStatus: boolean;
+    let subjectCaller: Account;
+
+    beforeEach(async () => {
+      subjectSetToken = await getRandomAddress();
+      subjectStatus = true;
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      return compoundLeverageModule.connect(subjectCaller.wallet).updateAllowedSetToken(subjectSetToken, subjectStatus);
+    }
+
+    it("should add Set to allow list", async () => {
+      await subject();
+
+      const isAllowed = await compoundLeverageModule.allowedSetTokens(subjectSetToken);
+
+      expect(isAllowed).to.be.true;
+    });
+
+    it("should emit the correct SetTokenStatusUpdated event", async () => {
+      await expect(subject()).to.emit(compoundLeverageModule, "SetTokenStatusUpdated").withArgs(
+        subjectSetToken,
+        subjectStatus
+      );
+    });
+
+    describe("when disabling a Set", async () => {
+      beforeEach(async () => {
+        await subject();
+        subjectStatus = false;
+      });
+
+      it("should remove Set from allow list", async () => {
+        await subject();
+
+        const isAllowed = await compoundLeverageModule.allowedSetTokens(subjectSetToken);
+
+        expect(isAllowed).to.be.false;
+      });
+
+      it("should emit the correct SetTokenStatusUpdated event", async () => {
+        await expect(subject()).to.emit(compoundLeverageModule, "SetTokenStatusUpdated").withArgs(
+          subjectSetToken,
+          subjectStatus
+        );
+      });
+    });
+
+    describe("when not called by owner", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
+    });
+  });
+
+  describe("#updateAnySetAllowed", async () => {
+    let subjectAnySetAllowed: boolean;
+    let subjectCaller: Account;
+
+    beforeEach(async () => {
+      subjectAnySetAllowed = true;
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      return compoundLeverageModule.connect(subjectCaller.wallet).updateAnySetAllowed(subjectAnySetAllowed);
+    }
+
+    it("should remove Set from allow list", async () => {
+      await subject();
+
+      const anySetAllowed = await compoundLeverageModule.anySetAllowed();
+
+      expect(anySetAllowed).to.be.true;
+    });
+
+    it("should emit the correct AnySetAllowedUpdated event", async () => {
+      await expect(subject()).to.emit(compoundLeverageModule, "AnySetAllowedUpdated").withArgs(
+        subjectAnySetAllowed
+      );
+    });
+
+    describe("when not called by owner", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
+    });
+  });
+
+  describe("#registerToModule", async () => {
     let setToken: SetToken;
+    let otherIssuanceModule: DebtIssuanceMock;
     let isInitialized: boolean;
     let subjectSetToken: Address;
     let subjectDebtIssuanceModule: Address;
 
-    before(async () => {
-      isInitialized = true;
-    });
+    const initializeContracts = async function() {
+      otherIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
+      await setup.controller.addModule(otherIssuanceModule.address);
 
-    beforeEach(async () => {
       setToken = await setup.createSetToken(
         [cEther.address],
         [BigNumber.from(10000000000)],
-        [compoundLeverageModule.address, setup.issuanceModule.address]
+        [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
+      // Add SetToken to allow list
+      await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
       // Initialize module if set to true
       if (isInitialized) {
         await compoundLeverageModule.initialize(
@@ -2783,87 +3102,94 @@ describe("CompoundLeverageModule", () => {
         );
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+      // Add other issuance mock after initializing Compound leverage module, so register is never called
+      await setToken.addModule(otherIssuanceModule.address);
+      await otherIssuanceModule.initialize(setToken.address);
+    };
 
-      // Add debt issuance mock after initializing Compound leverage module, so register is never called
-      await setToken.addModule(debtIssuanceMock.address);
-      await debtIssuanceMock.initialize(setToken.address);
-
+    const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
-      subjectDebtIssuanceModule = debtIssuanceMock.address;
-    });
+      subjectDebtIssuanceModule = otherIssuanceModule.address;
+    };
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.addRegister(subjectSetToken, subjectDebtIssuanceModule);
+      return compoundLeverageModule.registerToModule(subjectSetToken, subjectDebtIssuanceModule);
     }
 
-    it("should register on the debt issuance module", async () => {
-      const previousIsRegistered = await debtIssuanceMock.isRegistered(setToken.address);
-      await subject();
-      const currentIsRegistered = await debtIssuanceMock.isRegistered(setToken.address);
-      expect(previousIsRegistered).to.be.false;
-      expect(currentIsRegistered).to.be.true;
-    });
-
-    describe("when module is not initialized", async () => {
-      before(async () => {
-        isInitialized = false;
-      });
-
-      after(async () => {
+    describe("when module is initialized", () => {
+      beforeEach(() => {
         isInitialized = true;
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+
+      it("should register on the other issuance module", async () => {
+        const previousIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
+        await subject();
+        const currentIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
+        expect(previousIsRegistered).to.be.false;
+        expect(currentIsRegistered).to.be.true;
+      });
+
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+            [setup.weth.address],
+            [ether(1)],
+            [compoundLeverageModule.address],
+            owner.address
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+
+      describe("when debt issuance module is not initialized on SetToken", async () => {
+        beforeEach(async () => {
+          await setToken.removeModule(otherIssuanceModule.address);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Issuance not initialized");
+        });
       });
     });
 
-    describe("when SetToken is not valid", async () => {
+    describe("when module is not initialized", async () => {
       beforeEach(async () => {
-        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
-          [ether(1)],
-          [compoundLeverageModule.address],
-          owner.address
-        );
-
-        subjectSetToken = nonEnabledSetToken.address;
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
       });
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-
-    describe("when debt issuance module is not initialized on SetToken", async () => {
-      beforeEach(async () => {
-        await setToken.removeModule(debtIssuanceMock.address);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Debt issuance module must be initialized on SetToken");
       });
     });
   });
 
-  describe("#addCollateralAsset", async () => {
+  describe("#addCollateralAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectCollateralAsset: Address;
+    let subjectCollateralAssets: Address[];
     let subjectCaller: Account;
 
-    before(async () => {
-      isInitialized = true;
-    });
-
-    beforeEach(async () => {
+    const initializeContracts = async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address]
+        [compoundLeverageModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
+      // Add SetToken to allow list
+      await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
       // Initialize module if set to true
       if (isInitialized) {
         await compoundLeverageModule.initialize(
@@ -2872,108 +3198,119 @@ describe("CompoundLeverageModule", () => {
           []
         );
       }
+    };
+
+    const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
-      subjectCollateralAsset = compoundSetup.comp.address;
+      subjectCollateralAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
-    });
+    };
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).addCollateralAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).addCollateralAssets(
         subjectSetToken,
-        subjectCollateralAsset,
+        subjectCollateralAssets,
       );
     }
 
-    it("should add the collateral asset to Compound settings and mappings", async () => {
-      await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
-      const isCCompCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cComp.address);
+    describe("when module is initialized", () => {
+      beforeEach(() => {
+        isInitialized = true;
+      });
 
-      expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address, cComp.address]));
-      expect(isCCompCollateral).to.be.true;
-    });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
 
-    it("should enter markets in Compound", async () => {
-      await subject();
-      const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
-      const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-      expect(isCEtherEntered).to.be.true;
-      expect(isCCompEntered).to.be.true;
-    });
+      it("should add the collateral asset to Compound settings and mappings", async () => {
+        await subject();
+        const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
+        const isCCompCollateral = await compoundLeverageModule.collateralCTokenEnabled(setToken.address, cComp.address);
 
-    it("should emit the correct CollateralAssetAdded event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetAdded").withArgs(
-        subjectSetToken,
-        subjectCollateralAsset,
-      );
-    });
+        expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address, cComp.address]));
+        expect(isCCompCollateral).to.be.true;
+      });
 
-    describe("when markets are already entered", async () => {
-      beforeEach(async () => {
-        await compoundLeverageModule.addBorrowAsset(
-          setToken.address,
-          compoundSetup.comp.address
+      it("should enter markets in Compound", async () => {
+        await subject();
+        const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
+        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+        expect(isCEtherEntered).to.be.true;
+        expect(isCCompEntered).to.be.true;
+      });
+
+      it("should emit the correct CollateralAssetsUpdated event", async () => {
+        await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetsUpdated").withArgs(
+          subjectSetToken,
+          true,
+          subjectCollateralAssets,
         );
       });
 
-      it("should have entered markets", async () => {
-        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-        await subject();
-        expect(isCCompEntered).to.be.true;
-      });
-    });
+      describe("when markets are entered", async () => {
+        beforeEach(async () => {
+          await compoundLeverageModule.addBorrowAssets(
+            setToken.address,
+            [compoundSetup.comp.address]
+          );
+        });
 
-    describe("when collateral asset does not exist on Compound", async () => {
-      beforeEach(async () => {
-        subjectCollateralAsset = await getRandomAddress();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
-      });
-    });
-
-    describe("when collateral asset is already enabled on module", async () => {
-      beforeEach(async () => {
-        subjectCollateralAsset = setup.weth.address;
+        it("should have entered markets", async () => {
+          const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+          await subject();
+          expect(isCCompEntered).to.be.true;
+        });
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is already enabled");
-      });
-    });
+      describe("when collateral asset does not exist on Compound", async () => {
+        beforeEach(async () => {
+          subjectCollateralAssets = [await getRandomAddress()];
+        });
 
-    describe("when entering an invalid market", async () => {
-      beforeEach(async () => {
-        await compoundSetup.comptroller._setMaxAssets(0);
-      });
-
-      afterEach(async () => {
-        await compoundSetup.comptroller._setMaxAssets(10);
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("cToken must exist");
+        });
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Entering market failed");
-      });
-    });
+      describe("when collateral asset is enabled on module", async () => {
+        beforeEach(async () => {
+          subjectCollateralAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
+        });
 
-    describe("when the caller is not the SetToken manager", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Collateral enabled");
+        });
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      describe("when entering an invalid market", async () => {
+        beforeEach(async () => {
+          await compoundSetup.comptroller._setMaxAssets(0);
+        });
+
+        afterEach(async () => {
+          await compoundSetup.comptroller._setMaxAssets(10);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Entering failed");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
       });
     });
 
     describe("when module is not initialized", async () => {
-      before(async () => {
+      beforeEach(async () => {
         isInitialized = false;
-      });
-
-      after(async () => {
-        isInitialized = true;
+        await initializeContracts();
+        initializeSubjectVariables();
       });
 
       it("should revert", async () => {
@@ -2982,24 +3319,23 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#addBorrowAsset", async () => {
+  describe("#addBorrowAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectBorrowAsset: Address;
+    let subjectBorrowAssets: Address[];
     let subjectCaller: Account;
 
-    before(async () => {
-      isInitialized = true;
-    });
-
-    beforeEach(async () => {
+    const initializeContracts = async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address]
+        [compoundLeverageModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
+      // Add SetToken to allow list
+      await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
       // Initialize module if set to true
       if (isInitialized) {
         await compoundLeverageModule.initialize(
@@ -3008,110 +3344,121 @@ describe("CompoundLeverageModule", () => {
           [setup.weth.address]
         );
       }
+    };
+
+    const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
-      subjectBorrowAsset = compoundSetup.comp.address;
+      subjectBorrowAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
-    });
+    };
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).addBorrowAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).addBorrowAssets(
         subjectSetToken,
-        subjectBorrowAsset,
+        subjectBorrowAssets,
       );
     }
 
-    it("should add the borrow asset to Compound settings and mappings", async () => {
-      await subject();
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
-      const borrowAssets = await compoundLeverageModule.getEnabledBorrowAssets(setToken.address);
-      const isCCompBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cComp.address);
+    describe("when module is initialized", () => {
+      beforeEach(() => {
+        isInitialized = true;
+      });
 
-      expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address, cComp.address]));
-      expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address, compoundSetup.comp.address]));
-      expect(isCCompBorrow).to.be.true;
-    });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
 
-    it("should enter markets in Compound", async () => {
-      await subject();
-      const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
-      const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-      expect(isCEtherEntered).to.be.true;
-      expect(isCCompEntered).to.be.true;
-    });
+      it("should add the borrow asset to Compound settings and mappings", async () => {
+        await subject();
+        const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+        const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
 
-    it("should emit the correct BorrowAssetAdded event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetAdded").withArgs(
-        subjectSetToken,
-        subjectBorrowAsset,
-      );
-    });
+        const isCCompBorrow = await compoundLeverageModule.borrowCTokenEnabled(setToken.address, cComp.address);
 
-    describe("when markets are already entered", async () => {
-      beforeEach(async () => {
-        await compoundLeverageModule.addCollateralAsset(
-          setToken.address,
-          compoundSetup.comp.address
+        expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address, cComp.address]));
+        expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address, compoundSetup.comp.address]));
+        expect(isCCompBorrow).to.be.true;
+      });
+
+      it("should enter markets in Compound", async () => {
+        await subject();
+        const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
+        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+        expect(isCEtherEntered).to.be.true;
+        expect(isCCompEntered).to.be.true;
+      });
+
+      it("should emit the correct BorrowAssetsUpdated event", async () => {
+        await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetsUpdated").withArgs(
+          subjectSetToken,
+          true,
+          subjectBorrowAssets,
         );
       });
 
-      it("should have entered markets", async () => {
-        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-        await subject();
-        expect(isCCompEntered).to.be.true;
+      describe("when markets are entered", async () => {
+        beforeEach(async () => {
+          await compoundLeverageModule.addCollateralAssets(
+            setToken.address,
+            [compoundSetup.comp.address]
+          );
+        });
+
+        it("should have entered markets", async () => {
+          const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+          await subject();
+          expect(isCCompEntered).to.be.true;
+        });
+      });
+
+      describe("when borrow asset does not exist on Compound", async () => {
+        beforeEach(async () => {
+          subjectBorrowAssets = [await getRandomAddress()];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("cToken must exist");
+        });
+      });
+
+      describe("when borrow asset is enabled on module", async () => {
+        beforeEach(async () => {
+          subjectBorrowAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Borrow enabled");
+        });
+      });
+
+      describe("when entering an invalid market", async () => {
+        beforeEach(async () => {
+          await compoundSetup.comptroller._setMaxAssets(0);
+        });
+
+        afterEach(async () => {
+          await compoundSetup.comptroller._setMaxAssets(10);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Entering failed");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
       });
     });
-
-    describe("when borrow asset does not exist on Compound", async () => {
-      beforeEach(async () => {
-        subjectBorrowAsset = await getRandomAddress();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("cToken must exist in Compound");
-      });
-    });
-
-    describe("when borrow asset is already enabled on module", async () => {
-      beforeEach(async () => {
-        subjectBorrowAsset = setup.weth.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow cToken is already enabled");
-      });
-    });
-
-    describe("when entering an invalid market", async () => {
-      beforeEach(async () => {
-        await compoundSetup.comptroller._setMaxAssets(0);
-      });
-
-      afterEach(async () => {
-        await compoundSetup.comptroller._setMaxAssets(10);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Entering market failed");
-      });
-    });
-
-    describe("when the caller is not the SetToken manager", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-      });
-    });
-
     describe("when module is not initialized", async () => {
-      before(async () => {
+      beforeEach(async () => {
         isInitialized = false;
-      });
-
-      after(async () => {
-        isInitialized = true;
+        await initializeContracts();
+        await initializeSubjectVariables();
       });
 
       it("should revert", async () => {
@@ -3120,24 +3467,23 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#removeBorrowAsset", async () => {
+  describe("#removeBorrowAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectBorrowAsset: Address;
+    let subjectBorrowAssets: Address[];
     let subjectCaller: Account;
 
-    before(async () => {
-      isInitialized = true;
-    });
-
-    beforeEach(async () => {
+    const initializeContracts = async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address, setup.issuanceModule.address]
+        [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
+      // Add SetToken to allow list
+      await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
 
       // Initialize module if set to true
@@ -3152,86 +3498,96 @@ describe("CompoundLeverageModule", () => {
       await setup.weth.approve(setup.issuanceModule.address, ether(1000));
       await setup.dai.approve(setup.issuanceModule.address, ether(1000));
       await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
+    };
 
+    const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
-      subjectBorrowAsset = compoundSetup.comp.address;
+      subjectBorrowAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
-    });
+    };
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).removeBorrowAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).removeBorrowAssets(
         subjectSetToken,
-        subjectBorrowAsset,
+        subjectBorrowAssets,
       );
     }
 
-    it("should remove the borrow asset from Compound settings and mappings", async () => {
-      await subject();
-      const borrowCTokens = await compoundLeverageModule.getEnabledBorrowCTokens(setToken.address);
-      const borrowAssets = await compoundLeverageModule.getEnabledBorrowAssets(setToken.address);
-      const isCCompBorrow = await compoundLeverageModule.isBorrowCTokenEnabled(setToken.address, cComp.address);
-      expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address]));
-      expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address]));
-      expect(isCCompBorrow).to.be.false;
-    });
+    describe("when module is initialized", () => {
+      before(() => {
+        isInitialized = true;
+      });
 
-    it("should exit markets in Compound", async () => {
-      await subject();
-      const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
-      const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-      expect(isCEtherEntered).to.be.true;
-      expect(isCCompEntered).to.be.false;
-    });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
 
-    it("should emit the correct BorrowAssetRemoved event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetRemoved").withArgs(
-        subjectSetToken,
-        subjectBorrowAsset,
-      );
-    });
+      it("should remove the borrow asset from Compound settings and mappings", async () => {
+        await subject();
+        const borrowAssets = (await compoundLeverageModule.getEnabledAssets(setToken.address))[1];
+        const borrowCTokens = await Promise.all(borrowAssets.map(borrowAsset => compoundLeverageModule.underlyingToCToken(borrowAsset)));
+        const isCCompBorrow = await compoundLeverageModule.borrowCTokenEnabled(setToken.address, cComp.address);
+        expect(JSON.stringify(borrowCTokens)).to.eq(JSON.stringify([cEther.address]));
+        expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address]));
+        expect(isCCompBorrow).to.be.false;
+      });
 
-    describe("when borrow asset is still enabled as collateral", async () => {
-      beforeEach(async () => {
-        await compoundLeverageModule.addCollateralAsset(
-          setToken.address,
-          compoundSetup.comp.address
+      it("should exit markets in Compound", async () => {
+        await subject();
+        const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
+        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+        expect(isCEtherEntered).to.be.true;
+        expect(isCCompEntered).to.be.false;
+      });
+
+      it("should emit the correct BorrowAssetsUpdated event", async () => {
+        await expect(subject()).to.emit(compoundLeverageModule, "BorrowAssetsUpdated").withArgs(
+          subjectSetToken,
+          false,
+          subjectBorrowAssets,
         );
       });
 
-      it("should have not exited markets", async () => {
-        await subject();
-        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-        expect(isCCompEntered).to.be.true;
-      });
-    });
+      describe("when borrow asset is still enabled as collateral", async () => {
+        beforeEach(async () => {
+          await compoundLeverageModule.addCollateralAssets(
+            setToken.address,
+            [compoundSetup.comp.address]
+          );
+        });
 
-    describe("when borrow asset is not enabled on module", async () => {
-      beforeEach(async () => {
-        subjectBorrowAsset = setup.dai.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Borrow cToken is already not enabled");
-      });
-    });
-
-    describe("when the caller is not the SetToken manager", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
+        it("should have not exited markets", async () => {
+          await subject();
+          const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+          expect(isCCompEntered).to.be.true;
+        });
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      describe("when borrow asset is not enabled on module", async () => {
+        beforeEach(async () => {
+          subjectBorrowAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Borrow not enabled");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
       });
     });
 
     describe("when module is not initialized", async () => {
-      before(async () => {
+      beforeEach(async () => {
         isInitialized = false;
-      });
-
-      after(async () => {
-        isInitialized = true;
+        await initializeContracts();
+        initializeSubjectVariables();
       });
 
       it("should revert", async () => {
@@ -3240,24 +3596,23 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#removeCollateralAsset", async () => {
+  describe("#removeCollateralAssets", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
-    let subjectCollateralAsset: Address;
+    let subjectCollateralAssets: Address[];
     let subjectCaller: Account;
 
-    before(async () => {
-      isInitialized = true;
-    });
-
-    beforeEach(async () => {
+    const initializeContracts = async () => {
       setToken = await setup.createSetToken(
         [setup.weth.address, setup.dai.address],
         [ether(1), ether(100)],
-        [compoundLeverageModule.address, setup.issuanceModule.address]
+        [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
       );
+      await debtIssuanceMock.initialize(setToken.address);
+      // Add SetToken to allow list
+      await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
       // Initialize module if set to true
       if (isInitialized) {
@@ -3271,84 +3626,94 @@ describe("CompoundLeverageModule", () => {
       await setup.weth.approve(setup.issuanceModule.address, ether(1000));
       await setup.dai.approve(setup.issuanceModule.address, ether(1000));
       await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
+    };
 
+    const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
-      subjectCollateralAsset = compoundSetup.comp.address;
+      subjectCollateralAssets = [compoundSetup.comp.address];
       subjectCaller = owner;
-    });
+    };
 
     async function subject(): Promise<any> {
-      return compoundLeverageModule.connect(subjectCaller.wallet).removeCollateralAsset(
+      return compoundLeverageModule.connect(subjectCaller.wallet).removeCollateralAssets(
         subjectSetToken,
-        subjectCollateralAsset,
+        subjectCollateralAssets,
       );
     }
 
-    it("should remove the collateral asset from Compound settings and mappings", async () => {
-      await subject();
-      const collateralCTokens = await compoundLeverageModule.getEnabledCollateralCTokens(setToken.address);
-      const isCCompCollateral = await compoundLeverageModule.isCollateralCTokenEnabled(setToken.address, cComp.address);
-      expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address]));
-      expect(isCCompCollateral).to.be.false;
-    });
+    describe("when module is initialized", () => {
+      before(async () => {
+        isInitialized = true;
+      });
 
-    it("should exit markets in Compound", async () => {
-      await subject();
-      const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
-      const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-      expect(isCEtherEntered).to.be.true;
-      expect(isCCompEntered).to.be.false;
-    });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
 
-    it("should emit the correct CollateralAssetRemoved event", async () => {
-      await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetRemoved").withArgs(
-        subjectSetToken,
-        subjectCollateralAsset,
-      );
-    });
+      it("should remove the collateral asset from Compound settings and mappings", async () => {
+        await subject();
+        const collateralCTokens = (await compoundLeverageModule.getEnabledAssets(setToken.address))[0];
+        const isCCompCollateral = await compoundLeverageModule.collateralCTokenEnabled(setToken.address, cComp.address);
+        expect(JSON.stringify(collateralCTokens)).to.eq(JSON.stringify([cEther.address]));
+        expect(isCCompCollateral).to.be.false;
+      });
 
-    describe("when collateral asset is still enabled as borrow", async () => {
-      beforeEach(async () => {
-        await compoundLeverageModule.addBorrowAsset(
-          setToken.address,
-          compoundSetup.comp.address
+      it("should exit markets in Compound", async () => {
+        await subject();
+        const isCEtherEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cEther.address);
+        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+        expect(isCEtherEntered).to.be.true;
+        expect(isCCompEntered).to.be.false;
+      });
+
+      it("should emit the correct CollateralAssetsUpdated event", async () => {
+        await expect(subject()).to.emit(compoundLeverageModule, "CollateralAssetsUpdated").withArgs(
+          subjectSetToken,
+          false,
+          subjectCollateralAssets,
         );
       });
 
-      it("should have not exited markets", async () => {
-        await subject();
-        const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
-        expect(isCCompEntered).to.be.true;
-      });
-    });
+      describe("when collateral asset is still enabled as borrow", async () => {
+        beforeEach(async () => {
+          await compoundLeverageModule.addBorrowAssets(
+            setToken.address,
+            [compoundSetup.comp.address]
+          );
+        });
 
-    describe("when collateral asset is not enabled on module", async () => {
-      beforeEach(async () => {
-        subjectCollateralAsset = setup.dai.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral cToken is already not enabled");
-      });
-    });
-
-    describe("when the caller is not the SetToken manager", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
+        it("should have not exited markets", async () => {
+          await subject();
+          const isCCompEntered = await compoundSetup.comptroller.checkMembership(setToken.address, cComp.address);
+          expect(isCCompEntered).to.be.true;
+        });
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      describe("when collateral asset is not enabled on module", async () => {
+        beforeEach(async () => {
+          subjectCollateralAssets = [compoundSetup.comp.address, compoundSetup.comp.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Collateral not enabled");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
       });
     });
 
     describe("when module is not initialized", async () => {
-      before(async () => {
+      beforeEach(async () => {
         isInitialized = false;
-      });
-
-      after(async () => {
-        isInitialized = true;
+        await initializeContracts();
+        initializeSubjectVariables();
       });
 
       it("should revert", async () => {
@@ -3369,15 +3734,18 @@ describe("CompoundLeverageModule", () => {
         isInitialized = true;
       });
 
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         // Add mock module to controller
         await setup.controller.addModule(mockModule.address);
 
         setToken = await setup.createSetToken(
           [cEther.address, cDai.address],
           [BigNumber.from(10000000000), BigNumber.from(100000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -3461,7 +3829,9 @@ describe("CompoundLeverageModule", () => {
             leverDaiTradeData
           );
         }
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectCaller = mockModule;
       });
@@ -3519,13 +3889,6 @@ describe("CompoundLeverageModule", () => {
         expect(newFourthPosition.module).to.eq(compoundLeverageModule.address);
       });
 
-      it("should emit the correct PositionsSynced event", async () => {
-        await expect(subject()).to.emit(compoundLeverageModule, "PositionsSynced").withArgs(
-          setToken.address,
-          subjectCaller.address
-        );
-      });
-
       describe("when caller is not module", async () => {
         beforeEach(async () => {
           subjectCaller = owner;
@@ -3560,15 +3923,18 @@ describe("CompoundLeverageModule", () => {
         isInitialized = true;
       });
 
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         // Add mock module to controller
         await setup.controller.addModule(mockModule.address);
 
         setToken = await setup.createSetToken(
           [cEther.address, cDai.address],
           [BigNumber.from(10000000000), BigNumber.from(100000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -3652,7 +4018,9 @@ describe("CompoundLeverageModule", () => {
             leverDaiTradeData
           );
         }
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectCaller = mockModule;
       });
@@ -3710,13 +4078,6 @@ describe("CompoundLeverageModule", () => {
         expect(newFourthPosition.module).to.eq(compoundLeverageModule.address);
       });
 
-      it("should emit the correct PositionsSynced event", async () => {
-        await expect(subject()).to.emit(compoundLeverageModule, "PositionsSynced").withArgs(
-          setToken.address,
-          subjectCaller.address
-        );
-      });
-
       describe("when caller is not module", async () => {
         beforeEach(async () => {
           subjectCaller = owner;
@@ -3747,22 +4108,27 @@ describe("CompoundLeverageModule", () => {
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
     let subjectComponent: Address;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
+    let issueQuantity: BigNumber;
 
     context("when cETH is collateral and DAI is borrow asset", async () => {
       before(async () => {
         isInitialized = true;
       });
 
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         // Add mock module to controller
         await setup.controller.addModule(mockModule.address);
 
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -3792,7 +4158,7 @@ describe("CompoundLeverageModule", () => {
         await cEther.approve(setup.issuanceModule.address, ether(1000));
 
         // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 590 DAI regardless of Set supply
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever cETH in SetToken
@@ -3821,10 +4187,13 @@ describe("CompoundLeverageModule", () => {
             leverEthTradeData
           );
         }
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
+        subjectIsEquity = true;           // Unused by module
         subjectCaller = mockModule;
       });
 
@@ -3832,7 +4201,8 @@ describe("CompoundLeverageModule", () => {
         return compoundLeverageModule.connect(subjectCaller.wallet).componentIssueHook(
           subjectSetToken,
           subjectSetQuantity,
-          subjectComponent
+          subjectComponent,
+          subjectIsEquity
         );
       }
 
@@ -3845,6 +4215,16 @@ describe("CompoundLeverageModule", () => {
 
         expect(previousDaiBalance).to.eq(ZERO);
         expect(currentDaiBalance).to.eq(preciseMul(borrowQuantity, subjectSetQuantity));
+      });
+
+      describe("when component has positive unit", async () => {
+        beforeEach(async () => {
+          subjectComponent = cEther.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Component must be negative");
+        });
       });
 
       describe("when caller is not module", async () => {
@@ -3877,22 +4257,27 @@ describe("CompoundLeverageModule", () => {
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
     let subjectComponent: Address;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
+    let issueQuantity: BigNumber;
 
     context("when cETH is collateral and DAI is borrow asset", async () => {
       before(async () => {
         isInitialized = true;
       });
 
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         // Add mock module to controller
         await setup.controller.addModule(mockModule.address);
 
         setToken = await setup.createSetToken(
           [cEther.address],
           [BigNumber.from(10000000000)],
-          [compoundLeverageModule.address, setup.issuanceModule.address]
+          [compoundLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
         );
+        await debtIssuanceMock.initialize(setToken.address);
+        // Add SetToken to allow list
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
         // Initialize module if set to true
         if (isInitialized) {
           await compoundLeverageModule.initialize(
@@ -3922,7 +4307,7 @@ describe("CompoundLeverageModule", () => {
         await cEther.approve(setup.issuanceModule.address, ether(1000));
 
         // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 590 DAI regardless of Set supply
-        const issueQuantity = ether(1);
+        issueQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         repayQuantity = ether(590);
@@ -3955,10 +4340,13 @@ describe("CompoundLeverageModule", () => {
 
         // Transfer repay quantity to SetToken for repayment
         await setup.dai.transfer(setToken.address, repayQuantity);
+      });
 
+      beforeEach(() => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
+        subjectIsEquity = true;           // Unused by module
         subjectCaller = mockModule;
       });
 
@@ -3966,7 +4354,8 @@ describe("CompoundLeverageModule", () => {
         return compoundLeverageModule.connect(subjectCaller.wallet).componentRedeemHook(
           subjectSetToken,
           subjectSetQuantity,
-          subjectComponent
+          subjectComponent,
+          subjectIsEquity
         );
       }
 
@@ -3979,6 +4368,16 @@ describe("CompoundLeverageModule", () => {
 
         expect(previousDaiBalance).to.eq(repayQuantity);
         expect(currentDaiBalance).to.eq(ZERO);
+      });
+
+      describe("when component has positive unit", async () => {
+        beforeEach(async () => {
+          subjectComponent = cEther.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Component must be negative");
+        });
       });
 
       describe("when caller is not module", async () => {

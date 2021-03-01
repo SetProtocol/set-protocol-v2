@@ -62,7 +62,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
 
     event ComponentStaked(
         ISetToken indexed _setToken,
-        address indexed _component,
+        IERC20 indexed _component,
         address indexed _stakingContract,
         uint256 _componentPositionUnits,
         IStakingAdapter _adapter
@@ -70,7 +70,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
 
     event ComponentUnstaked(
         ISetToken indexed _setToken,
-        address indexed _component,
+        IERC20 indexed _component,
         address indexed _stakingContract,
         uint256 _componentPositionUnits,
         IStakingAdapter _adapter
@@ -90,7 +90,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
 
     /* ============ State Variables ============ */
     // Mapping relating SetToken to a component to a struct holding all the external staking positions for the component
-    mapping(ISetToken => mapping(address => ComponentPositions)) internal stakingPositions;
+    mapping(ISetToken => mapping(IERC20 => ComponentPositions)) internal stakingPositions;
 
     /* ============ Constructor ============ */
 
@@ -112,14 +112,14 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function stake(
         ISetToken _setToken,
         address _stakeContract,
-        address _component,
+        IERC20 _component,
         string memory _adapterName,
         uint256 _componentPositionUnits
     )
         external
         onlyManagerAndValidSet(_setToken)
     {
-        require(_setToken.hasSufficientDefaultUnits(_component, _componentPositionUnits), "Not enough component to stake");
+        require(_setToken.hasSufficientDefaultUnits(address(_component), _componentPositionUnits), "Not enough component to stake");
 
         IStakingAdapter adapter = IStakingAdapter(getAndValidateAdapter(_adapterName));
 
@@ -149,7 +149,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function unstake(
         ISetToken _setToken,
         address _stakeContract,
-        address _component,
+        IERC20 _component,
         string memory _adapterName,
         uint256 _componentPositionUnits
     )
@@ -185,7 +185,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
      * @param _component                Address of token being staked
      * @param _setTokenQuantity         Quantity of SetToken being issued
      */
-    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external override onlyModule(_setToken) {
+    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external override onlyModule(_setToken) {
         address[] memory stakingContracts = getStakingContracts(_setToken, _component);
         for (uint256 i = 0; i < stakingContracts.length; i++) {
             // NOTE: We assume here that the calling module has transferred component tokens to the SetToken from the issuer
@@ -211,7 +211,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
      * @param _component                Address of token being staked
      * @param _setTokenQuantity         Quantity of SetToken being issued
      */
-    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external override onlyModule(_setToken) {
+    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external override onlyModule(_setToken) {
         address[] memory stakingContracts = getStakingContracts(_setToken, _component);
         for (uint256 i = 0; i < stakingContracts.length; i++) {
             StakingPosition memory stakingPosition = getStakingPosition(_setToken, _component, stakingContracts[i]);
@@ -253,22 +253,25 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
         ISetToken setToken = ISetToken(msg.sender);
         address[] memory components = setToken.getComponents();
         for (uint256 i = 0; i < components.length; i++) {
-            require(stakingPositions[setToken][components[i]].stakingContracts.length == 0, "Open positions must be closed");
+            require(
+                stakingPositions[setToken][IERC20(components[i])].stakingContracts.length == 0,
+                "Open positions must be closed"
+            );
         }
     }
 
 
     /* ============ External Getter Functions ============ */
 
-    function hasStakingPosition(ISetToken _setToken, address _component, address _stakeContract) public view returns(bool) {
+    function hasStakingPosition(ISetToken _setToken, IERC20 _component, address _stakeContract) public view returns(bool) {
         return getStakingContracts(_setToken, _component).contains(_stakeContract);
     }
     
-    function getStakingContracts(ISetToken _setToken, address _component) public view returns(address[] memory) {
+    function getStakingContracts(ISetToken _setToken, IERC20 _component) public view returns(address[] memory) {
         return stakingPositions[_setToken][_component].stakingContracts;
     }
 
-    function getStakingPosition(ISetToken _setToken, address _component, address _stakeContract)
+    function getStakingPosition(ISetToken _setToken, IERC20 _component, address _stakeContract)
         public
         view
         returns(StakingPosition memory)
@@ -276,7 +279,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
         return stakingPositions[_setToken][_component].positions[_stakeContract];
     }
 
-    function getStakingPositionUnit(ISetToken _setToken, address _component, address _stakeContract)
+    function getStakingPositionUnit(ISetToken _setToken, IERC20 _component, address _stakeContract)
         public
         view
         returns(uint256)
@@ -299,7 +302,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function _stake(
         ISetToken _setToken,
         address _stakeContract,
-        address _component,
+        IERC20 _component,
         IStakingAdapter _adapter,
         uint256 _componentPositionUnits,
         uint256 _setTokenStakeQuantity
@@ -310,7 +313,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
 
         address spender = _adapter.getSpenderAddress(_stakeContract);
 
-        _setToken.invokeApprove(_component, spender, notionalStakeQuantity);
+        _setToken.invokeApprove(address(_component), spender, notionalStakeQuantity);
 
         (
             address target, uint256 callValue, bytes memory methodData
@@ -331,14 +334,14 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function _unstake(
         ISetToken _setToken,
         address _stakeContract,
-        address _component,
+        IERC20 _component,
         IStakingAdapter _adapter,
         uint256 _componentPositionUnits,
         uint256 _setTokenUnstakeQuantity
     )
         internal
     {
-        uint256 preActionBalance = IERC20(_component).balanceOf(address(_setToken));
+        uint256 preActionBalance = _component.balanceOf(address(_setToken));
 
         uint256 notionalUnstakeQuantity = _setTokenUnstakeQuantity.getDefaultTotalNotional(_componentPositionUnits);
         (
@@ -347,7 +350,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
 
         _setToken.invoke(target, callValue, methodData);
 
-        uint256 postActionBalance = IERC20(_component).balanceOf(address(_setToken));
+        uint256 postActionBalance = _component.balanceOf(address(_setToken));
         require(preActionBalance.add(notionalUnstakeQuantity) <= postActionBalance, "Not enough tokens returned from stake contract");
     }
 
@@ -368,7 +371,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function _updateStakeState(
         ISetToken _setToken,
         address _stakeContract,
-        address _component,
+        IERC20 _component,
         string memory _adapterName,
         uint256 _componentPositionUnits
     )
@@ -386,12 +389,12 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
             });
         }
 
-        uint256 newDefaultTokenUnit = _setToken.getDefaultPositionRealUnit(_component).toUint256().sub(_componentPositionUnits);
-        _setToken.editDefaultPosition(_component, newDefaultTokenUnit);
+        uint256 newDefaultTokenUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256().sub(_componentPositionUnits);
+        _setToken.editDefaultPosition(address(_component), newDefaultTokenUnit);
         
-        int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
+        int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this))
             .add(_componentPositionUnits.toInt256());
-        _setToken.editExternalPosition(_component, address(this), newExternalTokenUnit, "");
+        _setToken.editExternalPosition(address(_component), address(this), newExternalTokenUnit, "");
     }
 
     /**
@@ -410,7 +413,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function _updateUnstakeState(
         ISetToken _setToken,
         address _stakeContract,
-        address _component,
+        IERC20 _component,
         uint256 _componentPositionUnits
     )
         internal
@@ -424,13 +427,13 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
             delete stakingPositions[_setToken][_component].positions[_stakeContract];
         }
 
-        uint256 newTokenUnit = _setToken.getDefaultPositionRealUnit(_component).toUint256().add(_componentPositionUnits);
+        uint256 newTokenUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256().add(_componentPositionUnits);
         
-        _setToken.editDefaultPosition(_component, newTokenUnit);
+        _setToken.editDefaultPosition(address(_component), newTokenUnit);
         
-        int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(_component, address(this))
+        int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this))
             .sub(_componentPositionUnits.toInt256());
         
-        _setToken.editExternalPosition(_component, address(this), newExternalTokenUnit, "");
+        _setToken.editExternalPosition(address(_component), address(this), newExternalTokenUnit, "");
     }
 }

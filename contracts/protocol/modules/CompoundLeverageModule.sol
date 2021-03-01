@@ -20,48 +20,37 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Math } from "@openzeppelin/contracts/math/Math.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { ICErc20 } from "../../interfaces/external/ICErc20.sol";
 import { IComptroller } from "../../interfaces/external/IComptroller.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IExchangeAdapter } from "../../interfaces/IExchangeAdapter.sol";
-import { Invoke } from "../lib/Invoke.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
-import { Position } from "../lib/Position.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
 /**
  * @title CompoundLeverageModule
  * @author Set Protocol
  *
- * Smart contract that enables leverage trading using Compound as the lending protocol. This module allows for multiple Compound leverage positions
- * in a SetToken. This does not allow borrowing of assets from Compound alone. Each asset is leveraged when using this module.
+ * Smart contract that enables leverage trading using Compound as the lending protocol. This module is paired with a debt issuance module that will call
+ * functions on this module to keep interest accrual and liquidation state updated. This does not allow borrowing of assets from Compound alone. Each 
+ * asset is leveraged when using this module.
+ *
+ * Note: Do not use this module in conjunction with other debt modules that allow Compound debt positions as it could lead to double counting of
+ * debt when borrowed assets are the same.
  *
  */
-contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
-    using AddressArrayUtils for address[];
-    using Invoke for ISetToken;
-    using Position for ISetToken;
-    using PreciseUnitMath for uint256;
-    using SafeCast for int256;
-    using SafeCast for uint256;
-    using SafeMath for uint256;
-    using SignedSafeMath for int256;
+contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /* ============ Structs ============ */
 
-    struct CompoundSettings {
+    struct EnabledAssets {
         address[] collateralCTokens;             // Array of enabled cToken collateral assets for a SetToken
         address[] borrowCTokens;                 // Array of enabled cToken borrow assets for a SetToken
-        address[] borrowAssets;                  // Array of underlying borrow assets
+        address[] borrowAssets;                  // Array of underlying borrow assets that map to the array of enabled cToken borrow assets
     }
 
     struct ActionInfo {
@@ -70,17 +59,17 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         uint256 setTotalSupply;                  // Total supply of SetToken
         uint256 notionalSendQuantity;            // Total notional quantity sent to exchange
         uint256 minNotionalReceiveQuantity;      // Min total notional received from exchange
-        address collateralCTokenAsset;           // Address of cToken collateral asset
-        address borrowCTokenAsset;               // Address of cToken borrow asset
-        uint256 preTradeReceiveTokenBalance;     // Balance of pre trade receive token balance
+        ICErc20 collateralCTokenAsset;           // Address of cToken collateral asset
+        ICErc20 borrowCTokenAsset;               // Address of cToken borrow asset
+        uint256 preTradeReceiveTokenBalance;     // Balance of pre-trade receive token balance
     }
 
     /* ============ Events ============ */
 
     event LeverageIncreased(
         ISetToken indexed _setToken,
-        address indexed _borrowAsset,
-        address indexed _collateralAsset,
+        IERC20 indexed _borrowAsset,
+        IERC20 indexed _collateralAsset,
         IExchangeAdapter _exchangeAdapter,
         uint256 _totalBorrowAmount,
         uint256 _totalReceiveAmount,
@@ -89,49 +78,49 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
 
     event LeverageDecreased(
         ISetToken indexed _setToken,
-        address indexed _collateralAsset,
-        address indexed _repayAsset,
+        IERC20 indexed _collateralAsset,
+        IERC20 indexed _repayAsset,
         IExchangeAdapter _exchangeAdapter,
         uint256 _totalRedeemAmount,
         uint256 _totalRepayAmount,
         uint256 _protocolFee
     );
 
-    event CompGulped(
+    event COMPGulped(
         ISetToken indexed _setToken,
-        address indexed _collateralAsset,
+        IERC20 indexed _collateralAsset,
         IExchangeAdapter _exchangeAdapter,
         uint256 _totalCompClaimed,
         uint256 _totalReceiveAmount,
         uint256 _protocolFee
     );
 
-    event PositionsSynced(
+    event CollateralAssetsUpdated(
         ISetToken indexed _setToken,
-        address _caller
+        bool indexed _added,
+        IERC20[] _assets
     );
 
-    event CollateralAssetAdded(
+    event BorrowAssetsUpdated(
         ISetToken indexed _setToken,
-        address _asset
+        bool indexed _added,
+        IERC20[] _assets
     );
 
-    event CollateralAssetRemoved(
+    event SetTokenStatusUpdated(
         ISetToken indexed _setToken,
-        address _asset
+        bool indexed _added
     );
 
-    event BorrowAssetAdded(
-        ISetToken indexed _setToken,
-        address _asset
-    );
-
-    event BorrowAssetRemoved(
-        ISetToken indexed _setToken,
-        address _asset
+    event AnySetAllowedUpdated(
+        bool indexed _anySetAllowed    
     );
 
     /* ============ Constants ============ */
+
+    // String identifying the DebtIssuanceModule in the IntegrationRegistry. Note: Governance must add DefaultIssuanceModule as
+    // the string as the integration name
+    string constant internal DEFAULT_ISSUANCE_MODULE_NAME = "DefaultIssuanceModule";
 
     // 0 index stores protocol fee % on the controller, charged in the trade function
     uint256 constant internal PROTOCOL_TRADE_FEE_INDEX = 0;
@@ -139,28 +128,34 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     /* ============ State Variables ============ */
 
     // Mapping of underlying to CToken. If ETH, then map WETH to cETH
-    mapping(address => address) public underlyingToCToken;
+    mapping(IERC20 => ICErc20) public underlyingToCToken;
 
     // Wrapped Ether address
-    address public weth;
+    IERC20 internal weth;
 
     // Compound cEther address
-    address public cEther;
+    ICErc20 internal cEther;
 
     // Compound Comptroller contract
-    IComptroller public comptroller;
+    IComptroller internal comptroller;
 
     // COMP token address
-    address public compToken;
+    IERC20 internal compToken;
 
     // Mapping to efficiently check if cToken market for collateral asset is valid in SetToken
-    mapping(ISetToken => mapping(address => bool)) public isCollateralCTokenEnabled;
+    mapping(ISetToken => mapping(ICErc20 => bool)) public collateralCTokenEnabled;
 
     // Mapping to efficiently check if cToken market for borrow asset is valid in SetToken
-    mapping(ISetToken => mapping(address => bool)) public isBorrowCTokenEnabled;
+    mapping(ISetToken => mapping(ICErc20 => bool)) public borrowCTokenEnabled;
 
     // Mapping of enabled collateral and borrow cTokens for syncing positions
-    mapping(ISetToken => CompoundSettings) internal compoundSettings;
+    mapping(ISetToken => EnabledAssets) internal enabledAssets;
+
+    // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
+    mapping(ISetToken => bool) public allowedSetTokens;
+
+    // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list
+    bool public anySetAllowed;
 
 
     /* ============ Constructor ============ */
@@ -176,10 +171,10 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      */
     constructor(
         IController _controller,
-        address _compToken,
+        IERC20 _compToken,
         IComptroller _comptroller,
-        address _cEther,
-        address _weth
+        ICErc20 _cEther,
+        IERC20 _weth
     )
         public
         ModuleBase(_controller)
@@ -192,19 +187,17 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         ICErc20[] memory cTokens = comptroller.getAllMarkets();
 
         for(uint256 i = 0; i < cTokens.length; i++) {
-            if (address(cTokens[i]) == _cEther) {
-                underlyingToCToken[_weth] = address(cTokens[i]);
-            } else {
-                address underlying = cTokens[i].underlying();
-                underlyingToCToken[underlying] = address(cTokens[i]);
-            }
+            ICErc20 cToken = cTokens[i];
+            underlyingToCToken[
+                cToken == _cEther ? _weth : IERC20(cTokens[i].underlying())
+            ] = cToken;
         }
     }
 
     /* ============ External Functions ============ */
 
     /**
-     * MANAGER ONLY: Increases leverage for a given collateral position using a specified borrow asset that is enabled.
+     * MANAGER ONLY: Increases leverage for a given collateral position using an enabled borrow asset that is enabled.
      * Performs a DEX trade, exchanging the borrow asset for collateral asset.
      *
      * @param _setToken             Instance of the SetToken
@@ -217,8 +210,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      */
     function lever(
         ISetToken _setToken,
-        address _borrowAsset,
-        address _collateralAsset,
+        IERC20 _borrowAsset,
+        IERC20 _collateralAsset,
         uint256 _borrowQuantity,
         uint256 _minReceiveQuantity,
         string memory _tradeAdapterName,
@@ -273,7 +266,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
             _getBorrowPosition(
                 leverInfo.setToken,
                 leverInfo.borrowCTokenAsset,
-                _borrowAsset,
                 leverInfo.setTotalSupply
             )
         );
@@ -290,7 +282,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Decrease leverage for a given collateral position using a specified borrow asset that is enabled
+     * MANAGER ONLY: Decrease leverage for a given collateral position using an enabled borrow asset that is enabled
      *
      * @param _setToken             Instance of the SetToken
      * @param _collateralAsset      Address of collateral asset (underlying of cToken)
@@ -302,8 +294,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      */
     function delever(
         ISetToken _setToken,
-        address _collateralAsset,
-        address _repayAsset,
+        IERC20 _collateralAsset,
+        IERC20 _repayAsset,
         uint256 _redeemQuantity,
         uint256 _minRepayQuantity,
         string memory _tradeAdapterName,
@@ -351,7 +343,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         _updateBorrowPosition(
             deleverInfo.setToken,
             _repayAsset,
-            _getBorrowPosition(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, deleverInfo.setTotalSupply)
+            _getBorrowPosition(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, deleverInfo.setTotalSupply)
         );
 
         emit LeverageDecreased(
@@ -366,17 +358,18 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Claims COMP and trades for specified collateral asset
+     * MANAGER ONLY: Claims COMP and trades for specified collateral asset. If collateral asset is COMP, then no trade occurs
+     * and min notional reapy quantity, trade adapter name and trade data parameters are not used.
      *
      * @param _setToken                      Instance of the SetToken
-     * @param _collateralAsset               Address of collateral asset
+     * @param _collateralAsset               Address of underlying cToken asset
      * @param _minNotionalReceiveQuantity    Minimum total amount of collateral asset to receive post trade
      * @param _tradeAdapterName              Name of trade adapter
      * @param _tradeData                     Arbitrary data for trade
      */
     function gulp(
         ISetToken _setToken,
-        address _collateralAsset,
+        IERC20 _collateralAsset,
         uint256 _minNotionalReceiveQuantity,
         string memory _tradeAdapterName,
         bytes memory _tradeData
@@ -385,13 +378,16 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
-        ActionInfo memory gulpInfo = _createGulpInfoClaimAndValidate(
+        // Claim COMP. Note: COMP can be claimed by anyone for any address
+        comptroller.claimComp(address(_setToken));
+
+        ActionInfo memory gulpInfo = _createGulpInfoAndValidate(
             _setToken,
             _collateralAsset,
             _tradeAdapterName
         );
 
-        uint256 protocolFee = 0;
+        uint256 protocolFee;
         uint256 postTradeCollateralQuantity;
         if (_collateralAsset == compToken) {
             // If specified collateral asset is COMP, then skip trade and set post trade collateral quantity
@@ -417,7 +413,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
             _getCollateralPosition(_setToken, gulpInfo.collateralCTokenAsset, gulpInfo.setTotalSupply)
         );
 
-        emit CompGulped(
+        emit COMPGulped(
             _setToken,
             _collateralAsset,
             gulpInfo.exchangeAdapter,
@@ -438,39 +434,43 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     function sync(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
         uint256 setTotalSupply = _setToken.totalSupply();
 
-        // Loop through collateral assets
-        for(uint256 i = 0; i < compoundSettings[_setToken].collateralCTokens.length; i++) {
-            address collateralCToken = compoundSettings[_setToken].collateralCTokens[i];
-            uint256 previousPositionUnit = _setToken.getDefaultPositionRealUnit(collateralCToken).toUint256();
-            uint256 newPositionUnit = _getCollateralPosition(_setToken, collateralCToken, setTotalSupply);
+        // Only sync positions when Set supply is not 0. This preserves debt and collateral positions on issuance / redemption
+        // and does not 
+        if (setTotalSupply > 0) {
+            // Loop through collateral assets
+            address[] memory collateralCTokens = enabledAssets[_setToken].collateralCTokens;
+            for(uint256 i = 0; i < collateralCTokens.length; i++) {
+                ICErc20 collateralCToken = ICErc20(collateralCTokens[i]);
+                uint256 previousPositionUnit = _setToken.getDefaultPositionRealUnit(address(collateralCToken)).toUint256();
+                uint256 newPositionUnit = _getCollateralPosition(_setToken, collateralCToken, setTotalSupply);
 
-            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings
-            if (previousPositionUnit != newPositionUnit) {
-              _updateCollateralPosition(_setToken, collateralCToken, newPositionUnit);
+                // Note: Accounts for if position does not exist on SetToken but is tracked in enabledAssets
+                if (previousPositionUnit != newPositionUnit) {
+                  _updateCollateralPosition(_setToken, collateralCToken, newPositionUnit);
+                }
+            }
+
+            // Loop through borrow assets
+            address[] memory borrowCTokens = enabledAssets[_setToken].borrowCTokens;
+            address[] memory borrowAssets = enabledAssets[_setToken].borrowAssets;
+            for(uint256 i = 0; i < borrowCTokens.length; i++) {
+                ICErc20 borrowCToken = ICErc20(borrowCTokens[i]);
+                IERC20 borrowAsset = IERC20(borrowAssets[i]);
+
+                int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(address(borrowAsset), address(this));
+
+                int256 newPositionUnit = _getBorrowPosition(
+                    _setToken,
+                    borrowCToken,
+                    setTotalSupply
+                );
+
+                // Note: Accounts for if position does not exist on SetToken but is tracked in enabledAssets
+                if (newPositionUnit != previousPositionUnit) {
+                    _updateBorrowPosition(_setToken, borrowAsset, newPositionUnit);
+                }
             }
         }
-
-        // Loop through borrow assets
-        for(uint256 i = 0; i < compoundSettings[_setToken].borrowCTokens.length; i++) {
-            address borrowCToken = compoundSettings[_setToken].borrowCTokens[i];
-            address borrowAsset = compoundSettings[_setToken].borrowAssets[i];
-
-            int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(borrowAsset, address(this));
-
-            int256 newPositionUnit = _getBorrowPosition(
-                _setToken,
-                borrowCToken,
-                borrowAsset,
-                setTotalSupply
-            );
-
-            // Note: Accounts for if position does not exist on SetToken but is tracked in compoundSettings
-            if (newPositionUnit != previousPositionUnit) {
-                _updateBorrowPosition(_setToken, borrowAsset, newPositionUnit);
-            }
-        }
-
-        emit PositionsSynced(_setToken, msg.sender);
     }
 
 
@@ -484,205 +484,240 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      */
     function initialize(
         ISetToken _setToken,
-        address[] memory _collateralAssets,
-        address[] memory _borrowAssets
+        IERC20[] memory _collateralAssets,
+        IERC20[] memory _borrowAssets
     )
         external
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
+        if (!anySetAllowed) {
+            require(allowedSetTokens[_setToken], "Not allowed SetToken");
+        }
+
         // Initialize module before trying register
         _setToken.initializeModule();
 
-        // Try if register exists on any of the modules
+        // Get debt issuance module registered to this module and require that it is initialized
+        require(_setToken.isInitializedModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)), "Issuance not initialized");
+
+        // Try if register exists on any of the modules including the debt issuance module
         address[] memory modules = _setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            // Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function needs to be called
-            // if the debt issuance module is later added and initialized to prevent state inconsistencies
-            _register(_setToken, modules[i]);
+            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
         }
         
         // Enable collateral and borrow assets on Compound
-        for(uint256 i = 0; i < _collateralAssets.length; i++) {
-            addCollateralAsset(_setToken, _collateralAssets[i]);
-        }
+        addCollateralAssets(_setToken, _collateralAssets);
 
-        for(uint256 i = 0; i < _borrowAssets.length; i++) {
-            addBorrowAsset(_setToken, _borrowAssets[i]);
-        }
+        addBorrowAssets(_setToken, _borrowAssets);
     }
 
     /**
-     * MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Only callable by SetToken manager. Compound Settings and manager enabled
+     * MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Compound Settings and manager enabled
      * cTokens are deleted. Markets are exited on Comptroller (only valid if borrow balances are zero)
      */
-    function removeModule() external override {
+    function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
 
         // Sync Compound and SetToken positions prior to any removal action
         sync(setToken);
 
-        for (uint256 i = 0; i < compoundSettings[setToken].borrowCTokens.length; i++) {
-            address cToken = compoundSettings[setToken].borrowCTokens[i];
+        address[] memory borrowCTokens = enabledAssets[setToken].borrowCTokens;
+        for (uint256 i = 0; i < borrowCTokens.length; i++) {
+            ICErc20 cToken = ICErc20(borrowCTokens[i]);
 
-            // Note: if there is an existing borrow balance, will revert and market cannot be exited on Compound
-            _exitMarket(setToken, cToken);
+            // Will exit only if token isn't also being used as collateral
+            if(!collateralCTokenEnabled[setToken][cToken]) {
+                // Note: if there is an existing borrow balance, will revert and market cannot be exited on Compound
+                _exitMarket(setToken, cToken);
+            }
 
-            delete isBorrowCTokenEnabled[setToken][cToken];
+            delete borrowCTokenEnabled[setToken][cToken];
         }
 
-        for (uint256 i = 0; i < compoundSettings[setToken].collateralCTokens.length; i++) {
-            address cToken = compoundSettings[setToken].collateralCTokens[i];
+        address[] memory collateralCTokens = enabledAssets[setToken].collateralCTokens;
+        for (uint256 i = 0; i < collateralCTokens.length; i++) {
+            ICErc20 cToken = ICErc20(collateralCTokens[i]);
 
             _exitMarket(setToken, cToken);
 
-            delete isCollateralCTokenEnabled[setToken][cToken];
+            delete collateralCTokenEnabled[setToken][cToken];
         }
         
-        delete compoundSettings[setToken];
+        delete enabledAssets[setToken];
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).unregister(setToken) {
-                IDebtIssuanceModule(modules[i]).unregister(setToken);
-            } catch {}
+            try IDebtIssuanceModule(modules[i]).unregisterFromIssuanceModule(setToken) {} catch {}
         }
     }
 
     /**
-     * ANYONE CALLABLE: Sync Compound markets with stored underlying to cToken mapping in case of market additions to Compound
-     */
-    function syncCompoundMarkets() external {
-        ICErc20[] memory cTokens = comptroller.getAllMarkets();
-
-        for(uint256 i = 0; i < cTokens.length; i++) {
-            if (address(cTokens[i]) != cEther) {
-                address underlying = cTokens[i].underlying();
-
-                // If cToken is not in mapping, then add it
-                if (underlyingToCToken[underlying] == address(0)) {
-                    underlyingToCToken[underlying] = address(cTokens[i]);
-                }
-            }
-        }
-    }
-
-    /**
-     * ANYONE CALLABLE: Add registration of this module on debt issuance module for the SetToken. Note: if the debt issuance module is not added to SetToken
+     * MANAGER ONLY: Add registration of this module on debt issuance module for the SetToken. Note: if the debt issuance module is not added to SetToken
      * before this module is initialized, then this function needs to be called if the debt issuance module is later added and initialized to prevent state
      * inconsistencies
      *
      * @param _setToken             Instance of the SetToken
      * @param _debtIssuanceModule   Debt issuance module address to register
      */
-    function addRegister(ISetToken _setToken, address _debtIssuanceModule) external onlyValidAndInitializedSet(_setToken) {
-        require(_setToken.isInitializedModule(_debtIssuanceModule), "Debt issuance module must be initialized on SetToken");
+    function registerToModule(ISetToken _setToken, IDebtIssuanceModule _debtIssuanceModule) external onlyManagerAndValidSet(_setToken) {
+        require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
 
-        // Note: if the interface of the module being registered does not contain the register() interface, then function call will still succeed.
-        _register(_setToken, _debtIssuanceModule);
+        _debtIssuanceModule.registerToIssuanceModule(_setToken);
     }
 
     /**
-     * MANAGER ONLY: Add enabled collateral asset. Only callable by manager. Collateral asset is tracked for syncing positions and entered in Compound markets
+     * MANAGER ONLY: Add enabled collateral assets. Collateral assets are tracked for syncing positions and entered in Compound markets
      *
      * @param _setToken             Instance of the SetToken
-     * @param _newCollateralAsset   Address of new collateral underlying asset
+     * @param _newCollateralAssets  Addresses of new collateral underlying assets
      */
-    function addCollateralAsset(ISetToken _setToken, address _newCollateralAsset) public onlyManagerAndValidSet(_setToken) {
-        address cToken = underlyingToCToken[_newCollateralAsset];
-        require(cToken != address(0), "cToken must exist in Compound");
-        require(!isCollateralCTokenEnabled[_setToken][cToken], "Collateral cToken is already enabled");
-        
-        // Note: Will only enter market if cToken is not enabled as a borrow asset as well
-        if (!isBorrowCTokenEnabled[_setToken][cToken]) {
-            address[] memory marketsToEnter = new address[](1);
-            marketsToEnter[0] = cToken;
-            _enterMarkets(_setToken, marketsToEnter);
+    function addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) public onlyManagerAndValidSet(_setToken) {
+        for(uint256 i = 0; i < _newCollateralAssets.length; i++) {
+            ICErc20 cToken = underlyingToCToken[_newCollateralAssets[i]];
+            require(address(cToken) != address(0), "cToken must exist");
+            require(!collateralCTokenEnabled[_setToken][cToken], "Collateral enabled");
+
+            // Note: Will only enter market if cToken is not enabled as a borrow asset as well
+            if (!borrowCTokenEnabled[_setToken][cToken]) {
+                _enterMarket(_setToken, cToken);
+            }
+
+            collateralCTokenEnabled[_setToken][cToken] = true;
+            enabledAssets[_setToken].collateralCTokens.push(address(cToken));
         }
 
-        isCollateralCTokenEnabled[_setToken][cToken] = true;
-        compoundSettings[_setToken].collateralCTokens.push(cToken);
-
-        emit CollateralAssetAdded(_setToken, _newCollateralAsset);
+        emit CollateralAssetsUpdated(_setToken, true, _newCollateralAssets);
     }
 
     /**
-     * MANAGER ONLY: Remove collateral asset. Only callable by manager. Collateral asset exited in Compound markets
+     * MANAGER ONLY: Remove collateral asset. Collateral asset exited in Compound markets
      * If there is a borrow balance, collateral asset cannot be removed
      *
      * @param _setToken             Instance of the SetToken
-     * @param _collateralAsset      Address of collateral underlying asset to remove
+     * @param _collateralAssets     Addresses of collateral underlying assets to remove
      */
-    function removeCollateralAsset(ISetToken _setToken, address _collateralAsset) external onlyManagerAndValidSet(_setToken) {
+    function removeCollateralAssets(ISetToken _setToken, IERC20[] memory _collateralAssets) external onlyManagerAndValidSet(_setToken) {
         // Sync Compound and SetToken positions prior to any removal action
         sync(_setToken);
 
-        address cToken = underlyingToCToken[_collateralAsset];
-        require(isCollateralCTokenEnabled[_setToken][cToken], "Collateral cToken is already not enabled");
-        
-        // Note: Will only exit market if cToken is not enabled as a borrow asset as well
-        // If there is an existing borrow balance, will revert and market cannot be exited on Compound
-        if (!isBorrowCTokenEnabled[_setToken][cToken]) {
-            _exitMarket(_setToken, cToken);
+        for(uint256 i = 0; i < _collateralAssets.length; i++) {
+            ICErc20 cToken = underlyingToCToken[_collateralAssets[i]];
+            require(collateralCTokenEnabled[_setToken][cToken], "Collateral not enabled");
+            
+            // Note: Will only exit market if cToken is not enabled as a borrow asset as well
+            // If there is an existing borrow balance, will revert and market cannot be exited on Compound
+            if (!borrowCTokenEnabled[_setToken][cToken]) {
+                _exitMarket(_setToken, cToken);
+            }
+
+            delete collateralCTokenEnabled[_setToken][cToken];
+            enabledAssets[_setToken].collateralCTokens.removeStorage(address(cToken));
         }
 
-        delete isCollateralCTokenEnabled[_setToken][cToken];
-        compoundSettings[_setToken].collateralCTokens = compoundSettings[_setToken].collateralCTokens.remove(cToken);
-
-        emit CollateralAssetRemoved(_setToken, _collateralAsset);
+        emit CollateralAssetsUpdated(_setToken, false, _collateralAssets);
     }
 
     /**
-     * MANAGER ONLY: Add borrow asset. Only callable by manager. Borrow asset is tracked for syncing positions and entered in Compound markets
+     * MANAGER ONLY: Add borrow asset. Borrow asset is tracked for syncing positions and entered in Compound markets
      *
      * @param _setToken             Instance of the SetToken
-     * @param _newBorrowAsset       Address of borrow underlying asset to add
+     * @param _newBorrowAssets      Addresses of borrow underlying assets to add
      */
-    function addBorrowAsset(ISetToken _setToken, address _newBorrowAsset) public onlyManagerAndValidSet(_setToken) {
-        address cToken = underlyingToCToken[_newBorrowAsset];
-        require(cToken != address(0), "cToken must exist in Compound");
-        require(!isBorrowCTokenEnabled[_setToken][cToken], "Borrow cToken is already enabled");
-        
-        // Note: Will only enter market if cToken is not enabled as a borrow asset as well
-        if (!isCollateralCTokenEnabled[_setToken][cToken]) {
-            address[] memory marketsToEnter = new address[](1);
-            marketsToEnter[0] = cToken;
-            _enterMarkets(_setToken, marketsToEnter);
+    function addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) public onlyManagerAndValidSet(_setToken) {
+        for(uint256 i = 0; i < _newBorrowAssets.length; i++) {
+            IERC20 newBorrowAsset = _newBorrowAssets[i];
+            ICErc20 cToken = underlyingToCToken[newBorrowAsset];
+            require(address(cToken) != address(0), "cToken must exist");
+            require(!borrowCTokenEnabled[_setToken][cToken], "Borrow enabled");
+
+            // Note: Will only enter market if cToken is not enabled as a borrow asset as well
+            if (!collateralCTokenEnabled[_setToken][cToken]) {
+                _enterMarket(_setToken, cToken);
+            }
+
+            borrowCTokenEnabled[_setToken][cToken] = true;
+            enabledAssets[_setToken].borrowCTokens.push(address(cToken));
+            enabledAssets[_setToken].borrowAssets.push(address(newBorrowAsset));
         }
 
-        isBorrowCTokenEnabled[_setToken][cToken] = true;
-        compoundSettings[_setToken].borrowCTokens.push(cToken);
-        compoundSettings[_setToken].borrowAssets.push(_newBorrowAsset);
-
-        emit BorrowAssetAdded(_setToken, _newBorrowAsset);
+        emit BorrowAssetsUpdated(_setToken, true, _newBorrowAssets);
     }
 
     /**
-     * MANAGER ONLY: Remove borrow asset. Only callable by manager. Borrow asset is exited in Compound markets
+     * MANAGER ONLY: Remove borrow asset. Borrow asset is exited in Compound markets
      * If there is a borrow balance, borrow asset cannot be removed
      *
      * @param _setToken             Instance of the SetToken
-     * @param _borrowAsset          Address of borrow underlying asset to remove
+     * @param _borrowAssets         Addresses of borrow underlying assets to remove
      */
-    function removeBorrowAsset(ISetToken _setToken, address _borrowAsset) external onlyManagerAndValidSet(_setToken) {
+    function removeBorrowAssets(ISetToken _setToken, IERC20[] memory _borrowAssets) external onlyManagerAndValidSet(_setToken) {
         // Sync Compound and SetToken positions prior to any removal action
         sync(_setToken);
 
-        address cToken = underlyingToCToken[_borrowAsset];
-        require(isBorrowCTokenEnabled[_setToken][cToken], "Borrow cToken is already not enabled");
-        
-        // Note: Will only exit market if cToken is not enabled as a collateral asset as well
-        // If there is an existing borrow balance, will revert and market cannot be exited on Compound
-        if (!isCollateralCTokenEnabled[_setToken][cToken]) {
-            _exitMarket(_setToken, cToken);
+        for(uint256 i = 0; i < _borrowAssets.length; i++) {
+            ICErc20 cToken = underlyingToCToken[_borrowAssets[i]];
+            require(borrowCTokenEnabled[_setToken][cToken], "Borrow not enabled");
+            
+            // Note: Will only exit market if cToken is not enabled as a collateral asset as well
+            // If there is an existing borrow balance, will revert and market cannot be exited on Compound
+            if (!collateralCTokenEnabled[_setToken][cToken]) {
+                _exitMarket(_setToken, cToken);
+            }
+
+            delete borrowCTokenEnabled[_setToken][cToken];
+            enabledAssets[_setToken].borrowCTokens.removeStorage(address(cToken));
+            enabledAssets[_setToken].borrowAssets.removeStorage(address(_borrowAssets[i]));
         }
 
-        delete isBorrowCTokenEnabled[_setToken][cToken];
-        compoundSettings[_setToken].borrowCTokens = compoundSettings[_setToken].borrowCTokens.remove(cToken);
-        compoundSettings[_setToken].borrowAssets = compoundSettings[_setToken].borrowAssets.remove(_borrowAsset);
+        emit BorrowAssetsUpdated(_setToken, false, _borrowAssets);
+    }
 
-        emit BorrowAssetRemoved(_setToken, _borrowAsset);
+    /**
+     * GOVERNANCE ONLY: Add or remove allowed SetToken to initialize this module. Only callable by governance.
+     *
+     * @param _setToken             Instance of the SetToken
+     */
+    function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
+        allowedSetTokens[_setToken] = _status;
+        emit SetTokenStatusUpdated(_setToken, _status);
+    }
+
+    /**
+     * GOVERNANCE ONLY: Toggle whether any SetToken is allowed to initialize this module. Only callable by governance.
+     *
+     * @param _anySetAllowed             Bool indicating whether allowedSetTokens is enabled
+     */
+    function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
+        anySetAllowed = _anySetAllowed;
+        emit AnySetAllowedUpdated(_anySetAllowed);
+    }
+
+    /**
+     * GOVERNANCE ONLY: Add Compound market to module with stored underlying to cToken mapping in case of market additions to Compound.
+     *
+     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit 
+     *
+     * @param _cToken                   Address of cToken to add
+     * @param _underlying               Address of underlying token that maps to cToken
+     */
+    function addCompoundMarket(ICErc20 _cToken, IERC20 _underlying) external onlyOwner {
+        require(address(underlyingToCToken[_underlying]) == address(0), "Already added");
+        underlyingToCToken[_underlying] = _cToken;
+    }
+
+    /**
+     * GOVERNANCE ONLY: Remove Compound market on stored underlying to cToken mapping in case of market removals
+     *
+     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit 
+     *
+     * @param _underlying               Address of underlying token to remove
+     */
+    function removeCompoundMarket(IERC20 _underlying) external onlyOwner {
+        require(address(underlyingToCToken[_underlying]) != address(0), "Not added");
+        delete underlyingToCToken[_underlying];
     }
 
     /**
@@ -710,13 +745,14 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external onlyModule(_setToken) {
-        int256 componentDebt = _setToken.getExternalPositionRealUnit(_component, address(this));
+    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external onlyModule(_setToken) {
+        int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
+
+        require(componentDebt < 0, "Component must be negative");
+
         uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
 
-        address cToken = underlyingToCToken[_component];
-
-        _borrow(_setToken, cToken, notionalDebt);
+        _borrow(_setToken, underlyingToCToken[_component], notionalDebt);
     }
 
     /**
@@ -726,135 +762,61 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, address _component) external onlyModule(_setToken) {
-        int256 componentDebt = _setToken.getExternalPositionRealUnit(_component, address(this));
-        uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
+    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external onlyModule(_setToken) {
+        int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
-        address cToken = underlyingToCToken[_component];
+        require(componentDebt < 0, "Component must be negative");
 
-        _repayBorrow(_setToken, cToken, _component, notionalDebt);
+        uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
+
+        _repayBorrow(_setToken, underlyingToCToken[_component], _component, notionalDebt);
     }
 
 
     /* ============ External Getter Functions ============ */
 
-    function getEnabledCollateralCTokens(ISetToken _setToken) external view returns(address[] memory) {
-        return compoundSettings[_setToken].collateralCTokens;
-    }
-
-    function getEnabledBorrowCTokens(ISetToken _setToken) external view returns(address[] memory) {
-        return compoundSettings[_setToken].borrowCTokens;
-    }
-
-    function getEnabledBorrowAssets(ISetToken _setToken) external view returns(address[] memory) {
-        return compoundSettings[_setToken].borrowAssets;
+    /**
+     * Get enabled assets for SetToken. Returns an array of enabled cTokens that are collateral assets and an
+     * array of underlying that are borrow assets.
+     *
+     * @return                    Collateral cToken assets that are enabled
+     * @return                    Underlying borrowed assets that are enabled.
+     */
+    function getEnabledAssets(ISetToken _setToken) external view returns(address[] memory, address[] memory) {
+        return (
+            enabledAssets[_setToken].collateralCTokens,
+            enabledAssets[_setToken].borrowAssets
+        );
     }
 
     /* ============ Internal Functions ============ */
 
     /**
-     * Construct the ActionInfo struct for lever and delever
-     */
-    function _createActionInfo(
-        ISetToken _setToken,
-        address _sendToken,
-        address _receiveToken,
-        uint256 _sendQuantity,
-        uint256 _minReceiveQuantity,
-        string memory _tradeAdapterName,
-        bool isLever
-    )
-        internal
-        view
-        returns(ActionInfo memory)
-    {
-        ActionInfo memory actionInfo;
-
-        actionInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName));
-        actionInfo.setToken = _setToken;
-        actionInfo.collateralCTokenAsset = isLever ? underlyingToCToken[_receiveToken] : underlyingToCToken[_sendToken];
-        actionInfo.borrowCTokenAsset = isLever ? underlyingToCToken[_sendToken] : underlyingToCToken[_receiveToken];
-        actionInfo.setTotalSupply = _setToken.totalSupply();
-        actionInfo.notionalSendQuantity = _sendQuantity.preciseMul(actionInfo.setTotalSupply);
-        actionInfo.minNotionalReceiveQuantity = _minReceiveQuantity.preciseMul(actionInfo.setTotalSupply);
-        // Snapshot pre trade receive token balance.
-        actionInfo.preTradeReceiveTokenBalance = IERC20(_receiveToken).balanceOf(address(_setToken));
-
-        return actionInfo;
-    }
-
-    /**
-     * Construct the ActionInfo struct for gulp, claim COMP, and validate gulp info.
-     */
-    function _createGulpInfoClaimAndValidate(
-        ISetToken _setToken,
-        address _collateralAsset,
-        string memory _tradeAdapterName
-    )
-        internal
-        returns(ActionInfo memory)
-    {
-        ActionInfo memory actionInfo;
-
-        // Create gulp info struct
-        actionInfo.collateralCTokenAsset = underlyingToCToken[_collateralAsset];
-        actionInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName));
-        actionInfo.setTotalSupply = _setToken.totalSupply();
-        
-        // Validate collateral is enabled
-        require(isCollateralCTokenEnabled[_setToken][actionInfo.collateralCTokenAsset], "Collateral cToken is not enabled");
-        
-        // Snapshot COMP balances pre claim
-        uint256 preClaimCompBalance = IERC20(compToken).balanceOf(address(_setToken));
-
-        // Claim COMP
-        _claim(_setToken);
-
-        // Snapshot pre trade receive token balance.
-        actionInfo.preTradeReceiveTokenBalance = IERC20(_collateralAsset).balanceOf(address(_setToken));
-        // Calculate notional send quantity
-        actionInfo.notionalSendQuantity = IERC20(compToken).balanceOf(address(_setToken)).sub(preClaimCompBalance);
-
-        // Validate trade quantity is nonzero
-        require(actionInfo.notionalSendQuantity > 0, "Token to sell must be nonzero");
-
-        return actionInfo;
-    }
-
-    function _validateCommon(ActionInfo memory _actionInfo) internal view {
-        require(isCollateralCTokenEnabled[_actionInfo.setToken][_actionInfo.collateralCTokenAsset], "Collateral cToken is not enabled");
-        require(isBorrowCTokenEnabled[_actionInfo.setToken][_actionInfo.borrowCTokenAsset], "Borrow cToken is not enabled");
-        require(_actionInfo.collateralCTokenAsset != _actionInfo.borrowCTokenAsset, "Collateral and borrow assets must be different");
-        require(_actionInfo.notionalSendQuantity > 0, "Token to sell must be nonzero");
-    }
-
-    /**
      * Invoke enter markets from SetToken
      */
-    function _enterMarkets(ISetToken _setToken, address[] memory _cTokens) internal {
-        // Compound's enter market function signature is: enterMarkets(address[] _cTokens)
-        bytes memory enterMarketsCallData = abi.encodeWithSignature("enterMarkets(address[])", _cTokens);
-        bytes memory returndata = _setToken.invoke(address(comptroller), 0, enterMarketsCallData);
+    function _enterMarket(ISetToken _setToken, ICErc20 _cToken) internal {
+        address[] memory marketsToEnter = new address[](1);
+        marketsToEnter[0] = address(_cToken);
 
-        uint256[] memory returnValues = abi.decode(returndata, (uint256[]));
-        for (uint256 i = 0; i < _cTokens.length; i++) {
-            require(
-                returnValues[i] == 0,
-                "Entering market failed"
-            );
-        }
+        // Compound's enter market function signature is: enterMarkets(address[] _cTokens)
+        uint256[] memory returnValues = abi.decode(
+            _setToken.invoke(address(comptroller), 0, abi.encodeWithSignature("enterMarkets(address[])", marketsToEnter)),
+            (uint256[])
+        );
+        require(returnValues[0] == 0, "Entering failed");
     }
 
     /**
      * Invoke exit market from SetToken
      */
-    function _exitMarket(ISetToken _setToken, address _cToken) internal {
+    function _exitMarket(ISetToken _setToken, ICErc20 _cToken) internal {
         // Compound's exit market function signature is: exitMarket(address _cToken)
-        bytes memory exitMarketCallData = abi.encodeWithSignature("exitMarket(address)", _cToken);
-        bytes memory returndata = _setToken.invoke(address(comptroller), 0, exitMarketCallData);
         require(
-            abi.decode(returndata, (uint256)) == 0,
-            "Exiting market failed"
+            abi.decode(
+                _setToken.invoke(address(comptroller), 0, abi.encodeWithSignature("exitMarket(address)", address(_cToken))),
+                (uint256)
+            ) == 0,
+            "Exiting failed"
         );
     }
 
@@ -862,21 +824,21 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
      * Mints the specified cToken from the underlying of the specified notional quantity. If cEther, the WETH must be 
      * unwrapped as it only accepts the underlying ETH.
      */
-    function _mintCToken(ISetToken _setToken, address _cToken, address _underlyingToken, uint256 _mintNotional) internal {
+    function _mintCToken(ISetToken _setToken, ICErc20 _cToken, IERC20 _underlyingToken, uint256 _mintNotional) internal {
         if (_cToken == cEther) {
-            _setToken.invokeUnwrapWETH(weth, _mintNotional);
+            _setToken.invokeUnwrapWETH(address(weth), _mintNotional);
 
             // Compound's mint cEther function signature is: mint(). No return, reverts on error.
-            bytes memory mintCEthCallData = abi.encodeWithSignature("mint()");
-            _setToken.invoke(_cToken, _mintNotional, mintCEthCallData);
+            _setToken.invoke(address(_cToken), _mintNotional, abi.encodeWithSignature("mint()"));
         } else {
-            _setToken.invokeApprove(_underlyingToken, _cToken, _mintNotional);
+            _setToken.invokeApprove(address(_underlyingToken), address(_cToken), _mintNotional);
 
             // Compound's mint cToken function signature is: mint(uint256 _mintAmount). Returns 0 if success
-            bytes memory mintCallData = abi.encodeWithSignature("mint(uint256)", _mintNotional);
-            bytes memory returndata = _setToken.invoke(_cToken, 0, mintCallData);
             require(
-                abi.decode(returndata, (uint256)) == 0,
+                abi.decode(
+                    _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("mint(uint256)", _mintNotional)),
+                    (uint256)
+                ) == 0,
                 "Mint failed"
             );
         }
@@ -885,38 +847,39 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     /**
      * Invoke redeem from SetToken. If cEther, then also wrap ETH into WETH.
      */
-    function _redeemUnderlying(ISetToken _setToken, address _cToken, uint256 _redeemNotional) internal {
+    function _redeemUnderlying(ISetToken _setToken, ICErc20 _cToken, uint256 _redeemNotional) internal {
         // Compound's redeem function signature is: redeemUnderlying(uint256 _underlyingAmount)
-        bytes memory redeemCallData = abi.encodeWithSignature("redeemUnderlying(uint256)", _redeemNotional);
-        bytes memory returndata = _setToken.invoke(_cToken, 0, redeemCallData);
         require(
-            abi.decode(returndata, (uint256)) == 0,
+            abi.decode(
+                _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("redeemUnderlying(uint256)", _redeemNotional)),
+                (uint256)
+            ) == 0,
             "Redeem failed"
         );
 
         if (_cToken == cEther) {
-            _setToken.invokeWrapWETH(weth, _redeemNotional);
+            _setToken.invokeWrapWETH(address(weth), _redeemNotional);
         }
     }
 
     /**
      * Invoke repay from SetToken. If cEther then unwrap WETH into ETH.
      */
-    function _repayBorrow(ISetToken _setToken, address _cToken, address _underlyingToken, uint256 _repayNotional) internal {
+    function _repayBorrow(ISetToken _setToken, ICErc20 _cToken, IERC20 _underlyingToken, uint256 _repayNotional) internal {
         if (_cToken == cEther) {
-            _setToken.invokeUnwrapWETH(weth, _repayNotional);
+            _setToken.invokeUnwrapWETH(address(weth), _repayNotional);
 
             // Compound's repay ETH function signature is: repayBorrow(). No return, revert on fail
-            bytes memory repayCEthCallData = abi.encodeWithSignature("repayBorrow()");
-            _setToken.invoke(_cToken, _repayNotional, repayCEthCallData);
+            _setToken.invoke(address(_cToken), _repayNotional, abi.encodeWithSignature("repayBorrow()"));
         } else {
             // Approve to cToken
-            _setToken.invokeApprove(_underlyingToken, _cToken, _repayNotional);
+            _setToken.invokeApprove(address(_underlyingToken), address(_cToken), _repayNotional);
             // Compound's repay asset function signature is: repayBorrow(uint256 _repayAmount)
-            bytes memory repayCallData = abi.encodeWithSignature("repayBorrow(uint256)", _repayNotional);
-            bytes memory returndata = _setToken.invoke(_cToken, 0, repayCallData);
             require(
-                abi.decode(returndata, (uint256)) == 0,
+                abi.decode(
+                    _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("repayBorrow(uint256)", _repayNotional)),
+                    (uint256)
+                ) == 0,
                 "Repay failed"
             );
         }
@@ -925,26 +888,30 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
     /**
      * Invoke the SetToken to interact with the specified cToken to borrow the cToken's underlying of the specified borrowQuantity.
      */
-    function _borrow(ISetToken _setToken, address _cToken, uint256 _notionalBorrowQuantity) internal {
+    function _borrow(ISetToken _setToken, ICErc20 _cToken, uint256 _notionalBorrowQuantity) internal {
         // Compound's borrow function signature is: borrow(uint256 _borrowAmount). Note: Notional borrow quantity is in units of underlying asset
-        bytes memory borrowCallData = abi.encodeWithSignature("borrow(uint256)", _notionalBorrowQuantity);
-        bytes memory returndata = _setToken.invoke(_cToken, 0, borrowCallData);
         require(
-            abi.decode(returndata, (uint256)) == 0,
+            abi.decode(
+                _setToken.invoke(address(_cToken), 0, abi.encodeWithSignature("borrow(uint256)", _notionalBorrowQuantity)),
+                (uint256)
+            ) == 0,
             "Borrow failed"
         );
         if (_cToken == cEther) {
-            _setToken.invokeWrapWETH(weth, _notionalBorrowQuantity);
+            _setToken.invokeWrapWETH(address(weth), _notionalBorrowQuantity);
         }
     }
 
     /**
      * Executes a trade, validates the minimum receive quantity is returned, and pays protocol fee (if applicable)
+     *
+     * @return uint256          Amount of protocol fees in receive token
+     * @return uint256          Amount of receive token net of protocol fees
      */
     function _tradeAndHandleFees(
         ISetToken _setToken,
-        address _sendToken,
-        address _receiveToken,
+        IERC20 _sendToken,
+        IERC20 _receiveToken,
         uint256 _notionalSendQuantity,
         uint256 _minNotionalReceiveQuantity,
         uint256 _preTradeReceiveTokenBalance,
@@ -964,10 +931,10 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
             _data
         );
 
-        uint256 receiveTokenQuantity = IERC20(_receiveToken).balanceOf(address(_setToken)).sub(_preTradeReceiveTokenBalance);
+        uint256 receiveTokenQuantity = _receiveToken.balanceOf(address(_setToken)).sub(_preTradeReceiveTokenBalance);
         require(
             receiveTokenQuantity >= _minNotionalReceiveQuantity,
-            "Slippage greater than allowed"
+            "Slippage too high"
         );
 
         uint256 protocolFeeTotal = _accrueProtocolFee(_setToken, _receiveToken, receiveTokenQuantity);
@@ -975,10 +942,13 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         return (protocolFeeTotal, receiveTokenQuantity.sub(protocolFeeTotal));
     }
 
+    /**
+     * Invokes approvals, gets trade call data from exchange adapter and invokes trade from SetToken
+     */
     function _executeTrade(
         ISetToken _setToken,
-        address _sendToken,
-        address _receiveToken,
+        IERC20 _sendToken,
+        IERC20 _receiveToken,
         uint256 _notionalSendQuantity,
         uint256 _minNotionalReceiveQuantity,
         IExchangeAdapter _exchangeAdapter,
@@ -987,7 +957,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         internal
     {
          _setToken.invokeApprove(
-            _sendToken,
+            address(_sendToken),
             _exchangeAdapter.getSpender(),
             _notionalSendQuantity
         );
@@ -997,8 +967,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
             uint256 callValue,
             bytes memory methodData
         ) = _exchangeAdapter.getTradeCalldata(
-            _sendToken,
-            _receiveToken,
+            address(_sendToken),
+            address(_receiveToken),
             address(_setToken),
             _notionalSendQuantity,
             _minNotionalReceiveQuantity,
@@ -1008,49 +978,106 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard {
         _setToken.invoke(targetExchange, callValue, methodData);
     }
 
-    function _accrueProtocolFee(ISetToken _setToken, address _receiveToken, uint256 _exchangedQuantity) internal returns(uint256) {
+    /**
+     * Calculates protocol fee on module and pays protocol fee from SetToken
+     */
+    function _accrueProtocolFee(ISetToken _setToken, IERC20 _receiveToken, uint256 _exchangedQuantity) internal returns(uint256) {
         uint256 protocolFeeTotal = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
         
-        payProtocolFeeFromSetToken(_setToken, _receiveToken, protocolFeeTotal);
+        payProtocolFeeFromSetToken(_setToken, address(_receiveToken), protocolFeeTotal);
 
         return protocolFeeTotal;
     }
 
-    /**
-     * Invoke claim COMP from SetToken
-     */
-    function _claim(ISetToken _setToken) internal {
-        // Compound's claim COMP function signature is: claimComp(address _holder)
-        bytes memory claimCallData = abi.encodeWithSignature("claimComp(address)", address(_setToken));
+    function _updateCollateralPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _newPositionUnit) internal {
+        _setToken.editDefaultPosition(address(_cToken), _newPositionUnit);
+    }
 
-        _setToken.invoke(address(comptroller), 0, claimCallData);
+    function _updateBorrowPosition(ISetToken _setToken, IERC20 _underlyingToken, int256 _newPositionUnit) internal {
+        _setToken.editExternalPosition(address(_underlyingToken), address(this), _newPositionUnit, "");
     }
 
     /**
-     * Internal function that tries to register SetToken to module
+     * Construct the ActionInfo struct for lever and delever
      */
-    function _register(ISetToken _setToken, address _module) internal {
-        try IDebtIssuanceModule(_module).register(_setToken) {
-            IDebtIssuanceModule(_module).register(_setToken);
-        } catch {}
+    function _createActionInfo(
+        ISetToken _setToken,
+        IERC20 _sendToken,
+        IERC20 _receiveToken,
+        uint256 _sendQuantity,
+        uint256 _minReceiveQuantity,
+        string memory _tradeAdapterName,
+        bool isLever
+    )
+        internal
+        view
+        returns(ActionInfo memory)
+    {
+        uint256 totalSupply = _setToken.totalSupply();
+        return ActionInfo ({
+            exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
+            setToken: _setToken,
+            collateralCTokenAsset: isLever ? underlyingToCToken[_receiveToken] : underlyingToCToken[_sendToken],
+            borrowCTokenAsset: isLever ? underlyingToCToken[_sendToken] : underlyingToCToken[_receiveToken],
+            setTotalSupply: totalSupply,
+            notionalSendQuantity: _sendQuantity.preciseMul(totalSupply),
+            minNotionalReceiveQuantity: _minReceiveQuantity.preciseMul(totalSupply),
+            preTradeReceiveTokenBalance: IERC20(_receiveToken).balanceOf(address(_setToken))
+        });
     }
 
-    function _getCollateralPosition(ISetToken _setToken, address _cToken, uint256 _setTotalSupply) internal view returns (uint256) {
-        uint256 collateralNotionalBalance = IERC20(_cToken).balanceOf(address(_setToken));
+    /**
+     * Construct the ActionInfo struct for gulp and validate gulp info.
+     */
+    function _createGulpInfoAndValidate(
+        ISetToken _setToken,
+        IERC20 _collateralAsset,
+        string memory _tradeAdapterName
+    )
+        internal
+        view
+        returns(ActionInfo memory)
+    {
+        ICErc20 collateralCTokenAsset = underlyingToCToken[_collateralAsset];
+        // Validate collateral is enabled
+        require(collateralCTokenEnabled[_setToken][collateralCTokenAsset], "Collateral is not enabled");
+
+        ActionInfo memory actionInfo;
+        actionInfo.collateralCTokenAsset = collateralCTokenAsset;
+
+        actionInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName));
+        actionInfo.setTotalSupply = _setToken.totalSupply();
+        // Snapshot pre trade receive token balance.
+        actionInfo.preTradeReceiveTokenBalance = _collateralAsset.balanceOf(address(_setToken));
+        
+        // Calculate notional send quantity by comparing balance of COMP after claiming against the total notional units
+        // of COMP tracked on the SetToken
+        uint256 defaultCompPositionNotional = _setToken
+            .getDefaultPositionRealUnit(address(compToken))
+            .toUint256()
+            .preciseMul(actionInfo.setTotalSupply);
+
+        actionInfo.notionalSendQuantity = compToken.balanceOf(address(_setToken)).sub(defaultCompPositionNotional);
+        require(actionInfo.notionalSendQuantity > 0, "Claim is 0");
+
+        return actionInfo;
+    }
+
+    function _validateCommon(ActionInfo memory _actionInfo) internal view {
+        require(collateralCTokenEnabled[_actionInfo.setToken][_actionInfo.collateralCTokenAsset], "Collateral not enabled");
+        require(borrowCTokenEnabled[_actionInfo.setToken][_actionInfo.borrowCTokenAsset], "Borrow not enabled");
+        require(_actionInfo.collateralCTokenAsset != _actionInfo.borrowCTokenAsset, "Must be different");
+        require(_actionInfo.notionalSendQuantity > 0, "Quantity is 0");
+    }
+
+    function _getCollateralPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _setTotalSupply) internal view returns (uint256) {
+        uint256 collateralNotionalBalance = _cToken.balanceOf(address(_setToken));
         return collateralNotionalBalance.preciseDiv(_setTotalSupply);
     }
 
-    function _getBorrowPosition(ISetToken _setToken, address _cToken, address _underlyingToken, uint256 _setTotalSupply) internal returns (int256) {
-        uint256 borrowNotionalBalance = ICErc20(_cToken).borrowBalanceCurrent(address(_setToken));
+    function _getBorrowPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _setTotalSupply) internal returns (int256) {
+        uint256 borrowNotionalBalance = _cToken.borrowBalanceCurrent(address(_setToken));
         // Round negative away from 0
         return borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
-    }
-
-    function _updateCollateralPosition(ISetToken _setToken, address _cToken, uint256 _newPositionUnit) internal {
-        _setToken.editDefaultPosition(_cToken, _newPositionUnit);
-    }
-
-    function _updateBorrowPosition(ISetToken _setToken, address _underlyingToken, int256 _newPositionUnit) internal {
-        _setToken.editExternalPosition(_underlyingToken, address(this), _newPositionUnit, "");
     }
 }

@@ -104,7 +104,7 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
                 componentQuantities[i]
             );
 
-            _executeExternalPositionHooks(_setToken, _quantity, components[i], true);
+            _executeExternalPositionHooks(_setToken, _quantity, IERC20(components[i]), true);
         }
 
         _setToken.mint(_to, _quantity);
@@ -139,7 +139,7 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
         ) = getRequiredComponentIssuanceUnits(_setToken, _quantity, false);
 
         for (uint256 i = 0; i < components.length; i++) {
-            _executeExternalPositionHooks(_setToken, _quantity, components[i], false);
+            _executeExternalPositionHooks(_setToken, _quantity, IERC20(components[i]), false);
             
             _setToken.strictInvokeTransfer(
                 components[i],
@@ -279,17 +279,17 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
     function _executeExternalPositionHooks(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
-        address _component,
+        IERC20 _component,
         bool isIssue
     )
         internal
     {
-        address[] memory externalPositionModules = _setToken.getExternalPositionModules(_component);
+        address[] memory externalPositionModules = _setToken.getExternalPositionModules(address(_component));
         for (uint256 i = 0; i < externalPositionModules.length; i++) {
             if (isIssue) {
-                IModuleIssuanceHook(externalPositionModules[i]).componentIssueHook(_setToken, _setTokenQuantity, _component);
+                IModuleIssuanceHook(externalPositionModules[i]).componentIssueHook(_setToken, _setTokenQuantity, _component, true);
             } else {
-                IModuleIssuanceHook(externalPositionModules[i]).componentRedeemHook(_setToken, _setTokenQuantity, _component);
+                IModuleIssuanceHook(externalPositionModules[i]).componentRedeemHook(_setToken, _setTokenQuantity, _component, true);
             }
         }
     }

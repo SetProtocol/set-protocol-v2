@@ -1,6 +1,6 @@
 {
   "name": "@setprotocol/set-protocol-v2",
-  "version": "0.0.16",
+  "version": "0.0.22",
   "description": "",
   "main": "dist",
   "types": "dist/types",
@@ -68,6 +68,7 @@
     "hardhat-deploy": "^0.7.0-beta.39",
     "hardhat-typechain": "^0.3.4",
     "husky": "^4.2.5",
+    "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",
     "lodash": "^4.17.4",
     "solc": "^0.6.10",

@@ -120,16 +120,6 @@ describe("DebtIssuanceModule", () => {
       expect(settings.managerIssuanceHook).to.eq(subjectManagerIssuanceHook);
     });
 
-    describe("when the maximum fee is 0", async () => {
-      beforeEach(async () => {
-        subjectMaxManagerFee = ZERO;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Maximum fee must be greater than 0.");
-      });
-    });
-
     describe("when the issue fee is greater than the maximum fee", async () => {
       beforeEach(async () => {
         subjectManagerIssueFee = ether(0.03);
@@ -254,7 +244,7 @@ describe("DebtIssuanceModule", () => {
           await setToken.connect(manager.wallet).addModule(dummyModule.address);
           await setToken.connect(dummyModule.wallet).initializeModule();
 
-          await debtIssuance.connect(dummyModule.wallet).register(setToken.address);
+          await debtIssuance.connect(dummyModule.wallet).registerToIssuanceModule(setToken.address);
         });
 
         it("should revert", async () => {
@@ -263,7 +253,7 @@ describe("DebtIssuanceModule", () => {
       });
     });
 
-    describe("#register", async () => {
+    describe("#registerToIssuanceModule", async () => {
       let subjectSetToken: Address;
       let subjectCaller: Account;
 
@@ -277,16 +267,23 @@ describe("DebtIssuanceModule", () => {
       });
 
       async function subject(): Promise<ContractTransaction> {
-        return debtIssuance.connect(subjectCaller.wallet).register(
+        return debtIssuance.connect(subjectCaller.wallet).registerToIssuanceModule(
           subjectSetToken
         );
       }
 
-      it("should add dummyModule to issuanceSettings", async () => {
+      it("should add dummyModule to moduleIssuanceHooks", async () => {
         await subject();
 
         const moduleHooks = await debtIssuance.getModuleIssuanceHooks(subjectSetToken);
         expect(moduleHooks).to.contain(subjectCaller.address);
+      });
+
+      it("should mark dummyModule as a valid module issuance hook", async () => {
+        await subject();
+
+        const isModuleHook = await debtIssuance.isModuleIssuanceHook(subjectSetToken, dummyModule.address);
+        expect(isModuleHook).to.be.true;
       });
 
       describe("when DebtIssuanceModule is not initialized", async () => {
@@ -299,7 +296,7 @@ describe("DebtIssuanceModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("DebtIssuanceModule not initialized");
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
         });
       });
 
@@ -314,7 +311,7 @@ describe("DebtIssuanceModule", () => {
       });
     });
 
-    describe("#unregister", async () => {
+    describe("#unregisterFromIssuanceModule", async () => {
       let subjectSetToken: Address;
       let subjectCaller: Account;
       let register: boolean;
@@ -329,7 +326,7 @@ describe("DebtIssuanceModule", () => {
         await setToken.connect(dummyModule.wallet).initializeModule();
 
         if (register) {
-          await debtIssuance.connect(dummyModule.wallet).register(setToken.address);
+          await debtIssuance.connect(dummyModule.wallet).registerToIssuanceModule(setToken.address);
         }
 
         subjectSetToken = setToken.address;
@@ -337,7 +334,7 @@ describe("DebtIssuanceModule", () => {
       });
 
       async function subject(): Promise<ContractTransaction> {
-        return debtIssuance.connect(subjectCaller.wallet).unregister(
+        return debtIssuance.connect(subjectCaller.wallet).unregisterFromIssuanceModule(
           subjectSetToken
         );
       }
@@ -350,6 +347,13 @@ describe("DebtIssuanceModule", () => {
 
         const postModuleHooks = await debtIssuance.getModuleIssuanceHooks(subjectSetToken);
         expect(postModuleHooks).to.not.contain(subjectCaller.address);
+      });
+
+      it("should not mark dummyModule as a valid module issuance hook", async () => {
+        await subject();
+
+        const isModuleHook = await debtIssuance.isModuleIssuanceHook(subjectSetToken, dummyModule.address);
+        expect(isModuleHook).to.be.false;
       });
 
       describe("when calling module isn't registered", async () => {
@@ -627,7 +631,7 @@ describe("DebtIssuanceModule", () => {
             subjectCaller.address,
             subjectTo,
             preIssueHook,
-            subjectQuantity.add(feeQuantity),
+            subjectQuantity,
             feeQuantity,
             ZERO
           );
@@ -875,7 +879,7 @@ describe("DebtIssuanceModule", () => {
             setToken.address,
             subjectCaller.address,
             subjectTo,
-            subjectQuantity.sub(feeQuantity),
+            subjectQuantity,
             feeQuantity,
             ZERO
           );
@@ -1064,6 +1068,16 @@ describe("DebtIssuanceModule", () => {
           });
         });
 
+        describe("when fee recipient address is same address", async () => {
+          beforeEach(async () => {
+            subjectNewFeeRecipient = (await debtIssuance.issuanceSettings(subjectSetToken)).feeRecipient;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Same fee recipient passed");
+          });
+        });
+
         describe("when SetToken is not valid", async () => {
           beforeEach(async () => {
             const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
@@ -1136,6 +1150,16 @@ describe("DebtIssuanceModule", () => {
         });
       });
 
+      describe("when issue fee is same amount", async () => {
+        beforeEach(async () => {
+          subjectNewIssueFee = (await debtIssuance.issuanceSettings(subjectSetToken)).managerIssueFee;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Same issue fee passed");
+        });
+      });
+
       describe("when SetToken is not valid", async () => {
         beforeEach(async () => {
           const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
@@ -1204,6 +1228,16 @@ describe("DebtIssuanceModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Redeem fee can't exceed maximum");
+        });
+      });
+
+      describe("when redeem fee is same amount", async () => {
+        beforeEach(async () => {
+          subjectNewRedeemFee = (await debtIssuance.issuanceSettings(subjectSetToken)).managerRedeemFee;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Same redeem fee passed");
         });
       });
 
