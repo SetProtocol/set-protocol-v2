@@ -73,3 +73,5 @@ export { WrapAdapterMock } from "../../typechain/WrapAdapterMock";
 export { WrapModule } from "../../typechain/WrapModule";
 export { ZeroExApiAdapter } from "../../typechain/ZeroExApiAdapter";
 export { ZeroExMock } from "../../typechain/ZeroExMock";
+export { LibraryMock } from "../../typechain/LibraryMock";
+export { LibraryConsumerMock } from "../../typechain/LibraryConsumerMock";

@@ -1,5 +1,5 @@
 import { Address } from "../types";
-import { Signer } from "ethers";
+import { Signer, utils } from "ethers";
 import { BigNumberish, BigNumber } from "@ethersproject/bignumber";
 
 import {
@@ -36,6 +36,8 @@ import {
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
   ZeroExMock,
+  LibraryMock,
+  LibraryConsumerMock
 } from "../contracts";
 
 import { ether } from "../common";
@@ -73,6 +75,9 @@ import { StandardTokenWithFeeMock__factory } from "../../typechain/factories/Sta
 import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint256ArrayUtilsMock__factory";
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
 import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
+import { LibraryMock__factory } from "../../typechain/factories/LibraryMock__factory";
+import { LibraryConsumerMock__factory } from "../../typechain/factories/LibraryConsumerMock__factory";
+
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -266,6 +271,28 @@ export default class DeployMocks {
       component
     );
   }
+
+  public async deployLibraryMock(
+  ): Promise<LibraryMock> {
+    return await new LibraryMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployLibraryConsumerMock(
+    libraryName: string,
+    libraryAddress: Address
+  ) : Promise<LibraryConsumerMock> {
+    const hashedLibName = utils.keccak256(utils.toUtf8Bytes(libraryName));
+    const libKey = `__$${hashedLibName.slice(2).slice(0,34)}$__`;
+
+    return await new LibraryConsumerMock__factory(
+      // @ts-ignore
+      {
+        [libKey]: libraryAddress
+      },
+      this._deployerSigner
+    ).deploy();
+  }
+
 
   /*************************************
    * Instance getters
