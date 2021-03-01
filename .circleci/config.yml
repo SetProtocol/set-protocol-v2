@@ -87,10 +87,16 @@ jobs:
       - run:
           name: Coverage
           command: |
+            echo "<<<< Timings >>>>"
+            cat $CIRCLE_INTERNAL_TASK_DATA/circle-test-results/results.json
+
             TEST_FILES="{$(circleci tests glob "${PWD}/test/**/*.spec.ts" | \
               circleci tests split --split-by=timings | xargs | \
               sed -e 's/ /,/g' | sed -e "s|$PWD/||g" ),}"
             yarn coverage --testfiles "$TEST_FILES"
+
+            echo "<<<< test-results.xml >>>>"
+            cat test-results.xml
       - run:
           name: Save coverage data
           command: |
