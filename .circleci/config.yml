@@ -36,7 +36,6 @@ jobs:
       - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
     parallelism: 3
-    resource_class: large
     steps:
       - setup_remote_docker:
           docker_layer_caching: false
@@ -67,7 +66,6 @@ jobs:
     # in this job (below) as well as the list of files passed
     # to istanbul-combine in the `report_coverage` job
     parallelism: 5
-    resource_class: large
     steps:
       - setup_remote_docker:
           docker_layer_caching: false
