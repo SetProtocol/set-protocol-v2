@@ -3,6 +3,7 @@ import { ContractTransaction } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
+  Compound,
   CompoundLeverageModule,
   DebtIssuanceModule,
   SetToken,
@@ -41,6 +42,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
   let compoundSetup: CompoundFixture;
   let uniswapSetup: UniswapFixture;
 
+  let compoundLibrary: Compound;
   let compoundLeverageModule: CompoundLeverageModule;
   let debtIssuanceModule: DebtIssuanceModule;
   let uniswapExchangeAdapter: UniswapV2ExchangeAdapter;
@@ -115,7 +117,7 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
       "cUSDC",
       8,
       ether(0.75), // 75% collateral factor
-      ether(1)
+      ether(1000000000000) // Compound oracles account for decimals. $1 * 10^18 * 10^18 / 10^6
     );
 
     cDai = await compoundSetup.createAndEnableCToken(
@@ -143,12 +145,15 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
     debtIssuanceModule = await deployer.modules.deployDebtIssuanceModule(setup.controller.address);
     await setup.controller.addModule(debtIssuanceModule.address);
 
+    compoundLibrary = await deployer.libraries.deployCompound();
     compoundLeverageModule = await deployer.modules.deployCompoundLeverageModule(
       setup.controller.address,
       compoundSetup.comp.address,
       compoundSetup.comptroller.address,
       cEther.address,
-      setup.weth.address
+      setup.weth.address,
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
+      compoundLibrary.address,
     );
     await setup.controller.addModule(compoundLeverageModule.address);
 
@@ -359,15 +364,15 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
       it("should update the borrow position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
+        const previousSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
+        const setTotalSupply = await setToken.totalSupply();
+
         await subject();
 
-        // cEther position is increased
+        const expectedSecondPositionUnit = preciseDivCeil(previousSecondPositionBalance, setTotalSupply).mul(-1);
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
 
-        const currentSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
-        const setTotalSupply = await setToken.totalSupply();
-        const expectedSecondPositionUnit = preciseDivCeil(currentSecondPositionBalance, setTotalSupply).mul(-1);
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
@@ -453,11 +458,11 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         );
 
         // Set price to be liquidated
-        const liquidationEthPrice = BigNumber.from(500);
+        const liquidationEthPrice = ether(500);
         await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, liquidationEthPrice);
 
         await setup.usdc.approve(cUsdc.address, MAX_UINT_256);
-        const unitsToLiquidate = BigNumber.from(250);
+        const unitsToLiquidate = usdc(250);
         actualSeizedTokens = await compoundSetup.comptroller.liquidateCalculateSeizeTokens(
           cUsdc.address,
           cEther.address,
@@ -503,15 +508,18 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
       it("should update the borrow position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
+
+        await compoundLeverageModule.sync(setToken.address, true);
+        const previousSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
+        const setTotalSupply = await setToken.totalSupply();
+
         await subject();
 
         // cEther position is increased
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
 
-        const currentSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
-        const setTotalSupply = await setToken.totalSupply();
-        const expectedSecondPositionUnit = preciseDivCeil(currentSecondPositionBalance, setTotalSupply).mul(-1);
+        const expectedSecondPositionUnit = preciseDivCeil(previousSecondPositionBalance, setTotalSupply).mul(-1);
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
@@ -649,18 +657,18 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
       });
 
       it("should update the borrow position on the SetToken correctly", async () => {
+        const setTotalSupply = await setToken.totalSupply();
+
+        const previousThirdPositionBalance = await cDai.borrowBalanceStored(setToken.address);
+        const expectedThirdPositionUnit = preciseDivCeil(previousThirdPositionBalance, setTotalSupply).mul(-1);
+
+        const previousFourthPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
+        const expectedFourthPositionUnit = preciseDivCeil(previousFourthPositionBalance, setTotalSupply).mul(-1);
+
         await subject();
 
         const newThirdPosition = (await setToken.getPositions())[2];
         const newFourthPosition = (await setToken.getPositions())[3];
-
-        const setTotalSupply = await setToken.totalSupply();
-
-        const currentThirdPositionBalance = await cDai.borrowBalanceStored(setToken.address);
-        const expectedThirdPositionUnit = preciseDivCeil(currentThirdPositionBalance, setTotalSupply).mul(-1);
-
-        const currentFourthPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
-        const expectedFourthPositionUnit = preciseDivCeil(currentFourthPositionBalance, setTotalSupply).mul(-1);
 
         expect(newThirdPosition.component).to.eq(setup.dai.address);
         expect(newThirdPosition.positionState).to.eq(1); // External
@@ -921,16 +929,14 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         const newSecondPosition = (await setToken.getPositions())[1];
 
         const setTotalSupply = await setToken.totalSupply();
-        const currentSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
-        const usdcSetBalance = await setup.usdc.balanceOf(setToken.address);
-        const adjustedSecondPositionBalance = currentSecondPositionBalance.mul(-1).add(usdcSetBalance);
+        const previousSecondPositionBalance = (await cUsdc.borrowBalanceStored(setToken.address)).mul(-1);
         const newSecondPositionNotional = preciseMul(newSecondPosition.unit, setTotalSupply);
 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPositionNotional).to.eq(adjustedSecondPositionBalance);
+        expect(newSecondPositionNotional).to.eq(previousSecondPositionBalance);
         expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
       });
 
@@ -1139,10 +1145,10 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
         );
 
         // Set price to be liquidated
-        const liquidationEthPrice = BigNumber.from(500);
+        const liquidationEthPrice = ether(500);
         await compoundSetup.priceOracle.setUnderlyingPrice(cEther.address, liquidationEthPrice);
         await setup.usdc.approve(cUsdc.address, MAX_UINT_256);
-        const unitsToLiquidate = BigNumber.from(250);
+        const unitsToLiquidate = usdc(250);
         actualSeizedTokens = await compoundSetup.comptroller.liquidateCalculateSeizeTokens(
           cUsdc.address,
           cEther.address,
@@ -1190,23 +1196,21 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
       it("should update the borrow position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
-        await subject();
+        await compoundLeverageModule.sync(setToken.address, true);
 
+        await subject();
         // cEther position is increased
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
-
-        const currentSecondPositionBalance = await cUsdc.borrowBalanceStored(setToken.address);
+        const previousSecondPositionBalance = (await cUsdc.borrowBalanceStored(setToken.address)).mul(-1);
         const setTotalSupply = await setToken.totalSupply();
 
-        const usdcSetBalance = await setup.usdc.balanceOf(setToken.address);
-        const adjustedSecondPositionBalance = currentSecondPositionBalance.mul(-1).add(usdcSetBalance);
         const newSecondPositionNotional = preciseMul(newSecondPosition.unit, setTotalSupply);
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPositionNotional).to.eq(adjustedSecondPositionBalance);
+        expect(newSecondPositionNotional).to.eq(previousSecondPositionBalance);
         expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
       });
 
