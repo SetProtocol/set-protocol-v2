@@ -1196,8 +1196,9 @@ describe("CompoundUniswapLeverageDebtIssuance", () => {
 
       it("should update the borrow position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
-        await subject();
+        await compoundLeverageModule.sync(setToken.address, true);
 
+        await subject();
         // cEther position is increased
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
