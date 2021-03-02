@@ -43,6 +43,7 @@ import { AddressArrayUtils } from "../lib/AddressArrayUtils.sol";
 contract SetToken is ERC20 {
     using SafeMath for uint256;
     using SafeCast for int256;
+    using SafeCast for uint256;
     using SignedSafeMath for int256;
     using PreciseUnitMath for int256;
     using Address for address;
@@ -138,11 +139,6 @@ contract SetToken is ERC20 {
     // The multiplier applied to the virtual position unit to achieve the real/actual unit.
     // This multiplier is used for efficiently modifying the entire position units (e.g. streaming fee)
     int256 public positionMultiplier;
-
-    // Minimum virtual unit value across default and external positions. Value is cached to ensure
-    // real position units never unexpectedly return 0.
-    uint256 public positionsVirtualUnitMin;
-
 
     /* ============ Constructor ============ */
 
@@ -320,6 +316,8 @@ contract SetToken is ERC20 {
      */
     function editPositionMultiplier(int256 _newMultiplier) external onlyModule whenLockedOnlyLocker {
         require(_newMultiplier > 0, "Must be greater than 0");
+        
+        _validateNewMultiplier(_newMultiplier);
 
         positionMultiplier = _newMultiplier;
 
@@ -578,21 +576,15 @@ contract SetToken is ERC20 {
         return _virtualUnit.conservativePreciseMul(positionMultiplier);
     }
 
-    function _handleVirtualUnitMinWhenAdding(uint256 _virtualUnit) internal {
-        if (_virtualUnit < positionsVirtualUnitMin) {
-            positionsVirtualUnitMin = _virtualUnit;
-        }
+    // TODO: Add javadocs
+    function _validateNewMultiplier(int256 _newMultiplier) internal view {
+        int256 minVirtualUnit = _getPositionsAbsMinimumVirtualUnit();
+
+        require(minVirtualUnit.conservativePreciseMul(_newMultiplier) > 0, "New multiplier too small");
     }
 
-    function _handleVirtualUnitMinWhenRemoving(uint256 _virtualUnit) internal {
-        if (_virtualUnit == positionsVirtualUnitMin) {
-            //  TODO: Search for the new minimum
-            positionsVirtualUnitMin = _getPositionsMinimumVirtualUnit();
-        }
-    }
-
-    function _getPositionsMinimumVirtualUnit() internal returns(uint256) {
-        ISetToken.Position[] memory positions = new ISetToken.Position[](_getPositionCount());
+    // TODO: Add javadocs
+    function _getPositionsAbsMinimumVirtualUnit() internal view returns(int256) {
         uint256 minimumUnit = uint256(-1);
 
         for (uint256 i = 0; i < components.length; i++) {
@@ -615,10 +607,10 @@ contract SetToken is ERC20 {
             }
         }
 
-        return minimumUnit;        
+        return minimumUnit.toInt256();        
     }
 
-    // TO MOVE TO LIBRARY
+    // TODO: MOVE TO LIBRARY
     function abs(int256 _a) internal pure returns(uint256) {
         return _a >= 0 ? _a.toUint256() : (-_a).toUint256();
     }

@@ -22,12 +22,12 @@ import {
   divDown,
 } from "@utils/index";
 import {
+  cacheBeforeEach,
   getAccounts,
   getEthBalance,
   getRandomAccount,
   getRandomAddress,
   getWaffleExpect,
-  addSnapshotBeforeRestoreAfterEach,
 } from "@utils/test/index";
 
 const web3 = new Web3();
@@ -43,7 +43,7 @@ describe("SetToken", () => {
   let testAccount: Account;
   let deployer: DeployHelper;
 
-  before(async () => {
+  cacheBeforeEach(async () => {
     [
       owner,
       manager,
@@ -53,8 +53,6 @@ describe("SetToken", () => {
 
     deployer = new DeployHelper(owner.wallet);
   });
-
-  addSnapshotBeforeRestoreAfterEach();
 
   describe("constructor", async () => {
     let firstComponent: StandardTokenMock;
@@ -128,14 +126,6 @@ describe("SetToken", () => {
       expect(firstComponentExternalModules.length).to.eq(ZERO);
       expect(secondComponentVirtualUnit).to.eq(secondComponentUnits);
       expect(secondComponentExternalModules.length).to.eq(ZERO);
-    });
-
-
-    it.only("should set the correct positionsVirtualUnitMin", async () => {
-      const setToken = await subject();
-
-      const virtualUnitMin = await setToken.positionsVirtualUnitMin();
-      expect(virtualUnitMin).to.eq(firstComponentUnits);
     });
 
     it("should have the 0 modules initialized", async () => {
@@ -744,7 +734,7 @@ describe("SetToken", () => {
         });
       });
 
-      describe.only("when the positionMultiplier results in a real position unit = 0", async () => {
+      describe("when the positionMultiplier results in a real position unit = 0", async () => {
         // When positionMultiplier x unit is < 10^18
         beforeEach(async () => {
           // Set a really small value
@@ -755,12 +745,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await subject();
-
-          // const result = await setToken.getDefaultPositionRealUnit(firstComponent.address);
-          // console.log(result.toString());
-
-          await expect(subject()).to.be.revertedWith("Invalid conversion");
+          await expect(subject()).to.be.revertedWith("New multiplier too smal");
         });
       });
 
