@@ -30,7 +30,6 @@ import { IModule } from "../interfaces/IModule.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
 import { Position } from "./lib/Position.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
-import { SignedMath } from "../lib/SignedMath.sol";
 import { AddressArrayUtils } from "../lib/AddressArrayUtils.sol";
 
 
@@ -248,7 +247,7 @@ contract SetToken is ERC20 {
      * PRIVELEGED MODULE FUNCTION. Low level function that adds a module to a component's externalPositionModules array
      */
     function addExternalPositionModule(address _component, address _positionModule) external onlyModule whenLockedOnlyLocker {
-        require(!isExternalPositionModule(_component, _positionModule), "Must not be added module");
+        require(!isExternalPositionModule(_component, _positionModule), "Module already added");
 
         componentPositions[_component].externalPositionModules.push(_positionModule);
 
@@ -315,9 +314,7 @@ contract SetToken is ERC20 {
      * PRIVELEGED MODULE FUNCTION. Modifies the position multiplier. This is typically used to efficiently
      * update all the Positions' units at once in applications where inflation is awarded (e.g. subscription fees).
      */
-    function editPositionMultiplier(int256 _newMultiplier) external onlyModule whenLockedOnlyLocker {
-        require(_newMultiplier > 0, "Must be greater than 0");
-        
+    function editPositionMultiplier(int256 _newMultiplier) external onlyModule whenLockedOnlyLocker {        
         _validateNewMultiplier(_newMultiplier);
 
         positionMultiplier = _newMultiplier;
@@ -592,9 +589,10 @@ contract SetToken is ERC20 {
      * Loops through all of the positions and returns the smallest absolute value of 
      * the virtualUnit.
      *
-     * @returns Min virtual unit across positions denominated as int256
+     * @return Min virtual unit across positions denominated as int256
      */
     function _getPositionsAbsMinimumVirtualUnit() internal view returns(int256) {
+        // Additional assignment happens in the loop below
         uint256 minimumUnit = uint256(-1);
 
         for (uint256 i = 0; i < components.length; i++) {
@@ -610,7 +608,7 @@ contract SetToken is ERC20 {
             for (uint256 j = 0; j < externalModules.length; j++) {
                 address currentModule = externalModules[j];
 
-                uint256 virtualUnit = SignedMath.abs(
+                uint256 virtualUnit = _absoluteValue(
                     _externalPositionVirtualUnit(component, currentModule)
                 );
                 if (virtualUnit > 0 && virtualUnit < minimumUnit) {
@@ -645,6 +643,15 @@ contract SetToken is ERC20 {
         }
 
         return positionCount;
+    }
+
+    /**
+     * Returns the absolute value of the signed integer value
+     * @param _a Signed interger value
+     * @return Returns the absolute value in uint256
+     */
+    function _absoluteValue(int256 _a) internal pure returns(uint256) {
+        return _a >= 0 ? _a.toUint256() : (-_a).toUint256();
     }
 
     /**

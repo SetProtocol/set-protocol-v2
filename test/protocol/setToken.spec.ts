@@ -695,7 +695,7 @@ describe("SetToken", () => {
       shouldRevertIfSetTokenIsLocked(subject);
     });
 
-    describe("#editPositionMultiplier", async () => {
+    describe.only("#editPositionMultiplier", async () => {
       let subjectPositionMultiplier: BigNumber;
 
       beforeEach(async () => {
@@ -707,7 +707,7 @@ describe("SetToken", () => {
         return setToken.connect(subjectCaller.wallet).editPositionMultiplier(subjectPositionMultiplier);
       }
 
-      it.only("should update the multiplier", async () => {
+      it("should update the multiplier", async () => {
         await subject();
 
         const newMultiplier = await setToken.positionMultiplier();
@@ -732,7 +732,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be greater than 0");
+          await expect(subject()).to.be.revertedWith("New multiplier too small");
         });
       });
 
@@ -747,7 +747,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("New multiplier too smal");
+          await expect(subject()).to.be.revertedWith("New multiplier too small");
         });
       });
 
