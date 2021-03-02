@@ -21,6 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
@@ -41,6 +42,7 @@ import { AddressArrayUtils } from "../lib/AddressArrayUtils.sol";
  */
 contract SetToken is ERC20 {
     using SafeMath for uint256;
+    using SafeCast for int256;
     using SignedSafeMath for int256;
     using PreciseUnitMath for int256;
     using Address for address;
@@ -137,6 +139,10 @@ contract SetToken is ERC20 {
     // This multiplier is used for efficiently modifying the entire position units (e.g. streaming fee)
     int256 public positionMultiplier;
 
+    // Minimum virtual unit value across default and external positions. Value is cached to ensure
+    // real position units never unexpectedly return 0.
+    uint256 public positionsVirtualUnitMin;
+
 
     /* ============ Constructor ============ */
 
@@ -213,6 +219,8 @@ contract SetToken is ERC20 {
      * PRIVELEGED MODULE FUNCTION. Low level function that adds a component to the components array.
      */
     function addComponent(address _component) external onlyModule whenLockedOnlyLocker {
+        require(!isComponent(_component), "Must not be component");
+        
         components.push(_component);
 
         emit ComponentAdded(_component);
@@ -222,7 +230,7 @@ contract SetToken is ERC20 {
      * PRIVELEGED MODULE FUNCTION. Low level function that removes a component from the components array.
      */
     function removeComponent(address _component) external onlyModule whenLockedOnlyLocker {
-        components = components.remove(_component);
+        components.removeStorage(_component);
 
         emit ComponentRemoved(_component);
     }
@@ -243,6 +251,8 @@ contract SetToken is ERC20 {
      * PRIVELEGED MODULE FUNCTION. Low level function that adds a module to a component's externalPositionModules array
      */
     function addExternalPositionModule(address _component, address _positionModule) external onlyModule whenLockedOnlyLocker {
+        require(!isExternalPositionModule(_component, _positionModule), "Must not be added module");
+
         componentPositions[_component].externalPositionModules.push(_positionModule);
 
         emit PositionModuleAdded(_component, _positionModule);
@@ -260,7 +270,8 @@ contract SetToken is ERC20 {
         onlyModule
         whenLockedOnlyLocker
     {
-        componentPositions[_component].externalPositionModules = _externalPositionModules(_component).remove(_positionModule);
+        componentPositions[_component].externalPositionModules.removeStorage(_positionModule);
+
         delete componentPositions[_component].externalPositions[_positionModule];
 
         emit PositionModuleRemoved(_component, _positionModule);
@@ -374,7 +385,7 @@ contract SetToken is ERC20 {
 
         moduleStates[_module] = ISetToken.ModuleState.NONE;
 
-        modules = modules.remove(_module);
+        modules.removeStorage(_module);
 
         emit ModuleRemoved(_module);
     }
@@ -444,11 +455,11 @@ contract SetToken is ERC20 {
         return modules;
     }
 
-    function isComponent(address _component) external view returns(bool) {
+    function isComponent(address _component) public view returns(bool) {
         return components.contains(_component);
     }
 
-    function isExternalPositionModule(address _component, address _module) external view returns(bool) {
+    function isExternalPositionModule(address _component, address _module) public view returns(bool) {
         return _externalPositionModules(_component).contains(_module);
     }
 
@@ -565,6 +576,51 @@ contract SetToken is ERC20 {
      */
     function _convertVirtualToRealUnit(int256 _virtualUnit) internal view returns(int256) {
         return _virtualUnit.conservativePreciseMul(positionMultiplier);
+    }
+
+    function _handleVirtualUnitMinWhenAdding(uint256 _virtualUnit) internal {
+        if (_virtualUnit < positionsVirtualUnitMin) {
+            positionsVirtualUnitMin = _virtualUnit;
+        }
+    }
+
+    function _handleVirtualUnitMinWhenRemoving(uint256 _virtualUnit) internal {
+        if (_virtualUnit == positionsVirtualUnitMin) {
+            //  TODO: Search for the new minimum
+            positionsVirtualUnitMin = _getPositionsMinimumVirtualUnit();
+        }
+    }
+
+    function _getPositionsMinimumVirtualUnit() internal returns(uint256) {
+        ISetToken.Position[] memory positions = new ISetToken.Position[](_getPositionCount());
+        uint256 minimumUnit = uint256(-1);
+
+        for (uint256 i = 0; i < components.length; i++) {
+            address component = components[i];
+
+            // A default position exists if the default virtual unit is > 0
+            uint256 defaultUnit = _defaultPositionVirtualUnit(component).toUint256();
+            if (defaultUnit > 0 && defaultUnit < minimumUnit) {
+                minimumUnit = defaultUnit;
+            }
+
+            address[] memory externalModules = _externalPositionModules(component);
+            for (uint256 j = 0; j < externalModules.length; j++) {
+                address currentModule = externalModules[j];
+
+                uint256 virtualUnit = abs(_externalPositionVirtualUnit(component, currentModule));
+                if (virtualUnit > 0 && virtualUnit < minimumUnit) {
+                    minimumUnit = virtualUnit;
+                }
+            }
+        }
+
+        return minimumUnit;        
+    }
+
+    // TO MOVE TO LIBRARY
+    function abs(int256 _a) internal pure returns(uint256) {
+        return _a >= 0 ? _a.toUint256() : (-_a).toUint256();
     }
 
     /**
