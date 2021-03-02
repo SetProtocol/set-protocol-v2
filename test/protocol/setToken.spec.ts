@@ -695,7 +695,7 @@ describe("SetToken", () => {
       shouldRevertIfSetTokenIsLocked(subject);
     });
 
-    describe.only("#editPositionMultiplier", async () => {
+    describe("#editPositionMultiplier", async () => {
       let subjectPositionMultiplier: BigNumber;
 
       beforeEach(async () => {
