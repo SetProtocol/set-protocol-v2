@@ -30,6 +30,7 @@ import { IModule } from "../interfaces/IModule.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
 import { Position } from "./lib/Position.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
+import { SignedMath } from "../lib/SignedMath.sol";
 import { AddressArrayUtils } from "../lib/AddressArrayUtils.sol";
 
 
@@ -576,14 +577,23 @@ contract SetToken is ERC20 {
         return _virtualUnit.conservativePreciseMul(positionMultiplier);
     }
 
-    // TODO: Add javadocs
+    /**
+     * To prevent virtual to real unit conversion issues (where real unit may be 0), the 
+     * product of the positionMultiplier and the lowest absolute virtualUnit value (across default and
+     * external positions) must be greater than 0.
+     */
     function _validateNewMultiplier(int256 _newMultiplier) internal view {
         int256 minVirtualUnit = _getPositionsAbsMinimumVirtualUnit();
 
         require(minVirtualUnit.conservativePreciseMul(_newMultiplier) > 0, "New multiplier too small");
     }
 
-    // TODO: Add javadocs
+    /**
+     * Loops through all of the positions and returns the smallest absolute value of 
+     * the virtualUnit.
+     *
+     * @returns Min virtual unit across positions denominated as int256
+     */
     function _getPositionsAbsMinimumVirtualUnit() internal view returns(int256) {
         uint256 minimumUnit = uint256(-1);
 
@@ -600,7 +610,9 @@ contract SetToken is ERC20 {
             for (uint256 j = 0; j < externalModules.length; j++) {
                 address currentModule = externalModules[j];
 
-                uint256 virtualUnit = abs(_externalPositionVirtualUnit(component, currentModule));
+                uint256 virtualUnit = SignedMath.abs(
+                    _externalPositionVirtualUnit(component, currentModule)
+                );
                 if (virtualUnit > 0 && virtualUnit < minimumUnit) {
                     minimumUnit = virtualUnit;
                 }
@@ -608,11 +620,6 @@ contract SetToken is ERC20 {
         }
 
         return minimumUnit.toInt256();        
-    }
-
-    // TODO: MOVE TO LIBRARY
-    function abs(int256 _a) internal pure returns(uint256) {
-        return _a >= 0 ? _a.toUint256() : (-_a).toUint256();
     }
 
     /**

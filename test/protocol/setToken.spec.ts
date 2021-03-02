@@ -179,10 +179,12 @@ describe("SetToken", () => {
       firstComponentUnits = ether(1);
       secondComponent = await deployer.mocks.deployTokenMock(manager.address);
       secondComponentUnits = ether(2);
+      const thirdComponent = await deployer.mocks.deployTokenMock(manager.address);
+      const thirdComponentUnits = ether(3);
 
       controller = await deployer.core.deployController(owner.address);
-      components = [firstComponent.address, secondComponent.address];
-      units = [firstComponentUnits, secondComponentUnits];
+      components = [firstComponent.address, secondComponent.address, thirdComponent.address];
+      units = [firstComponentUnits, secondComponentUnits, thirdComponentUnits];
       modules = [mockBasicIssuanceModule.address, mockLockedModule.address];
       name = "TestSetToken";
       symbol = "SET";
@@ -705,7 +707,7 @@ describe("SetToken", () => {
         return setToken.connect(subjectCaller.wallet).editPositionMultiplier(subjectPositionMultiplier);
       }
 
-      it("should update the multiplier", async () => {
+      it.only("should update the multiplier", async () => {
         await subject();
 
         const newMultiplier = await setToken.positionMultiplier();
