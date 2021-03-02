@@ -28,7 +28,6 @@ import {
   OracleMock,
   PositionMock,
   PreciseUnitMathMock,
-  RemoveComponentModuleMock,
   ResourceIdentifierMock,
   StakingAdapterMock,
   StandardTokenMock,
@@ -65,7 +64,6 @@ import { OracleAdapterMock__factory } from "../../typechain/factories/OracleAdap
 import { OracleMock__factory } from "../../typechain/factories/OracleMock__factory";
 import { PositionMock__factory } from "../../typechain/factories/PositionMock__factory";
 import { PreciseUnitMathMock__factory } from "../../typechain/factories/PreciseUnitMathMock__factory";
-import { RemoveComponentModuleMock__factory } from "../../typechain/factories/RemoveComponentModuleMock__factory";
 import { ResourceIdentifierMock__factory } from "../../typechain/factories/ResourceIdentifierMock__factory";
 import { StakingAdapterMock__factory } from "../../typechain/factories/StakingAdapterMock__factory";
 import { StandardTokenMock__factory } from "../../typechain/factories/StandardTokenMock__factory";
@@ -252,18 +250,6 @@ export default class DeployMocks {
       comp,
       compAmount,
       cToken
-    );
-  }
-
-  public async deployRemoveComponentModuleMock(
-    controller: Address,
-    setToken: Address,
-    component: Address,
-  ): Promise<RemoveComponentModuleMock> {
-    return await new RemoveComponentModuleMock__factory(this._deployerSigner).deploy(
-      controller,
-      setToken,
-      component
     );
   }
 
