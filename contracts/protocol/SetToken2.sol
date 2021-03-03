@@ -28,7 +28,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { IController } from "../interfaces/IController.sol";
 import { IModule } from "../interfaces/IModule.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
-// import { ComponentPositions } from "./lib/ComponentPositions.sol";
+import { ComponentPositions } from "./lib/ComponentPositions.sol";
 import { Position } from "./lib/Position.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../lib/AddressArrayUtils.sol";
@@ -49,7 +49,7 @@ contract SetToken is ERC20 {
     using PreciseUnitMath for int256;
     using Address for address;
     using AddressArrayUtils for address[];
-    // using ComponentPositions for ISetToken.ComponentPositions;
+    using ComponentPositions for ISetToken.ComponentPositions;
 
     /* ============ Constants ============ */
 
@@ -142,7 +142,7 @@ contract SetToken is ERC20 {
     // This multiplier is used for efficiently modifying the entire position units (e.g. streaming fee)
     int256 public positionMultiplier;
 
-    // ISetToken.ComponentPositions internal componentPositions2;
+    ISetToken.ComponentPositions internal componentPositions2;
 
     /* ============ Constructor ============ */
 
@@ -483,8 +483,8 @@ contract SetToken is ERC20 {
      * Virtual units are converted to real units. This function is typically used off-chain for data presentation purposes.
      */
     function getPositions() external view returns (ISetToken.Position[] memory) {
-        // ISetToken.Position[] memory positions = new ISetToken.Position[](componentPositions2.getPositionCount());
-        ISetToken.Position[] memory positions = new ISetToken.Position[](_getPositionCount());
+        ISetToken.Position[] memory positions = new ISetToken.Position[](componentPositions2.getPositionCount());
+        // ISetToken.Position[] memory positions = new ISetToken.Position[](_getPositionCount());
         uint256 positionCount = 0;
 
         for (uint256 i = 0; i < components.length; i++) {
@@ -625,30 +625,30 @@ contract SetToken is ERC20 {
         return minimumUnit.toInt256();        
     }
 
-    /**
-     * Gets the total number of positions, defined as the following:
-     * - Each component has a default position if its virtual unit is > 0
-     * - Each component's external positions module is counted as a position
-     */
-    function _getPositionCount() internal view returns (uint256) {
-        uint256 positionCount;
-        for (uint256 i = 0; i < components.length; i++) {
-            address component = components[i];
+    // /**
+    //  * Gets the total number of positions, defined as the following:
+    //  * - Each component has a default position if its virtual unit is > 0
+    //  * - Each component's external positions module is counted as a position
+    //  */
+    // function _getPositionCount() internal view returns (uint256) {
+    //     uint256 positionCount;
+    //     for (uint256 i = 0; i < components.length; i++) {
+    //         address component = components[i];
 
-            // Increment the position count if the default position is > 0
-            if (_defaultPositionVirtualUnit(component) > 0) {
-                positionCount++;
-            }
+    //         // Increment the position count if the default position is > 0
+    //         if (_defaultPositionVirtualUnit(component) > 0) {
+    //             positionCount++;
+    //         }
 
-            // Increment the position count by each external position module
-            address[] memory externalModules = _externalPositionModules(component);
-            if (externalModules.length > 0) {
-                positionCount = positionCount.add(externalModules.length);  
-            }
-        }
+    //         // Increment the position count by each external position module
+    //         address[] memory externalModules = _externalPositionModules(component);
+    //         if (externalModules.length > 0) {
+    //             positionCount = positionCount.add(externalModules.length);  
+    //         }
+    //     }
 
-        return positionCount;
-    }
+    //     return positionCount;
+    // }
 
     /**
      * Returns the absolute value of the signed integer value

@@ -54,6 +54,12 @@ interface ISetToken is IERC20 {
         bytes data;
     }
 
+    struct ComponentPositions {
+        address[] components;
+        mapping(address => ISetToken.ComponentPosition) componentPositions;
+        int256 positionMultiplier;
+    }
+
     /**
      * A struct that stores a component's cash position details and external positions
      * This data structure allows O(1) access to a component's cash position units and 

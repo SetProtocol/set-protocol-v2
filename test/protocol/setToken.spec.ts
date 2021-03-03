@@ -69,6 +69,8 @@ describe("SetToken", () => {
     let subjectName: string;
     let subjectSymbol: string;
 
+    let componentPositionsLib: any;
+
     beforeEach(async () => {
       firstComponent = await deployer.mocks.deployTokenMock(manager.address);
       firstComponentUnits = ether(1);
@@ -83,21 +85,27 @@ describe("SetToken", () => {
       subjectManagerAddress = manager.address;
       subjectName = "TestSetToken";
       subjectSymbol = "SET";
+
+      componentPositionsLib = await deployer.libraries.deployComponentPositions();
+      console.log(componentPositionsLib.address);
     });
 
     async function subject(): Promise<any> {
-      return await deployer.core.deploySetToken(
+      console.log(componentPositionsLib.address);
+      // return await deployer.core.deploySetToken(
+      return await deployer.core.deploySetToken2(
         subjectComponentAddresses,
         subjectUnits,
         subjectModuleAddresses,
         subjectControllerAddress,
         subjectManagerAddress,
         subjectName,
-        subjectSymbol
+        subjectSymbol,
+        componentPositionsLib.address
       );
     }
 
-    it("should have the correct name, symbol, controller, multiplier, and manager", async () => {
+    it.only("should have the correct name, symbol, controller, multiplier, and manager", async () => {
       const setToken = await subject();
 
       const name = await setToken.name();

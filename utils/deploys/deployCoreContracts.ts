@@ -6,6 +6,7 @@ import {
   IntegrationRegistry,
   PriceOracle,
   SetToken,
+  SetToken2,
   SetTokenCreator,
   SetValuer
 } from "./../contracts";
@@ -16,6 +17,7 @@ import { Controller__factory } from "../../typechain/factories/Controller__facto
 import { IntegrationRegistry__factory } from "../../typechain/factories/IntegrationRegistry__factory";
 import { PriceOracle__factory } from "../../typechain/factories/PriceOracle__factory";
 import { SetToken__factory } from "../../typechain/factories/SetToken__factory";
+import { SetToken2__factory } from "../../typechain/factories/SetToken2__factory";
 import { SetTokenCreator__factory } from "../../typechain/factories/SetTokenCreator__factory";
 import { SetValuer__factory } from "../../typechain/factories/SetValuer__factory";
 
@@ -52,6 +54,26 @@ export default class DeployCoreContracts {
     _symbol: string,
   ): Promise<SetToken> {
     return await new SetToken__factory(this._deployerSigner).deploy(
+      _components,
+      _units,
+      _modules,
+      _controller,
+      _manager,
+      _name,
+      _symbol,
+    );
+  }
+
+  public async deploySetToken2(
+    _components: Address[],
+    _units: BigNumberish[],
+    _modules: Address[],
+    _controller: Address,
+    _manager: Address,
+    _name: string,
+    _symbol: string,
+  ): Promise<SetToken2> {
+    return await new SetToken2__factory(this._deployerSigner).deploy(
       _components,
       _units,
       _modules,
