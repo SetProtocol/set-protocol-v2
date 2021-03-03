@@ -15,7 +15,8 @@ import {
   SetToken,
   StandardTokenMock,
   TradeModule,
-  UniswapV2ExchangeAdapter02,
+  UniswapV2ExchangeAdapter,
+  UniswapV2ExchangeAdapterV2,
   WETH9,
   ZeroExApiAdapter,
   ZeroExMock,
@@ -55,8 +56,10 @@ describe("TradeModule", () => {
   let oneInchExchangeAdapter: OneInchExchangeAdapter;
   let oneInchAdapterName: string;
 
-  let uniswapExchangeAdapter02: UniswapV2ExchangeAdapter02;
+  let uniswapExchangeAdapter: UniswapV2ExchangeAdapter;
   let uniswapAdapterName: string;
+  let uniswapExchangeAdapterV2: UniswapV2ExchangeAdapterV2;
+  let uniswapAdapterV2Name: string;
 
   let zeroExMock: ZeroExMock;
   let zeroExApiAdapter: ZeroExApiAdapter;
@@ -114,8 +117,9 @@ describe("TradeModule", () => {
       setup.wbtc.address,
       setup.dai.address
     );
-    uniswapExchangeAdapter02 = await deployer.adapters.deployUniswapV2ExchangeAdapter02(uniswapSetup.router.address);
 
+    uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapter(uniswapSetup.router.address);
+    uniswapExchangeAdapterV2 = await deployer.adapters.deployUniswapV2ExchangeAdapterV2(uniswapSetup.router.address);
 
     zeroExMock = await deployer.mocks.deployZeroExMock(
         setup.wbtc.address,
@@ -128,16 +132,23 @@ describe("TradeModule", () => {
 
     kyberAdapterName = "KYBER";
     oneInchAdapterName = "ONEINCH";
-    uniswapAdapterName = "UNISWAPV2";
+    uniswapAdapterName = "UNISWAP";
+    uniswapAdapterV2Name = "UNISWAPV2";
     zeroExApiAdapterName = "ZERO_EX";
 
     tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);
     await setup.controller.addModule(tradeModule.address);
 
     await setup.integrationRegistry.batchAddIntegration(
-      [tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address],
-      [kyberAdapterName, oneInchAdapterName, uniswapAdapterName, zeroExApiAdapterName],
-      [kyberExchangeAdapter.address, oneInchExchangeAdapter.address, uniswapExchangeAdapter02.address, zeroExApiAdapter.address]
+      [tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address],
+      [kyberAdapterName, oneInchAdapterName, uniswapAdapterName, uniswapAdapterV2Name, zeroExApiAdapterName],
+      [
+        kyberExchangeAdapter.address,
+        oneInchExchangeAdapter.address,
+        uniswapExchangeAdapter.address,
+        uniswapExchangeAdapterV2.address,
+        zeroExApiAdapter.address,
+      ]
     );
   });
 
@@ -561,7 +572,7 @@ describe("TradeModule", () => {
 
           describe("when the exchange is not valid", async () => {
             beforeEach(async () => {
-              subjectAdapterName = "UNISWAP";
+              subjectAdapterName = "NOTVALIDEXCHANGE";
             });
 
             it("should revert", async () => {
@@ -773,6 +784,242 @@ describe("TradeModule", () => {
               ["address[]", "bool"],
               [tradePath, shouldSwapForExactToken]
             );
+          });
+
+          it("should transfer the correct components to the SetToken", async () => {
+            const oldSourceTokenBalance = await setup.wbtc.balanceOf(setToken.address);
+            const [notionalSendQuantity, , ] = await uniswapSetup.router.getAmountsIn(
+              subjectMinDestinationQuantity, // In this case, this is the exact destination quantity
+              [subjectSourceToken, setup.weth.address, subjectDestinationToken]
+            );
+            await subject();
+
+            const expectedSourceTokenBalance = oldSourceTokenBalance.sub(notionalSendQuantity);
+            const newSourceTokenBalance = await setup.wbtc.balanceOf(setToken.address);
+            const newDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
+
+            expect(newDestinationTokenBalance).to.eq(subjectMinDestinationQuantity);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should update the positions on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+            const [sendQuantity, , ] = await uniswapSetup.router.getAmountsIn(
+              subjectMinDestinationQuantity, // In this case, this is the exact destination quantity
+              [subjectSourceToken, setup.weth.address, subjectDestinationToken]
+            );
+            const expectedSourceTokenUnit = initialPositions[0].unit.sub(sendQuantity);
+
+            await subject();
+
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+            const newSecondPosition = (await setToken.getPositions())[1];
+
+            expect(initialPositions.length).to.eq(1);
+            expect(currentPositions.length).to.eq(2);
+            expect(newFirstPosition.component).to.eq(subjectSourceToken);
+            expect(newFirstPosition.unit).to.eq(expectedSourceTokenUnit);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+            expect(newSecondPosition.component).to.eq(subjectDestinationToken);
+            expect(newSecondPosition.unit).to.eq(subjectMinDestinationQuantity);
+            expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+          });
+        });
+      });
+
+      context("when trading a Default component on Uniswap version 2 adapter", async () => {
+        cacheBeforeEach(async () => {
+          await setup.weth.connect(owner.wallet).approve(uniswapSetup.router.address, ether(10000));
+          await setup.wbtc.connect(owner.wallet).approve(uniswapSetup.router.address, bitcoin(100));
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.wbtc.address,
+            ether(3400),
+            bitcoin(100),
+            ether(3395),
+            ether(99.5),
+            owner.address,
+            MAX_UINT_256
+          );
+          await setup.dai.connect(owner.wallet).approve(uniswapSetup.router.address, ether(1000000));
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(1000),
+            ether(1000000),
+            ether(995),
+            ether(995000),
+            owner.address,
+            MAX_UINT_256
+          );
+
+          tradeModule = tradeModule.connect(manager.wallet);
+          await tradeModule.initialize(setToken.address);
+
+          sourceTokenQuantity = wbtcUnits;
+          const sourceTokenDecimals = await sourceToken.decimals();
+          destinationTokenQuantity = wbtcRate.mul(sourceTokenQuantity).div(10 ** sourceTokenDecimals);
+
+          // Transfer sourceToken from owner to manager for issuance
+          sourceToken = sourceToken.connect(owner.wallet);
+          await sourceToken.transfer(manager.address, wbtcUnits.mul(100));
+
+          // Approve tokens to Controller and call issue
+          sourceToken = sourceToken.connect(manager.wallet);
+          await sourceToken.approve(setup.issuanceModule.address, ethers.constants.MaxUint256);
+
+          // Deploy mock issuance hook and initialize issuance module
+          setup.issuanceModule = setup.issuanceModule.connect(manager.wallet);
+          mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
+          await setup.issuanceModule.initialize(setToken.address, mockPreIssuanceHook.address);
+
+          issueQuantity = ether(1);
+          await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        });
+
+        async function subject(): Promise<any> {
+          tradeModule = tradeModule.connect(subjectCaller.wallet);
+          return tradeModule.trade(
+            subjectSetToken,
+            subjectAdapterName,
+            subjectSourceToken,
+            subjectSourceQuantity,
+            subjectDestinationToken,
+            subjectMinDestinationQuantity,
+            subjectData
+          );
+        }
+
+        describe("when path is through one pair and swaps exact tokens for tokens", async () => {
+          beforeEach(async () => {
+            subjectSourceToken = sourceToken.address;
+            subjectDestinationToken = destinationToken.address;
+            subjectSourceQuantity = sourceTokenQuantity;
+            subjectSetToken = setToken.address;
+            subjectMinDestinationQuantity = destinationTokenQuantity.sub(ether(1)); // Receive a min of 32 WETH for 1 WBTC
+            subjectAdapterName = uniswapAdapterV2Name;
+            const tradePath = [subjectSourceToken, subjectDestinationToken];
+            const shouldSwapForExactToken = false;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            subjectCaller = manager;
+          });
+
+          it("should transfer the correct components to the SetToken", async () => {
+            const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+            const [, expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
+              subjectSourceQuantity,
+              [subjectSourceToken, subjectDestinationToken]
+            );
+
+            await subject();
+
+            const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
+            const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+            expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+          });
+
+          it("should transfer the correct components from the SetToken", async () => {
+            const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+
+            await subject();
+
+            const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+            const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
+            const newSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+
+          it("should update the positions on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+            const [, expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
+              subjectSourceQuantity,
+              [subjectSourceToken, subjectDestinationToken]
+            );
+
+            await subject();
+
+            // All WBTC is sold for WETH
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+
+            expect(initialPositions.length).to.eq(1);
+            expect(currentPositions.length).to.eq(1);
+            expect(newFirstPosition.component).to.eq(destinationToken.address);
+            expect(newFirstPosition.unit).to.eq(expectedReceiveQuantity);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+          });
+        });
+
+        describe("when path is through one pair and swaps for exact tokens", async () => {
+          beforeEach(async () => {
+            subjectSourceToken = sourceToken.address;
+            subjectDestinationToken = destinationToken.address;
+            subjectSourceQuantity = sourceTokenQuantity;
+            subjectSetToken = setToken.address;
+            subjectMinDestinationQuantity = ether(1);
+            subjectAdapterName = uniswapAdapterV2Name;
+            const tradePath = [subjectSourceToken, subjectDestinationToken];
+            const shouldSwapForExactToken = true;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            subjectCaller = manager;
+          });
+
+          it("should transfer the correct components to the SetToken", async () => {
+            const oldSourceTokenBalance = await setup.wbtc.balanceOf(setToken.address);
+            const [notionalSendQuantity, , ] = await uniswapSetup.router.getAmountsIn(
+              subjectMinDestinationQuantity, // In this case, this is the exact destination quantity
+              [subjectSourceToken, subjectDestinationToken]
+            );
+            await subject();
+
+            const expectedSourceTokenBalance = oldSourceTokenBalance.sub(notionalSendQuantity);
+            const newSourceTokenBalance = await setup.wbtc.balanceOf(setToken.address);
+            expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          });
+        });
+
+        describe("when path is through multiple trading pairs and swaps exact tokens for tokens", async () => {
+          beforeEach(async () => {
+            subjectSourceToken = sourceToken.address;
+            subjectDestinationToken = setup.dai.address;
+            subjectMinDestinationQuantity = ether(100);
+            subjectSourceQuantity = sourceTokenQuantity;
+            subjectSetToken = setToken.address;
+            subjectAdapterName = uniswapAdapterV2Name;
+            const tradePath = [subjectSourceToken, setup.weth.address, subjectDestinationToken];
+            const shouldSwapForExactToken = false;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            subjectCaller = manager;
+          });
+
+          it("should transfer the correct components to the SetToken", async () => {
+            const oldDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
+            const [, , expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
+              subjectSourceQuantity,
+              [subjectSourceToken, setup.weth.address, subjectDestinationToken]
+            );
+
+            await subject();
+
+            const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
+            const newDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
+            expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+          });
+        });
+
+        describe("when path is through multiple trading pairs and swaps for exact tokens", async () => {
+          beforeEach(async () => {
+            subjectSourceToken = sourceToken.address;
+            subjectDestinationToken = setup.dai.address;
+            subjectMinDestinationQuantity = ether(1000);
+            subjectSourceQuantity = sourceTokenQuantity;
+            subjectSetToken = setToken.address;
+            subjectAdapterName = uniswapAdapterV2Name;
+            const tradePath = [subjectSourceToken, setup.weth.address, subjectDestinationToken];
+            const shouldSwapForExactToken = true;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            subjectCaller = manager;
           });
 
           it("should transfer the correct components to the SetToken", async () => {
