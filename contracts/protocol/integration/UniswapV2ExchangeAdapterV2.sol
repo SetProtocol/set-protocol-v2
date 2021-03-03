@@ -20,17 +20,18 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 /**
- * @title UniswapV2ExchangeAdapter02
+ * @title UniswapV2ExchangeAdapterV2
  * @author Set Protocol
  *
  * A Uniswap Router02 exchange adapter that returns calldata for trading. Includes option for 2 different trade types on Uniswap
  *
  * CHANGE LOG:
- * - Add ability to choose whether to swap an exact amount of source token for a min amount of receive token or swap a max amount of source token for
+ * - Add helper that encodes path and boolean into bytes
+ * - Generalized ability to choose whether to swap an exact amount of source token for a min amount of receive token or swap a max amount of source token for
  * an exact amount of receive token
  *
  */
-contract UniswapV2ExchangeAdapter02 {
+contract UniswapV2ExchangeAdapterV2 {
 
     /* ============ State Variables ============ */
 
@@ -55,9 +56,7 @@ contract UniswapV2ExchangeAdapter02 {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Return calldata for Uniswap V2 Router02. Custom trade paths and bool to select trade function are encoded in the arbitrary data parameter.
-     * If data is 0, use default trade path and swap function. If using custom trade path on Uniswap, must also encode boolean to select trade
-     * function to call. Similarly, if only using the swap for exact token function, then must also encode trade path.
+     * Return calldata for Uniswap V2 Router02. Trade paths and bool to select trade function are encoded in the arbitrary data parameter.
      *
      * Note: When selecting the swap for exact tokens function, _sourceQuantity is defined as the max token quantity you are willing to trade, and
      * _minDestinationQuantity is the exact quantity of token you are receiving.
@@ -67,7 +66,7 @@ contract UniswapV2ExchangeAdapter02 {
      * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Amount of source token to sell
      * @param  _minDestinationQuantity   Min amount of destination token to buy
-     * @param  _data                     Arbitrary bytes containing additional trade settings
+     * @param  _data                     Arbitrary bytes containing trade path and bool to determine function string
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
@@ -85,29 +84,21 @@ contract UniswapV2ExchangeAdapter02 {
         view
         returns (address, uint256, bytes memory)
     {   
-        address[] memory path;
-        bool shouldSwapForExactTokens;
+        (
+            address[] memory path,
+            bool shouldSwapTokensForExactTokens
+        ) = abi.decode(_data, (address[],bool));
 
-        if(_data.length == 0){
-            path = new address[](2);
-            path[0] = _sourceToken;
-            path[1] = _destinationToken;
-
-            // Default setting is to use swapExactTokensForTokens(uint256,uint256,address[],address,uint256)
-            shouldSwapForExactTokens = false;
-        } else {
-            (path, shouldSwapForExactTokens) = abi.decode(_data, (address[],bool));
-        }
-
-        // If shouldSwapForExactTokens, then use appropriate function string and flip input quantities
+        // If shouldSwapTokensForExactTokens, use appropriate function string and flip source and destination quantities to conform with Uniswap interface
         bytes memory callData = abi.encodeWithSignature(
-            shouldSwapForExactTokens ? SWAP_TOKENS_FOR_EXACT_TOKENS : SWAP_EXACT_TOKENS_FOR_TOKENS,
-            shouldSwapForExactTokens ? _minDestinationQuantity : _sourceQuantity,
-            shouldSwapForExactTokens ? _sourceQuantity : _minDestinationQuantity,
+            shouldSwapTokensForExactTokens ? SWAP_TOKENS_FOR_EXACT_TOKENS : SWAP_EXACT_TOKENS_FOR_TOKENS,
+            shouldSwapTokensForExactTokens ? _minDestinationQuantity : _sourceQuantity,
+            shouldSwapTokensForExactTokens ? _sourceQuantity : _minDestinationQuantity,
             path,
             _destinationAddress,
             block.timestamp
         );
+
         return (router, 0, callData);
     }
 
@@ -116,11 +107,16 @@ contract UniswapV2ExchangeAdapter02 {
      *
      * @return address             Address of the contract to approve tokens to
      */
-    function getSpender()
-        external
-        view
-        returns (address)
-    {
+    function getSpender() external view returns (address) {
         return router;
+    }
+
+    /**
+     * Helper that returns the encoded data of trade path and boolean indicating the Uniswap function to use
+     *
+     * @return bytes               Encoded data used for trading on Uniswap
+     */
+    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapTokensForExactTokens) external view returns (bytes memory) {
+        return abi.encode(_path, _shouldSwapTokensForExactTokens);
     }
 } 
