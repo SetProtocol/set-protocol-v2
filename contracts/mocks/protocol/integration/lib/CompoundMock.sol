@@ -1,12 +1,16 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
-e for the specific language governing permissions and
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
     limitations under the License.
 
     SPDX-License-Identifier: Apache License, Version 2.0
@@ -27,11 +31,11 @@ contract CompoundMock {
         ICErc20 _cToken,
         IComptroller _comptroller
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getEnterMarketsCalldata(_cToken, _comptroller);
+        return Compound.getEnterMarketsCalldata(_cToken, _comptroller);
     }
 
     function testInvokeEnterMarkets(ISetToken _setToken, ICErc20 _cToken, IComptroller _comptroller) external {
@@ -42,11 +46,11 @@ contract CompoundMock {
         ICErc20 _cToken,
         IComptroller _comptroller
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getExitMarketCalldata(_cToken, _comptroller);
+        return Compound.getExitMarketCalldata(_cToken, _comptroller);
     }
 
     function testInvokeExitMarket(ISetToken _setToken, ICErc20 _cToken, IComptroller _comptroller) external {
@@ -57,11 +61,11 @@ contract CompoundMock {
        ICErc20 _cEther,
        uint256 _mintNotional
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getMintCEtherCalldata(_cEther, _mintNotional);
+        return Compound.getMintCEtherCalldata(_cEther, _mintNotional);
     }
 
     function testInvokeMintCEther(ISetToken _setToken, ICErc20 _cEther, uint256 _mintNotional) external {
@@ -73,11 +77,11 @@ contract CompoundMock {
        ICErc20 _cToken,
        uint256 _mintNotional
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getMintCTokenCalldata(_cToken, _mintNotional);
+        return Compound.getMintCTokenCalldata(_cToken, _mintNotional);
     }
 
     function testInvokeMintCToken(ISetToken _setToken, ICErc20 _cToken, uint256 _mintNotional) external {
@@ -88,11 +92,11 @@ contract CompoundMock {
        ICErc20 _cToken,
        uint256 _redeemNotional
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getRedeemUnderlyingCalldata(_cToken, _redeemNotional);
+        return Compound.getRedeemUnderlyingCalldata(_cToken, _redeemNotional);
     }
 
     function testInvokeRedeemUnderlying(ISetToken _setToken, ICErc20 _cToken, uint256 _redeemNotional) external {
@@ -103,11 +107,11 @@ contract CompoundMock {
        ICErc20 _cToken,
        uint256 _repayNotional
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getRepayBorrowCEtherCalldata(_cToken, _repayNotional);
+        return Compound.getRepayBorrowCEtherCalldata(_cToken, _repayNotional);
     }
 
     function testInvokeRepayBorrowCEther(ISetToken _setToken, ICErc20 _cEther, uint256 _repayNotional) external {
@@ -118,11 +122,11 @@ contract CompoundMock {
        ICErc20 _cToken,
        uint256 _repayNotional
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getRepayBorrowCTokenCalldata(_cToken, _repayNotional);
+        return Compound.getRepayBorrowCTokenCalldata(_cToken, _repayNotional);
     }
 
     function testInvokeRepayBorrowCToken(ISetToken _setToken, ICErc20 _cToken, uint256 _repayNotional) external {
@@ -133,21 +137,20 @@ contract CompoundMock {
        ICErc20 _cToken,
        uint256 _notionalBorrowQuantity
     )
-        public
+        external
         pure
         returns (address, uint256, bytes memory)
     {
-        Compound.getBorrowCalldata(_cToken, _notionalBorrowQuantity);
+        return Compound.getBorrowCalldata(_cToken, _notionalBorrowQuantity);
     }
 
     function testInvokeBorrow(ISetToken _setToken, ICErc20 _cToken, uint256 _notionalBorrowQuantity) external {
         Compound.invokeBorrow(_setToken, _cToken, _notionalBorrowQuantity);
     }
 
-
     /* ============ Helper Functions ============ */
 
-    function testInitializeModuleOnSet(ISetToken _setToken) external {
+    function initializeModuleOnSet(ISetToken _setToken) external {
         _setToken.initializeModule();
     }
 }

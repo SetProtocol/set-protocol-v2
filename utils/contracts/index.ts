@@ -12,6 +12,7 @@ export { BasicIssuanceModule } from "../../typechain/BasicIssuanceModule";
 export { ClaimAdapterMock } from "../../typechain/ClaimAdapterMock";
 export { ClaimModule } from "../../typechain/ClaimModule";
 export { Compound } from "../../typechain/Compound";
+export { CompoundMock } from "../../typechain/CompoundMock";
 export { CompoundLikeGovernanceAdapter } from "../../typechain/CompoundLikeGovernanceAdapter";
 export { CompoundLeverageModule } from "../../typechain/CompoundLeverageModule";
 export { ComptrollerMock } from "../../typechain/ComptrollerMock";
