@@ -65,7 +65,6 @@
     "ethereum-waffle": "^3.2.1",
     "ethers": "^5.0.24",
     "hardhat": "^2.0.6",
-    "hardhat-contract-sizer": "^2.0.2",
     "hardhat-deploy": "^0.7.0-beta.39",
     "hardhat-typechain": "^0.3.4",
     "husky": "^4.2.5",

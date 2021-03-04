@@ -216,7 +216,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     {
         // For levering up, send quantity is derived from borrow asset and receive quantity is derived from 
         // collateral asset
-        ActionInfo memory leverInfo = _createActionInfo(
+        ActionInfo memory leverInfo = _createAndValidateActionInfo(
             _setToken,
             _borrowAsset,
             _collateralAsset,
@@ -226,43 +226,17 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             true
         );
 
-        _validateCommon(leverInfo);
-
         _borrow(leverInfo.setToken, leverInfo.borrowCTokenAsset, leverInfo.notionalSendQuantity);
 
-        (uint256 protocolFee, uint256 postTradeCollateralQuantity) = _tradeAndHandleFees(
-            _setToken,
-            _borrowAsset,
-            _collateralAsset,
-            leverInfo.notionalSendQuantity,
-            leverInfo.minNotionalReceiveQuantity,
-            leverInfo.preTradeReceiveTokenBalance,
-            leverInfo.exchangeAdapter,
-            _tradeData
-        );
+        uint256 postTradeReceiveQuantity = _executeTrade(leverInfo, _borrowAsset, _collateralAsset, _tradeData);
+
+        uint256 protocolFee = _accrueProtocolFee(_setToken, _collateralAsset, postTradeReceiveQuantity);
+
+        uint256 postTradeCollateralQuantity = postTradeReceiveQuantity.sub(protocolFee);
 
         _mintCToken(leverInfo.setToken, leverInfo.collateralCTokenAsset, _collateralAsset, postTradeCollateralQuantity);
 
-        _updateCollateralPosition(
-            leverInfo.setToken,
-            leverInfo.collateralCTokenAsset,
-            _getCollateralPosition(
-                leverInfo.setToken,
-                leverInfo.collateralCTokenAsset,
-                leverInfo.setTotalSupply
-            )
-        );
-
-        _updateBorrowPosition(
-            leverInfo.setToken,
-            _borrowAsset,
-            _getBorrowPosition(
-                leverInfo.setToken,
-                leverInfo.borrowCTokenAsset,
-                leverInfo.setTotalSupply,
-                false
-            )
-        );
+        _updateLeverPositions(leverInfo, _borrowAsset);
 
         emit LeverageIncreased(
             _setToken,
@@ -301,7 +275,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     {
         // Note: for delevering, send quantity is derived from collateral asset and receive quantity is derived from 
         // repay asset
-        ActionInfo memory deleverInfo = _createActionInfo(
+        ActionInfo memory deleverInfo = _createAndValidateActionInfo(
             _setToken,
             _collateralAsset,
             _repayAsset,
@@ -311,34 +285,17 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             false
         );
 
-        _validateCommon(deleverInfo);
-
         _redeemUnderlying(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, deleverInfo.notionalSendQuantity);
 
-        (uint256 protocolFee, uint256 postTradeRepayQuantity) = _tradeAndHandleFees(
-            _setToken,
-            _collateralAsset,
-            _repayAsset,
-            deleverInfo.notionalSendQuantity,
-            deleverInfo.minNotionalReceiveQuantity,
-            deleverInfo.preTradeReceiveTokenBalance,
-            deleverInfo.exchangeAdapter,
-            _tradeData
-        );
+        uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
 
-        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, postTradeRepayQuantity);
+        uint256 protocolFee = _accrueProtocolFee(_setToken, _repayAsset, postTradeReceiveQuantity);
 
-        _updateCollateralPosition(
-            deleverInfo.setToken,
-            deleverInfo.collateralCTokenAsset,
-            _getCollateralPosition(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, deleverInfo.setTotalSupply)
-        );
+        uint256 repayQuantity = postTradeReceiveQuantity.sub(protocolFee);
 
-        _updateBorrowPosition(
-            deleverInfo.setToken,
-            _repayAsset,
-            _getBorrowPosition(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, deleverInfo.setTotalSupply, false)
-        );
+        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, repayQuantity);
+
+        _updateLeverPositions(deleverInfo, _repayAsset);
 
         emit LeverageDecreased(
             _setToken,
@@ -346,7 +303,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             _repayAsset,
             deleverInfo.exchangeAdapter,
             deleverInfo.notionalSendQuantity,
-            postTradeRepayQuantity,
+            repayQuantity,
             protocolFee
         );
     }
@@ -774,79 +731,48 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * Executes a trade, validates the minimum receive quantity is returned, and pays protocol fee (if applicable)
-     *
-     * @return uint256          Amount of protocol fees in receive token
-     * @return uint256          Amount of receive token net of protocol fees
-     */
-    function _tradeAndHandleFees(
-        ISetToken _setToken,
-        IERC20 _sendToken,
-        IERC20 _receiveToken,
-        uint256 _notionalSendQuantity,
-        uint256 _minNotionalReceiveQuantity,
-        uint256 _preTradeReceiveTokenBalance,
-        IExchangeAdapter _exchangeAdapter,
-        bytes memory _data
-    )
-        internal
-        returns(uint256, uint256)
-    {
-        _executeTrade(
-            _setToken,
-            _sendToken,
-            _receiveToken,
-            _notionalSendQuantity,
-            _minNotionalReceiveQuantity,
-            _exchangeAdapter,
-            _data
-        );
-
-        uint256 receiveTokenQuantity = _receiveToken.balanceOf(address(_setToken)).sub(_preTradeReceiveTokenBalance);
-        require(
-            receiveTokenQuantity >= _minNotionalReceiveQuantity,
-            "Slippage too high"
-        );
-
-        uint256 protocolFeeTotal = _accrueProtocolFee(_setToken, _receiveToken, receiveTokenQuantity);
-
-        return (protocolFeeTotal, receiveTokenQuantity.sub(protocolFeeTotal));
-    }
-
-    /**
      * Invokes approvals, gets trade call data from exchange adapter and invokes trade from SetToken
      */
     function _executeTrade(
-        ISetToken _setToken,
+        ActionInfo memory _actionInfo,
         IERC20 _sendToken,
         IERC20 _receiveToken,
-        uint256 _notionalSendQuantity,
-        uint256 _minNotionalReceiveQuantity,
-        IExchangeAdapter _exchangeAdapter,
         bytes memory _data
     )
         internal
+        returns (uint256)
     {
-         _setToken.invokeApprove(
+         ISetToken setToken = _actionInfo.setToken;
+         uint256 notionalSendQuantity = _actionInfo.notionalSendQuantity;
+
+         setToken.invokeApprove(
             address(_sendToken),
-            _exchangeAdapter.getSpender(),
-            _notionalSendQuantity
+            _actionInfo.exchangeAdapter.getSpender(),
+            notionalSendQuantity
         );
 
         (
             address targetExchange,
             uint256 callValue,
             bytes memory methodData
-        ) = _exchangeAdapter.getTradeCalldata(
+        ) = _actionInfo.exchangeAdapter.getTradeCalldata(
             address(_sendToken),
             address(_receiveToken),
-            address(_setToken),
-            _notionalSendQuantity,
-            _minNotionalReceiveQuantity,
+            address(setToken),
+            notionalSendQuantity,
+            _actionInfo.minNotionalReceiveQuantity,
             _data
         );
 
-        _setToken.invoke(targetExchange, callValue, methodData);
+        setToken.invoke(targetExchange, callValue, methodData);
+
+        uint256 receiveTokenQuantity = _receiveToken.balanceOf(address(setToken)).sub(_actionInfo.preTradeReceiveTokenBalance);
+        require(
+            receiveTokenQuantity >= _actionInfo.minNotionalReceiveQuantity,
+            "Slippage too high"
+        );
+
+        return receiveTokenQuantity;
     }
 
     /**
@@ -860,6 +786,29 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         return protocolFeeTotal;
     }
 
+    function _updateLeverPositions(ActionInfo memory actionInfo, IERC20 _borrowAsset) internal {
+        _updateCollateralPosition(
+            actionInfo.setToken,
+            actionInfo.collateralCTokenAsset,
+            _getCollateralPosition(
+                actionInfo.setToken,
+                actionInfo.collateralCTokenAsset,
+                actionInfo.setTotalSupply
+            )
+        );
+
+        _updateBorrowPosition(
+            actionInfo.setToken,
+            _borrowAsset,
+            _getBorrowPosition(
+                actionInfo.setToken,
+                actionInfo.borrowCTokenAsset,
+                actionInfo.setTotalSupply,
+                false // Do not accrue interest
+            )
+        );
+    }
+
     function _updateCollateralPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _newPositionUnit) internal {
         _setToken.editDefaultPosition(address(_cToken), _newPositionUnit);
     }
@@ -871,31 +820,66 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * Construct the ActionInfo struct for lever and delever
      */
-    function _createActionInfo(
+    function _createAndValidateActionInfo(
         ISetToken _setToken,
         IERC20 _sendToken,
         IERC20 _receiveToken,
-        uint256 _sendQuantity,
-        uint256 _minReceiveQuantity,
+        uint256 _sendQuantityUnits,
+        uint256 _minReceiveQuantityUnits,
         string memory _tradeAdapterName,
-        bool isLever
+        bool _isLever
     )
         internal
         view
         returns(ActionInfo memory)
     {
         uint256 totalSupply = _setToken.totalSupply();
-        return ActionInfo ({
+
+        return _createAndValidateActionInfoNotional(
+            _setToken,
+            _sendToken,
+            _receiveToken,
+            _sendQuantityUnits.preciseMul(totalSupply),
+            _minReceiveQuantityUnits.preciseMul(totalSupply),
+            _tradeAdapterName,
+            _isLever
+        );
+    }
+
+    /**
+     * Construct the ActionInfo struct for lever and delever accepting notional units
+     */
+    function _createAndValidateActionInfoNotional(
+        ISetToken _setToken,
+        IERC20 _sendToken,
+        IERC20 _receiveToken,
+        uint256 _notionalSendQuantity,
+        uint256 _minNotionalReceiveQuantity,
+        string memory _tradeAdapterName,
+        bool _isLever
+    )
+        internal
+        view
+        returns(ActionInfo memory)
+    {
+        uint256 totalSupply = _setToken.totalSupply();
+        ActionInfo memory actionInfo = ActionInfo ({
             exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
             setToken: _setToken,
-            collateralCTokenAsset: isLever ? underlyingToCToken[_receiveToken] : underlyingToCToken[_sendToken],
-            borrowCTokenAsset: isLever ? underlyingToCToken[_sendToken] : underlyingToCToken[_receiveToken],
+            collateralCTokenAsset: _isLever ? underlyingToCToken[_receiveToken] : underlyingToCToken[_sendToken],
+            borrowCTokenAsset: _isLever ? underlyingToCToken[_sendToken] : underlyingToCToken[_receiveToken],
             setTotalSupply: totalSupply,
-            notionalSendQuantity: _sendQuantity.preciseMul(totalSupply),
-            minNotionalReceiveQuantity: _minReceiveQuantity.preciseMul(totalSupply),
+            notionalSendQuantity: _notionalSendQuantity,
+            minNotionalReceiveQuantity: _minNotionalReceiveQuantity,
             preTradeReceiveTokenBalance: IERC20(_receiveToken).balanceOf(address(_setToken))
         });
+
+        _validateCommon(actionInfo);
+
+        return actionInfo;
     }
+
+
 
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
         require(collateralCTokenEnabled[_actionInfo.setToken][_actionInfo.collateralCTokenAsset], "Collateral not enabled");
