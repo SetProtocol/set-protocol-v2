@@ -361,6 +361,124 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
+     * MANAGER ONLY: Pays down the balance of a specified repay asset using a collateral      
+     * asset. The repay asset must be paid back in its entirety for the transaction to succeed.
+     *
+     * @param _setToken             Instance of the SetToken
+     * @param _collateralAsset      Address of collateral asset (underlying of cToken)
+     * @param _repayAsset           Address of asset being repaid
+     * @param _redeemQuantity       Quantity of collateral asset to delever
+     * @param _tradeAdapterName     Name of trade adapter
+     * @param _tradeData            Arbitrary data for trade
+     */
+    function deleverAll(
+        ISetToken _setToken,
+        IERC20 _collateralAsset,
+        IERC20 _repayAsset,
+        uint256 _redeemQuantity,
+        string memory _tradeAdapterName,
+        bytes memory _tradeData
+    )
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+    {
+        // Note: for delevering, send quantity is derived from collateral asset and receive quantity is derived from 
+        // repay asset
+        ActionInfo memory deleverInfo = _createActionInfo(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            _redeemQuantity,
+            0, // Variable not used
+            _tradeAdapterName,
+            false
+        );
+
+        _validateCommon(deleverInfo);
+
+        _redeemUnderlying(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, deleverInfo.notionalSendQuantity);
+
+        uint256 postTradeRepayQuantity = _deleverAll(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
+
+        _validateWipeout(deleverInfo);
+
+        _updateCollateralPosition(
+            deleverInfo.setToken,
+            deleverInfo.collateralCTokenAsset,
+            _getCollateralPosition(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, deleverInfo.setTotalSupply)
+        );
+        
+        _updateBorrowPosition(
+            deleverInfo.setToken,
+            _repayAsset,
+            0 // Delever must be 0
+        );
+
+        emit LeverageDecreased(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            deleverInfo.exchangeAdapter,
+            deleverInfo.notionalSendQuantity,
+            postTradeRepayQuantity,
+            0
+            // protocolFee
+        );
+    }
+
+    function _deleverAll(
+        ActionInfo memory deleverInfo,
+        IERC20 _collateralAsset,
+        IERC20 _repayAsset,
+        bytes memory _tradeData
+    )
+        internal
+        returns (uint256)
+    {
+        uint256 borrowBalanceCurrent = _getBorrowPosition(
+            deleverInfo.setToken,
+            deleverInfo.borrowCTokenAsset,
+            deleverInfo.setTotalSupply,
+            true
+        ).toUint256();
+
+        // No fee is charged on final delever
+        _executeTrade(
+            deleverInfo.setToken,
+            _collateralAsset,
+            _repayAsset,
+            deleverInfo.notionalSendQuantity,
+            borrowBalanceCurrent,
+            deleverInfo.preTradeReceiveTokenBalance,
+            deleverInfo.exchangeAdapter,
+            _tradeData
+        );
+
+        uint256 postTradeRepayQuantity = _getAndValidateReceiveQuantity(
+            deleverInfo.setToken,
+            _repayAsset,
+            borrowBalanceCurrent,
+            deleverInfo.preTradeReceiveTokenBalance
+        );
+
+        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, borrowBalanceCurrent);
+
+        // Open Question: Should we remint the collateral to cToken?
+        uint256 collateralAssetBalance = _collateralAsset.balanceOf(address(deleverInfo.setToken));
+        if (collateralAssetBalance > 0) {
+           _mintCToken(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, _collateralAsset, collateralAssetBalance);
+        }
+
+        return postTradeRepayQuantity;
+    }
+
+    function _validateWipeout(ActionInfo memory deleverInfo) internal {
+        uint256 borrowPositionBalance = _getBorrowPosition(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, deleverInfo.setTotalSupply, true).toUint256();
+        require(borrowPositionBalance == 0, "Must pay entire balance off");        
+    }
+
+    /**
      * MANAGER ONLY: Claims COMP and trades for specified collateral asset. If collateral asset is COMP, then no trade occurs
      * and min notional reapy quantity, trade adapter name and trade data parameters are not used.
      *
@@ -873,14 +991,16 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             _receiveToken,
             _notionalSendQuantity,
             _minNotionalReceiveQuantity,
+            _preTradeReceiveTokenBalance,
             _exchangeAdapter,
             _data
         );
 
-        uint256 receiveTokenQuantity = _receiveToken.balanceOf(address(_setToken)).sub(_preTradeReceiveTokenBalance);
-        require(
-            receiveTokenQuantity >= _minNotionalReceiveQuantity,
-            "Slippage too high"
+        uint256 receiveTokenQuantity = _getAndValidateReceiveQuantity(
+            _setToken,
+            _receiveToken,
+            _minNotionalReceiveQuantity,
+            _preTradeReceiveTokenBalance
         );
 
         uint256 protocolFeeTotal = _accrueProtocolFee(_setToken, _receiveToken, receiveTokenQuantity);
@@ -897,6 +1017,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         IERC20 _receiveToken,
         uint256 _notionalSendQuantity,
         uint256 _minNotionalReceiveQuantity,
+        uint256 _preTradeReceiveTokenBalance,
         IExchangeAdapter _exchangeAdapter,
         bytes memory _data
     )
@@ -922,6 +1043,21 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         );
 
         _setToken.invoke(targetExchange, callValue, methodData);
+    }
+
+    function _getAndValidateReceiveQuantity(
+        ISetToken _setToken,
+        IERC20 _receiveToken,
+        uint256 _minNotionalReceiveQuantity,
+        uint256 _preTradeReceiveTokenBalance
+    ) internal view returns (uint256) {
+        uint256 receiveTokenQuantity = _receiveToken.balanceOf(address(_setToken)).sub(_preTradeReceiveTokenBalance);
+        require(
+            receiveTokenQuantity >= _minNotionalReceiveQuantity,
+            "Slippage too high"
+        );
+
+        return receiveTokenQuantity;
     }
 
     /**
