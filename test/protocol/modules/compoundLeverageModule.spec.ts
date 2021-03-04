@@ -507,7 +507,7 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#lever", async () => {
+  describe.only("#lever", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
     let destinationTokenQuantity: BigNumber;
@@ -1307,7 +1307,7 @@ describe("CompoundLeverageModule", () => {
     });
   });
 
-  describe("#delever", async () => {
+  describe.only("#delever", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
     let destinationTokenQuantity: BigNumber;
@@ -1923,6 +1923,623 @@ describe("CompoundLeverageModule", () => {
       });
     });
   });
+
+  // describe("#deleverAll", async () => {
+  //   let setToken: SetToken;
+  //   let isInitialized: boolean;
+  //   let destinationTokenQuantity: BigNumber;
+
+  //   let subjectSetToken: Address;
+  //   let subjectCollateralAsset: Address;
+  //   let subjectRepayAsset: Address;
+  //   let subjectRedeemQuantity: BigNumber;
+  //   let subjectMinRepayQuantity: BigNumber;
+  //   let subjectTradeAdapterName: string;
+  //   let subjectTradeData: Bytes;
+  //   let subjectCaller: Account;
+
+  //   context("when cETH is collateral asset", async () => {
+
+  //     const initializeContracts = async () => {
+  //       setToken = await setup.createSetToken(
+  //         [cEther.address],
+  //         [BigNumber.from(10000000000)],
+  //         [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+  //       );
+  //       await debtIssuanceMock.initialize(setToken.address);
+  //       // Add SetToken to allow list
+  //       await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
+  //       // Initialize module if set to true
+  //       if (isInitialized) {
+  //         await compoundLeverageModule.initialize(
+  //           setToken.address,
+  //           [setup.weth.address, setup.dai.address],
+  //           [setup.dai.address, setup.weth.address]
+  //         );
+  //       }
+  //       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+
+  //       // Add Set token as token sender / recipient
+  //       oneInchExchangeMockToWeth = oneInchExchangeMockToWeth.connect(owner.wallet);
+  //       await oneInchExchangeMockToWeth.addSetTokenAddress(setToken.address);
+
+  //       // Fund One Inch exchange with destinationToken WETH
+  //       await setup.weth.transfer(oneInchExchangeMockToWeth.address, ether(10));
+
+  //       // Add Set token as token sender / recipient
+  //       oneInchExchangeMockFromWeth = oneInchExchangeMockFromWeth.connect(owner.wallet);
+  //       await oneInchExchangeMockFromWeth.addSetTokenAddress(setToken.address);
+
+  //       // Fund One Inch exchange with destinationToken DAI
+  //       await setup.dai.transfer(oneInchExchangeMockFromWeth.address, ether(10000));
+
+  //       // Mint cTokens
+  //       await setup.weth.approve(cEther.address, ether(1000));
+  //       await cEther.mint({value: ether(1000)});
+  //       await setup.dai.approve(cDai.address, ether(100000));
+  //       await cDai.mint(ether(100000));
+
+  //       // Approve tokens to issuance module and call issue
+  //       await cEther.approve(setup.issuanceModule.address, ether(1000));
+
+  //       // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 590 DAI regardless of Set supply
+  //       const issueQuantity = ether(1);
+  //       await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+  //       // Lever SetToken
+  //       if (isInitialized) {
+  //         const leverTradeData = oneInchExchangeMockToWeth.interface.encodeFunctionData("swap", [
+  //           setup.dai.address, // Send token
+  //           setup.weth.address, // Receive token
+  //           ether(590), // Send quantity
+  //           ether(1), // Min receive quantity
+  //           ZERO,
+  //           ADDRESS_ZERO,
+  //           [ADDRESS_ZERO],
+  //           EMPTY_BYTES,
+  //           [ZERO],
+  //           [ZERO],
+  //         ]);
+
+  //         await compoundLeverageModule.lever(
+  //           setToken.address,
+  //           setup.dai.address,
+  //           setup.weth.address,
+  //           ether(590),
+  //           ether(1),
+  //           "ONEINCHTOWETH",
+  //           leverTradeData
+  //         );
+  //       }
+
+  //       destinationTokenQuantity = ether(590);
+  //     };
+
+  //     const initializeSubjectVariables = () => {
+  //       subjectSetToken = setToken.address;
+  //       subjectCollateralAsset = setup.weth.address;
+  //       subjectRepayAsset = setup.dai.address;
+  //       subjectRedeemQuantity = ether(1);
+  //       subjectMinRepayQuantity = destinationTokenQuantity;
+  //       subjectTradeAdapterName = "ONEINCHFROMWETH";
+  //       subjectTradeData = oneInchExchangeMockFromWeth.interface.encodeFunctionData("swap", [
+  //         setup.weth.address, // Send token
+  //         setup.dai.address, // Receive token
+  //         subjectRedeemQuantity, // Send quantity
+  //         subjectMinRepayQuantity, // Min receive quantity
+  //         ZERO,
+  //         ADDRESS_ZERO,
+  //         [ADDRESS_ZERO],
+  //         EMPTY_BYTES,
+  //         [ZERO],
+  //         [ZERO],
+  //       ]);
+  //       subjectCaller = owner;
+  //     };
+
+  //     async function subject(): Promise<any> {
+  //       return compoundLeverageModule.connect(subjectCaller.wallet).delever(
+  //         subjectSetToken,
+  //         subjectCollateralAsset,
+  //         subjectRepayAsset,
+  //         subjectRedeemQuantity,
+  //         subjectMinRepayQuantity,
+  //         subjectTradeAdapterName,
+  //         subjectTradeData
+  //       );
+  //     }
+
+  //     describe("when module is initialized", async () => {
+  //       before(async () => {
+  //         isInitialized = true;
+  //       });
+
+  //       cacheBeforeEach(initializeContracts);
+  //       beforeEach(initializeSubjectVariables);
+
+  //       it("should update the collateral position on the SetToken correctly", async () => {
+  //         const initialPositions = await setToken.getPositions();
+
+  //         await subject();
+
+  //         // cEther position is increased
+  //         const currentPositions = await setToken.getPositions();
+  //         const newFirstPosition = (await setToken.getPositions())[0];
+
+  //         // Get expected cTokens minted
+  //         const removedUnits = preciseDiv(subjectRedeemQuantity, cTokenInitialMantissa);
+  //         const expectedFirstPositionUnit = initialPositions[0].unit.sub(removedUnits);
+
+  //         expect(initialPositions.length).to.eq(2);
+  //         expect(currentPositions.length).to.eq(2);
+  //         expect(newFirstPosition.component).to.eq(cEther.address);
+  //         expect(newFirstPosition.positionState).to.eq(0); // Default
+  //         expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+  //         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+  //       });
+
+  //       it("should update the borrow position on the SetToken correctly", async () => {
+  //         const initialPositions = await setToken.getPositions();
+
+  //         await subject();
+
+  //         // Most of cDai position is repaid
+  //         const currentPositions = await setToken.getPositions();
+  //         const newSecondPosition = (await setToken.getPositions())[1];
+  //         const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
+
+  //         expect(initialPositions.length).to.eq(2);
+  //         expect(currentPositions.length).to.eq(2);
+  //         expect(newSecondPosition.component).to.eq(setup.dai.address);
+  //         expect(newSecondPosition.positionState).to.eq(1); // External
+  //         expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+  //         expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
+  //       });
+
+  //       it("should transfer the correct components to the exchange", async () => {
+  //         const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+
+  //         await subject();
+  //         const totalSourceQuantity = subjectRedeemQuantity;
+  //         const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+  //         const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+  //         expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+  //       });
+
+  //       it("should transfer the correct components from the exchange", async () => {
+  //         const oldDestinationTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromWeth.address);
+
+  //         await subject();
+  //         const totalDestinationQuantity = destinationTokenQuantity;
+  //         const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+  //         const newDestinationTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockFromWeth.address);
+  //         expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+  //       });
+
+  //       describe("when there is a protocol fee charged", async () => {
+  //         let feePercentage: BigNumber;
+
+  //         cacheBeforeEach(async () => {
+  //           feePercentage = ether(0.05);
+  //           setup.controller = setup.controller.connect(owner.wallet);
+  //           await setup.controller.addFee(
+  //             compoundLeverageModule.address,
+  //             ZERO, // Fee type on trade function denoted as 0
+  //             feePercentage // Set fee to 5 bps
+  //           );
+  //         });
+
+  //         it("should transfer the correct components to the exchange", async () => {
+  //           const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+
+  //           await subject();
+  //           const totalSourceQuantity = subjectRedeemQuantity;
+  //           const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+  //           const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+  //           expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+  //         });
+
+  //         it("should transfer the correct protocol fee to the protocol", async () => {
+  //           const feeRecipient = await setup.controller.feeRecipient();
+  //           const oldFeeRecipientBalance = await setup.dai.balanceOf(feeRecipient);
+
+  //           await subject();
+  //           const expectedFeeRecipientBalance = oldFeeRecipientBalance.add(preciseMul(feePercentage, destinationTokenQuantity));
+  //           const newFeeRecipientBalance = await setup.dai.balanceOf(feeRecipient);
+  //           expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
+  //         });
+
+  //         it("should update the collateral position on the SetToken correctly", async () => {
+  //           const initialPositions = await setToken.getPositions();
+
+  //           await subject();
+
+  //           // cEther position is increased
+  //           const currentPositions = await setToken.getPositions();
+  //           const newFirstPosition = (await setToken.getPositions())[0];
+
+  //           // Get expected cTokens minted
+  //           const newUnits = preciseDiv(subjectRedeemQuantity, cTokenInitialMantissa);
+  //           const expectedFirstPositionUnit = initialPositions[0].unit.sub(newUnits);
+
+  //           expect(initialPositions.length).to.eq(2);
+  //           expect(currentPositions.length).to.eq(2);
+  //           expect(newFirstPosition.component).to.eq(cEther.address);
+  //           expect(newFirstPosition.positionState).to.eq(0); // Default
+  //           expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+  //           expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+  //         });
+
+  //         it("should update the borrow position on the SetToken correctly", async () => {
+  //           const initialPositions = await setToken.getPositions();
+
+  //           await subject();
+
+  //           // cEther position is increased
+  //           const currentPositions = await setToken.getPositions();
+  //           const newSecondPosition = (await setToken.getPositions())[1];
+
+  //           const expectedSecondPositionUnit = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
+
+  //           expect(initialPositions.length).to.eq(2);
+  //           expect(currentPositions.length).to.eq(2);
+  //           expect(newSecondPosition.component).to.eq(setup.dai.address);
+  //           expect(newSecondPosition.positionState).to.eq(1); // External
+  //           expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+  //           expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
+  //         });
+
+  //         it("should emit the correct LeverageDecreased event", async () => {
+  //           const totalCollateralQuantity = subjectRedeemQuantity;
+  //           const totalRepayQuantity = destinationTokenQuantity;
+  //           const totalProtocolFee = feePercentage.mul(totalRepayQuantity).div(ether(1));
+
+  //           await expect(subject()).to.emit(compoundLeverageModule, "LeverageDecreased").withArgs(
+  //             setToken.address,
+  //             subjectCollateralAsset,
+  //             subjectRepayAsset,
+  //             oneInchExchangeAdapterFromWeth.address,
+  //             totalCollateralQuantity,
+  //             totalRepayQuantity.sub(totalProtocolFee),
+  //             totalProtocolFee
+  //           );
+  //         });
+  //       });
+
+  //       describe("when the exchange is not valid", async () => {
+  //         beforeEach(async () => {
+  //           subjectTradeAdapterName = "UNISWAP";
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Must be valid adapter");
+  //         });
+  //       });
+
+  //       describe("when quantity of token to sell is 0", async () => {
+  //         beforeEach(async () => {
+  //           subjectRedeemQuantity = ZERO;
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Quantity is 0");
+  //         });
+  //       });
+
+  //       describe("when redeeming return data is a nonzero value", async () => {
+  //         beforeEach(async () => {
+  //           // Set redeem quantity to more than account liquidity
+  //           subjectRedeemQuantity = ether(100001);
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Redeem failed");
+  //         });
+  //       });
+
+  //       describe("when repay return data is a nonzero value", async () => {
+  //         beforeEach(async () => {
+  //           const newComptroller = await deployer.external.deployComptroller();
+
+  //           await cDai._setComptroller(newComptroller.address);
+  //         });
+
+  //         afterEach(async () => {
+  //           await cDai._setComptroller(compoundSetup.comptroller.address);
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Repay failed");
+  //         });
+  //       });
+
+  //       describe("when borrow / repay asset is not enabled", async () => {
+  //         beforeEach(async () => {
+  //           subjectRepayAsset = setup.wbtc.address;
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Borrow not enabled");
+  //         });
+  //       });
+
+  //       describe("when collateral asset is not enabled", async () => {
+  //         beforeEach(async () => {
+  //           subjectCollateralAsset = await getRandomAddress();
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Collateral not enabled");
+  //         });
+  //       });
+
+  //       describe("when borrow asset is same as collateral asset", async () => {
+  //         beforeEach(async () => {
+  //           subjectRepayAsset = setup.weth.address;
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Must be different");
+  //         });
+  //       });
+
+  //       describe("when the caller is not the SetToken manager", async () => {
+  //         beforeEach(async () => {
+  //           subjectCaller = await getRandomAccount();
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+  //         });
+  //       });
+
+  //       describe("when SetToken is not valid", async () => {
+  //         beforeEach(async () => {
+  //           const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+  //             [setup.weth.address],
+  //             [ether(1)],
+  //             [compoundLeverageModule.address],
+  //             owner.address
+  //           );
+
+  //           subjectSetToken = nonEnabledSetToken.address;
+  //         });
+
+  //         it("should revert", async () => {
+  //           await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+  //         });
+  //       });
+  //     });
+
+  //     describe("when module is not initialized", async () => {
+  //       beforeEach(async () => {
+  //         isInitialized = false;
+  //         await initializeContracts();
+  //         initializeSubjectVariables();
+  //       });
+
+  //       it("should revert", async () => {
+  //         await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+  //       });
+  //     });
+  //   });
+
+  //   context("when cETH is borrow asset", async () => {
+  //     before(async () => {
+  //       isInitialized = true;
+  //     });
+
+  //     cacheBeforeEach(async () => {
+  //       setToken = await setup.createSetToken(
+  //         [cDai.address],
+  //         [BigNumber.from(10000000000000)],
+  //         [compoundLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+  //       );
+  //       await debtIssuanceMock.initialize(setToken.address);
+  //       // Add SetToken to allow list
+  //       await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
+  //       // Initialize module if set to true
+  //       if (isInitialized) {
+  //         await compoundLeverageModule.initialize(
+  //           setToken.address,
+  //           [setup.weth.address, setup.dai.address],
+  //           [setup.dai.address, setup.weth.address]
+  //         );
+  //       }
+  //       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+
+  //       // Add Set token as token sender / recipient
+  //       oneInchExchangeMockToWeth = oneInchExchangeMockToWeth.connect(owner.wallet);
+  //       await oneInchExchangeMockToWeth.addSetTokenAddress(setToken.address);
+
+  //       // Fund One Inch exchange with destinationToken WETH
+  //       await setup.weth.transfer(oneInchExchangeMockToWeth.address, ether(10));
+
+  //       // Add Set token as token sender / recipient
+  //       oneInchExchangeMockFromWeth = oneInchExchangeMockFromWeth.connect(owner.wallet);
+  //       await oneInchExchangeMockFromWeth.addSetTokenAddress(setToken.address);
+
+  //       // Fund One Inch exchange with destinationToken DAI
+  //       await setup.dai.transfer(oneInchExchangeMockFromWeth.address, ether(10000));
+
+  //       // Mint cTokens
+  //       await setup.weth.approve(cEther.address, ether(1000));
+  //       await cEther.mint({value: ether(1000)});
+  //       await setup.dai.approve(cDai.address, ether(100000));
+  //       await cDai.mint(ether(100000));
+
+  //       // Approve tokens to issuance module and call issue
+  //       await cDai.approve(setup.issuanceModule.address, ether(1000));
+
+  //       // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 590 DAI regardless of Set supply
+  //       const issueQuantity = ether(1);
+  //       await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+  //       // Lever SetToken
+  //       if (isInitialized) {
+  //         const leverTradeData = oneInchExchangeMockFromWeth.interface.encodeFunctionData("swap", [
+  //           setup.weth.address, // Send token
+  //           setup.dai.address, // Receive token
+  //           ether(1), // Send quantity
+  //           ether(590), // Min receive quantity
+  //           ZERO,
+  //           ADDRESS_ZERO,
+  //           [ADDRESS_ZERO],
+  //           EMPTY_BYTES,
+  //           [ZERO],
+  //           [ZERO],
+  //         ]);
+
+  //         await compoundLeverageModule.lever(
+  //           setToken.address,
+  //           setup.weth.address,
+  //           setup.dai.address,
+  //           ether(1),
+  //           ether(590),
+  //           "ONEINCHFROMWETH",
+  //           leverTradeData
+  //         );
+  //       }
+
+  //       destinationTokenQuantity = ether(1);
+  //     });
+
+  //     beforeEach(() => {
+  //       subjectSetToken = setToken.address;
+  //       subjectCollateralAsset = setup.dai.address;
+  //       subjectRepayAsset = setup.weth.address;
+  //       subjectRedeemQuantity = ether(590);
+  //       subjectMinRepayQuantity = destinationTokenQuantity;
+  //       subjectTradeAdapterName = "ONEINCHTOWETH";
+  //       subjectTradeData = oneInchExchangeMockFromWeth.interface.encodeFunctionData("swap", [
+  //         setup.dai.address, // Send token
+  //         setup.weth.address, // Receive token
+  //         subjectRedeemQuantity, // Send quantity
+  //         subjectMinRepayQuantity, // Min receive quantity
+  //         ZERO,
+  //         ADDRESS_ZERO,
+  //         [ADDRESS_ZERO],
+  //         EMPTY_BYTES,
+  //         [ZERO],
+  //         [ZERO],
+  //       ]);
+  //       subjectCaller = owner;
+  //     });
+
+  //     async function subject(): Promise<any> {
+  //       return compoundLeverageModule.connect(subjectCaller.wallet).delever(
+  //         subjectSetToken,
+  //         subjectCollateralAsset,
+  //         subjectRepayAsset,
+  //         subjectRedeemQuantity,
+  //         subjectMinRepayQuantity,
+  //         subjectTradeAdapterName,
+  //         subjectTradeData
+  //       );
+  //     }
+
+  //     it("should update the collateral position on the SetToken correctly", async () => {
+  //       const initialPositions = await setToken.getPositions();
+
+  //       await subject();
+
+  //       // cDai position is decreased
+  //       const currentPositions = await setToken.getPositions();
+  //       const newFirstPosition = (await setToken.getPositions())[0];
+
+  //       // Get expected cTokens minted
+  //       const newUnits = preciseDiv(subjectRedeemQuantity, cTokenInitialMantissa);
+  //       const expectedFirstPositionUnit = initialPositions[0].unit.sub(newUnits);
+
+  //       expect(initialPositions.length).to.eq(2);
+  //       expect(currentPositions.length).to.eq(2);
+  //       expect(newFirstPosition.component).to.eq(cDai.address);
+  //       expect(newFirstPosition.positionState).to.eq(0); // Default
+  //       expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+  //       expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+  //     });
+
+  //     it("should update the borrow position on the SetToken correctly", async () => {
+  //       const initialPositions = await setToken.getPositions();
+
+  //       await subject();
+
+  //       // cEther position is increased
+  //       const currentPositions = await setToken.getPositions();
+  //       const newSecondPosition = (await setToken.getPositions())[1];
+
+  //       const expectedSecondPositionUnit = (await cEther.borrowBalanceStored(setToken.address)).mul(-1);
+
+  //       expect(initialPositions.length).to.eq(2);
+  //       expect(currentPositions.length).to.eq(2);
+  //       expect(newSecondPosition.component).to.eq(setup.weth.address);
+  //       expect(newSecondPosition.positionState).to.eq(1); // External
+  //       expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+  //       expect(newSecondPosition.module).to.eq(compoundLeverageModule.address);
+  //     });
+
+  //     it("should transfer the correct components to the exchange", async () => {
+  //       const oldSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
+
+  //       await subject();
+  //       const totalSourceQuantity = subjectRedeemQuantity;
+  //       const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+  //       const newSourceTokenBalance = await setup.dai.balanceOf(oneInchExchangeMockToWeth.address);
+  //       expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+  //     });
+
+  //     it("should transfer the correct components from the exchange", async () => {
+  //       const oldDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockToWeth.address);
+
+  //       await subject();
+  //       const totalDestinationQuantity = destinationTokenQuantity;
+  //       const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+  //       const newDestinationTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockToWeth.address);
+  //       expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+  //     });
+
+  //     describe("when redeem return data is a nonzero value", async () => {
+  //       beforeEach(async () => {
+  //         // Set borrow quantity to more than reserves
+  //         subjectRedeemQuantity = ether(100000);
+  //       });
+
+  //       it("should revert", async () => {
+  //         await expect(subject()).to.be.revertedWith("Redeem failed");
+  //       });
+  //     });
+
+  //     describe("when slippage is greater than allowed", async () => {
+  //       beforeEach(async () => {
+  //         // Add Set token as token sender / recipient
+  //         oneInchExchangeMockWithSlippage = oneInchExchangeMockWithSlippage.connect(owner.wallet);
+  //         await oneInchExchangeMockWithSlippage.addSetTokenAddress(setToken.address);
+
+  //         // Fund One Inch exchange with destinationToken WETH
+  //         await setup.weth.transfer(oneInchExchangeMockWithSlippage.address, ether(10));
+
+  //         // Set to other mock exchange adapter with slippage
+  //         subjectTradeAdapterName = "ONEINCHSLIPPAGE";
+  //         subjectTradeData = oneInchExchangeMockWithSlippage.interface.encodeFunctionData("swap", [
+  //           setup.dai.address, // Send token
+  //           setup.weth.address, // Receive token
+  //           subjectRedeemQuantity, // Send quantity
+  //           subjectMinRepayQuantity, // Min receive quantity
+  //           ZERO,
+  //           ADDRESS_ZERO,
+  //           [ADDRESS_ZERO],
+  //           EMPTY_BYTES,
+  //           [ZERO],
+  //           [ZERO],
+  //         ]);
+  //       });
+
+  //       it("should revert", async () => {
+  //         await expect(subject()).to.be.revertedWith("Slippage too high");
+  //       });
+  //     });
+  //   });
+  // });
 
   describe("#sync", async () => {
     let setToken: SetToken;
