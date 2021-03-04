@@ -88,15 +88,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         uint256 _protocolFee
     );
 
-    event COMPGulped(
-        ISetToken indexed _setToken,
-        IERC20 indexed _collateralAsset,
-        IExchangeAdapter _exchangeAdapter,
-        uint256 _totalCompClaimed,
-        uint256 _totalReceiveAmount,
-        uint256 _protocolFee
-    );
-
     event CollateralAssetsUpdated(
         ISetToken indexed _setToken,
         bool indexed _added,
@@ -356,72 +347,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             deleverInfo.exchangeAdapter,
             deleverInfo.notionalSendQuantity,
             postTradeRepayQuantity,
-            protocolFee
-        );
-    }
-
-    /**
-     * MANAGER ONLY: Claims COMP and trades for specified collateral asset. If collateral asset is COMP, then no trade occurs
-     * and min notional reapy quantity, trade adapter name and trade data parameters are not used.
-     *
-     * @param _setToken                      Instance of the SetToken
-     * @param _collateralAsset               Address of underlying cToken asset
-     * @param _minNotionalReceiveQuantity    Minimum total amount of collateral asset to receive post trade
-     * @param _tradeAdapterName              Name of trade adapter
-     * @param _tradeData                     Arbitrary data for trade
-     */
-    function gulp(
-        ISetToken _setToken,
-        IERC20 _collateralAsset,
-        uint256 _minNotionalReceiveQuantity,
-        string memory _tradeAdapterName,
-        bytes memory _tradeData
-    )
-        external
-        nonReentrant
-        onlyManagerAndValidSet(_setToken)
-    {
-        // Claim COMP. Note: COMP can be claimed by anyone for any address
-        comptroller.claimComp(address(_setToken));
-
-        ActionInfo memory gulpInfo = _createGulpInfoAndValidate(
-            _setToken,
-            _collateralAsset,
-            _tradeAdapterName
-        );
-
-        uint256 protocolFee;
-        uint256 postTradeCollateralQuantity;
-        if (_collateralAsset == compToken) {
-            // If specified collateral asset is COMP, then skip trade and set post trade collateral quantity
-            postTradeCollateralQuantity = gulpInfo.preTradeReceiveTokenBalance;
-        } else {
-            (protocolFee, postTradeCollateralQuantity) = _tradeAndHandleFees(
-                _setToken,
-                compToken,
-                _collateralAsset,
-                gulpInfo.notionalSendQuantity,
-                _minNotionalReceiveQuantity,
-                gulpInfo.preTradeReceiveTokenBalance,
-                gulpInfo.exchangeAdapter,
-                _tradeData
-            );
-        }
-
-        _mintCToken(_setToken, gulpInfo.collateralCTokenAsset, _collateralAsset, postTradeCollateralQuantity);
-
-        _updateCollateralPosition(
-            _setToken,
-            gulpInfo.collateralCTokenAsset,
-            _getCollateralPosition(_setToken, gulpInfo.collateralCTokenAsset, gulpInfo.setTotalSupply)
-        );
-
-        emit COMPGulped(
-            _setToken,
-            _collateralAsset,
-            gulpInfo.exchangeAdapter,
-            gulpInfo.notionalSendQuantity,
-            postTradeCollateralQuantity,
             protocolFee
         );
     }
@@ -970,43 +895,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             minNotionalReceiveQuantity: _minReceiveQuantity.preciseMul(totalSupply),
             preTradeReceiveTokenBalance: IERC20(_receiveToken).balanceOf(address(_setToken))
         });
-    }
-
-    /**
-     * Construct the ActionInfo struct for gulp and validate gulp info.
-     */
-    function _createGulpInfoAndValidate(
-        ISetToken _setToken,
-        IERC20 _collateralAsset,
-        string memory _tradeAdapterName
-    )
-        internal
-        view
-        returns(ActionInfo memory)
-    {
-        ICErc20 collateralCTokenAsset = underlyingToCToken[_collateralAsset];
-        // Validate collateral is enabled
-        require(collateralCTokenEnabled[_setToken][collateralCTokenAsset], "Collateral is not enabled");
-
-        ActionInfo memory actionInfo;
-        actionInfo.collateralCTokenAsset = collateralCTokenAsset;
-
-        actionInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName));
-        actionInfo.setTotalSupply = _setToken.totalSupply();
-        // Snapshot pre trade receive token balance.
-        actionInfo.preTradeReceiveTokenBalance = _collateralAsset.balanceOf(address(_setToken));
-        
-        // Calculate notional send quantity by comparing balance of COMP after claiming against the total notional units
-        // of COMP tracked on the SetToken
-        uint256 defaultCompPositionNotional = _setToken
-            .getDefaultPositionRealUnit(address(compToken))
-            .toUint256()
-            .preciseMul(actionInfo.setTotalSupply);
-
-        actionInfo.notionalSendQuantity = compToken.balanceOf(address(_setToken)).sub(defaultCompPositionNotional);
-        require(actionInfo.notionalSendQuantity > 0, "Claim is 0");
-
-        return actionInfo;
     }
 
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
