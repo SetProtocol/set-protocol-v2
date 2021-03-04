@@ -10,6 +10,7 @@ import {
   AaveWrapAdapter,
   UniswapPairPriceAdapter,
   UniswapV2ExchangeAdapter,
+  UniswapV2ExchangeAdapterV2,
   ZeroExApiAdapter,
 } from "../contracts";
 
@@ -25,6 +26,7 @@ import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/Aav
 import { AaveWrapAdapter__factory } from "../../typechain/factories/AaveWrapAdapter__factory";
 import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/UniswapPairPriceAdapter__factory";
 import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/UniswapV2ExchangeAdapter__factory";
+import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -51,6 +53,10 @@ export default class DeployAdapters {
 
   public async deployUniswapV2ExchangeAdapter(uniswapV2Router: Address): Promise<UniswapV2ExchangeAdapter> {
     return await new UniswapV2ExchangeAdapter__factory(this._deployerSigner).deploy(uniswapV2Router);
+  }
+
+  public async deployUniswapV2ExchangeAdapterV2(uniswapV2Router: Address): Promise<UniswapV2ExchangeAdapterV2> {
+    return await new UniswapV2ExchangeAdapterV2__factory(this._deployerSigner).deploy(uniswapV2Router);
   }
 
   public async deployAaveGovernanceAdapter(aaveProtoGovernance: Address, aaveToken: Address): Promise<AaveGovernanceAdapter> {
