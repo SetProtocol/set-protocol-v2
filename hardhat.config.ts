@@ -12,6 +12,7 @@ import "@nomiclabs/hardhat-waffle";
 import "hardhat-typechain";
 import "solidity-coverage";
 import "hardhat-deploy";
+import 'hardhat-contract-sizer';
 
 internalTask(TASK_COMPILE_SOLIDITY_COMPILE).setAction(setupNativeSolc);
 internalTask(TASK_TEST_SETUP_TEST_ENVIRONMENT).setAction(async function setupNativeSolc({ input }, { config }, runSuper) {
@@ -83,6 +84,11 @@ const config: HardhatUserConfig = {
   },
   mocha: {
     timeout: 100000,
+  },
+  contractSizer: {
+    alphaSort: true,
+    runOnCompile: true,
+    disambiguatePaths: false,
   }
 };
 

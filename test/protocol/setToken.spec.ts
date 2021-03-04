@@ -8,6 +8,7 @@ import { Account } from "@utils/test/types";
 import {
   ADDRESS_ZERO,
   ZERO,
+  ONE,
   EMPTY_BYTES,
   MODULE_STATE,
   POSITION_STATE,
@@ -21,12 +22,12 @@ import {
   divDown,
 } from "@utils/index";
 import {
+  cacheBeforeEach,
   getAccounts,
   getEthBalance,
   getRandomAccount,
   getRandomAddress,
   getWaffleExpect,
-  addSnapshotBeforeRestoreAfterEach,
 } from "@utils/test/index";
 
 const web3 = new Web3();
@@ -42,7 +43,7 @@ describe("SetToken", () => {
   let testAccount: Account;
   let deployer: DeployHelper;
 
-  before(async () => {
+  cacheBeforeEach(async () => {
     [
       owner,
       manager,
@@ -52,8 +53,6 @@ describe("SetToken", () => {
 
     deployer = new DeployHelper(owner.wallet);
   });
-
-  addSnapshotBeforeRestoreAfterEach();
 
   describe("constructor", async () => {
     let firstComponent: StandardTokenMock;
@@ -365,6 +364,16 @@ describe("SetToken", () => {
         await expect(subject()).to.emit(setToken, "ComponentAdded").withArgs(subjectComponent);
       });
 
+      describe("when there is a an already existing component", async () => {
+        beforeEach(async () => {
+          await setToken.addComponent(subjectComponent);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must not be component");
+        });
+      });
+
       shouldRevertIfModuleDisabled(subject);
       shouldRevertIfCallerIsNotModule(subject);
       shouldRevertIfSetTokenIsLocked(subject);
@@ -492,6 +501,16 @@ describe("SetToken", () => {
 
       it("should emit the PositionModuleAdded event", async () => {
         await expect(subject()).to.emit(setToken, "PositionModuleAdded").withArgs(subjectComponent, subjectExternalModule);
+      });
+
+      describe("when there is a an already existing component", async () => {
+        beforeEach(async () => {
+          await setToken.addExternalPositionModule(subjectComponent, subjectExternalModule);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Module already added");
+        });
       });
 
       shouldRevertIfModuleDisabled(subject);
@@ -711,7 +730,22 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be greater than 0");
+          await expect(subject()).to.be.revertedWith("New multiplier too small");
+        });
+      });
+
+      describe("when the positionMultiplier results in a real position unit = 0", async () => {
+        // When positionMultiplier x unit is < 10^18
+        beforeEach(async () => {
+          // Set a really small value
+          const smallPositionUnitValue = BigNumber.from(10 ** 2);
+          await setToken.editDefaultPositionUnit(firstComponent.address, smallPositionUnitValue);
+
+          subjectPositionMultiplier = ONE;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("New multiplier too small");
         });
       });
 
