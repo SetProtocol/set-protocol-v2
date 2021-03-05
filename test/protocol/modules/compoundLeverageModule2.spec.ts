@@ -1,5 +1,4 @@
 import "module-alias/register";
-import Web3 from "web3";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
@@ -14,7 +13,6 @@ import DeployHelper from "@utils/deploys";
 import {
   ether,
   preciseDiv,
-  preciseMul
 } from "@utils/index";
 import {
   cacheBeforeEach,
@@ -30,11 +28,9 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
 
 const expect = getWaffleExpect();
-const web3 = new Web3();
 
-describe("CompoundLeverageModule2", () => {
+describe("CompoundLeverageModule TestSuite 2", () => {
   let owner: Account;
-  let mockModule: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
   let compoundSetup: CompoundFixture;
@@ -46,7 +42,7 @@ describe("CompoundLeverageModule2", () => {
   let cDai: CERc20;
   let cComp: CERc20;
 
-  let tradeAdapterName = "TRADEMOCK";
+  const tradeAdapterName = "TRADEMOCK";
   let tradeMock: TradeAdapterMock;
 
   let cTokenInitialMantissa: BigNumber;
@@ -54,7 +50,6 @@ describe("CompoundLeverageModule2", () => {
   cacheBeforeEach(async () => {
     [
       owner,
-      mockModule,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -140,13 +135,11 @@ describe("CompoundLeverageModule2", () => {
   describe("#deleverToZeroBorrowBalance", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
-    let destinationTokenQuantity: BigNumber;
 
     let subjectSetToken: Address;
     let subjectCollateralAsset: Address;
     let subjectRepayAsset: Address;
     let subjectRedeemQuantity: BigNumber;
-    let subjectMinRepayQuantity: BigNumber;
     let subjectTradeAdapterName: string;
     let subjectTradeData: Bytes;
     let subjectCaller: Account;
@@ -172,7 +165,7 @@ describe("CompoundLeverageModule2", () => {
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
 
-        // Fund TradeAdapter with destinationToken WETH and DAI 
+        // Fund TradeAdapter with destinationToken WETH and DAI
         await setup.weth.transfer(tradeMock.address, ether(10));
         await setup.dai.transfer(tradeMock.address, ether(10000));
 
@@ -185,20 +178,12 @@ describe("CompoundLeverageModule2", () => {
         // Approve tokens to issuance module and call issue
         await cEther.approve(setup.issuanceModule.address, ether(1000));
 
-        // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 590 DAI regardless of Set supply
+        // Issue 1 SetToken.
         const issueQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Lever SetToken
         if (isInitialized) {
-          const leverTradeData = tradeMock.interface.encodeFunctionData("trade", [
-            setup.dai.address, // Send token
-            setup.weth.address, // Receive token
-            setToken.address, // Destination address
-            ether(590), // Send quantity
-            ether(1), // Min receive quantity
-          ]);
-
           await compoundLeverageModule.lever(
             setToken.address,
             setup.dai.address,
@@ -206,7 +191,7 @@ describe("CompoundLeverageModule2", () => {
             ether(590),
             ether(1),
             tradeAdapterName,
-            leverTradeData
+            EMPTY_BYTES
           );
         }
 
@@ -219,13 +204,7 @@ describe("CompoundLeverageModule2", () => {
         subjectRepayAsset = setup.dai.address;
         subjectRedeemQuantity = ether(1);
         subjectTradeAdapterName = tradeAdapterName;
-        subjectTradeData = tradeMock.interface.encodeFunctionData("trade", [
-          setup.weth.address, // Send token
-          setup.dai.address, // Receive token
-          setToken.address, // Destination address
-          subjectRedeemQuantity, // Send quantity
-          ZERO,
-        ]);
+        subjectTradeData = EMPTY_BYTES;
         subjectCaller = owner;
       };
 
@@ -253,7 +232,7 @@ describe("CompoundLeverageModule2", () => {
 
           await subject();
 
-          // cEther position is increased
+          // cEther position is decreased
           const currentPositions = await setToken.getPositions();
           const newFirstPosition = (await setToken.getPositions())[0];
 
@@ -293,16 +272,11 @@ describe("CompoundLeverageModule2", () => {
         });
 
         it("should update the borrow asset equity on the SetToken correctly", async () => {
-          const initialPositions = await setToken.getPositions();
-          const expectedRepayQuantity = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
-
           await subject();
 
           // The DAI position is positive and represents equity
-          const currentComponents = await setToken.getComponents();
-          const currentPositions = await setToken.getPositions();
           const newSecondPosition = (await setToken.getPositions())[1];
-          
+
           expect(newSecondPosition.component).to.eq(setup.dai.address);
           expect(newSecondPosition.positionState).to.eq(0); // Default
           expect(BigNumber.from(newSecondPosition.unit)).to.gt(ZERO);
@@ -341,6 +315,8 @@ describe("CompoundLeverageModule2", () => {
         //       expectedProtocolFee
         //   );
         // });
+
+        // When a third party
 
         describe("when the exchange is not valid", async () => {
           beforeEach(async () => {
@@ -497,7 +473,7 @@ describe("CompoundLeverageModule2", () => {
         // Approve tokens to issuance module and call issue
         await cDai.approve(setup.issuanceModule.address, ether(1000));
 
-        // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 590 DAI regardless of Set supply
+        // Issue 1 SetToken.
         const issueQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
@@ -530,15 +506,8 @@ describe("CompoundLeverageModule2", () => {
         subjectCollateralAsset = setup.dai.address;
         subjectRepayAsset = setup.weth.address;
         subjectRedeemQuantity = ether(590);
-        subjectMinRepayQuantity = destinationTokenQuantity;
         subjectTradeAdapterName = tradeAdapterName;
-        subjectTradeData = tradeMock.interface.encodeFunctionData("trade", [
-          setup.weth.address, // Send token
-          setup.dai.address, // Receive token
-          setToken.address, // Destination address
-          subjectRedeemQuantity, // Send quantity
-          ZERO,
-        ]);
+        subjectTradeData = EMPTY_BYTES;
         subjectCaller = owner;
       });
 
@@ -558,7 +527,7 @@ describe("CompoundLeverageModule2", () => {
 
         await subject();
 
-        // cEther position is increased
+        // cEther position is decreased
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
 
@@ -580,16 +549,11 @@ describe("CompoundLeverageModule2", () => {
       });
 
       it("should update the borrow asset equity on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
-        const expectedRepayQuantity = (await cDai.borrowBalanceStored(setToken.address)).mul(-1);
-
         await subject();
 
         // The DAI position is positive and represents equity
-        const currentComponents = await setToken.getComponents();
-        const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
-        
+
         expect(newSecondPosition.component).to.eq(setup.weth.address);
         expect(newSecondPosition.positionState).to.eq(0); // Default
         expect(BigNumber.from(newSecondPosition.unit)).to.gt(ZERO);
@@ -625,10 +589,7 @@ describe("CompoundLeverageModule2", () => {
       });
 
       it("should transfer the correct components from the exchange", async () => {
-        const oldDestinationTokenBalance = await setup.weth.balanceOf(tradeMock.address);
-
         await subject();
-        const totalDestinationQuantity = destinationTokenQuantity;
         const expectedDestinationTokenBalance = ZERO;
         const newDestinationTokenBalance = await setup.weth.balanceOf(tradeMock.address);
         expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
