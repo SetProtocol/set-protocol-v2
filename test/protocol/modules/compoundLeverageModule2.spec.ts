@@ -194,8 +194,6 @@ describe("CompoundLeverageModule TestSuite 2", () => {
             EMPTY_BYTES
           );
         }
-
-        destinationTokenQuantity = ether(590);
       };
 
       const initializeSubjectVariables = () => {
@@ -497,8 +495,6 @@ describe("CompoundLeverageModule TestSuite 2", () => {
             leverTradeData
           );
         }
-
-        destinationTokenQuantity = ether(1);
       });
 
       beforeEach(() => {
