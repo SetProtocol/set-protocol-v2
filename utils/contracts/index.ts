@@ -59,6 +59,7 @@ export { StandardTokenMock } from "../../typechain/StandardTokenMock";
 export { StandardTokenWithFeeMock } from "../../typechain/StandardTokenWithFeeMock";
 export { StreamingFeeModule } from "../../typechain/StreamingFeeModule";
 export { TradeModule } from "../../typechain/TradeModule";
+export { TradeAdapterMock } from "../../typechain/TradeAdapterMock";
 export { Uint256ArrayUtilsMock } from "../../typechain/Uint256ArrayUtilsMock";
 export { Uni } from "../../typechain/Uni";
 export { UniswapPairPriceAdapter } from "../../typechain/UniswapPairPriceAdapter";

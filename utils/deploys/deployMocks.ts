@@ -33,6 +33,7 @@ import {
   StakingAdapterMock,
   StandardTokenMock,
   StandardTokenWithFeeMock,
+  TradeAdapterMock,
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
   ZeroExMock,
@@ -70,6 +71,7 @@ import { ResourceIdentifierMock__factory } from "../../typechain/factories/Resou
 import { StakingAdapterMock__factory } from "../../typechain/factories/StakingAdapterMock__factory";
 import { StandardTokenMock__factory } from "../../typechain/factories/StandardTokenMock__factory";
 import { StandardTokenWithFeeMock__factory } from "../../typechain/factories/StandardTokenWithFeeMock__factory";
+import { TradeAdapterMock__factory } from "../../typechain/factories/TradeAdapterMock__factory";
 import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint256ArrayUtilsMock__factory";
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
 import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
@@ -209,6 +211,10 @@ export default class DeployMocks {
   ): Promise<StandardTokenWithFeeMock> {
     return await new StandardTokenWithFeeMock__factory(this._deployerSigner)
       .deploy(initialAccount, initialBalance, name, symbol, fee);
+  }
+
+  public async deployTradeAdapterMock(): Promise<TradeAdapterMock> {
+    return await new TradeAdapterMock__factory(this._deployerSigner).deploy();
   }
 
   public async deployAmmAdapterMock(_underlyingTokens: Address[]): Promise<AmmAdapterMock> {
