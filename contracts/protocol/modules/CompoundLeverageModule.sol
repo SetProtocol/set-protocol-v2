@@ -961,19 +961,12 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * Get borrow position. If should accrue interest is true, then accrue interest on Compound and use current borrow balance, else use the stored value to save gas.
      * Use the current value for debt redemption, when we need to calculate the exact units of debt that needs to be repaid.
-     *
-     * IMPORTANT: To account when preciseDivCeil rounds any remainder to -1, the unit will register as 0 on the SetToken and won't be removed. If the unit is -1, 
-     * round to 0 which will wipe the SetToken state. However, there will may be a unit of borrow balance in Compound which prevents this module from being removed.
-     * Managers can call the repayBorrowBehalf function on the cToken to wipe borrow balance instead.
      */
     function _getBorrowPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _setTotalSupply, bool _shouldAccrueInterest) internal returns (int256) {
         uint256 borrowNotionalBalance = _shouldAccrueInterest ? _cToken.borrowBalanceCurrent(address(_setToken)) : _cToken.borrowBalanceStored(address(_setToken));
         // Round negative away from 0
         int256 borrowPositionUnit = borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
 
-        if (borrowPositionUnit == -1) {
-            borrowPositionUnit = 0;
-        }
         return borrowPositionUnit;
     }
 }
