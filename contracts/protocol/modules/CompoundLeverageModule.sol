@@ -308,6 +308,72 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         );
     }
 
+    
+    function deleverExactRepay(
+        ISetToken _setToken,
+        IERC20 _collateralAsset,
+        IERC20 _repayAsset,
+        uint256 _redeemQuantity,
+        uint256 _notionalRepayQuantity,
+        uint256 _maxProtocolFeePercentage,
+        string memory _tradeAdapterName,
+        bytes memory _tradeData
+    )
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+    {
+        // Note: for delevering, send quantity is derived from collateral asset and receive quantity is derived from 
+        // repay asset
+        uint256 notionalRedeemQuantity = _redeemQuantity.mul(_seToken.totalSupply());
+        ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            notionalRedeemQuantity,
+            _notionalRepayQuantity,
+            _tradeAdapterName,
+            false
+        );
+
+        _redeemUnderlying(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, deleverInfo.notionalSendQuantity);
+
+        uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
+
+        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, _notionalRepayQuantity);
+
+        uint256 protocolFee = _accrueExactRepayProtocolFee(deleverInfo, _repayAsset, postTradeReceiveQuantity, _maxProtocolFeePercentage);
+
+        _updateLeverPositions(deleverInfo, _repayAsset);
+
+        emit LeverageDecreased(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            deleverInfo.exchangeAdapter,
+            deleverInfo.notionalSendQuantity,
+            repayQuantity,
+            protocolFee
+        );
+    }
+
+    /**
+     * Calculates protocol fee on module and pays protocol fee from SetToken
+     */
+    function _accrueExactRepayProtocolFee(ActionInfo memory _actionInfo, IERC20 _receiveToken, uint256 _exchangedQuantity, uint256 _maxProtocolFeePercentage) internal returns(uint256) {
+        uint256 protocolFee = _exchangedQuantity.sub(_actionInfo.repayQuantity);
+
+        uint256 minProtocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
+        uint256 maxProtocolFee = _maxProtocolFeePercentage.preciseMul(_exchangedQuantity);
+
+        require(protocolFee >= minProtocolFee, "ProtocolFee is lower than minimum");
+        require(protocolFee <= maxProtocolFee, "ProtocolFee is higher than maximum");
+        
+        payProtocolFeeFromSetToken(_setToken, address(_receiveToken), protocolFee);
+
+        return protocolFeeTotal;
+    }
+
     /**
      * CALLABLE BY ANYBODY: Sync Set positions with enabled Compound collateral and borrow positions. For collateral 
      * assets, update cToken default position. For borrow assets, update external borrow position.
