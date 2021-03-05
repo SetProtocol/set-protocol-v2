@@ -9,6 +9,7 @@ import {
   AmmAdapterMock,
   ClaimAdapterMock,
   ContractCallerMock,
+  CompoundMock,
   ComptrollerMock,
   DebtIssuanceMock,
   DebtModuleMock,
@@ -37,13 +38,14 @@ import {
   ZeroExMock,
 } from "../contracts";
 
-import { ether } from "../common";
+import { convertLibraryNameToLinkId, ether } from "../common";
 
 import { AaveLendingPoolCoreMock__factory } from "../../typechain/factories/AaveLendingPoolCoreMock__factory";
 import { AaveLendingPoolMock__factory } from "../../typechain/factories/AaveLendingPoolMock__factory";
 import { AddressArrayUtilsMock__factory } from "../../typechain/factories/AddressArrayUtilsMock__factory";
 import { AmmAdapterMock__factory } from "../../typechain/factories/AmmAdapterMock__factory";
 import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapterMock__factory";
+import { CompoundMock__factory } from "../../typechain/factories/CompoundMock__factory";
 import { ComptrollerMock__factory } from "../../typechain/factories/ComptrollerMock__factory";
 import { ContractCallerMock__factory } from "../../typechain/factories/ContractCallerMock__factory";
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
@@ -251,6 +253,18 @@ export default class DeployMocks {
       compAmount,
       cToken
     );
+  }
+
+  public async deployCompoundMock(libraryName: string, libraryAddress: Address): Promise<CompoundMock> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+
+    return await new CompoundMock__factory(
+      // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
   }
 
   /*************************************
