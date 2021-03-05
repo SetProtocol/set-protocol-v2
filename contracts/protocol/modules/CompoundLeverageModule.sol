@@ -118,9 +118,6 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // 0 index stores protocol fee % on the controller, charged in the trade function
     uint256 constant internal PROTOCOL_TRADE_FEE_INDEX = 0;
 
-    // Value to repay entire borrow balance on Compound
-    uint256 constant internal MAX_REPAY_VALUE = uint256(-1);
-
     /* ============ State Variables ============ */
 
     // Mapping of underlying to CToken. If ETH, then map WETH to cETH
@@ -311,7 +308,17 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         );
     }
 
-    // TODO: Add javadoc
+    /**
+     * MANAGER ONLY: Pays down the borrow asset to 0 selling off a given collateral asset. Any extra received
+     * borrow asset is updated as equity. No protocol fee is charged.
+     *
+     * @param _setToken             Instance of the SetToken
+     * @param _collateralAsset      Address of collateral asset (underlying of cToken)
+     * @param _repayAsset           Address of asset being repaid (underlying asset e.g. DAI)
+     * @param _redeemQuantity       Quantity of collateral asset to delever
+     * @param _tradeAdapterName     Name of trade adapter
+     * @param _tradeData            Arbitrary data for trade
+     */
     function deleverToZeroBorrowBalance(
         ISetToken _setToken,
         IERC20 _collateralAsset,
@@ -325,7 +332,10 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         onlyManagerAndValidSet(_setToken)
     {
         uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(_setToken.totalSupply());
+        
+        require(borrowCTokenEnabled[_setToken][underlyingToCToken[_repayAsset]], "Borrow not enabled");
         uint256 notionalRepayQuantity = underlyingToCToken[_repayAsset].borrowBalanceCurrent(address(_setToken));
+
         ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
             _setToken,
             _collateralAsset,
@@ -340,15 +350,17 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
         uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
 
-        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, MAX_REPAY_VALUE);
+        // We use notionalRepayQuantity vs. Compound's max value uint256(-1) to handle WETH properly
+        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, notionalRepayQuantity);
 
-        _updateLeverPositions(deleverInfo, _repayAsset);
-
+        // Update default position first to save gas on editing borrow position
         _setToken.calculateAndEditDefaultPosition(
             address(_repayAsset),
             deleverInfo.setTotalSupply,
             deleverInfo.preTradeReceiveTokenBalance
         );
+
+        _updateLeverPositions(deleverInfo, _repayAsset);
 
         emit LeverageDecreased(
             _setToken,
