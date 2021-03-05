@@ -118,6 +118,9 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // 0 index stores protocol fee % on the controller, charged in the trade function
     uint256 constant internal PROTOCOL_TRADE_FEE_INDEX = 0;
 
+    // Value to repay entire borrow balance on Compound
+    uint256 constant internal MAX_REPAY_VALUE = uint256(-1);
+
     /* ============ State Variables ============ */
 
     // Mapping of underlying to CToken. If ETH, then map WETH to cETH
@@ -305,6 +308,56 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             deleverInfo.notionalSendQuantity,
             repayQuantity,
             protocolFee
+        );
+    }
+
+    // TODO: Add javadoc
+    function deleverToZeroBorrowBalance(
+        ISetToken _setToken,
+        IERC20 _collateralAsset,
+        IERC20 _repayAsset,
+        uint256 _redeemQuantity,
+        string memory _tradeAdapterName,
+        bytes memory _tradeData
+    )
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+    {
+        uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(_setToken.totalSupply());
+        uint256 notionalRepayQuantity = underlyingToCToken[_repayAsset].borrowBalanceCurrent(address(_setToken));
+        ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            notionalRedeemQuantity,
+            notionalRepayQuantity,
+            _tradeAdapterName,
+            false
+        );
+
+        _redeemUnderlying(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, deleverInfo.notionalSendQuantity);
+
+        uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
+
+        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, MAX_REPAY_VALUE);
+
+        _updateLeverPositions(deleverInfo, _repayAsset);
+
+        _setToken.calculateAndEditDefaultPosition(
+            address(_repayAsset),
+            deleverInfo.setTotalSupply,
+            deleverInfo.preTradeReceiveTokenBalance
+        );
+
+        emit LeverageDecreased(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            deleverInfo.exchangeAdapter,
+            deleverInfo.notionalSendQuantity,
+            notionalRepayQuantity,
+            0 // No protocol fee
         );
     }
 
