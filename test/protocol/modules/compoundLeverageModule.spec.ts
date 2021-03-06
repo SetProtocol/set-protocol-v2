@@ -746,44 +746,6 @@ describe("CompoundLeverageModule", () => {
           });
         });
 
-        describe("when levering only 1 wei", async () => {
-          cacheBeforeEach(async () => {
-            // Add Set token as token sender / recipient
-            oneInchExchangeMockOneWei = oneInchExchangeMockOneWei.connect(owner.wallet);
-            await oneInchExchangeMockOneWei.addSetTokenAddress(setToken.address);
-
-            // Fund One Inch exchange with destinationToken WETH
-            await setup.weth.transfer(oneInchExchangeMockOneWei.address, ether(10));
-            subjectBorrowQuantity = BigNumber.from(1);
-            subjectTradeAdapterName = "ONEINCHWEI";
-            subjectTradeData = oneInchExchangeMockOneWei.interface.encodeFunctionData("swap", [
-              setup.dai.address, // Send token
-              setup.weth.address, // Receive token
-              BigNumber.from(1), // Send quantity
-              subjectMinCollateralQuantity, // Min receive quantity
-              ZERO,
-              ADDRESS_ZERO,
-              [ADDRESS_ZERO],
-              EMPTY_BYTES,
-              [ZERO],
-              [ZERO],
-            ]);
-          });
-
-          it("should not update the borrow position on the SetToken", async () => {
-            const initialPositions = await setToken.getPositions();
-
-            await subject();
-
-            const currentPositions = await setToken.getPositions();
-            const borrowBalance = await cDai.borrowBalanceStored(setToken.address);
-
-            expect(initialPositions.length).to.eq(1);
-            expect(currentPositions.length).to.eq(1);
-            expect(borrowBalance).to.eq(1);
-          });
-        });
-
         describe("when there is a protocol fee charged", async () => {
           let feePercentage: BigNumber;
 

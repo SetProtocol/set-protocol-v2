@@ -309,6 +309,71 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
+     * MANAGER ONLY: Pays down the borrow asset to 0 selling off a given collateral asset. Any extra received
+     * borrow asset is updated as equity. No protocol fee is charged.
+     *
+     * @param _setToken             Instance of the SetToken
+     * @param _collateralAsset      Address of collateral asset (underlying of cToken)
+     * @param _repayAsset           Address of asset being repaid (underlying asset e.g. DAI)
+     * @param _redeemQuantity       Quantity of collateral asset to delever
+     * @param _tradeAdapterName     Name of trade adapter
+     * @param _tradeData            Arbitrary data for trade
+     */
+    function deleverToZeroBorrowBalance(
+        ISetToken _setToken,
+        IERC20 _collateralAsset,
+        IERC20 _repayAsset,
+        uint256 _redeemQuantity,
+        string memory _tradeAdapterName,
+        bytes memory _tradeData
+    )
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+    {
+        uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(_setToken.totalSupply());
+        
+        require(borrowCTokenEnabled[_setToken][underlyingToCToken[_repayAsset]], "Borrow not enabled");
+        uint256 notionalRepayQuantity = underlyingToCToken[_repayAsset].borrowBalanceCurrent(address(_setToken));
+
+        ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            notionalRedeemQuantity,
+            notionalRepayQuantity,
+            _tradeAdapterName,
+            false
+        );
+
+        _redeemUnderlying(deleverInfo.setToken, deleverInfo.collateralCTokenAsset, deleverInfo.notionalSendQuantity);
+
+        uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
+
+        // We use notionalRepayQuantity vs. Compound's max value uint256(-1) to handle WETH properly
+        _repayBorrow(deleverInfo.setToken, deleverInfo.borrowCTokenAsset, _repayAsset, notionalRepayQuantity);
+
+        // Update default position first to save gas on editing borrow position
+        _setToken.calculateAndEditDefaultPosition(
+            address(_repayAsset),
+            deleverInfo.setTotalSupply,
+            deleverInfo.preTradeReceiveTokenBalance
+        );
+
+        _updateLeverPositions(deleverInfo, _repayAsset);
+
+        emit LeverageDecreased(
+            _setToken,
+            _collateralAsset,
+            _repayAsset,
+            deleverInfo.exchangeAdapter,
+            deleverInfo.notionalSendQuantity,
+            notionalRepayQuantity,
+            0 // No protocol fee
+        );
+    }
+
+    /**
      * CALLABLE BY ANYBODY: Sync Set positions with enabled Compound collateral and borrow positions. For collateral 
      * assets, update cToken default position. For borrow assets, update external borrow position.
      * - Collateral assets may come out of sync when a position is liquidated
@@ -896,19 +961,12 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * Get borrow position. If should accrue interest is true, then accrue interest on Compound and use current borrow balance, else use the stored value to save gas.
      * Use the current value for debt redemption, when we need to calculate the exact units of debt that needs to be repaid.
-     *
-     * IMPORTANT: To account when preciseDivCeil rounds any remainder to -1, the unit will register as 0 on the SetToken and won't be removed. If the unit is -1, 
-     * round to 0 which will wipe the SetToken state. However, there will may be a unit of borrow balance in Compound which prevents this module from being removed.
-     * Managers can call the repayBorrowBehalf function on the cToken to wipe borrow balance instead.
      */
     function _getBorrowPosition(ISetToken _setToken, ICErc20 _cToken, uint256 _setTotalSupply, bool _shouldAccrueInterest) internal returns (int256) {
         uint256 borrowNotionalBalance = _shouldAccrueInterest ? _cToken.borrowBalanceCurrent(address(_setToken)) : _cToken.borrowBalanceStored(address(_setToken));
         // Round negative away from 0
         int256 borrowPositionUnit = borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
 
-        if (borrowPositionUnit == -1) {
-            borrowPositionUnit = 0;
-        }
         return borrowPositionUnit;
     }
 }
