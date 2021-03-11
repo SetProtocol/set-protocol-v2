@@ -797,6 +797,8 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * Invokes approvals, gets trade call data from exchange adapter and invokes trade from SetToken
+     *
+     * @return receiveTokenQuantity The quantity of tokens received post-trade
      */
     function _executeTrade(
         ActionInfo memory _actionInfo,
@@ -851,6 +853,9 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         return protocolFeeTotal;
     }
 
+    /**
+     * Updates the collateral (cToken held) and borrow position (underlying owed on Compound)
+     */
     function _updateLeverPositions(ActionInfo memory actionInfo, IERC20 _borrowAsset) internal {
         _updateCollateralPosition(
             actionInfo.setToken,
