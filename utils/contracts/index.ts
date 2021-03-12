@@ -19,9 +19,13 @@ export { ComptrollerMock } from "../../typechain/ComptrollerMock";
 export { ContractCallerMock } from "../../typechain/ContractCallerMock";
 export { Controller } from "../../typechain/Controller";
 export { CurveStakingAdapter } from "../../typechain/CurveStakingAdapter";
+<<<<<<< HEAD
 export { DebtIssuanceMock } from "../../typechain/DebtIssuanceMock";
 export { DebtIssuanceModule } from "../../typechain/DebtIssuanceModule";
 export { DebtModuleMock } from "../../typechain/DebtModuleMock";
+=======
+export { DelegateRegistry } from "../../typechain/DelegateRegistry";
+>>>>>>> add delegate function
 export { ExplicitERC20Mock } from "../../typechain/ExplicitERC20Mock";
 export { GaugeControllerMock } from "../../typechain/GaugeControllerMock";
 export { GodModeMock } from "../../typechain/GodModeMock";
