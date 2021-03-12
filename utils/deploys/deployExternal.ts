@@ -109,6 +109,9 @@ import { BFactory__factory } from "../../typechain/factories/BFactory__factory";
 import { BRegistry__factory } from "../../typechain/factories/BRegistry__factory";
 import { ExchangeProxy__factory } from "../../typechain/factories/ExchangeProxy__factory";
 
+import { DelegateRegistry } from "../contracts";
+import { DelegateRegistry__factory } from "../../typechain/factories/DelegateRegistry__factory";
+
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
 
@@ -433,5 +436,9 @@ export default class DeployExternalContracts {
 
   public async deployBRegistry(factory: Address): Promise<BRegistry> {
     return await new BRegistry__factory(this._deployerSigner).deploy(factory);
+  }
+
+  public async deployDelegateRegistry(): Promise<DelegateRegistry> {
+    return await new DelegateRegistry__factory(this._deployerSigner).deploy();
   }
 }
