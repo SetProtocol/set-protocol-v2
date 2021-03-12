@@ -12,7 +12,6 @@ import {
   IssuanceModule,
   NavIssuanceModule,
   SingleIndexModule,
-  SnapshotDelegationModule,
   StakingModule,
   StreamingFeeModule,
   TradeModule,
@@ -31,7 +30,6 @@ import { GovernanceModule__factory } from "../../typechain/factories/GovernanceM
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
 import { SingleIndexModule__factory } from "../../typechain/factories/SingleIndexModule__factory";
-import { SnapshotDelegationModule__factory } from "../../typechain/factories/SnapshotDelegationModule__factory";
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
 import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
