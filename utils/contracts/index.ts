@@ -56,7 +56,7 @@ export { SetToken } from "../../typechain/SetToken";
 export { SetTokenCreator } from "../../typechain/SetTokenCreator";
 export { SetValuer } from "../../typechain/SetValuer";
 export { SingleIndexModule } from "../../typechain/SingleIndexModule";
-export { SnapshotDelegationModule } from "../../typechain/SnapshotDelegationModule";
+export { SnapshotGovernanceAdapter } from "../../typechain/SnapshotGovernanceAdapter";
 export { StakingAdapterMock } from "../../typechain/StakingAdapterMock";
 export { StakingModule } from "../../typechain/StakingModule";
 export { StakingRewards } from "../../typechain/StakingRewards";
