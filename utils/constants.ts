@@ -16,6 +16,7 @@ export const POSITION_STATE = {
 
 export const ADDRESS_ZERO = AddressZero;
 export const EMPTY_BYTES = "0x";
+export const ZERO_BYTES = "0x0000000000000000000000000000000000000000000000000000000000000000";
 export const MAX_UINT_256 = MaxUint256;
 export const ONE = One;
 export const TWO = Two;
