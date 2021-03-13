@@ -3,7 +3,7 @@ import "module-alias/register";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { DelegateRegistry, SnapshotGovernanceAdapter } from "@utils/contracts";
-import { ZERO } from "@utils/constants";
+import { ZERO, ZERO_BYTES } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
   addSnapshotBeforeRestoreAfterEach,
@@ -13,7 +13,6 @@ import {
   getSystemFixture,
 } from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
-import { BytesLike } from "@ethersproject/bytes";
 
 const expect = getWaffleExpect();
 
@@ -21,8 +20,6 @@ describe("SnapshotDelegationModule", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
-
-  const ZERO_ID: BytesLike = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   let snapshotGovernanceAdapter: SnapshotGovernanceAdapter;
   let delegateRegistry: DelegateRegistry;
@@ -55,7 +52,7 @@ describe("SnapshotDelegationModule", () => {
 
     it("should return correct data for delegating", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = delegateRegistry.interface.encodeFunctionData("setDelegate", [ZERO_ID, subjectDelegatee]);
+      const expectedCallData = delegateRegistry.interface.encodeFunctionData("setDelegate", [ZERO_BYTES, subjectDelegatee]);
 
       expect(targetAddress).to.eq(delegateRegistry.address);
       expect(ethValue).to.eq(ZERO);
@@ -71,7 +68,7 @@ describe("SnapshotDelegationModule", () => {
 
     it("should return correct data for removing delegate", async () => {
       const [targetAddress, ethValue, callData] = await subject();
-      const expectedCallData = delegateRegistry.interface.encodeFunctionData("clearDelegate", [ZERO_ID]);
+      const expectedCallData = delegateRegistry.interface.encodeFunctionData("clearDelegate", [ZERO_BYTES]);
 
       expect(targetAddress).to.eq(delegateRegistry.address);
       expect(ethValue).to.eq(ZERO);

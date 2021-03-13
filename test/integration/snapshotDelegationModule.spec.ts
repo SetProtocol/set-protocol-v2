@@ -3,7 +3,7 @@ import "module-alias/register";
 import { ContractTransaction, Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { SetToken, DelegateRegistry, GovernanceModule, SnapshotGovernanceAdapter } from "@utils/contracts";
-import { ADDRESS_ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO_BYTES } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
 import {
@@ -21,8 +21,6 @@ describe("SnapshotDelegationModule", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
-
-  const ZERO_ID = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   const snapshotGovernanceAdapterIntegrationName: string = "SNAPSHOT";
 
@@ -85,7 +83,7 @@ describe("SnapshotDelegationModule", () => {
 
     it("should update delegation", async () => {
       await subject();
-      const delegate = await delegateRegistry.delegation(subjectSetToken.address, ZERO_ID);
+      const delegate = await delegateRegistry.delegation(subjectSetToken.address, ZERO_BYTES);
       expect(delegate).to.eq(subjectDelegate);
     });
 
@@ -123,7 +121,7 @@ describe("SnapshotDelegationModule", () => {
 
     it("should update delegation to zero address", async () => {
       await subject();
-      const delegate = await delegateRegistry.delegation(subjectSetToken.address, ZERO_ID);
+      const delegate = await delegateRegistry.delegation(subjectSetToken.address, ZERO_BYTES);
       expect(delegate).to.eq(ADDRESS_ZERO);
     });
 

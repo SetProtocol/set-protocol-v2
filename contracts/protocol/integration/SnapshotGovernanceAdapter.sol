@@ -1,7 +1,25 @@
+/*
+    Copyright 2020 Set Labs Inc.
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+    SPDX-License-Identifier: Apache License, Version 2.0
+*/
+
+/**
+ * @title SnapshotGovernanceAdapter
+ * @author Noah Citron
+ *
+ * Governance adapter for Snapshot delegation that returns data delegating and revoking delegations
+ */
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
-
-import { DelegateRegistry } from "../../../external/contracts/snapshot/DelegateRegistry.sol";
 
 
 contract SnapshotGovernanceAdapter {
@@ -19,7 +37,7 @@ contract SnapshotGovernanceAdapter {
 
     /* ============ State Variables ============ */
 
-    DelegateRegistry public delegateRegistry;
+    address public delegateRegistry;
 
     /* ============ Constructor ============ */
 
@@ -28,20 +46,20 @@ contract SnapshotGovernanceAdapter {
      *
      * @param _delegateRegistry    Address of the Snapshot DelegateRegistry
      */
-    constructor(DelegateRegistry _delegateRegistry) public {
+    constructor(address _delegateRegistry) public {
         delegateRegistry = _delegateRegistry;
     }
 
     /* ============ External Getter Functions ============ */
 
     /**
-     * Generates the calldata to deletgate Snapshot votes to another ETH address
+     * Generates the calldata to delegate Snapshot votes to another ETH address
      *
      * @param _delegatee            Address of the delegatee
      *
      * @return address              Target contract address
      * @return uint256              Total quantity of ETH (Set to 0)
-     * @return bytes                Propose calldata
+     * @return bytes                Delegate calldata
      */
     function getDelegateCalldata(address _delegatee) external view returns (address, uint256, bytes memory) {
         // setDelegate(bytes32 _id, address _delegatee)
@@ -55,7 +73,7 @@ contract SnapshotGovernanceAdapter {
      *
      * @return address              Target contract address
      * @return uint256              Total quantity of ETH (Set to 0)
-     * @return bytes                Propose calldata
+     * @return bytes                Revoke calldata
      */
      function getRevokeCalldata() external view returns (address, uint256, bytes memory) {
          // clearDelegate(bytes32 _id)
