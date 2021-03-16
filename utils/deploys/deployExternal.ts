@@ -15,7 +15,8 @@ import {
   WhitePaperInterestRateModel
 } from "./../contracts/compound";
 import {
-  WETH9
+  WETH9,
+  DelegateRegistry
 } from "./../contracts";
 
 import { Address } from "./../types";
@@ -109,7 +110,6 @@ import { BFactory__factory } from "../../typechain/factories/BFactory__factory";
 import { BRegistry__factory } from "../../typechain/factories/BRegistry__factory";
 import { ExchangeProxy__factory } from "../../typechain/factories/ExchangeProxy__factory";
 
-import { DelegateRegistry } from "../contracts";
 import { DelegateRegistry__factory } from "../../typechain/factories/DelegateRegistry__factory";
 
 export default class DeployExternalContracts {
