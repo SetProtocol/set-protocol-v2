@@ -1,5 +1,3 @@
-pragma solidity ^0.6.10;
-
 /*
     Copyright 2021 Set Labs Inc.
 
@@ -17,6 +15,8 @@ pragma solidity ^0.6.10;
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
+
+pragma solidity 0.6.10;
 
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SynthMock } from "./SynthMock.sol";
