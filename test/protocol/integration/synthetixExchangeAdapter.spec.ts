@@ -242,16 +242,6 @@ describe("SynthetixExchangeAdapter", () => {
         .eq(JSON.stringify([exchanger.address, ZERO, expectedCallData]));
     });
 
-    describe("when source quantity is zero", () => {
-      beforeEach(() => {
-        subjectSourceQuantity = ZERO;
-      });
-
-      it("it should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Source token quantity must be greater than 0");
-      });
-    });
-
     describe("when source token and destination token addresses are the same", () => {
       beforeEach(() => {
         subjectSourceToken = sEth.address;

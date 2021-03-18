@@ -85,11 +85,6 @@ contract SynthetixExchangeAdapter {
         SynthetixTradeInfo memory synthetixTradeInfo;
 
         require(
-            _sourceQuantity > 0,
-            "Source token quantity must be greater than 0"
-        );
-
-        require(
             _sourceToken != _destinationToken,
             "Source token cannot be same as destination token"
         );
