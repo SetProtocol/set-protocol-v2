@@ -160,7 +160,7 @@ describe("SynthetixExchangeAdapter", () => {
       });
 
       it("it should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Invalid source token address");
+        await expect(subject()).to.be.revertedWith("Invalid Synth token address");
       });
     });
 
@@ -171,7 +171,7 @@ describe("SynthetixExchangeAdapter", () => {
       });
 
       it("it should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Invalid destination token address");
+        await expect(subject()).to.be.revertedWith("Invalid Synth token address");
       });
     });
   });
@@ -260,7 +260,7 @@ describe("SynthetixExchangeAdapter", () => {
       });
 
       it("it should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Invalid source token address");
+        await expect(subject()).to.be.revertedWith("Invalid Synth token address");
       });
     });
 
@@ -271,7 +271,7 @@ describe("SynthetixExchangeAdapter", () => {
       });
 
       it("it should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Invalid destination token address");
+        await expect(subject()).to.be.revertedWith("Invalid Synth token address");
       });
     });
   });

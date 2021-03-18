@@ -89,23 +89,8 @@ contract SynthetixExchangeAdapter {
             "Source token cannot be same as destination token"
         );
 
-        try ISynth(_sourceToken).currencyKey() returns (bytes32 key){
-
-            synthetixTradeInfo.sourceCurrencyKey = key;
-
-        } catch (bytes memory /* data */) {
-
-            revert("Invalid source token address");
-        }
-
-        try ISynth(_destinationToken).currencyKey() returns (bytes32 key){
-
-            synthetixTradeInfo.destinationCurrencyKey = key;
-
-        } catch (bytes memory /* data */) {
-
-            revert("Invalid destination token address");
-        }
+        synthetixTradeInfo.sourceCurrencyKey = _getCurrencyKey(_sourceToken);
+        synthetixTradeInfo.destinationCurrencyKey = _getCurrencyKey(_destinationToken);
 
         // Encode method data for SetToken to invoke
         bytes memory methodData = abi.encodeWithSignature(
@@ -155,28 +140,32 @@ contract SynthetixExchangeAdapter {
     {
         SynthetixTradeInfo memory synthetixTradeInfo;
 
-        try ISynth(_sourceToken).currencyKey() returns (bytes32 key){
-
-            synthetixTradeInfo.sourceCurrencyKey = key;
-
-        } catch (bytes memory /* data */) {
-
-            revert("Invalid source token address");
-        }
-
-        try ISynth(_destinationToken).currencyKey() returns (bytes32 key){
-
-            synthetixTradeInfo.destinationCurrencyKey = key;
-
-        } catch (bytes memory /* data */) {
-
-            revert("Invalid destination token address");
-        }
+        synthetixTradeInfo.sourceCurrencyKey = _getCurrencyKey(_sourceToken);
+        synthetixTradeInfo.destinationCurrencyKey = _getCurrencyKey(_destinationToken);
 
         (amountReceived,,) = ISynthetixExchanger(synthetixExchangerAddress).getAmountsForExchange(
             _sourceQuantity,
             synthetixTradeInfo.sourceCurrencyKey,
             synthetixTradeInfo.destinationCurrencyKey
         );
+    }
+
+    /* ============ Internal Functions ============ */
+
+    /**
+     * Gets the Synthetix currency key for _token
+     *
+     * @param _token  Address of token to get currency key for
+     */
+    function _getCurrencyKey(address _token) internal view returns (bytes32) {
+
+        try ISynth(_token).currencyKey() returns (bytes32 key){
+
+            return key;
+
+        } catch (bytes memory /* data */) {
+
+            revert("Invalid Synth token address");
+        }
     }
 }
