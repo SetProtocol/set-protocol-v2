@@ -1,4 +1,4 @@
-import { Address } from "../types";
+import { Address, Bytes } from "../types";
 import { Signer } from "ethers";
 import { BigNumberish, BigNumber } from "@ethersproject/bignumber";
 
@@ -34,6 +34,8 @@ import {
   StandardTokenMock,
   StandardTokenWithFeeMock,
   TradeAdapterMock,
+  SynthMock,
+  SynthetixExchangerMock,
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
   ZeroExMock,
@@ -75,6 +77,8 @@ import { TradeAdapterMock__factory } from "../../typechain/factories/TradeAdapte
 import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint256ArrayUtilsMock__factory";
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
 import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
+import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory";
+import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -271,6 +275,38 @@ export default class DeployMocks {
       },
       this._deployerSigner
     ).deploy();
+  }
+
+  public async deploySynthMock(
+    initialAccount: Address,
+    currencyKey: Bytes,
+    initialBalance: BigNumberish = ether(1000000000),
+    name: string = "Token",
+    symbol: string = "Symbol",
+  ): Promise<SynthMock> {
+    return await new SynthMock__factory(this._deployerSigner)
+      .deploy(initialAccount, initialBalance, name, symbol, 18, currencyKey);
+  }
+
+  public async deploySynthetixExchangerMock(
+    sUsd: Address,
+    sEth: Address,
+    sBtc: Address,
+    currencyKeys: any,
+    rates: any
+  ): Promise <SynthetixExchangerMock> {
+    return await new SynthetixExchangerMock__factory(this._deployerSigner).deploy(
+      sUsd,
+      sEth,
+      sBtc,
+      currencyKeys.sUsd,
+      currencyKeys.sEth,
+      currencyKeys.sBtc,
+      rates.usd.eth,
+      rates.eth.usd,
+      rates.usd.btc,
+      rates.btc.usd
+    );
   }
 
   /*************************************
