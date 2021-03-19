@@ -29,6 +29,30 @@ contract ZeroExMock {
         bytes data;
     }
 
+    struct BatchFillData {
+        address inputToken;
+        address outputToken;
+        uint256 sellAmount;
+        WrappedBatchCall[] calls;
+    }
+
+    struct WrappedBatchCall {
+        bytes4 selector;
+        uint256 sellAmount;
+        bytes data;
+    }
+
+    struct MultiHopFillData {
+        address[] tokens;
+        uint256 sellAmount;
+        WrappedMultiHopCall[] calls;
+    }
+
+    struct WrappedMultiHopCall {
+        bytes4 selector;
+        bytes data;
+    }
+
     address public mockReceiveToken;
     address public mockSendToken;
     uint256 public mockReceiveAmount;
@@ -64,8 +88,7 @@ contract ZeroExMock {
         payable
         returns (uint256)
     {
-        require(ERC20(mockSendToken).transferFrom(setTokenAddress, address(this), mockSendAmount), "ERC20 TransferFrom failed");
-        require(ERC20(mockReceiveToken).transfer(setTokenAddress, mockReceiveAmount), "ERC20 transfer failed");
+        _transferTokens();
     }
 
     function sellToUniswap(
@@ -78,8 +101,7 @@ contract ZeroExMock {
         payable
         returns (uint256)
     {
-        require(ERC20(mockSendToken).transferFrom(setTokenAddress, address(this), mockSendAmount), "ERC20 TransferFrom failed");
-        require(ERC20(mockReceiveToken).transfer(setTokenAddress, mockReceiveAmount), "ERC20 transfer failed");
+        _transferTokens();
     }
 
     function sellToLiquidityProvider(
@@ -94,6 +116,34 @@ contract ZeroExMock {
         external
         payable
         returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function batchFill(
+        BatchFillData memory /* fillData */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiHopFill(
+        MultiHopFillData memory /* fillData */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function _transferTokens()
+        private
     {
         require(ERC20(mockSendToken).transferFrom(setTokenAddress, address(this), mockSendAmount), "ERC20 TransferFrom failed");
         require(ERC20(mockReceiveToken).transfer(setTokenAddress, mockReceiveAmount), "ERC20 transfer failed");
