@@ -28,6 +28,30 @@ pragma experimental "ABIEncoderV2";
 
 contract ZeroExApiAdapter {
 
+    struct BatchFillData {
+        address inputToken;
+        address outputToken;
+        uint256 sellAmount;
+        WrappedBatchCall[] calls;
+    }
+
+    struct WrappedBatchCall {
+        bytes4 selector;
+        uint256 sellAmount;
+        bytes data;
+    }
+
+    struct MultiHopFillData {
+        address[] tokens;
+        uint256 sellAmount;
+        WrappedMultiHopCall[] calls;
+    }
+
+    struct WrappedMultiHopCall {
+        bytes4 selector;
+        bytes data;
+    }
+
     /* ============ State Variables ============ */
 
     // ETH pseudo-token address used by 0x API.
@@ -111,6 +135,23 @@ contract ZeroExApiAdapter {
                 require(path.length > 1, "Uniswap token path too short");
                 inputToken = path[0];
                 outputToken = path[path.length - 1];
+            } else if (selector == 0xafc6728e) {
+                // batchFill()
+                BatchFillData memory fillData;
+                (fillData, minOutputTokenAmount) =
+                    abi.decode(_data[4:], (BatchFillData, uint256));
+                inputToken = fillData.inputToken;
+                outputToken = fillData.outputToken;
+                inputTokenAmount = fillData.sellAmount;
+            } else if (selector == 0x21c184b6) {
+                // multiHopFill()
+                MultiHopFillData memory fillData;
+                (fillData, minOutputTokenAmount) =
+                    abi.decode(_data[4:], (MultiHopFillData, uint256));
+                require(fillData.tokens.length > 1, "Multihop token path too short");
+                inputToken = fillData.tokens[0];
+                outputToken = fillData.tokens[fillData.tokens.length - 1];
+                inputTokenAmount = fillData.sellAmount;
             } else {
                 revert("Unsupported 0xAPI function selector");
             }
