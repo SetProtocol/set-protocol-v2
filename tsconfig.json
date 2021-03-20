@@ -16,7 +16,13 @@
         "@typechain/*": ["typechain/*"],
     }
   },
-  "include": ["./test/**/*.ts", "./utils/**/*.ts", "./deploy/**/*.ts", "./typechain/**/*.ts"],
+  "include": [
+    "./test/**/*.ts",
+    "./utils/**/*.ts",
+    "./deploy/**/*.ts",
+    "./typechain/**/*.ts",
+    "./tasks/**/*.ts"
+  ],
   "files": [
     "hardhat.config.ts",
   ]
