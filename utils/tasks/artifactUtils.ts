@@ -1,8 +1,9 @@
 import type { ethers } from "ethers";
 import { NetworkConfig } from "hardhat/types";
 
+
 // Adds a `gas` field to the ABI function elements so that ethers doesn't
-// automatically estimate gas limits on every call (since these duplicate vm execution costs).
+// automatically estimate gas limits on every call. Halves execution time.
 // (Borrowed from hardhat-ethers/src/internal/helpers.ts)
 export function addGasToAbiMethods(
   networkConfig: NetworkConfig,
@@ -11,7 +12,17 @@ export function addGasToAbiMethods(
   const { BigNumber } = require("ethers") as typeof ethers;
 
   // Stay well under network limit b/c ethers adds a margin
-  const gasLimit = BigNumber.from(networkConfig.gas).sub(1000000).toHexString();
+  // Also need special setting logic for coverage b/c it compiles
+  // before configuring the network with higher gas values.
+  let gas: number;
+  if (process.env.COVERAGE === "true") {
+    const CoverageAPI: any = require("solidity-coverage/api");
+    gas = new CoverageAPI().gasLimit as number;
+  } else {
+    gas = networkConfig.gas as number;
+  }
+
+  const gasLimit = BigNumber.from(gas).sub(1000000).toHexString();
 
   const modifiedAbi: any[] = [];
 
