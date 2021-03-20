@@ -6,9 +6,7 @@ let isFirstRun = true;
 export async function setupNativeSolc({ input }, { config }, runSuper) {
   let solcVersionOutput = "";
   try {
-    if (isFirstRun) {
-      solcVersionOutput = execSync(`solc --version`).toString();
-    }
+    solcVersionOutput = execSync(`solc --version`).toString();
   } catch (error) {
     // Probably failed because solc wasn"t installed. We do nothing here.
   }
