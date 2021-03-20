@@ -565,6 +565,26 @@ describe("ZeroExApiAdapter", () => {
         await expect(tx).to.be.revertedWith("Mismatched input token");
       });
 
+      it("rejects went path too short", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
+          {
+              tokens: [sourceToken],
+              sellAmount: sourceQuantity,
+              calls: [],
+          },
+          minDestinationQuantity,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Multihop token path too short");
+      });
+
       it("rejects wrong output token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
           {
