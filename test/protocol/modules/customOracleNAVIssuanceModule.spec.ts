@@ -34,7 +34,7 @@ import { ERC20__factory } from "../../../typechain/factories/ERC20__factory";
 
 const expect = getWaffleExpect();
 
-describe.only("CustomOracleNavIssuanceModule", () => {
+describe("CustomOracleNavIssuanceModule", () => {
   let owner: Account;
   let feeRecipient: Account;
   let recipient: Account;
