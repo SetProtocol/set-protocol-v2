@@ -5,8 +5,9 @@ import {
   AirdropModule,
   AmmModule,
   BasicIssuanceModule,
-  CompoundLeverageModule,
   ClaimModule,
+  CompoundLeverageModule,
+  CustomOracleNavIssuanceModule,
   DebtIssuanceModule,
   GovernanceModule,
   IssuanceModule,
@@ -23,8 +24,9 @@ import { Address } from "../types";
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
-import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
 import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__factory";
+import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
+import { CustomOracleNavIssuanceModule__factory } from "../../typechain/factories/CustomOracleNavIssuanceModule__factory";
 import { DebtIssuanceModule__factory } from "../../typechain/factories/DebtIssuanceModule__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
@@ -93,6 +95,10 @@ export default class DeployModules {
 
   public async deployStakingModule(controller: Address): Promise<StakingModule> {
     return await new StakingModule__factory(this._deployerSigner).deploy(controller);
+  }
+
+  public async deployCustomOracleNavIssuanceModule(controller: Address, weth: Address): Promise<CustomOracleNavIssuanceModule> {
+    return await new CustomOracleNavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
   public async deployUniswapYieldStrategy(

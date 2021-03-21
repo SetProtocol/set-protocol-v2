@@ -43,3 +43,7 @@ export interface NAVIssuanceSettings {
   maxPremiumPercentage: BigNumber;
   minSetTokenSupply: BigNumber;
 }
+
+export interface CustomOracleNAVIssuanceSettings extends NAVIssuanceSettings {
+  setValuer: Address;
+}

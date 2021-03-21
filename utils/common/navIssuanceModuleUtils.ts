@@ -2,7 +2,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "../types";
 import { preciseMul, preciseMulCeil, preciseDiv, preciseDivCeil } from "./mathUtils";
 import { PRECISE_UNIT } from "../constants";
-import { SetToken, SetValuer } from "../contracts";
+import { SetToken, ISetValuer } from "../contracts";
 
 export const getExpectedIssuePositionMultiplier = (
   previousPositionMultiplier: BigNumber,
@@ -18,7 +18,7 @@ export const getExpectedIssuePositionMultiplier = (
 
 export const getExpectedSetTokenIssueQuantity = async(
   setToken: SetToken,
-  setValuer: SetValuer,
+  setValuer: ISetValuer,
   reserveAsset: Address,
   reserveAssetBaseUnits: BigNumber,
   reserveAssetQuantity: BigNumber,
