@@ -11,6 +11,7 @@ import {
   ContractCallerMock,
   CompoundMock,
   ComptrollerMock,
+  CustomSetValuerMock,
   DebtIssuanceMock,
   DebtModuleMock,
   ExplicitERC20Mock,
@@ -51,6 +52,7 @@ import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapte
 import { CompoundMock__factory } from "../../typechain/factories/CompoundMock__factory";
 import { ComptrollerMock__factory } from "../../typechain/factories/ComptrollerMock__factory";
 import { ContractCallerMock__factory } from "../../typechain/factories/ContractCallerMock__factory";
+import { CustomSetValuerMock__factory } from "../../typechain/factories/CustomSetValuerMock__factory";
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
 import { ExplicitERC20Mock__factory } from "../../typechain/factories/ExplicitERC20Mock__factory";
@@ -307,6 +309,10 @@ export default class DeployMocks {
       rates.usd.btc,
       rates.btc.usd
     );
+  }
+
+  public async deployCustomSetValuerMock(): Promise<CustomSetValuerMock> {
+    return await new CustomSetValuerMock__factory(this._deployerSigner).deploy();
   }
 
   /*************************************
