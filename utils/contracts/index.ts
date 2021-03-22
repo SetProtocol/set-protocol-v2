@@ -4,6 +4,7 @@ export { AaveLendingPoolCoreMock } from "../../typechain/AaveLendingPoolCoreMock
 export { AaveLendingPoolMock } from "../../typechain/AaveLendingPoolMock";
 export { AaveMigrationWrapAdapter } from "../../typechain/AaveMigrationWrapAdapter";
 export { AaveWrapAdapter } from "../../typechain/AaveWrapAdapter";
+export { CompoundWrapAdapter } from "../../typechain/CompoundWrapAdapter";
 export { AddressArrayUtilsMock } from "../../typechain/AddressArrayUtilsMock";
 export { AirdropModule } from "../../typechain/AirdropModule";
 export { AmmAdapterMock } from "../../typechain/AmmAdapterMock";
