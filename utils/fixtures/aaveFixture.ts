@@ -30,7 +30,7 @@ import { ether } from "../common";
 
 import { AToken__factory } from "../../typechain/factories/AToken__factory";
 import { MAX_UINT_256 } from "@utils/constants";
-import { AaveV2Mintable } from "@typechain/AaveV2Mintable";
+import { AaveTokenV2Mintable } from "@typechain/AaveTokenV2Mintable";
 import { getRandomAddress } from "@utils/test";
 
 export class AaveFixture {
@@ -47,8 +47,8 @@ export class AaveFixture {
   public lendingPoolDataProvider: LendingPoolDataProvider;
   public lendToAaveMigrator: LendToAaveMigrator;
   public lendToken: StandardTokenMock;
-  public aaveToken: AaveV2Mintable;
-  public stkAaveToken: AaveV2Mintable;
+  public aaveToken: AaveTokenV2Mintable;
+  public stkAaveToken: AaveTokenV2Mintable;
   public aaveExchangeRatio: BigNumber;
   public ethTokenAddress: Address = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
   public aaveProtoGovernance: AaveProtoGovernance;
