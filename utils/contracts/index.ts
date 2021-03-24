@@ -78,6 +78,8 @@ export { StakingRewards } from "../../typechain/StakingRewards";
 export { StandardTokenMock } from "../../typechain/StandardTokenMock";
 export { StandardTokenWithFeeMock } from "../../typechain/StandardTokenWithFeeMock";
 export { StreamingFeeModule } from "../../typechain/StreamingFeeModule";
+export { SushiBar } from "../../typechain/SushiBar";
+export { SushiBarWrapAdapter } from "../../typechain/SushiBarWrapAdapter";
 export { SynthetixExchangeAdapter } from "../../typechain/SynthetixExchangeAdapter";
 export { SynthetixExchangerMock } from "../../typechain/SynthetixExchangerMock";
 export { SynthMock } from "../../typechain/SynthMock";

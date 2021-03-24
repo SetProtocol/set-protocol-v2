@@ -26,6 +26,7 @@ import {
   ZeroExApiAdapter,
   SnapshotGovernanceAdapter,
   SynthetixExchangeAdapter,
+  SushiBarWrapAdapter,
   CompoundBravoGovernanceAdapter,
   CompClaimAdapter,
 } from "../contracts";
@@ -56,6 +57,7 @@ import { UniswapV3IndexExchangeAdapter__factory } from "../../typechain/factorie
 import { UniswapV3ExchangeAdapter__factory } from "../../typechain/factories/UniswapV3ExchangeAdapter__factory";
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
+import { SushiBarWrapAdapter__factory } from "../../typechain/factories/SushiBarWrapAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
 import { CompClaimAdapter__factory, AGIMigrationWrapAdapter__factory } from "../../typechain";
 
@@ -181,6 +183,13 @@ export default class DeployAdapters {
     uniswapPools: Address[]
   ): Promise<UniswapPairPriceAdapter> {
     return await new UniswapPairPriceAdapter__factory(this._deployerSigner).deploy(controller, uniswapFactory, uniswapPools);
+  }
+
+  public async deploySushiBarWrapAdapter(
+    sushi: Address,
+    sushiBar: Address
+  ): Promise<SushiBarWrapAdapter> {
+    return await new SushiBarWrapAdapter__factory(this._deployerSigner).deploy(sushi, sushiBar);
   }
 
   public async getUniswapPairPriceAdapter(uniswapAdapterAddress: Address): Promise<UniswapPairPriceAdapter> {

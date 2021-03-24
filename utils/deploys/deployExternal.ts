@@ -155,6 +155,11 @@ import {
 import { SingularityNetToken__factory } from "../../typechain/factories/SingularityNetToken__factory";
 
 import {
+  SushiBar
+} from "../contracts/index";
+import { SushiBar__factory } from "../../typechain/factories/SushiBar__factory";
+
+import {
   SwapRouter,
   UniswapV3Factory,
   NonfungiblePositionManager,
@@ -605,6 +610,11 @@ export default class DeployExternalContracts {
   // Singularity Net
   public async deploySingularityNetToken(): Promise<SingularityNetToken> {
     return await new SingularityNetToken__factory(this._deployerSigner).deploy();
+  }
+
+  // Sushi
+  public async deploySushiBar(sushiToken: Address): Promise<SushiBar> {
+    return await new SushiBar__factory(this._deployerSigner).deploy(sushiToken);
   }
 
   // Uniswap V3
