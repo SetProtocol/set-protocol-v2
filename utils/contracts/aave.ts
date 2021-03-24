@@ -13,3 +13,9 @@ export { LendingPoolConfigurator } from "../../typechain/LendingPoolConfigurator
 export { LendingRateOracle } from "../../typechain/LendingRateOracle";
 export { LendingPoolDataProvider } from "../../typechain/LendingPoolDataProvider";
 export { LendToAaveMigrator } from "../../typechain/LendToAaveMigrator";
+
+// Governance V2
+export { AaveGovernanceV2 } from "../../typechain/AaveGovernanceV2";
+export { AaveTokenV2Mintable } from "../../typechain/AaveTokenV2Mintable";
+export { GovernanceStrategy } from "../../typechain/GovernanceStrategy";
+export { Executor } from "../../typechain/Executor";

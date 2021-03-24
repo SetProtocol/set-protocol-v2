@@ -35,11 +35,15 @@ import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/
 import { LendingPoolAddressesProvider__factory } from "../../typechain/factories/LendingPoolAddressesProvider__factory";
 
 import {
+  AaveGovernanceV2,
   AavePropositionPower,
   AaveProtoGovernance,
+  AaveTokenV2Mintable,
   AssetVotingWeightProvider,
   CoreLibrary,
   DefaultReserveInterestRateStrategy,
+  Executor,
+  GovernanceStrategy,
   GovernanceParamsProvider,
   LendingPool,
   LendingPoolAddressesProvider,
@@ -49,6 +53,10 @@ import {
   LendToAaveMigrator
 } from "../contracts/aave";
 
+import { AaveGovernanceV2__factory } from "../../typechain/factories/AaveGovernanceV2__factory";
+import { AaveTokenV2Mintable__factory } from "../../typechain/factories/AaveTokenV2Mintable__factory";
+import { Executor__factory } from "../../typechain/factories/Executor__factory";
+import { GovernanceStrategy__factory } from "../../typechain/factories/GovernanceStrategy__factory";
 import { AavePropositionPower__factory } from "../../typechain/factories/AavePropositionPower__factory";
 import { AaveProtoGovernance__factory } from "../../typechain/factories/AaveProtoGovernance__factory";
 import { AssetVotingWeightProvider__factory } from "../../typechain/factories/AssetVotingWeightProvider__factory";
@@ -322,6 +330,47 @@ export default class DeployExternalContracts {
 
   public async getLendToAaveMigrator(lendToAaveMigratorAddress: Address): Promise<LendToAaveMigrator> {
     return await new LendToAaveMigrator__factory(this._deployerSigner).attach(lendToAaveMigratorAddress);
+  }
+
+  public async deployAaveGovernanceV2(
+    _governanceStrategy: Address,
+    _votingDelay: BigNumber,
+    _guardian: Address,
+    _executors: Address[]
+  ): Promise<AaveGovernanceV2> {
+    return await new AaveGovernanceV2__factory(this._deployerSigner).deploy(_governanceStrategy, _votingDelay, _guardian, _executors);
+  }
+
+  public async deployExecutor(
+    _admin: Address,
+    _delay: BigNumber,
+    _gracePeriod: BigNumber,
+    _minimumDelay: BigNumber,
+    _maximumDelay: BigNumber,
+    _propositionThreshold: BigNumber,
+    _voteDuration: BigNumber,
+    _voteDifferential: BigNumber,
+    _minmumQuorum: BigNumber
+  ): Promise<Executor> {
+    return await new Executor__factory(this._deployerSigner).deploy(
+      _admin,
+      _delay,
+      _gracePeriod,
+      _minimumDelay,
+      _maximumDelay,
+      _propositionThreshold,
+      _voteDuration,
+      _voteDifferential,
+      _minmumQuorum,
+    );
+  }
+
+  public async deployGovernanceStrategy(_aave: Address, _stkaave: Address): Promise<GovernanceStrategy> {
+    return await new GovernanceStrategy__factory(this._deployerSigner).deploy(_aave, _stkaave);
+  }
+
+  public async deployAaveTokenV2Mintable(): Promise<AaveTokenV2Mintable> {
+    return await new AaveTokenV2Mintable__factory(this._deployerSigner).deploy();
   }
 
   // Curve

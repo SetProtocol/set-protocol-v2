@@ -1,4 +1,5 @@
 export { AaveGovernanceAdapter } from "../../typechain/AaveGovernanceAdapter";
+export { AaveGovernanceV2Adapter } from "../../typechain/AaveGovernanceV2Adapter";
 export { AaveLendingPoolCoreMock } from "../../typechain/AaveLendingPoolCoreMock";
 export { AaveLendingPoolMock } from "../../typechain/AaveLendingPoolMock";
 export { AaveMigrationWrapAdapter } from "../../typechain/AaveMigrationWrapAdapter";
