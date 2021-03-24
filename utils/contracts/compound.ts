@@ -1,6 +1,8 @@
 // External Compound Contracts
 export { Comp } from "../../typechain/Comp";
 export { CompoundGovernorAlpha } from "../../typechain/CompoundGovernorAlpha";
+export { CompoundGovernorBravoDelegate } from "../../typechain/CompoundGovernorBravoDelegate";
+export { CompoundGovernorBravoDelegator } from "../../typechain/CompoundGovernorBravoDelegator";
 export { CompoundTimelock } from "../../typechain/CompoundTimelock";
 export { Comptroller } from "../../typechain/Comptroller";
 export { CERc20 } from "../../typechain/CERc20";

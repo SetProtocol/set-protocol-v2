@@ -15,6 +15,7 @@ import {
   ZeroExApiAdapter,
   SnapshotGovernanceAdapter,
   SynthetixExchangeAdapter,
+  CompoundBravoGovernanceAdapter
 } from "../contracts";
 
 import { Address, Bytes } from "./../types";
@@ -33,6 +34,7 @@ import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/Uni
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
+import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -87,6 +89,10 @@ export default class DeployAdapters {
 
   public async deployCompoundLikeGovernanceAdapter(governanceAlpha: Address, governanceToken: Address): Promise<CompoundLikeGovernanceAdapter> {
     return await new CompoundLikeGovernanceAdapter__factory(this._deployerSigner).deploy(governanceAlpha, governanceToken);
+  }
+
+  public async deployCompoundBravoGovernanceAdapter(governorBravo: Address, governanceToken: Address): Promise<CompoundBravoGovernanceAdapter> {
+    return await new CompoundBravoGovernanceAdapter__factory(this._deployerSigner).deploy(governorBravo, governanceToken);
   }
 
   public async deployCurveStakingAdapter(gaugeController: Address): Promise<CurveStakingAdapter> {

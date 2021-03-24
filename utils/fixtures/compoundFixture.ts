@@ -13,6 +13,8 @@ import {
   PriceOracleProxy,
   Unitroller,
   WhitePaperInterestRateModel,
+  CompoundGovernorBravoDelegate,
+  CompoundGovernorBravoDelegator,
 } from "../contracts/compound";
 import DeployHelper from "../deploys";
 import {
@@ -24,8 +26,10 @@ import {
 import {
   ADDRESS_ZERO,
   ONE_DAY_IN_SECONDS,
-  ZERO
+  ZERO,
+  ZERO_BYTES
 } from "../constants";
+import { getLastBlockTimestamp, increaseTimeAsync } from "@utils/test";
 
 export class CompoundFixture {
   private _deployer: DeployHelper;
@@ -36,6 +40,8 @@ export class CompoundFixture {
   public comp: Comp;
   public compoundTimelock: CompoundTimelock;
   public compoundGovernorAlpha: CompoundGovernorAlpha;
+  public compoundGovernorBravoDelegate: CompoundGovernorBravoDelegate;
+  public compoundGovernorBravoDelegator: CompoundGovernorBravoDelegator;
   public comptroller: Comptroller;
   public interestRateModel: WhitePaperInterestRateModel;
 
@@ -90,6 +96,31 @@ export class CompoundFixture {
       this.comp.address,
       this._ownerAddress
     );
+  }
+
+  public async initializeGovernorBravo() {
+    this.compoundGovernorBravoDelegate = await this._deployer.external.deployCompoundGovernorBravoDelegate();
+    this.compoundGovernorBravoDelegator = await this._deployer.external.deployCompoundGovernorBravoDelegator(
+      this.compoundTimelock.address,
+      this.comp.address,
+      this._ownerAddress,
+      this.compoundGovernorBravoDelegate.address,
+      10000,
+      1,
+      ether(100_000)
+    );
+
+    const setAdminData = this.compoundTimelock.interface.encodeFunctionData("setPendingAdmin", [this.compoundGovernorBravoDelegator.address]);
+    const eta = (await getLastBlockTimestamp()).add(ONE_DAY_IN_SECONDS.mul(2)).add(1);
+    await this.compoundTimelock.queueTransaction(this.compoundTimelock.address, 0, "", setAdminData, eta);
+    await increaseTimeAsync(ONE_DAY_IN_SECONDS.mul(2).add(2));
+    await this.compoundTimelock.executeTransaction(this.compoundTimelock.address, 0, "", setAdminData, eta);
+
+    await this.comp.delegate(this._ownerAddress);
+    await this.compoundGovernorAlpha.connect(this._ownerSigner).propose([ADDRESS_ZERO], [0], [""], [ZERO_BYTES], "dummy prop");
+
+    const initiateCallData = this.compoundGovernorBravoDelegate.interface.encodeFunctionData("_initiate", [this.compoundGovernorAlpha.address]);
+    await this.compoundGovernorBravoDelegator.fallback({data: initiateCallData});
   }
 
   public async createAndEnableCToken(

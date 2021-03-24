@@ -6,6 +6,8 @@ import {
   CompoundPriceOracleMock,
   Comp,
   CompoundGovernorAlpha,
+  CompoundGovernorBravoDelegate,
+  CompoundGovernorBravoDelegator,
   CompoundTimelock,
   Comptroller,
   CERc20,
@@ -26,6 +28,8 @@ import { CEther__factory } from "../../typechain/factories/CEther__factory";
 import { CompoundPriceOracleMock__factory } from "../../typechain/factories/CompoundPriceOracleMock__factory";
 import { Comp__factory } from "../../typechain/factories/Comp__factory";
 import { CompoundGovernorAlpha__factory } from "../../typechain/factories/CompoundGovernorAlpha__factory";
+import { CompoundGovernorBravoDelegator__factory } from "../../typechain/factories/CompoundGovernorBravoDelegator__factory";
+import { CompoundGovernorBravoDelegate__factory } from "../../typechain/factories/CompoundGovernorBravoDelegate__factory";
 import { CompoundTimelock__factory } from "../../typechain/factories/CompoundTimelock__factory";
 import { Comptroller__factory } from "../../typechain/factories/Comptroller__factory";
 import { PriceOracleProxy__factory } from "../../typechain/factories/PriceOracleProxy__factory";
@@ -138,6 +142,30 @@ export default class DeployExternalContracts {
 
   public async deployCompoundGovernorAlpha(_timelock: Address, _comp: Address, _guardian: Address): Promise<CompoundGovernorAlpha> {
     return await new CompoundGovernorAlpha__factory(this._deployerSigner).deploy(_timelock, _comp, _guardian);
+  }
+
+  public async deployCompoundGovernorBravoDelegate(): Promise<CompoundGovernorBravoDelegate> {
+    return await new CompoundGovernorBravoDelegate__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployCompoundGovernorBravoDelegator(
+    timelock: Address,
+    comp: Address,
+    admin: Address,
+    implementation: Address,
+    votingPeriod: BigNumberish,
+    votingDelay: BigNumberish,
+    proposalThreshold: BigNumberish
+  ): Promise<CompoundGovernorBravoDelegator> {
+    return await new CompoundGovernorBravoDelegator__factory(this._deployerSigner).deploy(
+      timelock,
+      comp,
+      admin,
+      implementation,
+      votingPeriod,
+      votingDelay,
+      proposalThreshold
+    );
   }
 
   public async deployCeRc20(
