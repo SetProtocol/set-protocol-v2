@@ -10,6 +10,7 @@ import DeployHelper from "@utils/deploys";
 import {
   ether,
   preciseMul,
+  preciseDiv
 } from "@utils/index";
 import {
   getAccounts,
@@ -29,6 +30,7 @@ describe("compoundWrapModule", () => {
 
   let compoundSetup: CompoundFixture;
   let cDai: CERc20;
+  let exchangeRate: BigNumber;
 
   let wrapModule: WrapModule;
 
@@ -48,9 +50,10 @@ describe("compoundWrapModule", () => {
     compoundSetup = getCompoundFixture(owner.address);
     await compoundSetup.initialize();
 
+    exchangeRate = ether(0.5);
     cDai = await compoundSetup.createAndEnableCToken(
       setup.dai.address,
-      ether(1),
+      exchangeRate,
       compoundSetup.comptroller.address,
       compoundSetup.interestRateModel.address,
       "Compound DAI",
@@ -59,6 +62,7 @@ describe("compoundWrapModule", () => {
       ether(0.75), // 75% collateral factor
       ether(1)
     );
+
 
     // WrapModule setup
     wrapModule = await deployer.modules.deployWrapModule(setup.controller.address, setup.weth.address);
@@ -123,18 +127,22 @@ describe("compoundWrapModule", () => {
 
       it("should reduce the underlying quantity and mint the wrapped asset to the SetToken", async () => {
         const previousUnderlyingBalance = await setup.dai.balanceOf(setToken.address);
+
         const previousWrappedBalance = await cDai.balanceOf(setToken.address);
 
         await subject();
 
         const underlyingBalance = await setup.dai.balanceOf(setToken.address);
-
         const wrappedBalance = await cDai.balanceOf(setToken.address);
-
         const expectedUnderlyingBalance = previousUnderlyingBalance.sub(setTokensIssued);
+
         expect(underlyingBalance).to.eq(expectedUnderlyingBalance);
 
-        const expectedWrappedBalance = previousWrappedBalance.add(setTokensIssued);
+        const underlyingTokenDecimals = await setup.dai.decimals();
+        const wrappedTokenDecimals = await cDai.decimals();
+
+        const expectedWrappedBalance = preciseDiv(previousUnderlyingBalance, exchangeRate);
+
         expect(wrappedBalance).to.eq(expectedWrappedBalance);
       });
     });
@@ -186,13 +194,14 @@ describe("compoundWrapModule", () => {
 
         const underlyingBalance = await setup.dai.balanceOf(setToken.address);
         const wrappedBalance = await cDai.balanceOf(setToken.address);
-
         const delta = preciseMul(setTokensIssued, wrappedQuantity.sub(subjectWrappedTokenUnits));
-
         const expectedUnderlyingBalance = previousUnderlyingBalance.add(delta);
+
         expect(underlyingBalance).to.eq(expectedUnderlyingBalance);
 
-        const expectedWrappedBalance = previousWrappedBalance.sub(delta);
+        const wrappedTokenUnits = preciseDiv(delta, exchangeRate);
+        const expectedWrappedBalance = previousWrappedBalance.sub(wrappedTokenUnits);
+
         expect(wrappedBalance).to.eq(expectedWrappedBalance);
       });
     });
