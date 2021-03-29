@@ -427,7 +427,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         // Get spender address from exchange adapter and invoke approve for exact amount on SetToken
         _tradeInfo.setToken.invokeApprove(sendToken, _tradeInfo.exchangeAdapter.getSpender(), totalSendQuantity);
 
-        bytes memory tradeData = _tradeInfo.exchangeAdapter.generateDataParam();    // TODO
+        bytes memory tradeData = _tradeInfo.exchangeAdapter.generateDataParam(sendToken, receiveToken, _tradeInfo.isSendTokenFixed);
         
         (
             address targetExchange,

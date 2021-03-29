@@ -20,41 +20,43 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 /**
- * @title UniswapV2ExchangeAdapterV2
+ * @title BalancerV1ExchangeAdapter
  * @author Set Protocol
  *
- * A Uniswap Router02 exchange adapter that returns calldata for trading. Includes option for 2 different trade types on Uniswap.
- *
- * CHANGE LOG:
- * - Add helper that generates the data parameter for `getTradeCallData`
+ * A Balancer exchange adapter that returns calldata for trading.
  *
  */
-contract UniswapV2ExchangeAdapterV3 {
+contract BalancerV1ExchangeAdapter {
 
+    /* ============ Constants ============ */
+
+    // Amount of pools examined when fetching quote
+    uint256 private constant BALANCER_POOL_LIMIT = 3;
+    
     /* ============ State Variables ============ */
-
+    
     // Address of Uniswap V2 Router02 contract
-    address public immutable router;
-    // Uniswap router function string for swapping exact tokens for a minimum of receive tokens
-    string internal constant SWAP_EXACT_TOKENS_FOR_TOKENS = "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)";
-    // Uniswap router function string for swapping tokens for an exact amount of receive tokens
-    string internal constant SWAP_TOKENS_FOR_EXACT_TOKENS = "swapTokensForExactTokens(uint256,uint256,address[],address,uint256)";
+    address public immutable balancerProxy;
+    // Balancer proxy function string for swapping exact tokens for a minimum of receive tokens
+    string internal constant EXACT_IN = "smartSwapExactIn(address,address,uint256,uint256,uint256)";
+    // Balancer proxy function string for swapping tokens for an exact amount of receive tokens
+    string internal constant EXACT_OUT = "smartSwapExactOut(address,address,uint256,uint256,uint256)";
 
     /* ============ Constructor ============ */
 
     /**
      * Set state variables
      *
-     * @param _router       Address of Uniswap V2 Router02 contract
+     * @param _balancerProxy       Balancer exchange proxy address
      */
-    constructor(address _router) public {
-        router = _router;
+    constructor(address _balancerProxy) public {
+        balancerProxy = _balancerProxy;
     }
 
     /* ============ External Getter Functions ============ */
 
     /**
-     * Return calldata for Uniswap V2 Router02. Trade paths and bool to select trade function are encoded in the arbitrary data parameter.
+     * Return calldata for Balancer Proxy. Bool to select trade function is encoded in the arbitrary data parameter.
      *
      * Note: When selecting the swap for exact tokens function, _sourceQuantity is defined as the max token quantity you are willing to trade, and
      * _minDestinationQuantity is the exact quantity of token you are receiving.
@@ -64,7 +66,7 @@ contract UniswapV2ExchangeAdapterV3 {
      * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Amount of source token to sell
      * @param  _minDestinationQuantity   Min amount of destination token to buy
-     * @param  _data                     Arbitrary bytes containing trade path and bool to determine function string
+     * @param  _data                     Arbitrary bytes containing bool to determine function string
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
@@ -83,21 +85,19 @@ contract UniswapV2ExchangeAdapterV3 {
         returns (address, uint256, bytes memory)
     {   
         (
-            address[] memory path,
-            bool shouldSwapTokensForExactTokens
-        ) = abi.decode(_data, (address[],bool));
+            bool shouldSwapFixedAmount
+        ) = abi.decode(_data, (bool));
 
-        // If shouldSwapTokensForExactTokens, use appropriate function string and flip source and destination quantities to conform with Uniswap interface
         bytes memory callData = abi.encodeWithSignature(
-            shouldSwapTokensForExactTokens ? SWAP_TOKENS_FOR_EXACT_TOKENS : SWAP_EXACT_TOKENS_FOR_TOKENS,
-            shouldSwapTokensForExactTokens ? _minDestinationQuantity : _sourceQuantity,
-            shouldSwapTokensForExactTokens ? _sourceQuantity : _minDestinationQuantity,
-            path,
-            _destinationAddress,
-            block.timestamp
+            shouldSwapFixedAmount ? EXACT_IN : EXACT_OUT,
+            _sourceToken,
+            _destinationToken,
+            shouldSwapFixedAmount ?  _sourceQuantity : _minDestinationQuantity,
+            shouldSwapFixedAmount ? _minDestinationQuantity : _sourceQuantity,
+            BALANCER_POOL_LIMIT
         );
 
-        return (router, 0, callData);
+        return (balancerProxy, 0, callData);
     }
 
     /**
@@ -113,26 +113,16 @@ contract UniswapV2ExchangeAdapterV3 {
         external
         view
         returns (bytes memory) 
-    {
-        address[2] memory path = [_sellComponent, _buyComponent];
-        return abi.encode(path, _fixIn);
+    {        
+        return abi.encode(_fixIn);
     }
 
     /**
-     * Returns the address to approve source tokens to for trading. This is the Uniswap router address
+     * Returns the address to approve source tokens to for trading. This is the Balancer proxy address
      *
      * @return address             Address of the contract to approve tokens to
      */
     function getSpender() external view returns (address) {
-        return router;
-    }
-
-    /**
-     * Helper that returns the encoded data of trade path and boolean indicating the Uniswap function to use
-     *
-     * @return bytes               Encoded data used for trading on Uniswap
-     */
-    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapTokensForExactTokens) external view returns (bytes memory) {
-        return abi.encode(_path, _shouldSwapTokensForExactTokens);
+        return balancerProxy;
     }
 } 
