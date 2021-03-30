@@ -109,11 +109,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         IExchangeAdapter _exchangeAdapter,
         address _executor,
         uint256 _amountSold,
-        uint256 _amountBought
+        uint256 _amountBought,
+        uint256 protcolFee
     );
     
     /* ============ Constants ============ */
     
+    uint256 private constant TRADE_MODULE_PROTOCOL_FEE_INDEX = 0;
     uint256 private constant TARGET_RAISE_DIVISOR = 1.0025e18;       // Raise targets 25 bps
     
     /* ============ State Variables ============ */
@@ -183,9 +185,22 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         
         _executeTrade(tradeInfo);
         
-        _updatePositionState(tradeInfo);
+        uint256 protcolFee = _accrueProtocolFee(tradeInfo);
+        
+        (address sellComponent, address buyComponent, uint256 sellAmount, uint256 buyAmount) = _updatePositionState(tradeInfo);
 
         executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
+        
+        emit TradeExecuted(
+            tradeInfo.setToken,
+            sellComponent,
+            buyComponent,
+            tradeInfo.exchangeAdapter,
+            msg.sender,
+            sellAmount,
+            buyAmount,
+            protcolFee
+        );
     }
 
     function tradeRemainingWETH(ISetToken _setToken, IERC20 _component) external nonReentrant onlyAllowedTrader(_setToken, msg.sender) onlyEOA() virtual {
@@ -199,11 +214,24 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         
         _executeTrade(tradeInfo);
         
-        (, uint256 buyAmount) = _updatePositionState(tradeInfo);
+        uint256 protcolFee = _accrueProtocolFee(tradeInfo);
+        
+        (address sellComponent, address buyComponent, uint256 sellAmount, uint256 buyAmount) = _updatePositionState(tradeInfo);
 
         require(buyAmount < executionInfo[_setToken][_component].maxSize, "Trade amount exceeds max allowed trade size");   // can we revert earlier
 
         executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
+        
+        emit TradeExecuted(
+            tradeInfo.setToken,
+            sellComponent,
+            buyComponent,
+            tradeInfo.exchangeAdapter,
+            msg.sender,
+            sellAmount,
+            buyAmount,
+            protcolFee
+        );
     }
 
     function raiseAssetTargets(ISetToken _setToken) external onlyManagerAndValidSet(_setToken) virtual {
@@ -286,13 +314,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         emit AnyoneTradeUpdated(_setToken, _status);
     }
 
-    function initialize(ISetToken _setToken, IERC20 _components)
+    function initialize(ISetToken _setToken)
         external
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
-        require(address(_setToken) == address(0), "Module already in use");
-
         ISetToken.Position[] memory positions = _setToken.getPositions();
 
         for (uint256 i = 0; i < positions.length; i++) {
@@ -307,10 +333,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     
     function removeModule() external override {}
     
-    // function removeModule(ISetToken _setToken) external {
-    //     delete executionInfo[_setToken];    // deviation
-    //     delete rebalanceInfo[_setToken];
-    //     delete permissionInfo[_setToken];
+    // function removeModule() external override {
+    //     delete executionInfo[ISetToken(msg.sender)];    // todo: figure out how to delete efficiently
+    //     delete rebalanceInfo[ISetToken(msg.sender)];
+    //     delete permissionInfo[ISetToken(msg.sender)];
     // }
 
 
@@ -445,49 +471,54 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _tradeInfo.setToken.invoke(targetExchange, callValue, methodData);
     }
 
-    function _updatePositionState(TradeInfo memory _tradeInfo) internal returns (uint256 sellAmount, uint256 buyAmount) {
-        ISetToken setToken = _tradeInfo.setToken;
+    function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256) {
+        
+        (address receiveToken, uint256 preTradeReceiveTokenBalance) = _tradeInfo.isSendTokenFixed
+            ? (_tradeInfo.floatingQuantityToken, _tradeInfo.preTradeFloatingBalance)
+            : (_tradeInfo.fixedQuantityToken, _tradeInfo.preTradeFixedBalance);
+        
+        uint256 exchangedQuantity =  IERC20(receiveToken).balanceOf(address(_tradeInfo.setToken)).sub(preTradeReceiveTokenBalance);
+        
+        uint256 protocolFeeTotal = getModuleFee(TRADE_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
+        
+        payProtocolFeeFromSetToken(_tradeInfo.setToken, receiveToken, protocolFeeTotal);
+        
+        return protocolFeeTotal;
+    }
+
+    function _updatePositionState(TradeInfo memory _tradeInfo) internal returns 
+    (
+        address sellComponent, 
+        address buyComponent, 
+        uint256 sellAmount, 
+        uint256 buyAmount
+    ) {
         uint256 totalSupply = _tradeInfo.setToken.totalSupply();
 
         // naming deviation
-        (uint256 postTradeFixedAmount,,) = setToken.calculateAndEditDefaultPosition(
+        (uint256 postTradeFixedAmount,,) = _tradeInfo.setToken.calculateAndEditDefaultPosition(
             _tradeInfo.fixedQuantityToken,
             totalSupply,
             _tradeInfo.preTradeFixedBalance
         );
-        (uint256 postTradeFloatingAmount,,) = setToken.calculateAndEditDefaultPosition(
+        (uint256 postTradeFloatingAmount,,) = _tradeInfo.setToken.calculateAndEditDefaultPosition(
             _tradeInfo.floatingQuantityToken,
             totalSupply,
             _tradeInfo.preTradeFloatingBalance
         );
 
-        (
-            address sellComponent,
-            address buyComponent,
-            uint256 sellAmount,
-            uint256 buyAmount
-        ) = _tradeInfo.isSendTokenFixed
-        ? (
-            _tradeInfo.fixedQuantityToken,
-            _tradeInfo.floatingQuantityToken,
-            _tradeInfo.preTradeFixedBalance.sub(postTradeFixedAmount),
-            postTradeFloatingAmount.sub(_tradeInfo.preTradeFloatingBalance)
-        ): (
-            _tradeInfo.floatingQuantityToken,
-            _tradeInfo.fixedQuantityToken,
-            _tradeInfo.preTradeFloatingBalance.sub(postTradeFloatingAmount),
-            postTradeFixedAmount.sub(_tradeInfo.preTradeFixedBalance)
-        );
-            
-        emit TradeExecuted(
-            setToken,
-            sellComponent,
-            buyComponent,
-            _tradeInfo.exchangeAdapter,
-            msg.sender,
-            sellAmount,
-            buyAmount
-        );
+        (sellComponent, buyComponent, sellAmount, buyAmount) = _tradeInfo.isSendTokenFixed
+            ? (
+                _tradeInfo.fixedQuantityToken,
+                _tradeInfo.floatingQuantityToken,
+                _tradeInfo.preTradeFixedBalance.sub(postTradeFixedAmount),
+                postTradeFloatingAmount.sub(_tradeInfo.preTradeFloatingBalance)
+            ): (
+                _tradeInfo.floatingQuantityToken,
+                _tradeInfo.fixedQuantityToken,
+                _tradeInfo.preTradeFloatingBalance.sub(postTradeFloatingAmount),
+                postTradeFixedAmount.sub(_tradeInfo.preTradeFixedBalance)
+            );
     }
 
     /**

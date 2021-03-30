@@ -23,12 +23,13 @@ pragma experimental "ABIEncoderV2";
  * @title UniswapV2ExchangeAdapterV2
  * @author Set Protocol
  *
- * A Uniswap Router02 exchange adapter that returns calldata for trading. Includes option for 2 different trade types on Uniswap
+ * A Uniswap Router02 exchange adapter that returns calldata for trading. Includes option for 2 different trade types on Uniswap.
  *
  * CHANGE LOG:
  * - Add helper that encodes path and boolean into bytes
  * - Generalized ability to choose whether to swap an exact amount of source token for a min amount of receive token or swap a max amount of source token for
  * an exact amount of receive token
+ * - Add helper to generate data parameter for `getTradeCallData`
  *
  */
 contract UniswapV2ExchangeAdapterV2 {
@@ -100,6 +101,24 @@ contract UniswapV2ExchangeAdapterV2 {
         );
 
         return (router, 0, callData);
+    }
+
+    /**
+     * Generate data parameter to be passed to `getTradeCallData`. Returns encoded trade paths and bool to select trade function.
+     *
+     * @param _sellComponent        Address of the token to be sold        
+     * @param _buyComponent         Address of the token to be bought
+     * @param _fixIn                Boolean representing if input tokens amount is fixed
+     * 
+     * @return bytes                Data parameter to be passed to `getTradeCallData`          
+     */
+    function generateDataParam(address _sellComponent, address _buyComponent, bool _fixIn)
+        external
+        view
+        returns (bytes memory) 
+    {
+        address[2] memory path = [_sellComponent, _buyComponent];
+        return abi.encode(path, _fixIn);
     }
 
     /**

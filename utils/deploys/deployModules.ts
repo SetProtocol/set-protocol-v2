@@ -4,11 +4,13 @@ import { convertLibraryNameToLinkId } from "../common";
 import {
   AirdropModule,
   AmmModule,
+  BalancerV1ExchangeAdapter,
   BasicIssuanceModule,
   ClaimModule,
   CompoundLeverageModule,
   CustomOracleNavIssuanceModule,
   DebtIssuanceModule,
+  GeneralIndexModule,
   GovernanceModule,
   IssuanceModule,
   NavIssuanceModule,
@@ -17,17 +19,20 @@ import {
   StreamingFeeModule,
   TradeModule,
   UniswapYieldStrategy,
-  WrapModule
+  UniswapV2ExchangeAdapterV2,
+  WrapModule  
 } from "../contracts";
 import { Address } from "../types";
 
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
+import { BalancerV1ExchangeAdapter__factory } from "../../typechain/factories/BalancerV1ExchangeAdapter__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
 import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__factory";
 import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
 import { CustomOracleNavIssuanceModule__factory } from "../../typechain/factories/CustomOracleNavIssuanceModule__factory";
 import { DebtIssuanceModule__factory } from "../../typechain/factories/DebtIssuanceModule__factory";
+import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIndexModule__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
@@ -36,6 +41,7 @@ import { StakingModule__factory } from "../../typechain/factories/StakingModule_
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
 import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
 import { UniswapYieldStrategy__factory } from "../../typechain/factories/UniswapYieldStrategy__factory";
+import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { WrapModule__factory } from "../../typechain/factories/WrapModule__factory";
 
 export default class DeployModules {
@@ -145,6 +151,28 @@ export default class DeployModules {
       sushiswapRouter,
       balancerProxy,
     );
+  }
+
+  public async deployGeneralIndexModule(
+    controller: Address,
+    weth: Address
+  ): Promise<GeneralIndexModule> {
+    return await new GeneralIndexModule__factory(this._deployerSigner).deploy(
+      controller,
+      weth
+    );
+  }
+
+  public async deployUniswapV2ExchangeAdapterV2(router: Address): Promise<UniswapV2ExchangeAdapterV2> {
+    return await new UniswapV2ExchangeAdapterV2__factory(this._deployerSigner).deploy(
+      router
+    );
+  }
+
+  public async deployBalancerV1ExchangeAdapter(balancerProxy: Address): Promise<BalancerV1ExchangeAdapter> {
+    return await new BalancerV1ExchangeAdapter__factory(this._deployerSigner).deploy(
+      balancerProxy
+    )
   }
 
   public async deployGovernanceModule(controller: Address): Promise<GovernanceModule> {
