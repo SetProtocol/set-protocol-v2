@@ -293,4 +293,70 @@ describe("ProtocolViewer", () => {
       expect(setTwoDetails.totalSupply).to.eq(setTwoTotalSupply);
     });
   });
+
+  describe("#batchFetchBalancesOf", async () => {
+    let subjectTokenAddresses: Address[];
+    let subjectOwnerAddresses: Address[];
+
+    beforeEach(async () => {
+      subjectTokenAddresses = [setup.usdc.address, setup.dai.address];
+      subjectOwnerAddresses = [owner.address, managerOne.address];
+    });
+
+    async function subject(): Promise<any> {
+      return viewer.batchFetchBalancesOf(subjectTokenAddresses, subjectOwnerAddresses);
+    }
+
+    it("should return the correct set details", async () => {
+      const [balanceOne, balanceTwo]: any = await subject();
+
+      const expectedUSDCBalance = await setup.usdc.connect(owner.wallet).balanceOf(owner.address);
+      expect(balanceOne).to.eq(expectedUSDCBalance);
+
+      const expectedDAIBalance = await setup.dai.connect(owner.wallet).balanceOf(managerOne.address);
+      expect(balanceTwo).to.eq(expectedDAIBalance);
+    });
+  });
+
+  describe("#batchFetchAllowances", async () => {
+    let subjectTokenAddresses: Address[];
+    let subjectOwnerAddresses: Address[];
+    let subjectSpenderAddresses: Address[];
+
+    beforeEach(async () => {
+      const usdcApprovalAmount = ether(3);
+      await setup.usdc.approve(managerOne.address, usdcApprovalAmount);
+
+      const daiApprovalAmount = ether(2);
+      await setup.dai.approve(managerTwo.address, daiApprovalAmount);
+
+      subjectTokenAddresses = [setup.usdc.address, setup.dai.address];
+      subjectOwnerAddresses = [owner.address, owner.address];
+      subjectSpenderAddresses = [managerOne.address, managerTwo.address];
+    });
+
+    async function subject(): Promise<any> {
+      return viewer.batchFetchAllowances(
+        subjectTokenAddresses,
+        subjectOwnerAddresses,
+        subjectSpenderAddresses
+      );
+    }
+
+    it("should return the correct allowances", async () => {
+      const [allowanceOne, allowanceTwo]: any = await subject();
+
+      const expectedUSDCAllowance = await setup.usdc.allowance(
+        owner.address,
+        managerOne.address
+      );
+      expect(allowanceOne).to.eq(expectedUSDCAllowance);
+
+      const expectedDAIAllowance = await setup.dai.allowance(
+        owner.address,
+        managerTwo.address
+      );
+      expect(allowanceTwo).to.eq(expectedDAIAllowance);
+    });
+  });
 });
