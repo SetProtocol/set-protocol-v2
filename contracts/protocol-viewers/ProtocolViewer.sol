@@ -19,17 +19,19 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 
+import { ERC20Viewer } from "./ERC20Viewer.sol";
 import { SetTokenViewer } from "./SetTokenViewer.sol";
 import { StreamingFeeModuleViewer } from "./StreamingFeeModuleViewer.sol";
 
 
 /**
- * @title StreamingFeeModuleViewer
+ * @title ProtocolViewer
  * @author Set Protocol
  *
  * ProtocolViewer enables atch queries of various protocol state.
  */
 contract ProtocolViewer is
+    ERC20Viewer,
     SetTokenViewer,
     StreamingFeeModuleViewer
 {
