@@ -29,7 +29,7 @@ import {
   ZERO,
   ZERO_BYTES
 } from "../constants";
-import { getLastBlockTimestamp, increaseTimeAsync } from "@utils/test";
+import { getLastBlockTimestamp, increaseTimeAsync } from "../test";
 
 export class CompoundFixture {
   private _deployer: DeployHelper;
