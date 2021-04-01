@@ -120,7 +120,7 @@ describe("CompoundLeverageModule", () => {
       compoundSetup.comptroller.address,
       cEther.address,
       setup.weth.address,
-      "Compound",
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
       compoundLibrary.address,
     );
     await setup.controller.addModule(compoundLeverageModule.address);

@@ -48,7 +48,10 @@ describe("Compound", () => {
     await setup.initialize();
 
     compoundLib = await deployer.libraries.deployCompound();
-    compoundLibMock = await deployer.mocks.deployCompoundMock("Compound", compoundLib.address);
+    compoundLibMock = await deployer.mocks.deployCompoundMock(
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
+      compoundLib.address
+    );
     invokeLibMock = await deployer.mocks.deployInvokeMock();
     await setup.controller.addModule(compoundLibMock.address);
     await setup.controller.addModule(invokeLibMock.address);
