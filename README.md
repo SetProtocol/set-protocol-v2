@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://circleci.com/gh/SetProtocol/set-protocol-v2/tree/master">
-    <img src="https://img.shields.io/circleci/project/github/SetProtocol/set-protocol-v2-contracts/master.svg" />
+    <img src="https://img.shields.io/circleci/project/github/SetProtocol/set-protocol-v2/master.svg" />
   </a>
-  <a href='https://coveralls.io/github/SetProtocol/set-protocol-v2-contracts?branch=master'><img src='https://coveralls.io/repos/github/SetProtocol/set-protocol-v2/badge.svg?branch=master&amp;t=4pzROZ' alt='Coverage Status' /></a>
+  <a href='https://coveralls.io/github/SetProtocol/set-protocol-v2?branch=master'><img src='https://coveralls.io/repos/github/SetProtocol/set-protocol-v2/badge.svg?branch=master&amp;t=4pzROZ' alt='Coverage Status' /></a>
 </p>
 
 # Set Protocol V2 Contract Repository
