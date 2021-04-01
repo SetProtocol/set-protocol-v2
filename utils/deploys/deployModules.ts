@@ -1,5 +1,5 @@
 import { Signer } from "ethers";
-import { convertLibraryNameToLinkId } from "../common";
+import { convertLibraryNameToLinkId } from "../test";
 
 import {
   AirdropModule,

@@ -32,3 +32,6 @@ export {
   mineBlockAsync,
   cacheBeforeEach
 } from "./testingUtils";
+export {
+  convertLibraryNameToLinkId
+} from "./libraryUtils";
