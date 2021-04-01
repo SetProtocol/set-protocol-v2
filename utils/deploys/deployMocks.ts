@@ -42,7 +42,8 @@ import {
   ZeroExMock,
 } from "../contracts";
 
-import { convertLibraryNameToLinkId, ether } from "../common";
+import { ether } from "../common";
+import { convertLibraryNameToLinkId } from "../test";
 
 import { AaveLendingPoolCoreMock__factory } from "../../typechain/factories/AaveLendingPoolCoreMock__factory";
 import { AaveLendingPoolMock__factory } from "../../typechain/factories/AaveLendingPoolMock__factory";
