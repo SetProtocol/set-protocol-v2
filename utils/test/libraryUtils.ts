@@ -1,22 +1,16 @@
 import { utils } from "ethers";
-import { artifacts } from "hardhat";
 import path from "path";
 
-// If libraryName corresponds to more than one artifact (e.g there are
-// duplicate contract names in the project), `readArtifactSync`
-// will throw. In such cases it"s necessary to pass this method the fully qualified
-// contract name. ex: `contracts/mocks/LibraryMock.sol:LibraryMock`
+// Converts a fully qualified contract name in a bytecode link id.
+// (A fully qualified name looks like: `contracts/mocks/LibraryMock.sol:LibraryMock`)
 export function convertLibraryNameToLinkId(libraryName: string): string {
-  let artifact;
-  let fullyQualifiedName;
-
-  if (libraryName.includes(path.sep) && libraryName.includes(":")) {
-    fullyQualifiedName = libraryName;
-  } else {
-    artifact = artifacts.readArtifactSync(libraryName);
-    fullyQualifiedName = `${artifact.sourceName}:${artifact.contractName}`;
+  if (!(libraryName.includes(path.sep) && libraryName.includes(":"))) {
+    throw new Error(
+      "Converting library name to link id requires a fully qualified " +
+      "contract name. Example: `contracts/mocks/LibraryMock.sol:LibraryMock`"
+    );
   }
 
-  const hashedName = utils.keccak256(utils.toUtf8Bytes(fullyQualifiedName));
+  const hashedName = utils.keccak256(utils.toUtf8Bytes(libraryName));
   return `__$${hashedName.slice(2).slice(0, 34)}$__`;
 }
