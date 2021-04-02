@@ -310,9 +310,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /**
      * MANAGER ONLY: Set exchange for passed components of the SetToken
      *
-     * @param _setToken          Address of the SetToken
-     * @param _components        Array of components
-     * @param _exchanges         Array of exchange names mapping to correct component
+     * @param _setToken             Address of the SetToken
+     * @param _components           Array of components
+     * @param _exchangeNames        Array of exchange names mapping to correct component
      */
     function setExchanges(
         ISetToken _setToken,
@@ -593,8 +593,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _tradeInfo                Struct containing trade information used in internal functions
      *
-     * @return uint256                  Amount of sendTokens used in the trade
-     * @return uint256                  Amount of receiveTokens received in the trade (net of fees)
+     * @return sellAmount               Amount of sendTokens used in the trade
+     * @return buyAmount                Amount of receiveTokens received in the trade (net of fees)
      */
     function _updatePositionState(TradeInfo memory _tradeInfo) internal returns (uint256 sellAmount, uint256 buyAmount) {
         uint256 totalSupply = _tradeInfo.setToken.totalSupply();
@@ -690,8 +690,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _components           Array of components
      * @param _data                 Array of uint256 values
-     *
-     * @return bool                 True if the arrays are valid
      */
     function _validateArrays(address[] calldata _components, uint256[] calldata _data) internal pure {
         require(_components.length == _data.length, "Array length mismatch");
