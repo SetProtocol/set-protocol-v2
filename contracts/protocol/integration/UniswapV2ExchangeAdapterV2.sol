@@ -66,7 +66,7 @@ contract UniswapV2ExchangeAdapterV2 {
      * @param  _destinationToken         Address of destination token to buy
      * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Amount of source token to sell
-     * @param  _minDestinationQuantity   Min amount of destination token to buy
+     * @param  _destinationQuantity      Amount of destination token to buy
      * @param  _data                     Arbitrary bytes containing trade path and bool to determine function string
      *
      * @return address                   Target contract address
@@ -78,7 +78,7 @@ contract UniswapV2ExchangeAdapterV2 {
         address _destinationToken,
         address _destinationAddress,
         uint256 _sourceQuantity,
-        uint256 _minDestinationQuantity,
+        uint256 _destinationQuantity,
         bytes memory _data
     )
         external
@@ -93,13 +93,12 @@ contract UniswapV2ExchangeAdapterV2 {
         // If shouldSwapTokensForExactTokens, use appropriate function string and flip source and destination quantities to conform with Uniswap interface
         bytes memory callData = abi.encodeWithSignature(
             shouldSwapTokensForExactTokens ? SWAP_TOKENS_FOR_EXACT_TOKENS : SWAP_EXACT_TOKENS_FOR_TOKENS,
-            shouldSwapTokensForExactTokens ? _minDestinationQuantity : _sourceQuantity,
-            shouldSwapTokensForExactTokens ? _sourceQuantity : _minDestinationQuantity,
+            shouldSwapTokensForExactTokens ? _destinationQuantity : _sourceQuantity,
+            shouldSwapTokensForExactTokens ? _sourceQuantity : _destinationQuantity,
             path,
             _destinationAddress,
             block.timestamp
         );
-
         return (router, 0, callData);
     }
 
@@ -117,8 +116,11 @@ contract UniswapV2ExchangeAdapterV2 {
         view
         returns (bytes memory) 
     {
-        address[2] memory path = [_sellComponent, _buyComponent];
-        return abi.encode(path, _fixIn);
+        address[] memory path = new address[](2);
+        path[0] = _sellComponent;
+        path[1] = _buyComponent;
+        bool shouldSwapTokensForExactTokens = _fixIn ? false : true;
+        return abi.encode(path, shouldSwapTokensForExactTokens);
     }
 
     /**
