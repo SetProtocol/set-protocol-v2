@@ -210,9 +210,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         (uint256 sellAmount, uint256 buyAmount) = _updatePositionState(tradeInfo);
 
         executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
-        
-        // todo: should this required be here?
-        // require(buyAmount < executionInfo[_setToken][_component].maxSize, "Trade amount exceeds max allowed trade size");   // should we revert earlier
 
         emit TradeExecuted(
             tradeInfo.setToken,
@@ -413,7 +410,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             executionInfo[_setToken][IERC20(position.component)].lastTradeTimestamp = 0;
         }
 
-        // todo: should this be added here?
         _setToken.initializeModule();
     }
     
@@ -435,6 +431,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _component        IERC20 component to be validated
      */
     function _validateTradeParameters(ISetToken _setToken, IERC20 _component) internal view virtual {
+        require(address(_component) != address(weth), "Can not explicitly trade WETH");
         require(rebalanceInfo[_setToken].rebalanceComponents.contains(address(_component)), "Passed component not included in rebalance");
 
         TradeExecutionParams memory componentInfo = executionInfo[_setToken][_component];
@@ -454,8 +451,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function _createTradeInfo(ISetToken _setToken, IERC20 _component) internal view virtual returns (TradeInfo memory) {
         
-        // todo: Do we check whether _component is not weth?
-
         uint256 totalSupply = _setToken.totalSupply();
 
         uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
@@ -501,8 +496,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function _createTradeRemainingInfo(ISetToken _setToken, IERC20 _component) internal view returns (TradeInfo memory) {
         
-        // todo: Do we check whether _component is not weth?
-
         uint256 totalSupply = _setToken.totalSupply();
 
         uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
