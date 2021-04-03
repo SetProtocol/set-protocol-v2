@@ -150,6 +150,64 @@ describe("GeneralIndexModule", () => {
     });
   });
 
+  describe("#initialize", async () => {
+    let subjectSetToken: SetToken;
+    let subjectCaller: Account;
+
+    beforeEach(async () => {
+      subjectSetToken = index;
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      indexModule = indexModule.connect(subjectCaller.wallet);
+      return indexModule.initialize(subjectSetToken.address);
+    }
+
+    it("should enable the Module on the SetToken", async () => {
+      await subject();
+      const isModuleEnabled = await subjectSetToken.isInitializedModule(indexModule.address);
+      expect(isModuleEnabled).to.eq(true);
+    });
+
+    describe("when the caller is not the SetToken manager", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      });
+    });
+
+    describe("when the module is not pending", async () => {
+      beforeEach(async () => {
+        await subject();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be pending initialization");
+      });
+    });
+
+    describe("when the SetToken is not enabled on the controller", async () => {
+      beforeEach(async () => {
+        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+          [setup.dai.address],
+          [ether(1)],
+          [indexModule.address],
+          owner.address
+        );
+
+        subjectSetToken = nonEnabledSetToken;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be controller-enabled SetToken");
+      });
+    });
+  });
+
   describe("#trade", async () => {
     let subjectComponent: Address;
     let subjectIncreaseTime: BigNumber;
@@ -362,7 +420,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe("the sell happens on Sushiswap", async () => {
+    describe("when the sell happens on Sushiswap", async () => {
       before(async () => {
         oldTargetUnits = [ether(100), ZERO, ether(185)];
       });
@@ -435,7 +493,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe("the buy happens on Balancer", async () => {
+    describe("when the buy happens on Balancer", async () => {
       before(async () => {
         oldTargetUnits = [ether(100), ZERO, ether(185)];
       });
@@ -598,17 +656,6 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    // todo: Should we revert if exchange is not set
-    // describe("when exchange has not been set", async () => {
-    //   beforeEach(async () => {
-    //     await indexModule.setExchanges(index.address, [subjectComponent], [""]);
-    //   });
-
-    //   it("the trade reverts", async () => {
-    //     await expect(subject()).to.be.revertedWith("Exchange must be specified");
-    //   });
-    // });
-
     describe("when not enough time has elapsed between trades", async () => {
       beforeEach(async () => {
         await subject();
@@ -620,9 +667,19 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe("when the passed component is not included in the rebalance", async () => {
+    describe("when the component is weth", async() => {
       beforeEach(async () => {
         subjectComponent = setup.weth.address;
+      });
+
+      it("should revert", async () => {
+        expect(subject()).to.be.revertedWith("Can not explicitly trade WETH");
+      });
+    });
+
+    describe("when the passed component is not included in the rebalance", async () => {
+      beforeEach(async () => {
+        subjectComponent = sushiswapSetup.uni.address;
       });
 
       it("should revert", async () => {
@@ -668,5 +725,15 @@ describe("GeneralIndexModule", () => {
         await expect(subjectContractCaller()).to.be.revertedWith("Caller must be EOA Address");
       });
     });
+
+    // todo: Should we revert if exchange is not set
+    // describe("when exchange has not been set", async () => {
+    //   beforeEach(async () => {
+    //     await indexModule.setExchanges(index.address, [subjectComponent], [""]);
+    //   });
+    //   it("the trade reverts", async () => {
+    //     await expect(subject()).to.be.revertedWith("Exchange must be specified");
+    //   });
+    // });
   });
 });
