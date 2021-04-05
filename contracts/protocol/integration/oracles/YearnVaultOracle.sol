@@ -40,9 +40,6 @@ contract YearnVaultOracle is IOracle
     // Price per share values are scaled by 1e18
     uint256 internal constant scalingFactor = 10 ** 18;
 
-    // CToken Full Unit
-    uint256 public cTokenFullUnit;
-
     // Underlying Asset Full Unit
     uint256 public underlyingFullUnit;
 
