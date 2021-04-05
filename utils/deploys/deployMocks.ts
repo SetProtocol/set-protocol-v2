@@ -40,6 +40,7 @@ import {
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
   ZeroExMock,
+  YearnStrategyMock
 } from "../contracts";
 
 import { convertLibraryNameToLinkId, ether } from "../common";
@@ -81,6 +82,7 @@ import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterM
 import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
 import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory";
 import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
+import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrategyMock__factory";
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -313,6 +315,10 @@ export default class DeployMocks {
 
   public async deployCustomSetValuerMock(): Promise<CustomSetValuerMock> {
     return await new CustomSetValuerMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployYearnStrategyMock(vault: Address): Promise<YearnStrategyMock> {
+    return await new YearnStrategyMock__factory(this._deployerSigner).deploy(vault);
   }
 
   /*************************************
