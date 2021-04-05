@@ -39,11 +39,6 @@ contract YearnWrapAdapter {
         _;
     }
 
-    /* ============ Constants ============ */
-
-    // Mock address to indicate ETH.
-    address public constant ETH_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     /* ============ Constructor ============ */
 
     constructor() public { }
@@ -71,11 +66,8 @@ contract YearnWrapAdapter {
         onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        uint256 value = _underlyingToken == ETH_TOKEN_ADDRESS ? _underlyingUnits : 0;
-
         bytes memory callData = abi.encodeWithSignature("deposit(uint256)", _underlyingUnits);
-
-        return (address(_wrappedToken), value, callData);
+        return (address(_wrappedToken), 0, callData);
     }
 
     /**
@@ -99,9 +91,7 @@ contract YearnWrapAdapter {
         onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        // redeem(uint256 _amount)
         bytes memory callData = abi.encodeWithSignature("withdraw(uint256)", _wrappedTokenUnits);
-
         return (address(_wrappedToken), 0, callData);
     }
 
