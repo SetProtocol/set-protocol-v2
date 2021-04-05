@@ -236,7 +236,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     function tradeRemainingWETH(ISetToken _setToken, IERC20 _component) external nonReentrant onlyAllowedTrader(_setToken, msg.sender) onlyEOA() virtual {
 
         require(_noTokensToSell(_setToken), "Sell other set components first");
-        require(executionInfo[_setToken][weth].targetUnit < _setToken.getDefaultPositionRealUnit(address(weth)).toUint256(), "WETH is below target unit and can not be traded");    // casting?
+        require(
+            executionInfo[_setToken][weth].targetUnit < _setToken.getDefaultPositionRealUnit(address(weth)).toUint256(), 
+            "WETH is below target unit and can not be traded"
+        );
 
         _validateTradeParameters(_setToken, _component);
         
@@ -248,8 +251,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         
         (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionState(tradeInfo);
 
-        require(netBuyAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize, "Trade amount exceeds max allowed trade size");   // should we revert earlier
-
+        // should we revert earlier?
+        require(netBuyAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize, "Trade amount exceeds max allowed trade size"); 
+        
         executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
         
         emit TradeExecuted(
@@ -271,7 +275,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken             Address of the SetToken
      */
-    function raiseAssetTargets(ISetToken _setToken) external onlyManagerAndValidSet(_setToken) virtual {
+    function raiseAssetTargets(ISetToken _setToken) external onlyAllowedTrader(_setToken, msg.sender) virtual {
         require(
             _allTargetsMet(_setToken)  
             && _setToken.getDefaultPositionRealUnit(address(weth)).toUint256() > executionInfo[_setToken][weth].targetUnit,
@@ -367,7 +371,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * MANAGER ONLY: Toggle ability for passed addresses to trade from current state 
+     * MANAGER ONLY: Toggle ability for passed addresses to trade.
      *
      * @param _setToken          Address of the SetToken
      * @param _traders           Array trader addresses to toggle status
@@ -459,7 +463,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
         
         uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
-        uint256 targetUnit = _normalizedTargetUnit(_setToken, _component);
+        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
 
         uint256 currentNotional = totalSupply.getDefaultTotalNotional(currentUnit);
         uint256 targetNotional = totalSupply.preciseMulCeil(targetUnit);
@@ -500,10 +504,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         
         uint256 totalSupply = _setToken.totalSupply();
 
-        uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
-        
-        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
-        uint256 targetUnit = _normalizedTargetUnit(_setToken, _component);
+        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(weth)).toUint256();
+        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, weth);
 
         require(currentUnit != targetUnit, "Target already met");
 
@@ -623,7 +625,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         for (uint256 i = 0; i < rebalanceComponents.length; i++) {
             address component = rebalanceComponents[i];
             if (component != address(weth)) {
-                uint256 normalizedTargetUnit = executionInfo[_setToken][IERC20(component)].targetUnit.mul(currentPositionMultiplier).div(positionMultiplier);
+                uint256 normalizedTargetUnit = _normalizedTargetUnit(_setToken, IERC20(component), currentPositionMultiplier, positionMultiplier);
                 bool canSell =  normalizedTargetUnit < _setToken.getDefaultPositionRealUnit(component).toUint256();
                 if (canSell) { return false; }
             }
@@ -645,7 +647,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         for (uint256 i = 0; i < rebalanceComponents.length; i++) {
             address component = rebalanceComponents[i];
             if (component != address(weth)) {
-                uint256 normalizedTargetUnit = executionInfo[_setToken][IERC20(component)].targetUnit.mul(currentPositionMultiplier).div(positionMultiplier);
+                uint256 normalizedTargetUnit = _normalizedTargetUnit(_setToken, IERC20(component), currentPositionMultiplier, positionMultiplier);
                 bool targetUnmet = normalizedTargetUnit != _setToken.getDefaultPositionRealUnit(component).toUint256();
                 if (targetUnmet) { return false; }
             }
@@ -661,10 +663,24 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @return uint256              Normalized target unit of the component
      */
-    function _normalizedTargetUnit(ISetToken _setToken, IERC20 _component) internal view returns(uint256) {
+    function _getNormalizedTargetUnit(ISetToken _setToken, IERC20 _component) internal view returns(uint256) {
         uint256 currentPositionMultiplier = _setToken.positionMultiplier().toUint256();
         uint256 positionMultiplier = rebalanceInfo[_setToken].positionMultiplier;
-        return executionInfo[_setToken][_component].targetUnit.mul(currentPositionMultiplier).div(positionMultiplier);
+        return _normalizedTargetUnit(_setToken, _component, currentPositionMultiplier, positionMultiplier);
+    }
+
+    /**
+     * Calculates the normalized target unit value.
+     *
+     * @param _setToken                         Instance of the SettToken to be rebalanced
+     * @param _component                        IERC20 component whose normalized target unit is required
+     * @param _currentPositionMultiplier        Current position multiplier value
+     * @param _positionMultiplier               Position multiplier value when rebalance started
+     *
+     * @return uint256                          Normalized target unit of the component
+     */
+    function _normalizedTargetUnit(ISetToken _setToken, IERC20 _component, uint256 _currentPositionMultiplier, uint256 _positionMultiplier) internal view returns (uint256) {
+        return executionInfo[_setToken][_component].targetUnit.mul(_currentPositionMultiplier).div(_positionMultiplier);
     }
 
     /**

@@ -740,7 +740,7 @@ describe("GeneralIndexModule", () => {
       // });
     });
 
-    describe("#raiseAssetTargets when all target units have been met and weth is remaining", async () => {
+    describe("when all target units have been met and weth is remaining", async () => {
       let subjectIncreaseTime: BigNumber;
       let subjectSetToken: SetToken;
       let subjectRaiseTargetPercentage: BigNumber;
@@ -751,87 +751,111 @@ describe("GeneralIndexModule", () => {
         oldTargetUnits = [ether(100), ZERO, ether(175)];  // 10$ of WETH should be extra in the SetToken
         issueAmount = ether("20.000000000000000000");
         subjectRaiseTargetPercentage = ether("1.02");
-      });
 
-      beforeEach(async () => {
-        subjectCaller = owner;
+        subjectCaller = trader;
         subjectSetToken = index;
         subjectIncreaseTime = ONE_MINUTE_IN_SECONDS.mul(5);
-
-        await setup.approveAndIssueSetToken(index, issueAmount);
-        await indexModule.startRebalance(index.address, newComponents, newTargetUnits, oldTargetUnits, await index.positionMultiplier());
-
-        // trade WBTC for WETH, to reach target unit
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        await indexModule.connect(trader.wallet).trade(index.address, setup.wbtc.address);
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        await indexModule.connect(trader.wallet).trade(index.address, setup.wbtc.address);
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        await indexModule.connect(trader.wallet).trade(index.address, setup.wbtc.address);
-
-        // trade WETH for uniswap.uni, to reach target unit
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        await indexModule.connect(trader.wallet).trade(index.address, uniswapSetup.uni.address);
-
-        // trade WETH for dai, to reach dai target unit
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        await increaseTimeAsync(subjectIncreaseTime);
-        await indexModule.connect(subjectCaller.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
-        await indexModule.connect(subjectCaller.wallet).raiseAssetTargets(subjectSetToken.address);
-
-        // trade WETH for uniswap.uni, to reach target unit
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        await indexModule.connect(trader.wallet).trade(index.address, uniswapSetup.uni.address);
-
-        // trade WETH for dai, to reach dai target unit
-        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-        return await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
-      }
-
-      it("should raise asset targets and allow trading", async () => {
-
-        const daiPositionUnits = await index.getDefaultPositionRealUnit(setup.dai.address);
-        const uniPositionUnits = await index.getDefaultPositionRealUnit(uniswapSetup.uni.address);
-        await subject();
-
-        // const expectedDaiPositionUnits = preciseMul(daiPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
-        // const expectedUniPositionUnits = preciseMul(uniPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
-        // const expectedWbtcPositionUnits = preciseMul(wbtcPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
-
-        const newDaiPositionUnits = await index.getDefaultPositionRealUnit(setup.dai.address);
-        const newUniPositionUnits = await index.getDefaultPositionRealUnit(uniswapSetup.uni.address);
-        const newWbtcPositionUnits = await index.getDefaultPositionRealUnit(setup.wbtc.address);
-
-        // expect(newDaiPositionUnits).to.equal(expectedDaiPositionUnits);  // difference of 4 wei
-        // expect(newUniPositionUnits).to.equal(expectedUniPositionUnits);
-        // expect(newWbtcPositionUnits).to.equal(expectedWbtcPositionUnits);
-
-        expect(newDaiPositionUnits).to.gt(daiPositionUnits);
-        expect(newUniPositionUnits).to.gt(uniPositionUnits);
-        expect(newWbtcPositionUnits).to.equal(ZERO);   // cause this is sold completely
-      });
-
-      it("should emit RaiseTargetPercentageUpdated event", async () => {
-        expect(subject()).to.emit(indexModule, "RaiseTargetPercentageUpdated").withArgs(
-          subjectSetToken,
-          subjectRaiseTargetPercentage
-        );
-      });
-
-      describe("when targets is not raised", async () => {
-
+      describe("#updateRaiseTargetPercentage", async () => {
         before(async () => {
-          subjectRaiseTargetPercentage = ether(1);    // equivalent to not raising target
+          subjectCaller = owner;
         });
 
-        it("should revert with Target already met", async () => {
-          expect(subject()).to.be.revertedWith("Target already met");
+        async function subject(): Promise<ContractTransaction> {
+          return await indexModule.connect(subjectCaller.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
+        }
+
+        it("should update raiseTargetPercentage", async () => {
+          subject();
+          const newRaiseTargetPercentage = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
+
+          expect(newRaiseTargetPercentage).to.eq(subjectRaiseTargetPercentage);
+        });
+
+        it("should emit RaiseTargetPercentageUpdated event", async () => {
+          expect(subject()).to.emit(indexModule, "RaiseTargetPercentageUpdated").withArgs(
+            subjectSetToken,
+            subjectRaiseTargetPercentage
+          );
+        });
+      });
+
+      describe("#raiseAssetTargets", async () => {
+        before(async () => {
+          subjectCaller = trader;
+        });
+
+        beforeEach(async () => {
+          await setup.approveAndIssueSetToken(index, issueAmount);
+          await indexModule.startRebalance(index.address, newComponents, newTargetUnits, oldTargetUnits, await index.positionMultiplier());
+
+          // trade WBTC for WETH, to reach target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, setup.wbtc.address);
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, setup.wbtc.address);
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, setup.wbtc.address);
+
+          // trade WETH for uniswap.uni, to reach target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, uniswapSetup.uni.address);
+
+          // trade WETH for dai, to reach dai target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
+
+          await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
+        });
+
+        async function subject(): Promise<ContractTransaction> {
+          await increaseTimeAsync(subjectIncreaseTime);
+          await indexModule.connect(subjectCaller.wallet).raiseAssetTargets(subjectSetToken.address);
+
+          // trade WETH for uniswap.uni, to reach target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, uniswapSetup.uni.address);
+
+          // trade WETH for dai, to reach dai target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          return await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
+        }
+
+        it("should raise asset targets and allow trading", async () => {
+
+          const daiPositionUnits = await index.getDefaultPositionRealUnit(setup.dai.address);
+          const uniPositionUnits = await index.getDefaultPositionRealUnit(uniswapSetup.uni.address);
+          await subject();
+
+          // const expectedDaiPositionUnits = preciseMul(daiPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
+          // const expectedUniPositionUnits = preciseMul(uniPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
+          // const expectedWbtcPositionUnits = preciseMul(wbtcPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
+
+          const newDaiPositionUnits = await index.getDefaultPositionRealUnit(setup.dai.address);
+          const newUniPositionUnits = await index.getDefaultPositionRealUnit(uniswapSetup.uni.address);
+          const newWbtcPositionUnits = await index.getDefaultPositionRealUnit(setup.wbtc.address);
+
+          // expect(newDaiPositionUnits).to.equal(expectedDaiPositionUnits);  // difference of 4 wei
+          // expect(newUniPositionUnits).to.equal(expectedUniPositionUnits);
+          // expect(newWbtcPositionUnits).to.equal(expectedWbtcPositionUnits);
+
+          expect(newDaiPositionUnits).to.gt(daiPositionUnits);
+          expect(newUniPositionUnits).to.gt(uniPositionUnits);
+          expect(newWbtcPositionUnits).to.equal(ZERO);   // cause this is sold completely
+        });
+
+        describe("when targets is not raised", async () => {
+
+          before(async () => {
+            subjectRaiseTargetPercentage = ether(1);    // equivalent to not raising target
+          });
+
+          it("should revert with Target already met", async () => {
+            expect(subject()).to.be.revertedWith("Target already met");
+          });
         });
       });
     });
