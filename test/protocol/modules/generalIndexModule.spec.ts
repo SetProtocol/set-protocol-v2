@@ -750,9 +750,8 @@ describe("GeneralIndexModule", () => {
         newTargetUnits = [];
         oldTargetUnits = [ether(100), ZERO, ether(175)];  // 10$ of WETH should be extra in the SetToken
         issueAmount = ether("20.000000000000000000");
-        subjectRaiseTargetPercentage = ether("1.02");
+        subjectRaiseTargetPercentage = ether("0.02");
 
-        subjectCaller = trader;
         subjectSetToken = index;
         subjectIncreaseTime = ONE_MINUTE_IN_SECONDS.mul(5);
       });
@@ -807,8 +806,6 @@ describe("GeneralIndexModule", () => {
           await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
           await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
           await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
-
-          await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
         });
 
         async function subject(): Promise<ContractTransaction> {
@@ -826,13 +823,14 @@ describe("GeneralIndexModule", () => {
 
         it("should raise asset targets and allow trading", async () => {
 
+          await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
+
           const daiPositionUnits = await index.getDefaultPositionRealUnit(setup.dai.address);
           const uniPositionUnits = await index.getDefaultPositionRealUnit(uniswapSetup.uni.address);
           await subject();
 
-          // const expectedDaiPositionUnits = preciseMul(daiPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
-          // const expectedUniPositionUnits = preciseMul(uniPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
-          // const expectedWbtcPositionUnits = preciseMul(wbtcPositionUnits, preciseDiv(subjectRaiseTargetPercentage, ether(1)));
+          // const expectedDaiPositionUnits = daiPositionUnits.mul(ether(1).add(subjectRaiseTargetPercentage).div(ether(1)));
+          // const expectedUniPositionUnits = uniPositionUnits.mul(ether(1).add(subjectRaiseTargetPercentage).div(ether(1)));
 
           const newDaiPositionUnits = await index.getDefaultPositionRealUnit(setup.dai.address);
           const newUniPositionUnits = await index.getDefaultPositionRealUnit(uniswapSetup.uni.address);
@@ -840,7 +838,6 @@ describe("GeneralIndexModule", () => {
 
           // expect(newDaiPositionUnits).to.equal(expectedDaiPositionUnits);  // difference of 4 wei
           // expect(newUniPositionUnits).to.equal(expectedUniPositionUnits);
-          // expect(newWbtcPositionUnits).to.equal(expectedWbtcPositionUnits);
 
           expect(newDaiPositionUnits).to.gt(daiPositionUnits);
           expect(newUniPositionUnits).to.gt(uniPositionUnits);
@@ -848,11 +845,6 @@ describe("GeneralIndexModule", () => {
         });
 
         describe("when targets is not raised", async () => {
-
-          before(async () => {
-            subjectRaiseTargetPercentage = ether(1);    // equivalent to not raising target
-          });
-
           it("should revert with Target already met", async () => {
             expect(subject()).to.be.revertedWith("Target already met");
           });

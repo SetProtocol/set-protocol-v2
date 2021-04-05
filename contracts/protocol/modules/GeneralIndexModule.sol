@@ -283,7 +283,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         );
 
         rebalanceInfo[_setToken].positionMultiplier = rebalanceInfo[_setToken].positionMultiplier.preciseDiv(
-            rebalanceInfo[_setToken].raiseTargetPercentage
+            PreciseUnitMath.preciseUnit().add(rebalanceInfo[_setToken].raiseTargetPercentage)
         );
     }
     
