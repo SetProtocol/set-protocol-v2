@@ -4,6 +4,8 @@ export { AaveLendingPoolCoreMock } from "../../typechain/AaveLendingPoolCoreMock
 export { AaveLendingPoolMock } from "../../typechain/AaveLendingPoolMock";
 export { AaveMigrationWrapAdapter } from "../../typechain/AaveMigrationWrapAdapter";
 export { AaveWrapAdapter } from "../../typechain/AaveWrapAdapter";
+export { YearnWrapAdapter } from "../../typechain/YearnWrapAdapter";
+export { YearnStrategyMock } from "../../typechain/YearnStrategyMock";
 export { AddressArrayUtilsMock } from "../../typechain/AddressArrayUtilsMock";
 export { AirdropModule } from "../../typechain/AirdropModule";
 export { AmmAdapterMock } from "../../typechain/AmmAdapterMock";
@@ -49,6 +51,7 @@ export { OneInchExchangeAdapter } from "../../typechain/OneInchExchangeAdapter";
 export { OneInchExchangeMock } from "../../typechain/OneInchExchangeMock";
 export { OracleAdapterMock } from "../../typechain/OracleAdapterMock";
 export { OracleMock } from "../../typechain/OracleMock";
+export { YearnVaultOracle } from "../../typechain/YearnVaultOracle";
 export { PositionMock } from "../../typechain/PositionMock";
 export { PreciseUnitMathMock } from "../../typechain/PreciseUnitMathMock";
 export { PriceOracle } from "../../typechain/PriceOracle";
