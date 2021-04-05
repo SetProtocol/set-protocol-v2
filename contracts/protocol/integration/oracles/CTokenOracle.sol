@@ -15,6 +15,7 @@ pragma solidity 0.6.10;
 
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { ICToken } from "../../../interfaces/external/ICToken.sol";
 import { IOracle } from "../../../interfaces/IOracle.sol";
 
@@ -23,19 +24,16 @@ import { IOracle } from "../../../interfaces/IOracle.sol";
  * @title CTokenOracle
  * @author Set Protocol
  *
- * Oracle built to retrieve the cToken price
+ * Oracle built to return cToken price by multiplying the underlying asset price by Compound's stored exchange rate
  */
-contract CTokenOracle is IOracle
-{
+contract CTokenOracle is IOracle {
     using SafeMath for uint256;
+    using PreciseUnitMath for uint256;
 
     /* ============ State Variables ============ */
     ICToken public cToken;
     IOracle public underlyingOracle; // Underlying token oracle
     string public dataDescription;
-
-    // Exchange Rate values are scaled by 1e18
-    uint256 internal constant scalingFactor = 10 ** 18;
 
     // CToken Full Unit
     uint256 public cTokenFullUnit;
@@ -70,7 +68,6 @@ contract CTokenOracle is IOracle
 
     /**
      * Returns the price value of a full cToken denominated in underlyingOracle value
-     &
      * The underlying oracle is assumed to return a price of 18 decimal
      * for a single full token of the underlying asset. The derived price
      * of the cToken is then the price of a unit of underlying multiplied
@@ -90,10 +87,6 @@ contract CTokenOracle is IOracle
 
         // Price of underlying is the price value / Token * conversion / scaling factor
         // Values need to be converted based on full unit quantities
-        return underlyingPrice
-            .mul(conversionRate)
-            .mul(cTokenFullUnit)
-            .div(underlyingFullUnit)
-            .div(scalingFactor);
+        return underlyingPrice.preciseMul(conversionRate).mul(cTokenFullUnit).div(underlyingFullUnit);
     }
 }
