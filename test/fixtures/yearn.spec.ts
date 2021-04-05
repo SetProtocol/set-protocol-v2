@@ -20,8 +20,6 @@ const expect = getWaffleExpect();
 
 describe("YearnFixture", () => {
   let owner: Account;
-
-  // let setup: SystemFixture;
   let yearnSetup: YearnFixture;
   let dai: StandardTokenMock;
 
@@ -30,13 +28,11 @@ describe("YearnFixture", () => {
       owner,
     ] = await getAccounts();
 
-    // setup = getSystemFixture(owner.address);
     const deployer = new DeployHelper(owner.wallet);
     dai = await deployer.mocks.deployTokenMock(owner.address, ether(10000), 18);
 
     yearnSetup = getYearnFixture(owner.address);
 
-    // await setup.initialize();
     await yearnSetup.initialize();
   });
 
@@ -61,8 +57,6 @@ describe("YearnFixture", () => {
       const governance = await vault.pricePerShare();
       expect(governance).to.eq(ether(1));
 
-      // const strategies = await vault.strategies();
-      // console.log("strategies", strategies);
     });
   });
 

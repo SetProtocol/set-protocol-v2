@@ -73,7 +73,6 @@ contract YearnWrapAdapter {
     {
         uint256 value = _underlyingToken == ETH_TOKEN_ADDRESS ? _underlyingUnits : 0;
 
-        // deposit(address _reserve, uint256 _amount, uint16 _referralCode)
         bytes memory callData = abi.encodeWithSignature("deposit(uint256)", _underlyingUnits);
 
         return (address(_wrappedToken), value, callData);
