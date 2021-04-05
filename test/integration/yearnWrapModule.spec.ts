@@ -58,7 +58,7 @@ describe("yearnWrapModule", () => {
     wrapModule = await deployer.modules.deployWrapModule(setup.controller.address, setup.weth.address);
     await setup.controller.addModule(wrapModule.address);
 
-    // CompoundWrapAdapter setup
+    // YearnWrapAdapter setup
     yearnWrapAdapter = await deployer.adapters.deployYearnWrapAdapter();
     await setup.integrationRegistry.addIntegration(wrapModule.address, yearnWrapAdapterIntegrationName, yearnWrapAdapter.address);
   });
