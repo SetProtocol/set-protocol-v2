@@ -615,49 +615,49 @@ describe("GeneralIndexModule", () => {
         });
       });
 
-      // describe("when fees are accrued and target is met", async () => {
-      //   before(async () => {
-      //     issueAmount = ether(20);
-      //   });
+      describe("when fees are accrued and target is met", async () => {
+        before(async () => {
+          issueAmount = ether(20);
+        });
 
-      //   beforeEach(async () => {
-      //     await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-      //     await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
+        beforeEach(async () => {
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
 
-      //     await setup.streamingFeeModule.accrueFee(index.address);
-      //   });
+          await setup.streamingFeeModule.accrueFee(index.address);
+        });
 
-      //   after(async () => {
-      //     issueAmount = ether("20.000000000000000001");
-      //   });
+        after(async () => {
+          issueAmount = ether("20.000000000000000001");
+        });
 
-      //   it("the trade reverts", async () => {
-      //     const targetUnit = (await indexModule.executionInfo(index.address, setup.dai.address)).targetUnit;
-      //     const currentUnit = await index.getDefaultPositionRealUnit(setup.dai.address);
+        it("the trade reverts", async () => {
+          const targetUnit = (await indexModule.executionInfo(index.address, setup.dai.address)).targetUnit;
+          const currentUnit = await index.getDefaultPositionRealUnit(setup.dai.address);
 
-      //     expect(targetUnit).to.not.eq(currentUnit);
-      //     await expect(subject()).to.be.revertedWith("Target already met");
-      //   });
-      // });
+          expect(targetUnit).to.not.eq(currentUnit);
+          await expect(subject()).to.be.revertedWith("Target already met");
+        });
+      });
 
-      // describe("when the target has been met", async () => {
-      //   before(async () => {
-      //     issueAmount = ether(20);
-      //   });
+      describe("when the target has been met", async () => {
+        before(async () => {
+          issueAmount = ether(20);
+        });
 
-      //   beforeEach(async () => {
-      //     await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-      //     await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
-      //   });
+        beforeEach(async () => {
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(index.address, setup.dai.address);
+        });
 
-      //   after(async () => {
-      //     issueAmount = ether("20.000000000000000001");
-      //   });
+        after(async () => {
+          issueAmount = ether("20.000000000000000001");
+        });
 
-      //   it("the trade reverts", async () => {
-      //     await expect(subject()).to.be.revertedWith("Target already met");
-      //   });
-      // });
+        it("the trade reverts", async () => {
+          await expect(subject()).to.be.revertedWith("Target already met");
+        });
+      });
 
       describe("when not enough time has elapsed between trades", async () => {
         beforeEach(async () => {
@@ -740,7 +740,131 @@ describe("GeneralIndexModule", () => {
       // });
     });
 
-    describe("when all target units have been met and weth is remaining", async () => {
+    describe("#tradeRemainingWETH", async () => {
+      let subjectSetToken: SetToken;
+      let subjectComponent: Address;
+      let remainingWETH: BigNumber;
+      let expectedSubjectAmountOut: BigNumber;
+
+      before(async () => {
+        subjectCaller = trader;
+        subjectSetToken = index;
+        subjectComponent = setup.dai.address;
+
+        oldTargetUnits = [ether(86.9565217), bitcoin(.01111), ether(200)];
+        issueAmount = ether("20.000000000000000000");
+      });
+
+      beforeEach(async () => {
+        await setup.approveAndIssueSetToken(index, issueAmount);
+        await indexModule.startRebalance(index.address, newComponents, newTargetUnits, oldTargetUnits, await index.positionMultiplier());
+
+        // sell bitcoin for weth
+        await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+        await indexModule.connect(trader.wallet).trade(index.address, setup.wbtc.address);
+
+        const totalSupply = await index.totalSupply();
+        const wethAmount = await setup.weth.balanceOf(index.address);
+        const wethTragetUnit = (await indexModule.executionInfo(subjectSetToken.address, setup.weth.address)).targetUnit;
+        remainingWETH = wethAmount.sub(preciseMul(wethTragetUnit, totalSupply));
+
+        expectedSubjectAmountOut = (await balancerSetup.exchange.viewSplitExactIn(
+          setup.weth.address,
+          setup.dai.address,
+          remainingWETH,
+          THREE
+        )).totalOutput;
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return await indexModule.connect(subjectCaller.wallet).tradeRemainingWETH(subjectSetToken.address, subjectComponent);
+      }
+
+      it("should trade remaining weth for dai", async () => {
+
+        const totalSupply = await index.totalSupply();
+        const wethAmount = await setup.weth.balanceOf(index.address);
+        const daiAmount = await setup.dai.balanceOf(index.address);
+
+        await subject();
+
+        const wethPositionUnits = await index.getDefaultPositionRealUnit(setup.weth.address);
+        const daiPositionUnits = await index.getDefaultPositionRealUnit(setup.dai.address);
+
+        const expectedWethPositionUnits = preciseDiv(wethAmount.sub(remainingWETH), totalSupply);
+        const expectedDaiPositionUnits = preciseDiv(daiAmount.add(expectedSubjectAmountOut), totalSupply);
+
+        expect(wethPositionUnits).to.eq(expectedWethPositionUnits);
+        expect(daiPositionUnits).to.eq(expectedDaiPositionUnits);
+      });
+
+      it("emits the corrected TradeExecuted event", async () => {
+        await expect(subject()).to.be.emit(indexModule, "TradeExecuted").withArgs(
+          subjectSetToken.address,
+          setup.weth.address,
+          setup.dai.address,
+          balancerExchangeAdapter.address,
+          subjectCaller.wallet.address,
+          remainingWETH,
+          expectedSubjectAmountOut,
+          ZERO,
+        );
+      });
+
+      describe("when protocol fees is charged", async () => {
+        let feePercentage: BigNumber;
+
+        beforeEach(async () => {
+          feePercentage = ether(0.05);
+          setup.controller = setup.controller.connect(owner.wallet);
+          await setup.controller.addFee(
+            indexModule.address,
+            ZERO, // Fee type on trade function denoted as 0
+            feePercentage // Set fee to 5 bps
+          );
+        });
+
+        it("emits the correct TradeExecuted event", async () => {
+          const protocolFee = expectedSubjectAmountOut.mul(feePercentage).div(ether(1));
+          await expect(subject()).to.be.emit(indexModule, "TradeExecuted").withArgs(
+            subjectSetToken.address,
+            setup.weth.address,
+            setup.dai.address,
+            balancerExchangeAdapter.address,
+            subjectCaller.wallet.address,
+            remainingWETH,
+            expectedSubjectAmountOut.sub(protocolFee),
+            protocolFee,
+          );
+        });
+      });
+
+      describe("when not all tokens are sold", async () => {
+        before(async () => {
+          oldTargetUnits = [ether(80), bitcoin(.01), ether(200)];
+        });
+
+        after(async () => {
+          oldTargetUnits = [ether(86.9565217), bitcoin(.01), ether(200)];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Sell other set components first");
+        });
+      });
+
+      describe("when component amount traded exceeds max tradesize", async () => {
+        beforeEach(async () => {
+          await indexModule.setTradeMaximums(index.address, components, [ether(800), bitcoin(.1), ether(100), ether(500)]);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Trade amount exceeds max allowed trade size");
+        });
+      });
+    });
+
+    describe("#raiseAssetTargets", async () => {
       let subjectIncreaseTime: BigNumber;
       let subjectSetToken: SetToken;
       let subjectRaiseTargetPercentage: BigNumber;
@@ -765,22 +889,22 @@ describe("GeneralIndexModule", () => {
           return await indexModule.connect(subjectCaller.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
         }
 
-        it("should update raiseTargetPercentage", async () => {
-          subject();
+        it("updates raiseTargetPercentage", async () => {
+          await subject();
           const newRaiseTargetPercentage = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
 
           expect(newRaiseTargetPercentage).to.eq(subjectRaiseTargetPercentage);
         });
 
-        it("should emit RaiseTargetPercentageUpdated event", async () => {
-          expect(subject()).to.emit(indexModule, "RaiseTargetPercentageUpdated").withArgs(
-            subjectSetToken,
+        it("emits correct RaiseTargetPercentageUpdated event", async () => {
+          await expect(subject()).to.emit(indexModule, "RaiseTargetPercentageUpdated").withArgs(
+            subjectSetToken.address,
             subjectRaiseTargetPercentage
           );
         });
       });
 
-      describe("#raiseAssetTargets", async () => {
+      describe("when all target units have been met and weth is remaining", async () => {
         before(async () => {
           subjectCaller = trader;
         });
@@ -846,7 +970,7 @@ describe("GeneralIndexModule", () => {
 
         describe("when targets is not raised", async () => {
           it("should revert with Target already met", async () => {
-            expect(subject()).to.be.revertedWith("Target already met");
+            await expect(subject()).to.be.revertedWith("Target already met");
           });
         });
       });

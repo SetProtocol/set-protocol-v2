@@ -243,7 +243,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         _validateTradeParameters(_setToken, _component);
         
-        TradeInfo memory tradeInfo = _createTradeInfo(_setToken, _component);
+        TradeInfo memory tradeInfo = _createTradeRemainingInfo(_setToken, _component);
         
         _executeTrade(tradeInfo);
         
@@ -464,6 +464,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         
         uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
+
+        require(currentUnit != targetUnit, "Target already met");
 
         uint256 currentNotional = totalSupply.getDefaultTotalNotional(currentUnit);
         uint256 targetNotional = totalSupply.preciseMulCeil(targetUnit);
