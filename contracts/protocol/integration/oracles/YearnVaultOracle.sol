@@ -37,19 +37,16 @@ contract YearnVaultOracle is IOracle
     IOracle public underlyingOracle; // Underlying token oracle
     string public dataDescription;
 
-    // Price per share values are scaled by 1e18
-    uint256 internal constant scalingFactor = 10 ** 18;
-
     // Underlying Asset Full Unit
     uint256 public underlyingFullUnit;
 
     /* ============ Constructor ============ */
 
     /*
-     * @param  _vault             The address of Yearn Vault Token
-     * @param  _underlyingOracle   The address of the underlying oracle
-     * @param  _underlyingFullUnit The full unit of the underlying asset
-     * @param  _dataDescription    Human readable description of oracle
+     * @param  _vault               The address of Yearn Vault Token
+     * @param  _underlyingOracle    The address of the underlying oracle
+     * @param  _underlyingFullUnit  The full unit of the underlying asset
+     * @param  _dataDescription     Human readable description of oracle
      */
     constructor(
         IYearnVault _vault,
@@ -66,12 +63,9 @@ contract YearnVaultOracle is IOracle
     }
 
     /**
-     * Returns the price value of a full vault token denominated in underlyingOracle value
-     &
-     * The underlying oracle is assumed to return a price of 18 decimal
-     * for a single full token of the underlying asset. The derived price
-     * of the vault token is then the price of a unit of underlying multiplied
-     * by the exchangeRate, adjusted for decimal differences, and descaled.
+     * Returns the price value of a full vault token denominated in underlyingOracle value.
+     * The derived price of the vault token is the price of a share multiplied divided by
+     * underlying full unit and multiplied by the underlying price.
      */
     function read()
         external
@@ -82,10 +76,9 @@ contract YearnVaultOracle is IOracle
         // Retrieve the price of the underlying
         uint256 underlyingPrice = underlyingOracle.read();
 
-        // Retrieve price per share
+        // Price per share is the amount of the underlying asset per 1 full vaultToken
         uint256 pricePerShare = vault.pricePerShare();
-        uint256 normalizedPricePerShare = pricePerShare.preciseDiv(underlyingFullUnit);
 
-        return normalizedPricePerShare.preciseMul(underlyingPrice);
+        return pricePerShare.mul(underlyingPrice).div(underlyingFullUnit);
     }
 }

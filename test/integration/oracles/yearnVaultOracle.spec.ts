@@ -3,8 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { OracleMock, YearnVaultOracle } from "@utils/contracts";
-import { Vault } from "../../../typechain/Vault";
+import { OracleMock, YearnVaultOracle, YearnVaultMock } from "@utils/contracts";
 
 import DeployHelper from "@utils/deploys";
 
@@ -22,18 +21,19 @@ import { YearnFixture, SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("CTokenOracle", () => {
+describe("YearnVaultOracle", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
   let yearnSetup: YearnFixture;
-  let daiVault: Vault;
+  let daiVault: YearnVaultMock;
 
   let daiUsdcOracle: OracleMock;
   let daiUsdcPrice: BigNumber;
   let yearnVaultDaiOracle: YearnVaultOracle;
   let daiFullUnit: BigNumber;
+  let pricePerShare: BigNumber;
 
   before(async () => {
     [
@@ -49,13 +49,11 @@ describe("CTokenOracle", () => {
     yearnSetup = getYearnFixture(owner.address);
     await yearnSetup.initialize();
 
-    daiVault =  await yearnSetup.createAndEnableVaultWithStrategyMock(
-      setup.dai.address, owner.address, owner.address, owner.address, "MockStrategy", "M", ether(100)
-    );
-
-    daiUsdcPrice = BigNumber.from("1000000000000000000");
+    pricePerShare = ether(1.5);
+    daiVault = await deployer.mocks.deployYearnVaultMock(pricePerShare);
+    daiUsdcPrice = ether(1);
     daiUsdcOracle = await deployer.mocks.deployOracleMock(daiUsdcPrice);
-    daiFullUnit = BigNumber.from("1000000000000000000");
+    daiFullUnit = ether(1);
     yearnVaultDaiOracle = await deployer.oracles.deployYearnVaultOracle(
       daiVault.address,
       daiUsdcOracle.address,
@@ -75,7 +73,7 @@ describe("CTokenOracle", () => {
 
     before(async () => {
       subjectVaultAddress = daiVault.address;
-      subjectUnderlyingFullUnit = BigNumber.from("1000000000000000000");
+      subjectUnderlyingFullUnit = ether(1);
       subjectUnderlyingOracle = daiUsdcOracle.address;
       subjectDataDescription = "yvDAI Oracle";
     });
@@ -117,11 +115,6 @@ describe("CTokenOracle", () => {
 
 
   describe("#read", async () => {
-    let subjectUnderlyingPricePerShare: BigNumber;
-
-    before(async () => {
-      subjectUnderlyingPricePerShare = BigNumber.from("1000000000000000000");
-    });
 
     async function subject(): Promise<BigNumber> {
       return yearnVaultDaiOracle.read();
@@ -129,10 +122,9 @@ describe("CTokenOracle", () => {
 
     it("returns the correct vault value", async () => {
       const result = await subject();
-      const expectedResult = subjectUnderlyingPricePerShare
-                              .div(daiFullUnit)
-                              .mul(daiUsdcPrice);
-
+      const expectedResult = pricePerShare
+                              .mul(daiUsdcPrice)
+                              .div(daiFullUnit);
       expect(result).to.eq(expectedResult);
     });
   });

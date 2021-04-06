@@ -54,7 +54,7 @@ describe("YearnFixture", () => {
     it("should create and enable a vault", async () => {
       const vault = await subject();
 
-      const pricePerShare = await vault.pricePerShare(); // No deposiit into the vault. 1 share = 1 underlying
+      const pricePerShare = await vault.pricePerShare(); // No deposit into the vault. 1 share = 1 underlying
       expect(pricePerShare).to.eq(ether(1));
 
     });
