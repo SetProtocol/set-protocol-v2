@@ -55,6 +55,7 @@ export { OneInchExchangeMock } from "../../typechain/OneInchExchangeMock";
 export { OracleAdapterMock } from "../../typechain/OracleAdapterMock";
 export { OracleMock } from "../../typechain/OracleMock";
 export { CTokenOracle } from "../../typechain/CTokenOracle";
+export { YearnVaultMock } from "../../typechain/YearnVaultMock";
 export { YearnVaultOracle } from "../../typechain/YearnVaultOracle";
 export { PositionMock } from "../../typechain/PositionMock";
 export { PreciseUnitMathMock } from "../../typechain/PreciseUnitMathMock";

@@ -23,7 +23,7 @@ import { IYearnVault } from "../../interfaces/external/IYearnVault.sol";
 
 /**
  * @title YearnWrapAdapter
- * @author Set Protocol
+ * @author Set Protocol, Ember Fund
  *
  * Wrap adapter for Yearn that returns data for wraps/unwraps of tokens
  */

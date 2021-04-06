@@ -28,6 +28,7 @@ import {
   OneInchExchangeMock,
   OracleAdapterMock,
   OracleMock,
+  YearnVaultMock,
   PositionMock,
   PreciseUnitMathMock,
   ResourceIdentifierMock,
@@ -70,6 +71,7 @@ import { NAVIssuanceHookMock__factory } from "../../typechain/factories/NAVIssua
 import { OneInchExchangeMock__factory } from "../../typechain/factories/OneInchExchangeMock__factory";
 import { OracleAdapterMock__factory } from "../../typechain/factories/OracleAdapterMock__factory";
 import { OracleMock__factory } from "../../typechain/factories/OracleMock__factory";
+import { YearnVaultMock__factory } from "../../typechain/factories/YearnVaultMock__factory";
 import { PositionMock__factory } from "../../typechain/factories/PositionMock__factory";
 import { PreciseUnitMathMock__factory } from "../../typechain/factories/PreciseUnitMathMock__factory";
 import { ResourceIdentifierMock__factory } from "../../typechain/factories/ResourceIdentifierMock__factory";
@@ -174,6 +176,11 @@ export default class DeployMocks {
   public async deployOracleMock(initialValue: BigNumberish): Promise<OracleMock> {
     return await new OracleMock__factory(this._deployerSigner).deploy(initialValue);
   }
+
+  public async deployYearnVaultMock(pricePerShare: BigNumberish): Promise<YearnVaultMock> {
+    return await new YearnVaultMock__factory(this._deployerSigner).deploy(pricePerShare);
+  }
+
 
   public async deployOracleAdapterMock(
     asset: Address,
