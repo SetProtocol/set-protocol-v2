@@ -8,11 +8,7 @@ import { ETH_ADDRESS, ZERO } from "@utils/constants";
 import { CompoundFixture, SystemFixture } from "@utils/fixtures";
 import { CompoundWrapAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
-import {
-  ether,
-  addressToData,
-  bigNumberToData
-} from "@utils/index";
+import { ether } from "@utils/index";
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
@@ -34,7 +30,7 @@ describe("CompoundWrapAdapter", () => {
 
   before(async () => {
     [
-      owner
+      owner,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -155,7 +151,7 @@ describe("CompoundWrapAdapter", () => {
     it("should return correct data", async () => {
       const [targetAddress, ethValue, callData] = await subject();
 
-      const expectedCallData = cDai.interface.encodeFunctionData("redeemUnderlying", [subjectQuantity]);
+      const expectedCallData = cDai.interface.encodeFunctionData("redeem", [subjectQuantity]);
 
       expect(targetAddress).to.eq(subjectCToken);
       expect(ethValue).to.eq(ZERO);

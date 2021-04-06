@@ -4,7 +4,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO } from "@utils/constants";
-import { CompoundWrapAdapter, SetToken, WrapModule } from "@utils/contracts";
+import { SetToken, WrapModule } from "@utils/contracts";
 import { CERc20 } from "@utils/contracts/compound";
 import DeployHelper from "@utils/deploys";
 import {
@@ -80,7 +80,7 @@ describe("compoundWrapModule", () => {
     let setToken: SetToken;
     let setTokensIssued: BigNumber;
 
-    before(async () => {
+    beforeEach(async () => {
       setToken = await setup.createSetToken(
         [setup.dai.address],
         [ether(1)],
@@ -128,8 +128,6 @@ describe("compoundWrapModule", () => {
       it("should reduce the underlying quantity and mint the wrapped asset to the SetToken", async () => {
         const previousUnderlyingBalance = await setup.dai.balanceOf(setToken.address);
 
-        const previousWrappedBalance = await cDai.balanceOf(setToken.address);
-
         await subject();
 
         const underlyingBalance = await setup.dai.balanceOf(setToken.address);
@@ -137,9 +135,6 @@ describe("compoundWrapModule", () => {
         const expectedUnderlyingBalance = previousUnderlyingBalance.sub(setTokensIssued);
 
         expect(underlyingBalance).to.eq(expectedUnderlyingBalance);
-
-        const underlyingTokenDecimals = await setup.dai.decimals();
-        const wrappedTokenDecimals = await cDai.decimals();
 
         const expectedWrappedBalance = preciseDiv(previousUnderlyingBalance, exchangeRate);
 
@@ -161,7 +156,7 @@ describe("compoundWrapModule", () => {
         subjectSetToken = setToken.address;
         subjectUnderlyingToken = setup.dai.address;
         subjectWrappedToken = cDai.address;
-        subjectWrappedTokenUnits = ether(0.5);
+        subjectWrappedTokenUnits = BigNumber.from("5000000000");  // ctokens have 8 decimals
         subjectIntegrationName = compoundWrapAdapterIntegrationName;
         subjectCaller = owner;
 
@@ -187,20 +182,18 @@ describe("compoundWrapModule", () => {
       }
 
       it("should burn the wrapped asset to the SetToken and increase the underlying quantity", async () => {
-        const previousUnderlyingBalance = await setup.dai.balanceOf(setToken.address);
         const previousWrappedBalance = await cDai.balanceOf(setToken.address);
 
         await subject();
 
         const underlyingBalance = await setup.dai.balanceOf(setToken.address);
         const wrappedBalance = await cDai.balanceOf(setToken.address);
-        const delta = preciseMul(setTokensIssued, wrappedQuantity.sub(subjectWrappedTokenUnits));
-        const expectedUnderlyingBalance = previousUnderlyingBalance.add(delta);
+        const delta = preciseMul(setTokensIssued, subjectWrappedTokenUnits);
+        const expectedUnderlyingBalance = preciseMul(delta, exchangeRate);
 
         expect(underlyingBalance).to.eq(expectedUnderlyingBalance);
 
-        const wrappedTokenUnits = preciseDiv(delta, exchangeRate);
-        const expectedWrappedBalance = previousWrappedBalance.sub(wrappedTokenUnits);
+        const expectedWrappedBalance = previousWrappedBalance.sub(delta);
 
         expect(wrappedBalance).to.eq(expectedWrappedBalance);
       });

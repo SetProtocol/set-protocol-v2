@@ -92,7 +92,7 @@ contract CompoundWrapAdapter {
         view
         returns (address, uint256, bytes memory)
     {
-        ( , , bytes memory callData) = ICErc20(_wrappedToken).getRedeemUnderlyingCalldata(_wrappedTokenUnits);
+        ( , , bytes memory callData) = ICErc20(_wrappedToken).getRedeemCalldata(_wrappedTokenUnits);
         return (_wrappedToken, 0, callData);
     }
 
