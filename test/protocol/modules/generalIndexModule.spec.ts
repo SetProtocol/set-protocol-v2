@@ -1721,7 +1721,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should revert", async () => {
-            expect(subject()).to.be.revertedWith("Target percentage must be > 0");
+            await expect(subject()).to.be.revertedWith("Target percentage must be > 0");
           });
         });
       });
@@ -1819,7 +1819,6 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should raise asset targets and allow trading", async () => {
-
 
             const daiPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
             const uniPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(uniswapSetup.uni.address);
