@@ -281,6 +281,233 @@ describe("GeneralIndexModule", () => {
       );
     });
 
+    describe("#startRebalance", async () => {
+
+      before(async () => {
+        subjectSetToken = index;
+        subjectCaller = owner;
+        newComponents = [sushiswapSetup.uni.address];
+        newTargetUnits = [ether(50)];
+        oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(50)];
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return await indexModule.connect(subjectCaller.wallet).startRebalance(
+          subjectSetToken.address,
+          newComponents,
+          newTargetUnits,
+          oldTargetUnits,
+          await subjectSetToken.positionMultiplier()
+        );
+      }
+
+      it("should set target units and rebalance info correctly", async () => {
+        await subject();
+
+        const currentComponents = await subjectSetToken.getComponents();
+        const aggregateComponents = [...currentComponents, ...newComponents];
+        const aggregateTargetUnits = [...oldTargetUnits, ...newTargetUnits];
+
+        for (let i = 0; i < aggregateComponents.length; i++) {
+          const targetUnit = (await indexModule.executionInfo(subjectSetToken.address, aggregateComponents[i])).targetUnit;
+          const exepectedTargetUnit = aggregateTargetUnits[i];
+          expect(targetUnit).to.be.eq(exepectedTargetUnit);
+        }
+
+        // todo: How to check rebalance components?
+        // const rebalanceComponents = await indexModule.rebalanceInfo(subjectSetToken.address);
+        // const expectedRebalanceComponents = aggregateComponents;
+
+        const positionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+        const expectedPositionMultiplier = await subjectSetToken.positionMultiplier();
+
+        expect(positionMultiplier).to.be.eq(expectedPositionMultiplier);
+      });
+
+      describe("newComponents and newComponentsTargetUnits are not of same length", async () => {
+        before(async () => {
+          newTargetUnits = [];
+        });
+
+        after(async() => {
+          newTargetUnits = [ether(50)];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Array length mismatch");
+        });
+      });
+
+      describe("when missing target units for old comoponents", async () => {
+        before(async () => {
+          oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02)];
+        });
+
+        after(async () => {
+          oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(50)];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("New allocation must have target for all old components");
+        });
+      });
+
+      describe("when newComponents contains an old component", async () => {
+        before(async () => {
+          newComponents = [sushiswapSetup.uni.address, uniswapSetup.uni.address];
+          newTargetUnits = [ether(50), ether(50)];
+        });
+
+        after(async () => {
+          newComponents = [sushiswapSetup.uni.address];
+          newTargetUnits = [ether(50)];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+        });
+      });
+    });
+
+    describe("#setCoolOffPeriods", async () => {
+      let components: Address[];
+      let coolOffPeriods: BigNumber[];
+
+      before(async () => {
+        subjectSetToken = index;
+        subjectCaller = owner;
+        components = [uniswapSetup.uni.address, setup.wbtc.address];
+        coolOffPeriods = [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS];
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return await indexModule.connect(subjectCaller.wallet).setCoolOffPeriods(subjectSetToken.address, components, coolOffPeriods);
+      }
+
+      it("should set values correctly", async () => {
+        await subject();
+
+        for (let i = 0; i < components.length; i++) {
+          const coolOffPeriod = (await indexModule.executionInfo(subjectSetToken.address, components[i])).coolOffPeriod;
+          const exepctedCoolOffPeriod = coolOffPeriods[i];
+          expect(coolOffPeriod).to.be.eq(exepctedCoolOffPeriod);
+        }
+      });
+
+      describe("when array lengths are not same", async () => {
+        before(async () => {
+          coolOffPeriods = [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(2)];
+        });
+
+        after(async () => {
+          coolOffPeriods = [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Array length mismatch");
+        });
+      });
+
+      describe("when component array has duplilcate values", async () => {
+        before(async () => {
+          components = [uniswapSetup.uni.address, setup.wbtc.address, uniswapSetup.uni.address];
+          coolOffPeriods = [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(3)];
+        });
+
+        after(async () => {
+          components = [uniswapSetup.uni.address, setup.wbtc.address];
+          coolOffPeriods = [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+        });
+      });
+    });
+
+    describe("#setTradeMaximums", async () => {
+      let components: Address[];
+      let tradeMaximums: BigNumber[];
+
+      before(async () => {
+        subjectSetToken = index;
+        subjectCaller = owner;
+        components = [uniswapSetup.uni.address, setup.wbtc.address];
+        tradeMaximums = [ether(800), bitcoin(.1)];
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return await indexModule.connect(subjectCaller.wallet).setTradeMaximums(subjectSetToken.address, components, tradeMaximums);
+      }
+
+      it("should set values correctly", async () => {
+        await subject();
+
+        for (let i = 0; i < components.length; i++) {
+          const maxSize = (await indexModule.executionInfo(subjectSetToken.address, components[i])).maxSize;
+          const exepctedMaxSize = tradeMaximums[i];
+          expect(maxSize).to.be.eq(exepctedMaxSize);
+        }
+      });
+    });
+
+    describe("#setExchanges", async () => {
+      let components: Address[];
+      let exchanges: string[];
+
+      before(async () => {
+        subjectSetToken = index;
+        subjectCaller = owner;
+        components = [uniswapSetup.uni.address, setup.wbtc.address];
+        exchanges = [uniswapAdapterName, sushiswapAdapterName];
+      });
+
+      // todo: revert on setting "" as exchange name?
+      async function subject(): Promise<ContractTransaction> {
+        return await indexModule.connect(subjectCaller.wallet).setExchanges(subjectSetToken.address, components, exchanges);
+      }
+
+      it("should set values correctly", async () => {
+        await subject();
+
+        for (let i = 0; i < components.length; i++) {
+          const exchangeName = (await indexModule.executionInfo(subjectSetToken.address, components[i])).exchangeName;
+          const exepctedExchangeName = exchanges[i];
+          expect(exchangeName).to.be.eq(exepctedExchangeName);
+        }
+      });
+
+      describe("when array lengths are not same", async () => {
+        before(async () => {
+          exchanges = [uniswapAdapterName, sushiswapAdapterName, balancerAdapterName];
+        });
+
+        after(async () => {
+          exchanges = [uniswapAdapterName, sushiswapAdapterName];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Array length mismatch");
+        });
+      });
+
+      describe("when component array has duplilcate values", async () => {
+        before(async () => {
+          components = [uniswapSetup.uni.address, setup.wbtc.address, uniswapSetup.uni.address];
+          exchanges = [uniswapAdapterName, sushiswapAdapterName, uniswapAdapterName];
+        });
+
+        after(async () => {
+          components = [uniswapSetup.uni.address, setup.wbtc.address];
+          exchanges = [uniswapAdapterName, sushiswapAdapterName];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+        });
+      });
+    });
+
     describe("#trade", async () => {
       let subjectComponent: Address;
       let subjectIncreaseTime: BigNumber;
@@ -1225,8 +1452,8 @@ describe("GeneralIndexModule", () => {
 
         expectedSubjectAmountOut = (await balancerSetup.exchange.viewSplitExactIn(
           setup.weth.address,
-          setup.dai.address,
-          remainingWETH,
+          subjectComponent,
+          remainingWETH.gt(ZERO) ? remainingWETH : ZERO,
           THREE
         )).totalOutput;
       });
@@ -1253,7 +1480,7 @@ describe("GeneralIndexModule", () => {
         expect(daiPositionUnits).to.eq(expectedDaiPositionUnits);
       });
 
-      it("emits the correcte TradeExecuted event", async () => {
+      it("emits the correct TradeExecuted event", async () => {
         await expect(subject()).to.be.emit(indexModule, "TradeExecuted").withArgs(
           subjectSetToken.address,
           setup.weth.address,
@@ -1318,9 +1545,20 @@ describe("GeneralIndexModule", () => {
         });
       });
 
+      describe("when the calling address is not a permissioned address", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Address not permitted to trade");
+        });
+      });
+
       describe("when set has weth as component", async () => {
         before(async () => {
           subjectSetToken = indexWithWeth;
+          subjectCaller = trader;
           components = [...indexWithWethComponents, sushiswapSetup.uni.address];
           oldTargetUnits = [ether(86.9565217), bitcoin(.01111), ether(200), ether(0.434782609)];
         });
@@ -1408,6 +1646,29 @@ describe("GeneralIndexModule", () => {
           });
         });
 
+        describe("when weth is below target unit", async () => {
+          before(async() => {
+            oldTargetUnits = [ether(86.9565217), bitcoin(.01111), ether(200), ether(0.8)];  // increased weth target unit
+          });
+
+          after(async () => {
+            oldTargetUnits = [ether(86.9565217), bitcoin(.01111), ether(200), ether(0.434782609)];
+          });
+
+          it("shoud revert", async () => {
+          await expect(subject()).to.be.revertedWith("WETH is below target unit and can not be traded");
+          });
+        });
+      });
+
+      describe("when target has ben met", async () => {
+        before(async() => {
+          setup.dai.transfer(subjectSetToken.address, BigNumber.from("1000"));
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Target already met");
+        });
       });
     });
 
@@ -1449,6 +1710,20 @@ describe("GeneralIndexModule", () => {
             subjectRaiseTargetPercentage
           );
         });
+
+        describe("when target percentage is 0", async () => {
+          before(async () => {
+            subjectRaiseTargetPercentage = ZERO;
+          });
+
+          after(async () => {
+            subjectRaiseTargetPercentage = ether("0.02");
+          });
+
+          it("should revert", async () => {
+            expect(subject()).to.be.revertedWith("Target percentage must be > 0");
+          });
+        });
       });
 
       describe("when all target units have been met and weth is remaining", async () => {
@@ -1459,24 +1734,6 @@ describe("GeneralIndexModule", () => {
         beforeEach(async () => {
           await setup.approveAndIssueSetToken(subjectSetToken, issueAmount);
           await indexModule.startRebalance(subjectSetToken.address, newComponents, newTargetUnits, oldTargetUnits, await index.positionMultiplier());
-
-          // trade WBTC for WETH, to reach target unit
-          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address);
-          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address);
-          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address);
-
-          // trade WETH for uniswap.uni, to reach target unit
-          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, uniswapSetup.uni.address);
-
-          // trade WETH for dai, to reach dai target unit
-          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.dai.address);
-          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
-          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.dai.address);
         });
 
         async function subject(): Promise<ContractTransaction> {
@@ -1492,12 +1749,36 @@ describe("GeneralIndexModule", () => {
           return await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.dai.address);
         }
 
+        async function sellWbtcForWeth() {
+          // trade WBTC for WETH, to reach target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address);
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address);
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address);
+        }
+
+        async function buyUniAndDaiUsingWeth() {
+          // trade WETH for uniswap.uni, to reach target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, uniswapSetup.uni.address);
+
+          // trade WETH for dai, to reach dai target unit
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.dai.address);
+          await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
+          await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.dai.address);
+        }
         it("should raise asset targets and allow trading", async () => {
 
           await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
 
           const daiPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
           const uniPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(uniswapSetup.uni.address);
+
+          await sellWbtcForWeth();
+          await buyUniAndDaiUsingWeth();
           await subject();
 
           // const expectedDaiPositionUnits = daiPositionUnits.mul(ether(1).add(subjectRaiseTargetPercentage).div(ether(1)));
@@ -1517,22 +1798,36 @@ describe("GeneralIndexModule", () => {
 
         describe("when targets is not raised", async () => {
           it("should revert with Target already met", async () => {
+            await sellWbtcForWeth();
+            await buyUniAndDaiUsingWeth();
             await expect(subject()).to.be.revertedWith("Target already met");
+          });
+        });
+
+        describe("when all targets have not been met", async () => {
+          it("should revert", async () => {
+            await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
+            await sellWbtcForWeth();
+            await expect(subject()).to.be.revertedWith("Targets must be met and ETH remaining in order to raise target");
           });
         });
 
         describe("when set has weth as component", async () => {
           before(async () => {
             subjectSetToken = indexWithWeth;
-            oldTargetUnits = [ether(100), ZERO, ether(175), ether(0.434782609)];  // 10$ of WETH should be extra in the SetToken
+            oldTargetUnits = [ether(100), ZERO, ether(175), ether(0.434782609)];  // 10$ of WETH should be extra per SetToken
           });
 
           it("should raise asset targets and allow trading", async () => {
 
-            await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
 
             const daiPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
             const uniPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(uniswapSetup.uni.address);
+
+            await sellWbtcForWeth();
+            await buyUniAndDaiUsingWeth();
+
+            await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
             await subject();
 
             // const expectedDaiPositionUnits = daiPositionUnits.mul(ether(1).add(subjectRaiseTargetPercentage).div(ether(1)));
@@ -1544,7 +1839,6 @@ describe("GeneralIndexModule", () => {
 
             // expect(newDaiPositionUnits).to.equal(expectedDaiPositionUnits);  // difference of 4 wei
             // expect(newUniPositionUnits).to.equal(expectedUniPositionUnits);
-
             expect(newDaiPositionUnits).to.gt(daiPositionUnits);
             expect(newUniPositionUnits).to.gt(uniPositionUnits);
             expect(newWbtcPositionUnits).to.equal(ZERO);   // cause this is sold completely
@@ -1552,9 +1846,122 @@ describe("GeneralIndexModule", () => {
 
           describe("when targets is not raised", async () => {
             it("should revert with Target already met", async () => {
+              await sellWbtcForWeth();
+              await buyUniAndDaiUsingWeth();
               await expect(subject()).to.be.revertedWith("Target already met");
             });
           });
+
+          describe("when weth unit is below target unit", async () => {
+            before(async () => {
+              oldTargetUnits = [ether(100), ZERO, ether(175), ether(0.8)];
+            });
+
+            after(async () => {
+              oldTargetUnits = [ether(100), ZERO, ether(175), ether(0.434782609)];
+            });
+
+            it("should revert", async () => {
+              await sellWbtcForWeth();
+              await buyUniAndDaiUsingWeth();
+              await indexModule.connect(owner.wallet).updateRaiseTargetPercentage(subjectSetToken.address, subjectRaiseTargetPercentage);
+              await expect(subject()).to.be.revertedWith("Targets must be met and ETH remaining in order to raise target");
+            });
+          });
+        });
+      });
+    });
+
+    describe("#updateTraderStatus", async () => {
+      let traders: Address[];
+      let statuses: boolean[];
+      let trader1: Account;
+      let trader2: Account;
+
+      before(async () => {
+        subjectSetToken = index;
+        const accounts = await getAccounts();
+        trader1 = accounts[accounts.length - 1];
+        trader2 = accounts[accounts.length - 2];
+        traders = [trader1.address, trader2.address];
+        statuses = [true, false];
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        await indexModule.connect(owner.wallet).updateTraderStatus(subjectSetToken.address, traders, statuses);
+
+        newComponents = [];
+        oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(50)];
+        newTargetUnits = [];
+        issueAmount = ether("20.000000000000000001");
+        await setup.approveAndIssueSetToken(subjectSetToken, issueAmount);
+        await indexModule.startRebalance(subjectSetToken.address, newComponents, newTargetUnits, oldTargetUnits, await index.positionMultiplier());
+        return await indexModule.connect(subjectCaller.wallet).trade(subjectSetToken.address, setup.dai.address);
+      }
+
+      describe("when approved trader calls trade", async () => {
+        before(async () => {
+          subjectCaller = trader1;
+        });
+
+        it("should allow trading", async () => {
+          await subject();
+        });
+      });
+
+      describe("when not approved trader calls trade", async () => {
+        before(async () => {
+          subjectCaller = trader2;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Address not permitted to trade");
+        });
+      });
+
+      describe("when traders and statuses arrays do not have same length", async () => {
+        before(async () => {
+          statuses = [true];
+        });
+
+        after(async () => {
+          statuses = [true, false];
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Array length mismatch");
+        });
+      });
+
+      describe("when traders array length == 0", async () => {
+        before(async () => {
+          traders = [];
+          statuses = [];
+        });
+
+        after(async () => {
+          traders = [trader1.address, trader2.address];
+          statuses = [true, false];
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Array length must be > 0");
+        });
+      });
+
+      describe("when traders array has duplicate address", async () => {
+        before(async () => {
+          traders = [trader1.address, trader2.address, trader1.address];
+          statuses = [true, false, true];
+        });
+
+        after(async () => {
+          traders = [trader1.address, trader2.address];
+          statuses = [true, false];
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Cannot duplicate traders");
         });
       });
     });

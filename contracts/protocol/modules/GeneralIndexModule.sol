@@ -25,7 +25,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { IController } from "../../interfaces/IController.sol";
@@ -118,7 +118,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     
     /* ============ Constants ============ */
     
-    uint256 private constant TRADE_MODULE_PROTOCOL_FEE_INDEX = 0;
+    uint256 private constant GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX = 0;
     
     /* ============ State Variables ============ */
 
@@ -365,7 +365,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _raiseTargetPercentage        Amount to raise all component's unit targets by (in precise units)     
      */
     function updateRaiseTargetPercentage(ISetToken _setToken, uint256 _raiseTargetPercentage) external onlyManagerAndValidSet(_setToken) {
-        require(_raiseTargetPercentage > 0, "raiseTargetPercentage > 0");
+        require(_raiseTargetPercentage > 0, "Target percentage must be > 0");
         rebalanceInfo[_setToken].raiseTargetPercentage = _raiseTargetPercentage;
         emit RaiseTargetPercentageUpdated(_setToken, _raiseTargetPercentage);       
     }
@@ -580,7 +580,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         
         uint256 exchangedQuantity =  IERC20(_tradeInfo.receiveToken).balanceOf(address(_tradeInfo.setToken)).sub(_tradeInfo.preTradeReceiveTokenBalance);
         
-        uint256 protocolFeeTotal = getModuleFee(TRADE_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
+        uint256 protocolFeeTotal = getModuleFee(GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
         
         payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFeeTotal);
         
