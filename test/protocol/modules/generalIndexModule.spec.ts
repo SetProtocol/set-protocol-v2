@@ -715,7 +715,7 @@ describe("GeneralIndexModule", () => {
             [setup.weth.address, setup.wbtc.address]
           );
 
-          ethQuantityLimit = MAX_UINT_256;
+          ethQuantityLimit = expectedIn;
         });
 
         it("the position units and lastTradeTimestamp should be set as expected", async () => {
@@ -844,6 +844,8 @@ describe("GeneralIndexModule", () => {
       });
 
       describe("when the buy happens on Balancer", async () => {
+        let expectedIn: BigNumber;
+
         before(async () => {
           oldTargetUnits = [ether(100), ZERO, ether(185)];
         });
@@ -855,7 +857,13 @@ describe("GeneralIndexModule", () => {
           await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
           subjectComponent = setup.dai.address;
-          ethQuantityLimit = MAX_UINT_256;
+          expectedIn = (await balancerSetup.exchange.viewSplitExactOut(
+            setup.weth.address,
+            setup.dai.address,
+            ether(1000),
+            THREE
+          )).totalOutput;
+          ethQuantityLimit = expectedIn;
         });
 
         after(async () => {
@@ -863,13 +871,6 @@ describe("GeneralIndexModule", () => {
         });
 
         it("the position units and lastTradeTimestamp should be set as expected", async () => {
-          const expectedIn = await balancerSetup.exchange.viewSplitExactOut(
-            setup.weth.address,
-            setup.dai.address,
-            ether(1000),
-            THREE
-          );
-
           const currentDaiAmount = await setup.dai.balanceOf(subjectSetToken.address);
           const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
 
@@ -888,7 +889,7 @@ describe("GeneralIndexModule", () => {
           const daiExcess = currentDaiAmount.sub(preciseMul(totalSupply, daiUnit));
           const wethExcess = currentWethAmount.sub(preciseMul(totalSupply, wethUnit));
           const expectedWethPositionUnits = preciseDiv(
-            currentWethAmount.sub(expectedIn.totalOutput).sub(wethExcess),
+            currentWethAmount.sub(expectedIn).sub(wethExcess),
             totalSupply
           );
           const expectedDaiPositionUnits = preciseDiv(
@@ -927,7 +928,11 @@ describe("GeneralIndexModule", () => {
           await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
           subjectComponent = sushiswapSetup.uni.address;
-          ethQuantityLimit = MAX_UINT_256;
+          const [amountIn, ] = await sushiswapSetup.router.getAmountsIn(
+            ether(500),
+            [setup.weth.address, sushiswapSetup.uni.address]
+          );
+          ethQuantityLimit = amountIn;
         });
 
         after(async () => {
@@ -1143,7 +1148,7 @@ describe("GeneralIndexModule", () => {
               [setup.weth.address, setup.wbtc.address]
             );
 
-            ethQuantityLimit = MAX_UINT_256;
+            ethQuantityLimit = expectedIn;
           });
 
           it("the position units and lastTradeTimestamp should be set as expected", async () => {
@@ -1269,6 +1274,8 @@ describe("GeneralIndexModule", () => {
         });
 
         describe("when the buy happens on Balancer", async () => {
+          let expectedIn: BigNumber;
+
           before(async () => {
             oldTargetUnits = [ether(100), ZERO, ether(185), ether(0.434782609)];
           });
@@ -1280,7 +1287,13 @@ describe("GeneralIndexModule", () => {
             await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
             subjectComponent = setup.dai.address;
-            ethQuantityLimit = MAX_UINT_256;
+            expectedIn = (await balancerSetup.exchange.viewSplitExactOut(
+              setup.weth.address,
+              setup.dai.address,
+              ether(1000),
+              THREE
+            )).totalOutput;
+            ethQuantityLimit = expectedIn;
           });
 
           after(async () => {
@@ -1288,13 +1301,6 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the position units and lastTradeTimestamp should be set as expected", async () => {
-            const expectedIn = await balancerSetup.exchange.viewSplitExactOut(
-              setup.weth.address,
-              setup.dai.address,
-              ether(1000),
-              THREE
-            );
-
             const currentDaiAmount = await setup.dai.balanceOf(subjectSetToken.address);
             const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
 
@@ -1313,7 +1319,7 @@ describe("GeneralIndexModule", () => {
             const daiExcess = currentDaiAmount.sub(preciseMul(totalSupply, daiUnit));
             const wethExcess = currentWethAmount.sub(preciseMul(totalSupply, wethUnit));
             const expectedWethPositionUnits = preciseDiv(
-              currentWethAmount.sub(expectedIn.totalOutput).sub(wethExcess),
+              currentWethAmount.sub(expectedIn).sub(wethExcess),
               totalSupply
             );
             const expectedDaiPositionUnits = preciseDiv(
@@ -1352,7 +1358,11 @@ describe("GeneralIndexModule", () => {
             await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
             subjectComponent = sushiswapSetup.uni.address;
-            ethQuantityLimit = MAX_UINT_256;
+            const [amountIn, ] = await sushiswapSetup.router.getAmountsIn(
+              ether(500),
+              [setup.weth.address, sushiswapSetup.uni.address]
+            );
+            ethQuantityLimit = amountIn;
           });
 
           after(async () => {
