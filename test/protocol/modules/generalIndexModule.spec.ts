@@ -423,6 +423,22 @@ describe("GeneralIndexModule", () => {
           await expect(subject()).to.be.revertedWith("Cannot duplicate components");
         });
       });
+
+      describe("when array length is 0", async () => {
+        before(async () => {
+          components = [];
+          coolOffPeriods = [];
+        });
+
+        after(async () => {
+          components = [uniswapSetup.uni.address, setup.wbtc.address];
+          coolOffPeriods = [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Array length must be > 0");
+        });
+      });
     });
 
     describe("#setTradeMaximums", async () => {
@@ -504,6 +520,22 @@ describe("GeneralIndexModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+        });
+      });
+
+      describe("when component array has duplilcate values", async () => {
+        before(async () => {
+          components = [];
+          exchanges = [];
+        });
+
+        after(async () => {
+          components = [uniswapSetup.uni.address, setup.wbtc.address];
+          exchanges = [uniswapAdapterName, sushiswapAdapterName];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Array length must be > 0");
         });
       });
     });
@@ -1667,7 +1699,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          expect(subject()).to.be.revertedWith("Target already met");
+          await expect(subject()).to.be.revertedWith("Target already met");
         });
       });
     });
