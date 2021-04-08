@@ -10,7 +10,8 @@ import {
   bitcoin,
   ether,
   preciseDiv,
-  preciseMul
+  preciseMul,
+  preciseMulCeil
 } from "@utils/index";
 import {
   cacheBeforeEach,
@@ -27,6 +28,29 @@ import { BalancerFixture, SystemFixture, UniswapFixture } from "@utils/fixtures"
 import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
+
+
+// ----------utils---------- //
+const componentAmountTraded = async (indexModule: GeneralIndexModule, setToken: SetToken, component: Address) => {
+  const totalSupply = await setToken.totalSupply();
+  const componentMaxSize = (await indexModule.executionInfo(setToken.address, component)).maxSize;
+  const currentPositionMultiplier = await setToken.positionMultiplier();
+  const positionMultiplier = (await indexModule.rebalanceInfo(setToken.address)).positionMultiplier;
+
+  const currentUnit = await setToken.getDefaultPositionRealUnit(component);
+  const targetUnit = (await indexModule.executionInfo(setToken.address, component)).targetUnit.mul(currentPositionMultiplier).div(positionMultiplier);
+
+  const currentNotional = preciseMul(totalSupply, currentUnit);
+  const targetNotional = preciseMulCeil(totalSupply, targetUnit);
+
+  if (targetNotional.lt(currentNotional)) {
+    return componentMaxSize.lt(currentNotional.sub(targetNotional)) ? componentMaxSize : currentNotional.sub(targetNotional);
+  } else {
+    return componentMaxSize.lt(targetNotional.sub(currentNotional)) ? componentMaxSize : targetNotional.sub(currentNotional);
+  }
+};
+
+
 
 describe("GeneralIndexModule", () => {
   let owner: Account;
@@ -250,7 +274,6 @@ describe("GeneralIndexModule", () => {
     let newTargetUnits: BigNumber[];
     let oldTargetUnits: BigNumber[];
     let issueAmount: BigNumber;
-    let expectedOut: BigNumber;
 
     async function initSetToken(
       setToken: SetToken, components: Address[], tradeMaximums: BigNumber[], exchanges: string[], coolOffPeriods: BigNumber[]
@@ -543,6 +566,8 @@ describe("GeneralIndexModule", () => {
     describe("#trade", async () => {
       let subjectComponent: Address;
       let subjectIncreaseTime: BigNumber;
+      let expectedOut: BigNumber;
+      let ethQuantityLimit: BigNumber;
 
       before(async () => {
         // current units [ether(86.9565217), bitcoin(.01111111), ether(100), ZERO]
@@ -566,9 +591,10 @@ describe("GeneralIndexModule", () => {
           ether(1000),
           THREE
         )).totalOutput;
+        ethQuantityLimit = expectedOut;
       });
 
-      async function subject(ethQuantityLimit: BigNumber = ZERO): Promise<ContractTransaction> {
+      async function subject(): Promise<ContractTransaction> {
         await increaseTimeAsync(subjectIncreaseTime);
         return await indexModule.connect(subjectCaller.wallet).trade(subjectSetToken.address, subjectComponent, ethQuantityLimit);
       }
@@ -578,8 +604,7 @@ describe("GeneralIndexModule", () => {
         const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
         const totalSupply = await subjectSetToken.totalSupply();
 
-        const ethQuantityLimit = ZERO;
-        await subject(ethQuantityLimit);
+        await subject();
 
         const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -597,9 +622,7 @@ describe("GeneralIndexModule", () => {
       });
 
       it("emits the correct TradeExecuted event", async () => {
-
-        const ethQuantityLimit = ZERO;
-        await expect(subject(ethQuantityLimit)).to.emit(indexModule, "TradeExecuted").withArgs(
+        await expect(subject()).to.emit(indexModule, "TradeExecuted").withArgs(
           subjectSetToken.address,
           setup.dai.address,
           setup.weth.address,
@@ -626,8 +649,7 @@ describe("GeneralIndexModule", () => {
 
         it("emits the correct TradeExecuted event", async () => {
           const protocolFee = expectedOut.mul(feePercentage).div(ether(1));
-          const ethQuantityLimit = ZERO;
-          await expect(subject(ethQuantityLimit)).to.emit(indexModule, "TradeExecuted").withArgs(
+          await expect(subject()).to.emit(indexModule, "TradeExecuted").withArgs(
             subjectSetToken.address,
             setup.dai.address,
             setup.weth.address,
@@ -641,25 +663,28 @@ describe("GeneralIndexModule", () => {
       });
 
       describe("when the component being sold doesn't meet the max trade size", async () => {
+        let expectedIn: BigNumber;
+
         beforeEach(async () => {
           subjectComponent = uniswapSetup.uni.address;
-        });
-
-        it("the trade gets rounded down to meet the target", async () => {
           const totalSupply = await subjectSetToken.totalSupply();
           const currentUniUnit = await subjectSetToken.getDefaultPositionRealUnit(uniswapSetup.uni.address);
           const expectedUniSize = preciseMul(currentUniUnit.sub(oldTargetUnits[0]), totalSupply);
 
-          const [expectedIn, expectedOut] = await uniswapSetup.router.getAmountsOut(
+          [expectedIn, expectedOut] = await uniswapSetup.router.getAmountsOut(
             expectedUniSize,
             [uniswapSetup.uni.address, setup.weth.address]
           );
+          ethQuantityLimit = expectedOut;
+        });
 
+        it("the trade gets rounded down to meet the target", async () => {
+
+          const totalSupply = await subjectSetToken.totalSupply();
           const currentUniAmount = await uniswapSetup.uni.balanceOf(subjectSetToken.address);
           const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
 
-          const ethQuantityLimit = ZERO;
-          await subject(ethQuantityLimit);
+          await subject();
 
           const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -681,10 +706,7 @@ describe("GeneralIndexModule", () => {
         let expectedOut: BigNumber;
 
         beforeEach(async () => {
-
-          // todo??
-          const ethQuantityLimit = ZERO;
-          await subject(ethQuantityLimit);
+          await subject();
 
           subjectComponent = setup.wbtc.address;
 
@@ -692,6 +714,8 @@ describe("GeneralIndexModule", () => {
             bitcoin(.1),
             [setup.weth.address, setup.wbtc.address]
           );
+
+          ethQuantityLimit = MAX_UINT_256;
         });
 
         it("the position units and lastTradeTimestamp should be set as expected", async () => {
@@ -702,8 +726,8 @@ describe("GeneralIndexModule", () => {
           const wbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
           const totalSupply = await subjectSetToken.totalSupply();
 
-          const ethQuantityLimit = MAX_UINT_256;
-          await subject(ethQuantityLimit);
+
+          await subject();
 
           const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -723,8 +747,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("emits the correct TradeExecuted event", async () => {
-          const ethQuantityLimit = MAX_UINT_256;
-          await expect(subject(ethQuantityLimit)).to.emit(indexModule, "TradeExecuted").withArgs(
+          await expect(subject()).to.emit(indexModule, "TradeExecuted").withArgs(
             subjectSetToken.address,
             setup.weth.address,
             setup.wbtc.address,
@@ -738,12 +761,20 @@ describe("GeneralIndexModule", () => {
       });
 
       describe("when the sell happens on Sushiswap", async () => {
+        let expectedIn: BigNumber;
+
         before(async () => {
           oldTargetUnits = [ether(100), ZERO, ether(185)];
         });
 
         beforeEach(async () => {
           subjectComponent = setup.wbtc.address;
+
+          [expectedIn, expectedOut] = await sushiswapSetup.router.getAmountsOut(
+            bitcoin(.1),
+            [setup.wbtc.address, setup.weth.address]
+          );
+          ethQuantityLimit = expectedOut;
         });
 
         after(async () => {
@@ -751,10 +782,6 @@ describe("GeneralIndexModule", () => {
         });
 
         it("the position units and lastTradeTimestamp should be set as expected", async () => {
-          const [expectedIn, expectedOut] = await sushiswapSetup.router.getAmountsOut(
-            bitcoin(.1),
-            [setup.wbtc.address, setup.weth.address]
-          );
 
           const currentWbtcAmount = await setup.wbtc.balanceOf(subjectSetToken.address);
           const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
@@ -763,8 +790,7 @@ describe("GeneralIndexModule", () => {
           const wbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
           const totalSupply = await subjectSetToken.totalSupply();
 
-          const ethQuantityLimit = ZERO;
-          await subject(ethQuantityLimit);
+          await subject();
 
           const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -793,6 +819,12 @@ describe("GeneralIndexModule", () => {
             await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
             await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
             await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
+
+            [expectedIn, expectedOut] = await sushiswapSetup.router.getAmountsOut(
+              await componentAmountTraded(indexModule, subjectSetToken, setup.wbtc.address),
+              [setup.wbtc.address, setup.weth.address]
+            );
+            ethQuantityLimit = expectedOut;
           });
 
           after(async () => {
@@ -800,8 +832,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should remove the asset from the index", async () => {
-            const ethQuantityLimit = ZERO;
-            await subject(ethQuantityLimit);
+            await subject();
 
             const components = await subjectSetToken.getComponents();
             const positionUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
@@ -824,6 +855,7 @@ describe("GeneralIndexModule", () => {
           await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
           subjectComponent = setup.dai.address;
+          ethQuantityLimit = MAX_UINT_256;
         });
 
         after(async () => {
@@ -845,8 +877,7 @@ describe("GeneralIndexModule", () => {
           const daiUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
           const totalSupply = await subjectSetToken.totalSupply();
 
-          const ethQuantityLimit = MAX_UINT_256;
-          await subject(ethQuantityLimit);
+          await subject();
 
           const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -896,6 +927,7 @@ describe("GeneralIndexModule", () => {
           await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
           subjectComponent = sushiswapSetup.uni.address;
+          ethQuantityLimit = MAX_UINT_256;
         });
 
         after(async () => {
@@ -905,8 +937,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("the position units and lastTradeTimestamp should be set as expected", async () => {
-          const ethQuantityLimit = MAX_UINT_256;
-          await subject(ethQuantityLimit);
+          await subject();
 
           const lastBlockTimestamp = await getLastBlockTimestamp();
           const totalSupply = await subjectSetToken.totalSupply();
@@ -943,8 +974,7 @@ describe("GeneralIndexModule", () => {
           const currentUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
 
           expect(targetUnit).to.not.eq(currentUnit);
-          const ethQuantityLimit = ZERO;
-          await expect(subject(ethQuantityLimit)).to.be.revertedWith("Target already met");
+          await expect(subject()).to.be.revertedWith("Target already met");
         });
       });
 
@@ -963,8 +993,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("the trade reverts", async () => {
-          const ethQuantityLimit = ZERO;
-          await expect(subject(ethQuantityLimit)).to.be.revertedWith("Target already met");
+          await expect(subject()).to.be.revertedWith("Target already met");
         });
       });
 
@@ -975,8 +1004,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("the trade should not revert", async () => {
-          const ethQuantityLimit = ZERO;
-          await expect(subject(ethQuantityLimit)).to.not.be.reverted;
+          await expect(subject()).to.not.be.reverted;
         });
       });
 
@@ -986,8 +1014,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          const ethQuantityLimit = ZERO;
-          expect(subject(ethQuantityLimit)).to.be.revertedWith("Can not explicitly trade WETH");
+          expect(subject()).to.be.revertedWith("Can not explicitly trade WETH");
         });
       });
 
@@ -1006,8 +1033,7 @@ describe("GeneralIndexModule", () => {
           const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
           const totalSupply = await subjectSetToken.totalSupply();
 
-          const ethQuantityLimit = ZERO;
-          await subject(ethQuantityLimit);
+          await subject();
 
           const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -1025,8 +1051,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("emits the correct TradeExecuted event", async () => {
-          const ethQuantityLimit = ZERO;
-          await expect(subject(ethQuantityLimit)).to.emit(indexModule, "TradeExecuted").withArgs(
+          await expect(subject()).to.emit(indexModule, "TradeExecuted").withArgs(
             subjectSetToken.address,
             setup.dai.address,
             setup.weth.address,
@@ -1053,8 +1078,7 @@ describe("GeneralIndexModule", () => {
 
           it("emits the correct TradeExecuted event", async () => {
             const protocolFee = expectedOut.mul(feePercentage).div(ether(1));
-            const ethQuantityLimit = ZERO;
-            await expect(subject(ethQuantityLimit)).to.emit(indexModule, "TradeExecuted").withArgs(
+            await expect(subject()).to.emit(indexModule, "TradeExecuted").withArgs(
               subjectSetToken.address,
               setup.dai.address,
               setup.weth.address,
@@ -1068,25 +1092,28 @@ describe("GeneralIndexModule", () => {
         });
 
         describe("when the component being sold doesn't meet the max trade size", async () => {
+          let expectedIn: BigNumber;
+
           beforeEach(async () => {
             subjectComponent = uniswapSetup.uni.address;
+
+            const totalSupply = await subjectSetToken.totalSupply();
+            const currentUniUnit = await subjectSetToken.getDefaultPositionRealUnit(uniswapSetup.uni.address);
+            const expectedUniSize = preciseMul(currentUniUnit.sub(oldTargetUnits[0]), totalSupply);
+            [expectedIn, expectedOut] = await uniswapSetup.router.getAmountsOut(
+              expectedUniSize,
+              [uniswapSetup.uni.address, setup.weth.address]
+            );
+            ethQuantityLimit = expectedOut;
           });
 
           it("the trade gets rounded down to meet the target", async () => {
             const totalSupply = await subjectSetToken.totalSupply();
-            const currentUniUnit = await subjectSetToken.getDefaultPositionRealUnit(uniswapSetup.uni.address);
-            const expectedUniSize = preciseMul(currentUniUnit.sub(oldTargetUnits[0]), totalSupply);
-
-            const [expectedIn, expectedOut] = await uniswapSetup.router.getAmountsOut(
-              expectedUniSize,
-              [uniswapSetup.uni.address, setup.weth.address]
-            );
 
             const currentUniAmount = await uniswapSetup.uni.balanceOf(subjectSetToken.address);
             const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
 
-            const ethQuantityLimit = ZERO;
-            await subject(ethQuantityLimit);
+            await subject();
 
             const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -1115,6 +1142,8 @@ describe("GeneralIndexModule", () => {
               bitcoin(.1),
               [setup.weth.address, setup.wbtc.address]
             );
+
+            ethQuantityLimit = MAX_UINT_256;
           });
 
           it("the position units and lastTradeTimestamp should be set as expected", async () => {
@@ -1125,8 +1154,7 @@ describe("GeneralIndexModule", () => {
             const wbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
             const totalSupply = await subjectSetToken.totalSupply();
 
-            const ethQuantityLimit = MAX_UINT_256;
-            await subject(ethQuantityLimit);
+            await subject();
 
             const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -1146,8 +1174,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("emits the correct TradeExecuted event", async () => {
-            const ethQuantityLimit = MAX_UINT_256;
-            await expect(subject(ethQuantityLimit)).to.emit(indexModule, "TradeExecuted").withArgs(
+            await expect(subject()).to.emit(indexModule, "TradeExecuted").withArgs(
               subjectSetToken.address,
               setup.weth.address,
               setup.wbtc.address,
@@ -1161,12 +1188,19 @@ describe("GeneralIndexModule", () => {
         });
 
         describe("when the sell happens on Sushiswap", async () => {
+          let expectedIn: BigNumber;
+
           before(async () => {
             oldTargetUnits = [ether(100), ZERO, ether(185), ether(0.434782609)];
           });
 
           beforeEach(async () => {
             subjectComponent = setup.wbtc.address;
+            [expectedIn, expectedOut] = await sushiswapSetup.router.getAmountsOut(
+              bitcoin(.1),
+              [setup.wbtc.address, setup.weth.address]
+            );
+            ethQuantityLimit = expectedOut;
           });
 
           after(async () => {
@@ -1174,11 +1208,6 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the position units and lastTradeTimestamp should be set as expected", async () => {
-            const [expectedIn, expectedOut] = await sushiswapSetup.router.getAmountsOut(
-              bitcoin(.1),
-              [setup.wbtc.address, setup.weth.address]
-            );
-
             const currentWbtcAmount = await setup.wbtc.balanceOf(subjectSetToken.address);
             const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
 
@@ -1186,8 +1215,7 @@ describe("GeneralIndexModule", () => {
             const wbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
             const totalSupply = await subjectSetToken.totalSupply();
 
-            const ethQuantityLimit = ZERO;
-            await subject(ethQuantityLimit);
+            await subject();
 
             const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -1216,6 +1244,12 @@ describe("GeneralIndexModule", () => {
               await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
               await increaseTimeAsync(ONE_MINUTE_IN_SECONDS.mul(5));
               await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
+
+              [expectedIn, expectedOut] = await sushiswapSetup.router.getAmountsOut(
+                await componentAmountTraded(indexModule, subjectSetToken, setup.wbtc.address),
+                [setup.wbtc.address, setup.weth.address]
+              );
+              ethQuantityLimit = expectedOut;
             });
 
             after(async () => {
@@ -1223,8 +1257,7 @@ describe("GeneralIndexModule", () => {
             });
 
             it("should remove the asset from the index", async () => {
-              const ethQuantityLimit = ZERO;
-              await subject(ethQuantityLimit);
+              await subject();
 
               const components = await subjectSetToken.getComponents();
               const positionUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
@@ -1247,6 +1280,7 @@ describe("GeneralIndexModule", () => {
             await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
             subjectComponent = setup.dai.address;
+            ethQuantityLimit = MAX_UINT_256;
           });
 
           after(async () => {
@@ -1268,8 +1302,7 @@ describe("GeneralIndexModule", () => {
             const daiUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
             const totalSupply = await subjectSetToken.totalSupply();
 
-            const ethQuantityLimit = MAX_UINT_256;
-            await subject(ethQuantityLimit);
+            await subject();
 
             const lastBlockTimestamp = await getLastBlockTimestamp();
 
@@ -1319,6 +1352,7 @@ describe("GeneralIndexModule", () => {
             await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, ZERO);
 
             subjectComponent = sushiswapSetup.uni.address;
+            ethQuantityLimit = MAX_UINT_256;
           });
 
           after(async () => {
@@ -1328,8 +1362,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the position units and lastTradeTimestamp should be set as expected", async () => {
-            const ethQuantityLimit = MAX_UINT_256;
-            await subject(ethQuantityLimit);
+            await subject();
 
             const lastBlockTimestamp = await getLastBlockTimestamp();
             const totalSupply = await subjectSetToken.totalSupply();
@@ -1366,8 +1399,7 @@ describe("GeneralIndexModule", () => {
             const currentUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
 
             expect(targetUnit).to.not.eq(currentUnit);
-            const ethQuantityLimit = ZERO;
-            await expect(subject(ethQuantityLimit)).to.be.revertedWith("Target already met");
+            await expect(subject()).to.be.revertedWith("Target already met");
           });
         });
 
@@ -1386,8 +1418,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade reverts", async () => {
-            const ethQuantityLimit = ZERO;
-            await expect(subject(ethQuantityLimit)).to.be.revertedWith("Target already met");
+            await expect(subject()).to.be.revertedWith("Target already met");
           });
         });
 
@@ -1398,8 +1429,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade should not revert", async () => {
-            const ethQuantityLimit = ZERO;
-            await expect(subject(ethQuantityLimit)).to.not.be.reverted;
+            await expect(subject()).to.not.be.reverted;
           });
         });
 
@@ -1409,8 +1439,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should revert", async () => {
-            const ethQuantityLimit = ZERO;
-            expect(subject(ethQuantityLimit)).to.be.revertedWith("Can not explicitly trade WETH");
+            expect(subject()).to.be.revertedWith("Can not explicitly trade WETH");
           });
         });
       });
@@ -1534,7 +1563,11 @@ describe("GeneralIndexModule", () => {
       });
 
       async function subject(): Promise<ContractTransaction> {
-        return await indexModule.connect(subjectCaller.wallet).tradeRemainingWETH(subjectSetToken.address, subjectComponent, ZERO);
+        return await indexModule.connect(subjectCaller.wallet).tradeRemainingWETH(
+          subjectSetToken.address,
+          subjectComponent,
+          expectedSubjectAmountOut
+        );
       }
 
       it("should trade remaining weth for dai", async () => {
