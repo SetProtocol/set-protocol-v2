@@ -25,8 +25,6 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import "hardhat/console.sol";
-
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IExchangeAdapter } from "../../interfaces/IExchangeAdapter.sol";
@@ -90,6 +88,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         bool isSendTokenFixed;                  // Boolean indicating fixed asset is send token
         uint256 setTotalSupply;                 // Total supply of Set (in precise units)
         uint256 totalFixedQuantity;             // Total quanity of fixed asset being traded
+        uint256 floatingQuantityLimit;          // Max/min amount of floating token spent/received during trade
         uint256 preTradeSendTokenBalance;       // Total initial balance of token being sold
         uint256 preTradeReceiveTokenBalance;    // Total initial balance of token being bought
     }
@@ -134,8 +133,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _;
     }
 
-    modifier onlyEOA() {
-        require(msg.sender == tx.origin, "Caller must be EOA Address");
+    modifier onlyEOAIfUnrestricted(ISetToken _setToken) {
+        if(permissionInfo[_setToken].anyoneTrade) {
+            require(msg.sender == tx.origin, "Caller must be EOA Address");
+        }
         _;
     }
 
@@ -197,12 +198,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken             Address of the SetToken
      * @param _component            Address of SetToken component to trade
+     * @param _ethQuantityLimit     Max/min amount of ETH spent/received during trade
      */
-    function trade(ISetToken _setToken, IERC20 _component) external nonReentrant onlyAllowedTrader(_setToken, msg.sender) onlyEOA() virtual {
+    function trade(ISetToken _setToken, IERC20 _component, uint256 _ethQuantityLimit) external nonReentrant onlyAllowedTrader(_setToken, msg.sender) onlyEOAIfUnrestricted(_setToken) virtual {
 
         _validateTradeParameters(_setToken, _component);
 
-        TradeInfo memory tradeInfo = _createTradeInfo(_setToken, _component);
+        TradeInfo memory tradeInfo = _createTradeInfo(_setToken, _component, _ethQuantityLimit);
         
         _executeTrade(tradeInfo);
         
@@ -230,10 +232,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * exceed components maxTradeSize nor overshoot the target unit. To be used near the end of rebalances when a
      * component's calculated trade size is greater in value than remaining WETH.
      *
-     * @param _setToken             Address of the SetToken
-     * @param _component            Address of the SetToken component to trade
+     * @param _setToken                     Address of the SetToken
+     * @param _component                    Address of the SetToken component to trade
+     * @param _componentQuantityLimit       Min amount of component received during trade
      */
-    function tradeRemainingWETH(ISetToken _setToken, IERC20 _component) external nonReentrant onlyAllowedTrader(_setToken, msg.sender) onlyEOA() virtual {
+    function tradeRemainingWETH(ISetToken _setToken, IERC20 _component, uint256 _componentQuantityLimit) external nonReentrant onlyAllowedTrader(_setToken, msg.sender) onlyEOAIfUnrestricted(_setToken) virtual {
 
         require(_noTokensToSell(_setToken), "Sell other set components first");
         require(
@@ -243,7 +246,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         _validateTradeParameters(_setToken, _component);
         
-        TradeInfo memory tradeInfo = _createTradeRemainingInfo(_setToken, _component);
+        TradeInfo memory tradeInfo = _createTradeRemainingInfo(_setToken, _component, _componentQuantityLimit);
         
         _executeTrade(tradeInfo);
         
@@ -275,7 +278,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken             Address of the SetToken
      */
-    function raiseAssetTargets(ISetToken _setToken) external onlyAllowedTrader(_setToken, msg.sender) virtual {
+    function raiseAssetTargets(ISetToken _setToken) external onlyAllowedTrader(_setToken, msg.sender) onlyEOAIfUnrestricted(_setToken) virtual {
         require(
             _allTargetsMet(_setToken)  
             && _setToken.getDefaultPositionRealUnit(address(weth)).toUint256() > executionInfo[_setToken][weth].targetUnit,
@@ -453,10 +456,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken             Instance of the SetToken to rebalance
      * @param _component            IERC20 component to trade
+     * @param _ethQuantityLimit     Max/min amount of weth spent/received during trade
      *
      * @return TradeInfo            Struct containing data for trade
      */
-    function _createTradeInfo(ISetToken _setToken, IERC20 _component) internal view virtual returns (TradeInfo memory) {
+    function _createTradeInfo(ISetToken _setToken, IERC20 _component, uint256 _ethQuantityLimit) internal view virtual returns (TradeInfo memory) {
         
         uint256 totalSupply = _setToken.totalSupply();
 
@@ -482,34 +486,39 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         tradeInfo.sendToken = tradeInfo.isSendTokenFixed ? address(_component) : address(weth);
         
         tradeInfo.receiveToken = tradeInfo.isSendTokenFixed ? address(weth): address(_component);
+        
+        tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
+        tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
+        
+        tradeInfo.setTotalSupply = totalSupply;
 
         tradeInfo.totalFixedQuantity = tradeInfo.isSendTokenFixed 
             ? componentMaxSize.min(currentNotional.sub(targetNotional))
             : componentMaxSize.min(targetNotional.sub(currentNotional));
 
-        tradeInfo.setTotalSupply = totalSupply;
+        tradeInfo.floatingQuantityLimit = tradeInfo.isSendTokenFixed 
+            ? _ethQuantityLimit 
+            : _ethQuantityLimit.min(tradeInfo.preTradeSendTokenBalance);
 
-        tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
-        tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
+
         return tradeInfo;
     }
 
     /**
      * Create and return TradeInfo struct
      *
-     * @param _setToken             Instance of the SetToken to rebalance
-     * @param _component            IERC20 component to trade
+     * @param _setToken                     Instance of the SetToken to rebalance
+     * @param _component                    IERC20 component to trade
+     * @param _componentQuantityLimit       Min amount of component received during trade
      *
      * @return TradeInfo            Struct containing data for trade
      */
-    function _createTradeRemainingInfo(ISetToken _setToken, IERC20 _component) internal view returns (TradeInfo memory) {
+    function _createTradeRemainingInfo(ISetToken _setToken, IERC20 _component, uint256 _componentQuantityLimit) internal view returns (TradeInfo memory) {
         
         uint256 totalSupply = _setToken.totalSupply();
 
         uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(weth)).toUint256();
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, weth);
-
-        require(currentUnit != targetUnit, "Target already met");
 
         uint256 currentNotional = totalSupply.getDefaultTotalNotional(currentUnit);
         uint256 targetNotional = totalSupply.preciseMulCeil(targetUnit);
@@ -527,6 +536,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         tradeInfo.setTotalSupply = totalSupply;
 
         tradeInfo.totalFixedQuantity =  currentNotional.sub(targetNotional);
+        tradeInfo.floatingQuantityLimit = _componentQuantityLimit;
         
         tradeInfo.preTradeSendTokenBalance = weth.balanceOf(address(_setToken));
         tradeInfo.preTradeReceiveTokenBalance = _component.balanceOf(address(_setToken));
@@ -543,8 +553,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _tradeInfo.setToken.invokeApprove(
             _tradeInfo.sendToken, 
             _tradeInfo.exchangeAdapter.getSpender(), 
-            // _tradeInfo.isSendTokenFixed ? _tradeInfo.preTradeSendTokenBalance : _trdaeInfo.preTradeReceiveTokenBalance   // todo: Different from spec
-            _tradeInfo.isSendTokenFixed ? _tradeInfo.totalFixedQuantity : _tradeInfo.preTradeSendTokenBalance
+            _tradeInfo.isSendTokenFixed ? _tradeInfo.totalFixedQuantity : _tradeInfo.floatingQuantityLimit
         );
 
         bytes memory tradeData = _tradeInfo.exchangeAdapter.generateDataParam(
@@ -561,8 +570,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             _tradeInfo.sendToken,
             _tradeInfo.receiveToken,
             address(_tradeInfo.setToken),
-            _tradeInfo.isSendTokenFixed ? _tradeInfo.totalFixedQuantity : _tradeInfo.preTradeSendTokenBalance,
-            _tradeInfo.isSendTokenFixed ? 0 : _tradeInfo.totalFixedQuantity,
+            _tradeInfo.isSendTokenFixed ? _tradeInfo.totalFixedQuantity : _tradeInfo.floatingQuantityLimit,
+            _tradeInfo.isSendTokenFixed ? _tradeInfo.floatingQuantityLimit : _tradeInfo.totalFixedQuantity,
             tradeData
         );
 
