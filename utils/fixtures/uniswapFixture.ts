@@ -15,6 +15,7 @@ import {
   UniswapV2Router02
 } from "../contracts/uniswap";
 import { UniswapV2Pair__factory } from "../../typechain/factories/UniswapV2Pair__factory";
+import dependencies from "../deploys/dependencies";
 import { ether } from "../index";
 import { ONE_DAY_IN_SECONDS } from "../constants";
 
@@ -95,5 +96,9 @@ export class UniswapFixture {
 
   public getTokenOrder(_tokenOne: Address, _tokenTwo: Address): [Address, Address] {
     return _tokenOne.toLowerCase() < _tokenTwo.toLowerCase() ? [_tokenOne, _tokenTwo] : [_tokenTwo, _tokenOne];
+  }
+
+  public getForkedRouterInstance(): UniswapV2Router02 {
+    return this._deployer.external.getForkedUniswapV2Router02(dependencies.UNISWAP_ROUTER[1]);
   }
 }

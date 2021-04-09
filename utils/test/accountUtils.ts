@@ -1,8 +1,12 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "../types";
-import { Account } from "./types";
+import { Account, ForkedTokens } from "./types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import dependencies from "../deploys/dependencies";
+import { IERC20__factory } from "../../typechain";
+import { ether } from "../common";
+import type DeployHelper  from "../deploys";
 
 const provider = ethers.provider;
 
@@ -34,3 +38,52 @@ export const getEthBalance = async (account: Address): Promise<BigNumber> => {
 export const getWallets = async (): Promise<SignerWithAddress[]> => {
   return (await ethers.getSigners() as SignerWithAddress[]);
 };
+
+const getForkedDependencyAddresses = (): any => {
+  return {
+    whales: [
+      dependencies.DAI_WHALE,
+      dependencies.WETH_WHALE,
+      dependencies.WBTC_WHALE,
+      dependencies.USDC_WHALE,
+    ],
+
+    tokens: [
+      dependencies.DAI[1],
+      dependencies.WETH[1],
+      dependencies.WBTC[1],
+      dependencies.USDC[1],
+    ],
+  };
+};
+
+// Mainnet token instances connected their impersonated
+// top holders to enable approval / transfer etc.
+export const getForkedTokens = (): ForkedTokens => {
+  const enum ids { DAI, WETH, WBTC, USDC }
+  const { whales, tokens } = getForkedDependencyAddresses();
+
+  const forkedTokens = {
+    dai: IERC20__factory.connect(tokens[ids.DAI], provider.getSigner(whales[ids.DAI])),
+    weth: IERC20__factory.connect(tokens[ids.WETH], provider.getSigner(whales[ids.WETH])),
+    wbtc: IERC20__factory.connect(tokens[ids.WBTC], provider.getSigner(whales[ids.WBTC])),
+    usdc: IERC20__factory.connect(tokens[ids.USDC], provider.getSigner(whales[ids.USDC])),
+  };
+
+  return forkedTokens;
+};
+
+export const initializeForkedTokens = async (deployer: DeployHelper): Promise<void> => {
+  const { whales } = getForkedDependencyAddresses();
+
+  for (const whale of whales) {
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [whale]},
+    );
+
+    const funder = await deployer.mocks.deployForceFunderMock();
+    await funder.fund(whale, {value: ether(100)}); // Gas money
+  }
+};
+

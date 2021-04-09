@@ -10,8 +10,6 @@ jobs:
     working_directory: ~/set-protocol-v2
     steps:
       - checkout
-      - setup_remote_docker:
-          docker_layer_caching: false
       - restore_cache:
           key: module-cache-{{ checksum "yarn.lock" }}
       - run:
@@ -37,11 +35,6 @@ jobs:
     working_directory: ~/set-protocol-v2
     parallelism: 3
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: false
-      - run:
-          name: Fetch solc version
-          command: docker pull ethereum/solc:0.6.10
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
@@ -54,8 +47,22 @@ jobs:
       - run:
           name: Hardhat Test
           command: |
-            TEST_FILES="$(circleci tests glob "./test/**/*.spec.ts" | circleci tests split --split-by=timings)"
+            TEST_FILES="$(circleci tests glob "./test/**/*.spec.ts" | circleci tests split)"
             yarn test ${TEST_FILES}
+
+  test_forked_network:
+    docker:
+      - image: circleci/node:10.16.0
+    working_directory: ~/set-protocol-v2
+    steps:
+      - restore_cache:
+          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: Set Up Environment Variables
+          command: cp .env.default .env
+      - run:
+          name: Hardhat Test
+          command: yarn test:fork
 
   coverage:
     docker:
@@ -67,11 +74,6 @@ jobs:
     # to istanbul-combine in the `report_coverage` job
     parallelism: 5
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: false
-      - run:
-          name: Fetch solc version
-          command: docker pull ethereum/solc:0.6.10
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
@@ -84,7 +86,7 @@ jobs:
           name: Coverage
           command: |
             TEST_FILES="{$(circleci tests glob "./test/**/*.spec.ts" | \
-              circleci tests split --split-by=timings | xargs | sed -e 's/ /,/g')}"
+              circleci tests split | xargs | sed -e 's/ /,/g')}"
             yarn coverage -- --testfiles "$TEST_FILES"
       - run:
           name: Save coverage
@@ -112,9 +114,13 @@ jobs:
       - run:
           name: Combine coverage reports
           command: |
-            mkdir -p reports
             cp -R /tmp/coverage/* .
-            npx istanbul-combine-updated -r lcov cov_0.json cov_1.json cov_2.json cov_3.json cov_4.json
+            npx istanbul-combine-updated -r lcov \
+              cov_0.json \
+              cov_1.json \
+              cov_2.json \
+              cov_3.json \
+              cov_4.json
       - run:
           name: Upload coverage
           command: |
@@ -129,6 +135,9 @@ workflows:
           requires:
             - checkout_and_compile
       - coverage:
+          requires:
+            - checkout_and_compile
+      - coverage_forked_network:
           requires:
             - checkout_and_compile
       - report_coverage:
