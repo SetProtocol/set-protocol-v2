@@ -134,10 +134,10 @@ workflows:
       - test:
           requires:
             - checkout_and_compile
-      - coverage:
+      - test_forked_network:
           requires:
             - checkout_and_compile
-      - coverage_forked_network:
+      - coverage:
           requires:
             - checkout_and_compile
       - report_coverage:
