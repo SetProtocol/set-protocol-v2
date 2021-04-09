@@ -16,7 +16,7 @@ pragma solidity 0.6.10;
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
-import { ICToken } from "../../../interfaces/external/ICToken.sol";
+import { ICErc20 } from "../../../interfaces/external/ICErc20.sol";
 import { IOracle } from "../../../interfaces/IOracle.sol";
 
 
@@ -31,15 +31,15 @@ contract CTokenOracle is IOracle {
     using PreciseUnitMath for uint256;
 
     /* ============ State Variables ============ */
-    ICToken public cToken;
-    IOracle public underlyingOracle; // Underlying token oracle
+    ICErc20 public immutable cToken;
+    IOracle public immutable underlyingOracle; // Underlying token oracle
     string public dataDescription;
 
     // CToken Full Unit
-    uint256 public cTokenFullUnit;
+    uint256 public immutable cTokenFullUnit;
 
     // Underlying Asset Full Unit
-    uint256 public underlyingFullUnit;
+    uint256 public immutable underlyingFullUnit;
 
     /* ============ Constructor ============ */
 
@@ -51,7 +51,7 @@ contract CTokenOracle is IOracle {
      * @param  _dataDescription    Human readable description of oracle
      */
     constructor(
-        ICToken _cToken,
+        ICErc20 _cToken,
         IOracle _underlyingOracle,
         uint256 _cTokenFullUnit,
         uint256 _underlyingFullUnit,
