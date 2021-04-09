@@ -98,7 +98,11 @@ export class UniswapFixture {
     return _tokenOne.toLowerCase() < _tokenTwo.toLowerCase() ? [_tokenOne, _tokenTwo] : [_tokenTwo, _tokenOne];
   }
 
-  public getForkedRouterInstance(): UniswapV2Router02 {
+  public getForkedUniswapRouter(): UniswapV2Router02 {
     return this._deployer.external.getForkedUniswapV2Router02(dependencies.UNISWAP_ROUTER[1]);
+  }
+
+  public getForkedSushiswapRouter(): UniswapV2Router02 {
+    return this._deployer.external.getForkedUniswapV2Router02(dependencies.SUSHISWAP_ROUTER[1]);
   }
 }

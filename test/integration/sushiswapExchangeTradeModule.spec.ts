@@ -5,43 +5,46 @@ import { ethers } from "hardhat";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { IERC20 } from "@typechain/index";
+import { IERC20, UniswapV2Router02 } from "@typechain/index";
 import {
   SetToken,
   TradeModule,
   ManagerIssuanceHookMock,
-  ZeroExMock,
-  ZeroExApiAdapter,
+  UniswapV2ExchangeAdapterV2,
 } from "@utils/contracts";
+import { ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
+  bitcoin,
 } from "@utils/index";
 import {
   cacheBeforeEach,
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
+  getUniswapFixture,
   getForkedTokens,
   initializeForkedTokens,
   ForkedTokens
 } from "@utils/test/index";
 
-import { SystemFixture } from "@utils/fixtures";
+import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("ZeroExExchange TradeModule Integration [ @forked-mainnet ]", () => {
+describe("SushiSwap TradeModule Integration [ @forked-mainnet ]", () => {
   let owner: Account;
   let manager: Account;
 
   let deployer: DeployHelper;
 
-  let zeroExExchange: ZeroExMock;
-  let zeroExApiAdapter: ZeroExApiAdapter;
-  let zeroExApiAdapterName: string;
+  let uniswapExchangeAdapterV2: UniswapV2ExchangeAdapterV2;
+  let uniswapAdapterV2Name: string;
 
   let setup: SystemFixture;
+  let sushiswapSetup: UniswapFixture;
+  let sushiswapRouter: UniswapV2Router02;
   let tradeModule: TradeModule;
   let tokens: ForkedTokens;
   let wbtcRate: BigNumber;
@@ -52,25 +55,26 @@ describe("ZeroExExchange TradeModule Integration [ @forked-mainnet ]", () => {
       manager,
     ] = await getAccounts();
 
+
     deployer = new DeployHelper(owner.wallet);
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    wbtcRate = ether(29); // 1 WBTC = 29 ETH
+    wbtcRate = ether(29);
 
-    // Forked ZeroEx exchange
-    zeroExExchange = await deployer.mocks.getForkedZeroExExchange();
+    sushiswapSetup = getUniswapFixture(owner.address);
+    sushiswapRouter = sushiswapSetup.getForkedSushiswapRouter();
 
-    zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExExchange.address);
-    zeroExApiAdapterName = "ZERO_EX";
+    uniswapExchangeAdapterV2 = await deployer.adapters.deployUniswapV2ExchangeAdapterV2(sushiswapRouter.address);
+    uniswapAdapterV2Name = "UNISWAPV2";
 
     tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);
     await setup.controller.addModule(tradeModule.address);
 
     await setup.integrationRegistry.addIntegration(
       tradeModule.address,
-      zeroExApiAdapterName,
-      zeroExApiAdapter.address
+      uniswapAdapterV2Name,
+      uniswapExchangeAdapterV2.address
     );
 
     await initializeForkedTokens(deployer);
@@ -82,11 +86,11 @@ describe("ZeroExExchange TradeModule Integration [ @forked-mainnet ]", () => {
     let destinationToken: IERC20;
     let setToken: SetToken;
     let issueQuantity: BigNumber;
-    let destinationTokenQuantity: BigNumber;
 
-    context("when trading a Default component on 0xAPI", async () => {
+    context("when trading a Default component on Sushiswap (version 2 adapter)", async () => {
       let mockPreIssuanceHook: ManagerIssuanceHookMock;
       let sourceTokenQuantity: BigNumber;
+      let destinationTokenQuantity: BigNumber;
 
       let subjectDestinationToken: Address;
       let subjectSourceToken: Address;
@@ -112,16 +116,18 @@ describe("ZeroExExchange TradeModule Integration [ @forked-mainnet ]", () => {
           manager.address
         );
 
+        await sourceToken.approve(sushiswapRouter.address, bitcoin(100));
+        await destinationToken.approve(sushiswapRouter.address, ether(3400));
+
         tradeModule = tradeModule.connect(manager.wallet);
         await tradeModule.initialize(setToken.address);
 
         sourceTokenQuantity = wbtcUnits;
         const sourceTokenDecimals = 8;
-        const denominator = BigNumber.from(10).pow(sourceTokenDecimals);
-        destinationTokenQuantity = wbtcRate.mul(sourceTokenQuantity).div(denominator);
+        destinationTokenQuantity = wbtcRate.mul(sourceTokenQuantity).div(10 ** sourceTokenDecimals);
 
-        // Transfer from wbtc treasury to manager
-        await sourceToken.transfer(manager.address, wbtcUnits.mul(2));
+        // Transfer from wbtc whale to manager
+        await sourceToken.transfer(manager.address, wbtcUnits.mul(1));
 
         // Approve tokens to Controller and call issue
         sourceToken = sourceToken.connect(manager.wallet);
@@ -131,25 +137,26 @@ describe("ZeroExExchange TradeModule Integration [ @forked-mainnet ]", () => {
         setup.issuanceModule = setup.issuanceModule.connect(manager.wallet);
         mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
         await setup.issuanceModule.initialize(setToken.address, mockPreIssuanceHook.address);
+
         issueQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
       });
 
-      beforeEach(() => {
+      beforeEach(async () => {
         subjectSourceToken = sourceToken.address;
         subjectDestinationToken = destinationToken.address;
         subjectSourceQuantity = sourceTokenQuantity;
         subjectSetToken = setToken.address;
-        subjectAdapterName = zeroExApiAdapterName;
-        // Encode function data. Inputs are unused in the mock One Inch contract
-        subjectData = zeroExExchange.interface.encodeFunctionData("transformERC20", [
-          sourceToken.address, // Send token
-          destinationToken.address, // Receive token
-          sourceTokenQuantity, // Send quantity
-          destinationTokenQuantity.sub(ether(1)), // Min receive quantity
-          [],
-        ]);
         subjectMinDestinationQuantity = destinationTokenQuantity.sub(ether(1)); // Receive a min of 28 WETH for 1 WBTC
+        subjectAdapterName = uniswapAdapterV2Name;
+
+        const tradePath = [subjectSourceToken, subjectDestinationToken];
+        const shouldSwapForExactToken = false;
+
+        subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(
+          tradePath,
+          shouldSwapForExactToken
+        );
         subjectCaller = manager;
       });
 
@@ -166,22 +173,24 @@ describe("ZeroExExchange TradeModule Integration [ @forked-mainnet ]", () => {
         );
       }
 
-      // Tests error with:
-      // TransactionExecutionError: Number can only safely store up to 53 bits
-      //    at HardhatNode.mineBlock (...hardhat-network/provider/node.ts:327:13)
-      it.skip("should transfer the correct components to the SetToken", async () => {
+      it("should transfer the correct components to the SetToken", async () => {
         const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+        const [, expectedReceiveQuantity] = await sushiswapRouter.getAmountsOut(
+          subjectSourceQuantity,
+          [subjectSourceToken, subjectDestinationToken]
+        );
 
         await subject();
 
-        const totalDestinationQuantity = issueQuantity.mul(destinationTokenQuantity).div(ether(1));
-        const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(totalDestinationQuantity);
+        const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
         const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+        expect(expectedReceiveQuantity).to.be.gt(ZERO);
         expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
       });
 
-      it.skip("should transfer the correct components from the SetToken", async () => {
+      it("should transfer the correct components from the SetToken", async () => {
         const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+
         await subject();
 
         const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));

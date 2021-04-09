@@ -33,7 +33,7 @@ import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("UniswapExchangeV2TradeModule [ @forked-mainnet ]", () => {
+describe("UniswapExchangeV2 TradeModule Integration [ @forked-mainnet ]", () => {
   let owner: Account;
   let manager: Account;
 
@@ -63,7 +63,7 @@ describe("UniswapExchangeV2TradeModule [ @forked-mainnet ]", () => {
     wbtcRate = ether(29);
 
     uniswapSetup = getUniswapFixture(owner.address);
-    uniswapRouter = uniswapSetup.getForkedRouterInstance();
+    uniswapRouter = uniswapSetup.getForkedUniswapRouter();
 
     uniswapExchangeAdapterV2 = await deployer.adapters.deployUniswapV2ExchangeAdapterV2(uniswapRouter.address);
     uniswapAdapterV2Name = "UNISWAPV2";
