@@ -20,7 +20,6 @@ export {
   getAccounts,
   getEthBalance,
   getRandomAccount,
-  getRandomAddress,
 } from "./accountUtils";
 export {
   addSnapshotBeforeRestoreAfterEach,
@@ -32,3 +31,6 @@ export {
   mineBlockAsync,
   cacheBeforeEach
 } from "./testingUtils";
+export {
+  getRandomAddress
+} from "../common";
