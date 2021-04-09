@@ -33,12 +33,12 @@ contract YearnVaultOracle is IOracle
 
 
     /* ============ State Variables ============ */
-    IYearnVault public vault;
-    IOracle public underlyingOracle; // Underlying token oracle
+    IYearnVault public immutable vault;
+    IOracle public immutable underlyingOracle; // Underlying token oracle
     string public dataDescription;
 
     // Underlying Asset Full Unit
-    uint256 public underlyingFullUnit;
+    uint256 public immutable underlyingFullUnit;
 
     /* ============ Constructor ============ */
 
