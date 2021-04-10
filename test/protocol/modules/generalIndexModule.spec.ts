@@ -838,6 +838,20 @@ describe("GeneralIndexModule", () => {
           });
         });
 
+        describe("when correct exchange has not been set", async () => {
+          beforeEach(async () => {
+            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], ["BadExchangeName"]);
+          });
+
+          afterEach(async () => {
+            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], [balancerAdapterName]);
+          });
+
+          it("the trade reverts", async () => {
+            await expect(subject()).to.be.revertedWith("Must be valid adapter");
+          });
+        });
+
         describe("when the passed component is not included in the rebalance", async () => {
           beforeEach(async () => {
             subjectComponent = sushiswapSetup.uni.address;
