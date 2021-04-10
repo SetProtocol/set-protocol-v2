@@ -390,7 +390,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe.skip("#setCoolOffPeriods", async () => {
+    describe("#setCoolOffPeriods", async () => {
       let subjectComponents: Address[];
       let subjectCoolOffPeriods: BigNumber[];
 
@@ -452,7 +452,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe.skip("#setTradeMaximums", async () => {
+    describe("#setTradeMaximums", async () => {
       let subjectComponents: Address[];
       let subjectTradeMaximums: BigNumber[];
 
@@ -482,7 +482,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe.skip("#setExchanges", async () => {
+    describe("#setExchanges", async () => {
       let subjectComponents: Address[];
       let subjectExchanges: string[];
 
@@ -562,7 +562,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe.skip("#trade", async () => {
+    describe("#trade", async () => {
       let subjectComponent: Address;
       let subjectIncreaseTime: BigNumber;
       let subjectEthQuantityLimit: BigNumber;
@@ -1199,7 +1199,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe.skip("#tradeRemainingWETH", async () => {
+    describe("#tradeRemainingWETH", async () => {
       let subjectComponent: Address;
       let subjectIncreaseTime: BigNumber;
       let subjectComponentQuantityLimit: BigNumber;
@@ -1538,7 +1538,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe.skip("#updateRaiseTargetPercentage", async () => {
+    describe("#updateRaiseTargetPercentage", async () => {
       let subjectRaiseTargetPercentage: BigNumber;
 
       beforeEach(async () => {
