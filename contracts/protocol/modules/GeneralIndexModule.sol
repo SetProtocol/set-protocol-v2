@@ -360,8 +360,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         require(!_components.hasDuplicate(), "Cannot duplicate components");
 
         for (uint256 i = 0; i < _components.length; i++) {
-            executionInfo[_setToken][IERC20(_components[i])].exchangeName = _exchangeNames[i];
-            emit AssetExchangeUpdated(_setToken, _components[i], _exchangeNames[i]);
+            if (_components[i] != address(weth)) {
+                require(bytes(_exchangeNames[i]).length != 0, "Exchange name can not be an empty string");
+                executionInfo[_setToken][IERC20(_components[i])].exchangeName = _exchangeNames[i];
+                emit AssetExchangeUpdated(_setToken, _components[i], _exchangeNames[i]);    
+            }
         }
     }
 
@@ -459,7 +462,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             executionInfo[_setToken][IERC20(position.component)].targetUnit = position.unit.toUint256();
             executionInfo[_setToken][IERC20(position.component)].lastTradeTimestamp = 0;
         }
-
+        
+        rebalanceInfo[_setToken].positionMultiplier = _setToken.positionMultiplier().toUint256();
         _setToken.initializeModule();
     }
     
@@ -474,16 +478,28 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * Returns the array of SetToken components involved in rebalance.
+     * Get the array of SetToken components involved in rebalance.
      * 
      * @param _setToken         Address of the SetToken
      * 
-     * @return                  Array of _setToken components involved in rebalance
+     * @return address[]        Array of _setToken components involved in rebalance
      */
-    function getRebalanceComponents(ISetToken _setToken) external view returns(address[] memory) {
+    function getRebalanceComponents(ISetToken _setToken) external view returns (address[] memory) {
         return rebalanceInfo[_setToken].rebalanceComponents;
     }
 
+    /**
+     * Get if a given address is an allowed trader.
+     * 
+     * @param _setToken         Address of the SetToken
+     * @param _trader           Address of the trader
+     * 
+     * @return bool             True if _trader is allowed to trade, else false
+     */
+    function getIsAllowedTrader(ISetToken _setToken, address _trader) external view returns (bool) {
+        return _isAllowedTrader(_setToken, _trader);
+    }
+    
     /* ============ Internal Functions ============ */
 
     /**
@@ -606,7 +622,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         tradeInfo.totalFixedQuantity =  currentNotional.sub(targetNotional);
         tradeInfo.floatingQuantityLimit = _componentQuantityLimit;
-        
+
         tradeInfo.preTradeSendTokenBalance = weth.balanceOf(address(_setToken));
         tradeInfo.preTradeReceiveTokenBalance = _component.balanceOf(address(_setToken));
         return tradeInfo;
