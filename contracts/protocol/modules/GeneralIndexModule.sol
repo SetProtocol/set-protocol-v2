@@ -703,16 +703,14 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @return netBuyAmount             Amount of receiveTokens received in the trade (net of fees)
      */
     function _updatePositionState(TradeInfo memory _tradeInfo) internal returns (uint256 sellAmount, uint256 netBuyAmount) {
-        uint256 totalSupply = _tradeInfo.setToken.totalSupply();
-
         (uint256 postTradeSendTokenBalance,,) = _tradeInfo.setToken.calculateAndEditDefaultPosition(
             _tradeInfo.sendToken,
-            totalSupply,
+            _tradeInfo.setTotalSupply,
             _tradeInfo.preTradeSendTokenBalance
         );
         (uint256 postTradeReceiveTokenBalance,,) = _tradeInfo.setToken.calculateAndEditDefaultPosition(
             _tradeInfo.receiveToken,
-            totalSupply,
+            _tradeInfo.setTotalSupply,
             _tradeInfo.preTradeReceiveTokenBalance
         );
 
