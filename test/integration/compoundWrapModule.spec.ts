@@ -23,7 +23,7 @@ import { CompoundFixture, SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("compoundWrapModule", () => {
+describe.only("compoundWrapModule", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
@@ -70,7 +70,10 @@ describe("compoundWrapModule", () => {
 
     // compoundWrapAdapter setup
     const compoundLibrary = await deployer.libraries.deployCompound();
-    const compoundWrapAdapter = await deployer.adapters.deployCompoundWrapAdapter("Compound", compoundLibrary.address);
+    const compoundWrapAdapter = await deployer.adapters.deployCompoundWrapAdapter(
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
+      compoundLibrary.address
+    );
     await setup.integrationRegistry.addIntegration(wrapModule.address, compoundWrapAdapterIntegrationName, compoundWrapAdapter.address);
   });
 
