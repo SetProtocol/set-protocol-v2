@@ -1619,6 +1619,102 @@ describe("GeneralIndexModule", () => {
       });
     });
 
+    describe("#getComponentTradeQuantityAndDirection", async () => {
+      let subjectComponent: Address;
+
+      let feePercentage: BigNumber;
+
+      before(async () => {
+        // current units [ether(86.9565217), bitcoin(.01111111), ether(100), ZERO]
+        newComponents = [];
+        oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(55)];
+        newTargetUnits = [];
+        issueAmount = ether("20.000000000000000001");
+      });
+
+      const startRebalance = async () => {
+        await setup.approveAndIssueSetToken(subjectSetToken, issueAmount);
+        await indexModule.startRebalance(
+          subjectSetToken.address,
+          newComponents,
+          newTargetUnits,
+          oldTargetUnits,
+          await index.positionMultiplier()
+        );
+      };
+
+      const initializeSubjectVariables = () => {
+        subjectSetToken = index;
+        subjectComponent = setup.dai.address;
+      };
+
+      beforeEach(async () => {
+        initializeSubjectVariables();
+
+        await startRebalance();
+
+        feePercentage = ether(0.005);
+        setup.controller = setup.controller.connect(owner.wallet);
+        await setup.controller.addFee(
+          indexModule.address,
+          ZERO, // Fee type on trade function denoted as 0
+          feePercentage // Set fee to 5 bps
+        );
+      });
+
+      async function subject(): Promise<any> {
+        return await indexModule.getComponentTradeQuantityAndDirection(
+          subjectSetToken.address,
+          subjectComponent
+        );
+      }
+
+      it("the position units and lastTradeTimestamp should be set as expected, sell using Balancer", async () => {
+        const totalSupply = await subjectSetToken.totalSupply();
+        const currentDaiUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
+        const expectedDaiSize = preciseMul(currentDaiUnit, totalSupply).sub(preciseMul(ether(55), totalSupply));
+
+        const [
+          isSell,
+          componentQuantity,
+        ] = await subject();
+
+        expect(componentQuantity).to.eq(expectedDaiSize);
+        expect(isSell).to.be.true;
+      });
+
+      describe("and the buy component does not meet the max trade size", async () => {
+        beforeEach(async () => {
+          await indexModule.startRebalance(
+            subjectSetToken.address,
+            [],
+            [],
+            [ether("60.869565780223716593"), bitcoin(.016), ether(50)],
+            await index.positionMultiplier()
+          );
+
+          subjectComponent = setup.wbtc.address;
+        });
+
+        it("the correct trade direction and size should be returned", async () => {
+          const totalSupply = await subjectSetToken.totalSupply();
+          const currentWbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
+          const expectedWbtcSize = preciseDiv(
+            preciseMulCeil(bitcoin(.016), totalSupply).sub(preciseMul(currentWbtcUnit, totalSupply)),
+            PRECISE_UNIT.sub(feePercentage)
+          );
+
+          const [
+            isSell,
+            componentQuantity,
+          ] = await subject();
+
+          expect(componentQuantity).to.eq(expectedWbtcSize);
+          expect(isSell).to.be.false;
+        });
+      });
+    });
+
     describe("#updateRaiseTargetPercentage", async () => {
       let subjectRaiseTargetPercentage: BigNumber;
 
