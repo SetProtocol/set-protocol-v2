@@ -23,7 +23,7 @@ import { CompoundFixture, SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe.only("compoundWrapModule", () => {
+describe("compoundWrapModule", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
