@@ -120,7 +120,7 @@ describe("CompoundLeverageModule", () => {
       compoundSetup.comptroller.address,
       cEther.address,
       setup.weth.address,
-      "Compound",
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
       compoundLibrary.address,
     );
     await setup.controller.addModule(compoundLeverageModule.address);
@@ -1575,7 +1575,7 @@ describe("CompoundLeverageModule", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Redeem failed");
+            await expect(subject()).to.be.revertedWith("Redeem underlying failed");
           });
         });
 
@@ -1847,7 +1847,7 @@ describe("CompoundLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Redeem failed");
+          await expect(subject()).to.be.revertedWith("Redeem underlying failed");
         });
       });
 

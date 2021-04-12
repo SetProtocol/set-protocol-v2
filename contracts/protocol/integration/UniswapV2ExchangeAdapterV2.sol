@@ -23,12 +23,13 @@ pragma experimental "ABIEncoderV2";
  * @title UniswapV2ExchangeAdapterV2
  * @author Set Protocol
  *
- * A Uniswap Router02 exchange adapter that returns calldata for trading. Includes option for 2 different trade types on Uniswap
+ * A Uniswap Router02 exchange adapter that returns calldata for trading. Includes option for 2 different trade types on Uniswap.
  *
  * CHANGE LOG:
  * - Add helper that encodes path and boolean into bytes
  * - Generalized ability to choose whether to swap an exact amount of source token for a min amount of receive token or swap a max amount of source token for
  * an exact amount of receive token
+ * - Add helper to generate data parameter for `getTradeCallData`
  *
  */
 contract UniswapV2ExchangeAdapterV2 {
@@ -64,8 +65,8 @@ contract UniswapV2ExchangeAdapterV2 {
      * @param  _sourceToken              Address of source token to be sold
      * @param  _destinationToken         Address of destination token to buy
      * @param  _destinationAddress       Address that assets should be transferred to
-     * @param  _sourceQuantity           Amount of source token to sell
-     * @param  _minDestinationQuantity   Min amount of destination token to buy
+     * @param  _sourceQuantity           Fixed/Max amount of source token to sell
+     * @param  _destinationQuantity      Min/Fixed amount of destination token to buy
      * @param  _data                     Arbitrary bytes containing trade path and bool to determine function string
      *
      * @return address                   Target contract address
@@ -77,7 +78,7 @@ contract UniswapV2ExchangeAdapterV2 {
         address _destinationToken,
         address _destinationAddress,
         uint256 _sourceQuantity,
-        uint256 _minDestinationQuantity,
+        uint256 _destinationQuantity,
         bytes memory _data
     )
         external
@@ -86,20 +87,38 @@ contract UniswapV2ExchangeAdapterV2 {
     {   
         (
             address[] memory path,
-            bool shouldSwapTokensForExactTokens
+            bool shouldSwapExactTokensForTokens
         ) = abi.decode(_data, (address[],bool));
 
-        // If shouldSwapTokensForExactTokens, use appropriate function string and flip source and destination quantities to conform with Uniswap interface
         bytes memory callData = abi.encodeWithSignature(
-            shouldSwapTokensForExactTokens ? SWAP_TOKENS_FOR_EXACT_TOKENS : SWAP_EXACT_TOKENS_FOR_TOKENS,
-            shouldSwapTokensForExactTokens ? _minDestinationQuantity : _sourceQuantity,
-            shouldSwapTokensForExactTokens ? _sourceQuantity : _minDestinationQuantity,
+            shouldSwapExactTokensForTokens ? SWAP_EXACT_TOKENS_FOR_TOKENS : SWAP_TOKENS_FOR_EXACT_TOKENS,
+            shouldSwapExactTokensForTokens ? _sourceQuantity : _destinationQuantity,
+            shouldSwapExactTokensForTokens ? _destinationQuantity : _sourceQuantity,
             path,
             _destinationAddress,
             block.timestamp
         );
-
         return (router, 0, callData);
+    }
+
+    /**
+     * Generate data parameter to be passed to `getTradeCallData`. Returns encoded trade paths and bool to select trade function.
+     *
+     * @param _sellComponent        Address of the token to be sold        
+     * @param _buyComponent         Address of the token to be bought
+     * @param _fixIn                Boolean representing if input tokens amount is fixed
+     * 
+     * @return bytes                Data parameter to be passed to `getTradeCallData`          
+     */
+    function generateDataParam(address _sellComponent, address _buyComponent, bool _fixIn)
+        external
+        view
+        returns (bytes memory) 
+    {
+        address[] memory path = new address[](2);
+        path[0] = _sellComponent;
+        path[1] = _buyComponent;
+        return abi.encode(path, _fixIn);
     }
 
     /**
@@ -116,7 +135,7 @@ contract UniswapV2ExchangeAdapterV2 {
      *
      * @return bytes               Encoded data used for trading on Uniswap
      */
-    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapTokensForExactTokens) external view returns (bytes memory) {
-        return abi.encode(_path, _shouldSwapTokensForExactTokens);
+    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapExactTokensForTokens) external view returns (bytes memory) {
+        return abi.encode(_path, _shouldSwapExactTokensForTokens);
     }
 } 

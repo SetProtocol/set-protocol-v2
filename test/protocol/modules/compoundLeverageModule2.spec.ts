@@ -109,7 +109,7 @@ describe("CompoundLeverageModule TestSuite 2", () => {
       compoundSetup.comptroller.address,
       cEther.address,
       setup.weth.address,
-      "Compound",
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
       compoundLibrary.address,
     );
     await setup.controller.addModule(compoundLeverageModule.address);
@@ -343,7 +343,7 @@ describe("CompoundLeverageModule TestSuite 2", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Redeem failed");
+            await expect(subject()).to.be.revertedWith("Redeem underlying failed");
           });
         });
 
