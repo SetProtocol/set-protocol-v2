@@ -1764,7 +1764,7 @@ describe("GeneralIndexModule", () => {
 
       const startRebalance = async (trade: boolean = true, accrueFee: boolean = false) => {
         await setup.approveAndIssueSetToken(subjectSetToken, ether(20));
-        console.log((await setup.dai.balanceOf(subjectSetToken.address)).toString());
+
         if (accrueFee) {
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
           await setup.streamingFeeModule.accrueFee(subjectSetToken.address);

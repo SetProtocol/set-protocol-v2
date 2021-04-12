@@ -682,17 +682,15 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _tradeInfo                Struct containing trade information used in internal functions
      * 
-     * @return uint256                  Amount of receive token taken as protocol fee
+     * @return protocolFee              Amount of receive token taken as protocol fee
      */    
-    function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256) {
+    function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFee) {
         
         uint256 exchangedQuantity =  IERC20(_tradeInfo.receiveToken).balanceOf(address(_tradeInfo.setToken)).sub(_tradeInfo.preTradeReceiveTokenBalance);
         
-        uint256 protocolFeeTotal = getModuleFee(GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
+        protocolFee = getModuleFee(GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
         
-        payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFeeTotal);
-        
-        return protocolFeeTotal;
+        payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFee);
     }
 
     /**
