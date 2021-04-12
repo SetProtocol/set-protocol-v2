@@ -4,6 +4,10 @@ let isFirstRun = true;
 
 // @ts-ignore
 export async function setupNativeSolc({ input }, { config }, runSuper) {
+  if (process.env.OVM === "true") {
+    return runSuper();
+  }
+
   let solcVersionOutput = "";
   try {
     solcVersionOutput = execSync(`solc --version`).toString();
