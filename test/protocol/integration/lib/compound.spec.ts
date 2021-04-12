@@ -418,6 +418,72 @@ describe("Compound", () => {
       expect(currentCTokenBalance).to.eq(expectedCTokenBalance);
     });
 
+    describe("when redeeming underlying return data is a nonzero value", async () => {
+      beforeEach(async () => {
+        // Set redeem quantity to more than account liquidity
+        subjectQuantity = ether(10000);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Redeem underlying failed");
+      });
+    });
+  });
+
+  describe("#getRedeemCalldata", async () => {
+    let subjectCToken: Address;
+    let subjectQuantity: BigNumber;
+
+    beforeEach(async () => {
+      subjectCToken = cDai.address;
+      subjectQuantity = ether(1);
+    });
+
+    async function subject(): Promise<any> {
+      return compoundLibMock.testGetRedeemCalldata(
+        subjectCToken,
+        subjectQuantity,
+      );
+    }
+
+    it("should get correct data", async () => {
+      const [target, value, calldata] = await subject();
+      const expectedCalldata = cDai.interface.encodeFunctionData("redeem", [subjectQuantity]);
+
+      expect(target).to.eq(subjectCToken);
+      expect(value).to.eq(subjectQuantity);
+      expect(calldata).to.eq(expectedCalldata);
+    });
+  });
+
+  describe("#invokeRedeem", async () => {
+    let subjectSetToken: Address;
+    let subjectCToken: Address;
+    let subjectQuantity: BigNumber;
+
+    beforeEach(async () => {
+      subjectSetToken = setToken.address;
+      subjectCToken = cDai.address;
+      const exchangeRate = await cDai.exchangeRateStored();
+      subjectQuantity = preciseDiv(ether(1), exchangeRate);
+    });
+
+    async function subject(): Promise<any> {
+      return compoundLibMock.testInvokeRedeem(
+        subjectSetToken,
+        subjectCToken,
+        subjectQuantity,
+      );
+    }
+
+    it("should redeem cToken", async () => {
+      const previousCTokenBalance = await cDai.balanceOf(setToken.address);
+      await subject();
+      const currentCTokenBalance = await cDai.balanceOf(setToken.address);
+      const expectedCTokenBalance = previousCTokenBalance.sub(subjectQuantity);
+      expect(currentCTokenBalance).to.eq(expectedCTokenBalance);
+    });
+
     describe("when redeeming return data is a nonzero value", async () => {
       beforeEach(async () => {
         // Set redeem quantity to more than account liquidity

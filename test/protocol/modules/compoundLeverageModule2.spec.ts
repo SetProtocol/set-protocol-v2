@@ -343,7 +343,7 @@ describe("CompoundLeverageModule TestSuite 2", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Redeem failed");
+            await expect(subject()).to.be.revertedWith("Redeem underlying failed");
           });
         });
 

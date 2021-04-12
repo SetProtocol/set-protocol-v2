@@ -103,6 +103,21 @@ contract CompoundMock {
         Compound.invokeRedeemUnderlying(_setToken, _cToken, _redeemNotional);
     }
 
+    function testGetRedeemCalldata(
+       ICErc20 _cToken,
+       uint256 _redeemNotional
+    )
+        external
+        pure
+        returns (address, uint256, bytes memory)
+    {
+        return Compound.getRedeemCalldata(_cToken, _redeemNotional);
+    }
+
+    function testInvokeRedeem(ISetToken _setToken, ICErc20 _cToken, uint256 _redeemNotional) external {
+        Compound.invokeRedeem(_setToken, _cToken, _redeemNotional);
+    }
+
     function testGetRepayBorrowCEtherCalldata(
        ICErc20 _cToken,
        uint256 _repayNotional
@@ -131,7 +146,7 @@ contract CompoundMock {
 
     function testInvokeRepayBorrowCToken(ISetToken _setToken, ICErc20 _cToken, uint256 _repayNotional) external {
         Compound.invokeRepayBorrowCToken(_setToken, _cToken, _repayNotional);
-    }       
+    }
 
     function testGetBorrowCalldata(
        ICErc20 _cToken,
