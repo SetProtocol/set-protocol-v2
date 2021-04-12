@@ -27,6 +27,8 @@ jobs:
       - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
     steps:
+      - restore_cache:
+          key: module-cache-{{ checksum "yarn.lock" }}
       - run:
           name: Transpile Contracts
           command: yarn build
@@ -40,6 +42,8 @@ jobs:
       - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
     steps:
+      - restore_cache:
+          key: module-cache-{{ checksum "yarn.lock" }}
       - run:
           name: Transpile OVM Contracts
           command: yarn build:ovm
@@ -53,11 +57,6 @@ jobs:
     working_directory: ~/set-protocol-v2
     parallelism: 3
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: false
-      - run:
-          name: Fetch solc version
-          command: docker pull ethereum/solc:0.6.10
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
@@ -79,6 +78,8 @@ jobs:
     working_directory: ~/set-protocol-v2
     parallelism: 3
     steps:
+      - setup_remote_docker:
+          docker_layer_caching: false
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
@@ -96,11 +97,6 @@ jobs:
     # to istanbul-combine in the `report_coverage` job
     parallelism: 5
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: false
-      - run:
-          name: Fetch solc version
-          command: docker pull ethereum/solc:0.6.10
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
