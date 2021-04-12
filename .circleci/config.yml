@@ -1,7 +1,7 @@
 version: 2
 
 jobs:
-  checkout:
+  install:
     docker:
       - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
@@ -27,6 +27,7 @@ jobs:
       - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
     steps:
+      - checkout
       - restore_cache:
           key: module-cache-{{ checksum "yarn.lock" }}
       - run:
@@ -42,6 +43,7 @@ jobs:
       - image: circleci/node:10.16.0
     working_directory: ~/set-protocol-v2
     steps:
+      - checkout
       - restore_cache:
           key: module-cache-{{ checksum "yarn.lock" }}
       - run:
@@ -149,13 +151,13 @@ workflows:
   version: 2
   build-and-test:
     jobs:
-      - checkout
+      - install
       - build:
           requires:
-            - checkout
+            - install
       - build_ovm:
           requires:
-            - checkout
+            - install
       - test:
           requires:
             - build
