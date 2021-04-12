@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, StreamingFeeState } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ADDRESS_ZERO, MAX_UINT_256, PRECISE_UNIT, THREE, ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, MAX_UINT_256, PRECISE_UNIT, THREE, ZERO, ONE_DAY_IN_SECONDS } from "@utils/constants";
 import { BalancerV1ExchangeAdapter, ContractCallerMock, GeneralIndexModule, SetToken, UniswapV2ExchangeAdapterV2 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -58,7 +58,7 @@ describe("GeneralIndexModule", () => {
 
   const ONE_MINUTE_IN_SECONDS: BigNumber = BigNumber.from(60);
 
-  cacheBeforeEach(async () => {
+  before(async () => {
     [
       owner,
       trader,
@@ -99,7 +99,9 @@ describe("GeneralIndexModule", () => {
         uniswapExchangeAdapter.address,
       ]
     );
+  });
 
+  cacheBeforeEach(async () => {
     indexComponents = [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address];
     indexUnits = [ether(86.9565217), bitcoin(.01111111), ether(100)];
     index = await setup.createSetToken(
@@ -135,7 +137,6 @@ describe("GeneralIndexModule", () => {
 
     await setup.streamingFeeModule.initialize(indexWithWeth.address, feeSettingsForIndexWithWeth);
     await setup.issuanceModule.initialize(indexWithWeth.address, ADDRESS_ZERO);
-
 
     await setup.weth.connect(owner.wallet).approve(uniswapSetup.router.address, ether(2000));
     await uniswapSetup.uni.connect(owner.wallet).approve(uniswapSetup.router.address, ether(400000));
@@ -631,7 +632,7 @@ describe("GeneralIndexModule", () => {
           let feePercentage: BigNumber;
 
           beforeEach(async () => {
-            feePercentage = ether(0.05);
+            feePercentage = ether(0.005);
             setup.controller = setup.controller.connect(owner.wallet);
             await setup.controller.addFee(
               indexModule.address,
@@ -689,6 +690,59 @@ describe("GeneralIndexModule", () => {
               expectedOut.sub(protocolFee),
               protocolFee
             );
+          });
+
+          describe("and the buy component does not meet the max trade size", async () => {
+            beforeEach(async () => {
+              await indexModule.startRebalance(
+                subjectSetToken.address,
+                [],
+                [],
+                [ether("60.869565780223716593"), bitcoin(.016), ether(50)],
+                await index.positionMultiplier()
+              );
+
+              await subject();
+
+              subjectComponent = setup.wbtc.address;
+              subjectEthQuantityLimit = MAX_UINT_256;
+            });
+
+            it("position units should match the target", async () => {
+              const totalSupply = await subjectSetToken.totalSupply();
+              const currentWbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
+              const expectedWbtcSize = preciseDiv(
+                preciseMulCeil(bitcoin(.016), totalSupply).sub(preciseMul(currentWbtcUnit, totalSupply)),
+                PRECISE_UNIT.sub(feePercentage)
+              );
+
+              const [expectedIn, expectedOut] = await sushiswapSetup.router.getAmountsIn(
+                expectedWbtcSize,
+                [setup.weth.address, setup.wbtc.address]
+              );
+              const currentWbtcAmount = await setup.wbtc.balanceOf(subjectSetToken.address);
+              const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
+
+              const wethUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.weth.address);
+              const wbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
+
+              await subject();
+
+              const wbtcExcess = currentWbtcAmount.sub(preciseMul(totalSupply, wbtcUnit));
+              const wethExcess = currentWethAmount.sub(preciseMul(totalSupply, wethUnit));
+
+              const expectedWethPositionUnits = preciseDiv(currentWethAmount.sub(expectedIn).sub(wethExcess), totalSupply);
+              const expectedWbtcPositionUnits = preciseDiv(
+                currentWbtcAmount.add(preciseMulCeil(expectedOut, PRECISE_UNIT.sub(feePercentage))).sub(wbtcExcess),
+                totalSupply
+              );
+
+              const wethPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.weth.address);
+              const wbtcPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
+
+              expect(wbtcPositionUnits).to.eq(expectedWbtcPositionUnits);
+              expect(wethPositionUnits).to.eq(expectedWethPositionUnits);
+            });
           });
         });
 
@@ -1612,8 +1666,14 @@ describe("GeneralIndexModule", () => {
         oldTargetUnits = [ether(60.869565), bitcoin(.015), ether(50)];
       });
 
-      const startRebalance = async (trade: boolean = true) => {
+      const startRebalance = async (trade: boolean = true, accrueFee: boolean = false) => {
         await setup.approveAndIssueSetToken(subjectSetToken, ether(20));
+        console.log((await setup.dai.balanceOf(subjectSetToken.address)).toString());
+        if (accrueFee) {
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+          await setup.streamingFeeModule.accrueFee(subjectSetToken.address);
+        }
+
         await indexModule.startRebalance(subjectSetToken.address, [], [], oldTargetUnits, await subjectSetToken.positionMultiplier());
 
         if (trade) {
@@ -1664,6 +1724,86 @@ describe("GeneralIndexModule", () => {
           it("should revert", async () => {
             await expect(subject()).to.be.revertedWith("Address not permitted to trade");
           });
+        });
+      });
+
+      describe("when the position multiplier is less than 1", () => {
+        beforeEach(async () => {
+          initialializeSubjectVariables();
+
+          await startRebalance(true, true);
+        });
+
+        it("the position units and lastTradeTimestamp should be set as expected", async () => {
+          const prePositionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          await subject();
+
+          const expectedPositionMultiplier = preciseDiv(
+            prePositionMultiplier,
+            PRECISE_UNIT.add(ether(.0025))
+          );
+
+          const positionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          expect(positionMultiplier).to.eq(expectedPositionMultiplier);
+        });
+      });
+
+      describe("when protocol fees are charged", () => {
+        beforeEach(async () => {
+          const feePercentage = ether(0.005);
+          setup.controller = setup.controller.connect(owner.wallet);
+          await setup.controller.addFee(
+            indexModule.address,
+            ZERO, // Fee type on trade function denoted as 0
+            feePercentage // Set fee to 5 bps
+          );
+
+          initialializeSubjectVariables();
+          await startRebalance(true, true);
+        });
+
+        it("the position units and lastTradeTimestamp should be set as expected", async () => {
+          const prePositionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          await subject();
+
+          const expectedPositionMultiplier = preciseDiv(
+            prePositionMultiplier,
+            PRECISE_UNIT.add(ether(.0025))
+          );
+
+          const positionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          expect(positionMultiplier).to.eq(expectedPositionMultiplier);
+        });
+      });
+
+      describe("when a component is being removed", async () => {
+        beforeEach(async () => {
+          // current Units [ether(86.9565217), bitcoin(.01111111), ether(100)]
+          oldTargetUnits = [ether(60.869565), bitcoin(.015), ZERO];
+
+          initialializeSubjectVariables();
+
+          await indexModule.setTradeMaximums(subjectSetToken.address, [setup.dai.address], [ether(2000)]);
+          await startRebalance();
+        });
+
+        it("the position units and lastTradeTimestamp should be set as expected", async () => {
+          const prePositionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          await subject();
+
+          const expectedPositionMultiplier = preciseDiv(
+            prePositionMultiplier,
+            PRECISE_UNIT.add(ether(.0025))
+          );
+
+          const positionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          expect(positionMultiplier).to.eq(expectedPositionMultiplier);
         });
       });
 

@@ -307,8 +307,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function raiseAssetTargets(ISetToken _setToken) external onlyAllowedTrader(_setToken, msg.sender) virtual {
         require(
-            _allTargetsMet(_setToken)  
-            && _setToken.getDefaultPositionRealUnit(address(weth)).toUint256() > executionInfo[_setToken][weth].targetUnit,
+            _allTargetsMet(_setToken)
+            && _setToken.getDefaultPositionRealUnit(address(weth)).toUint256() > _getNormalizedTargetUnit(_setToken, weth),
             "Targets must be met and ETH remaining in order to raise target"
         );
 
@@ -472,10 +472,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * Clears the state of the calling SetToken.
      */
     function removeModule() external override {
-        // delete executionInfo[ISetToken(msg.sender)];    // todo: figure out how to delete efficiently
         delete rebalanceInfo[ISetToken(msg.sender)];
         delete permissionInfo[ISetToken(msg.sender)];
     }
+
+    /* ============ External View Functions ============ */
     
     /**
      * Get the array of SetToken components involved in rebalance.
@@ -487,6 +488,29 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     function getRebalanceComponents(ISetToken _setToken) external view returns (address[] memory) {
         return rebalanceInfo[_setToken].rebalanceComponents;
     }
+
+    /**
+     * Calculates the amount of a component is going to be traded and whether the component is being bought
+     * or sold. If currentUnit and targetUnit are the same, function will revert.
+     * 
+     * @param _setToken                 Instance of the SetToken to rebalance
+     * @param _component                IERC20 component to trade
+     *
+     * @return isSell                   Boolean indicating if component is being sold
+     * @return componentQuantity        Amount of component being traded
+     */
+    function getComponentTradeQuantityAndDirection(
+        ISetToken _setToken,
+        IERC20 _component
+    )
+        external
+        view
+        returns (bool, uint256)
+    {
+        uint256 totalSupply = _setToken.totalSupply();
+        return _calculateTradeSizeAndDirection(_setToken, _component, totalSupply);
+    }
+
 
     /**
      * Get if a given address is an allowed trader.
@@ -542,24 +566,17 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         returns (TradeInfo memory) 
     {
         
-        uint256 totalSupply = _setToken.totalSupply();
-
-        uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
-        
-        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
-        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
-
-        require(currentUnit != targetUnit, "Target already met");
-
-        uint256 currentNotional = totalSupply.getDefaultTotalNotional(currentUnit);
-        uint256 targetNotional = totalSupply.preciseMulCeil(targetUnit);        
+        uint256 totalSupply = _setToken.totalSupply();     
 
         TradeInfo memory tradeInfo;
         tradeInfo.setToken = _setToken;
 
         tradeInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
 
-        tradeInfo.isSendTokenFixed = targetNotional < currentNotional;
+        (
+            tradeInfo.isSendTokenFixed,
+            tradeInfo.totalFixedQuantity
+        ) = _calculateTradeSizeAndDirection(_setToken, _component, totalSupply);
         
         tradeInfo.sendToken = tradeInfo.isSendTokenFixed ? address(_component) : address(weth);
         
@@ -567,16 +584,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         
         tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
         tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
-        
-        tradeInfo.setTotalSupply = totalSupply;
-
-        tradeInfo.totalFixedQuantity = tradeInfo.isSendTokenFixed 
-            ? componentMaxSize.min(currentNotional.sub(targetNotional))
-            : componentMaxSize.min(targetNotional.sub(currentNotional));
 
         tradeInfo.floatingQuantityLimit = tradeInfo.isSendTokenFixed 
             ? _ethQuantityLimit 
             : _ethQuantityLimit.min(tradeInfo.preTradeSendTokenBalance);
+        
+        tradeInfo.setTotalSupply = totalSupply;
 
         return tradeInfo;
     }
@@ -710,6 +723,44 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
+     * Calculates the amount of a component is going to be traded and whether the component is being bought
+     * or sold. If currentUnit and targetUnit are the same, function will revert.
+     *
+     * @param _setToken                 Instance of the SetToken to rebalance
+     * @param _component                IERC20 component to trade
+     * @param _totalSupply              Total supply of _setToken
+     *
+     * @return isSendTokenFixed         Boolean indicating if sendToken is fixed (if component is being sold)
+     * @return totalFixedQuantity       Amount of fixed token to send or receive
+     */
+    function _calculateTradeSizeAndDirection(
+        ISetToken _setToken,
+        IERC20 _component,
+        uint256 _totalSupply
+    )
+        internal
+        view
+        returns (bool isSendTokenFixed, uint256 totalFixedQuantity)
+    {
+        uint256 protocolFee = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX);
+        uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
+        
+        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
+        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
+
+        require(currentUnit != targetUnit, "Target already met");
+
+        uint256 currentNotional = _totalSupply.getDefaultTotalNotional(currentUnit);
+        uint256 targetNotional = _totalSupply.preciseMulCeil(targetUnit);
+
+        isSendTokenFixed = targetNotional < currentNotional;
+
+        totalFixedQuantity = isSendTokenFixed 
+            ? componentMaxSize.min(currentNotional.sub(targetNotional))
+            : componentMaxSize.min(targetNotional.sub(currentNotional).preciseDiv(PreciseUnitMath.preciseUnit().sub(protocolFee)));
+    }
+
+    /**
      * Check if there are any more tokens to sell.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
@@ -732,7 +783,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Check if all targets are met
+     * Check if all targets are met. Due to small rounding errors converting between virtual and real unit on SetToken we allow
+     * for a 1 wei buffer.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      *
@@ -741,12 +793,21 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     function _allTargetsMet(ISetToken _setToken) internal view returns (bool) {
         uint256 positionMultiplier = rebalanceInfo[_setToken].positionMultiplier;
         uint256 currentPositionMultiplier = _setToken.positionMultiplier().toUint256();
+
         address[] memory rebalanceComponents = rebalanceInfo[_setToken].rebalanceComponents;
         for (uint256 i = 0; i < rebalanceComponents.length; i++) {
             address component = rebalanceComponents[i];
             if (component != address(weth)) {
                 uint256 normalizedTargetUnit = _normalizeTargetUnit(_setToken, IERC20(component), currentPositionMultiplier, positionMultiplier);
-                bool targetUnmet = normalizedTargetUnit != _setToken.getDefaultPositionRealUnit(component).toUint256();
+                uint256 currentUnit = _setToken.getDefaultPositionRealUnit(component).toUint256();
+
+                bool targetUnmet;
+                if (normalizedTargetUnit > 0) {
+                    targetUnmet = (normalizedTargetUnit.sub(1) > currentUnit || normalizedTargetUnit.add(1) < currentUnit);
+                } else {
+                    targetUnmet = normalizedTargetUnit != _setToken.getDefaultPositionRealUnit(component).toUint256();
+                }
+
                 if (targetUnmet) { return false; }
             }
         }
@@ -756,7 +817,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /**
      * Normalize target unit to current position multiplier in case fees have been accrued.
      *
-     * @param _setToken             Instance of the SettToken to be rebalanced
+     * @param _setToken             Instance of the SetToken to be rebalanced
      * @param _component            IERC20 component whose normalized target unit is required
      *
      * @return uint256              Normalized target unit of the component
