@@ -1887,7 +1887,7 @@ describe("GeneralIndexModule", () => {
           await startRebalance();
         });
 
-        it("the position units and lastTradeTimestamp should be set as expected", async () => {
+        it("the position units and lastTradeTimestamp should be set as expected and the unit should be zeroed out", async () => {
           const prePositionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
 
           await subject();
@@ -1898,8 +1898,10 @@ describe("GeneralIndexModule", () => {
           );
 
           const positionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+          const daiUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
 
           expect(positionMultiplier).to.eq(expectedPositionMultiplier);
+          expect(daiUnits).to.eq(ZERO);
         });
       });
 
