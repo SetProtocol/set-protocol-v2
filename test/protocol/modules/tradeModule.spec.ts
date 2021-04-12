@@ -872,8 +872,8 @@ describe("TradeModule", () => {
             subjectMinDestinationQuantity = destinationTokenQuantity.sub(ether(1)); // Receive a min of 32 WETH for 1 WBTC
             subjectAdapterName = uniswapAdapterV2Name;
             const tradePath = [subjectSourceToken, subjectDestinationToken];
-            const shouldSwapForExactToken = false;
-            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            const shouldSwapExactTokenForToken = true;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapExactTokenForToken);
             subjectCaller = manager;
           });
 
@@ -932,8 +932,8 @@ describe("TradeModule", () => {
             subjectMinDestinationQuantity = ether(1);
             subjectAdapterName = uniswapAdapterV2Name;
             const tradePath = [subjectSourceToken, subjectDestinationToken];
-            const shouldSwapForExactToken = true;
-            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            const shouldSwapExactTokenForToken = false;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapExactTokenForToken);
             subjectCaller = manager;
           });
 
@@ -960,8 +960,8 @@ describe("TradeModule", () => {
             subjectSetToken = setToken.address;
             subjectAdapterName = uniswapAdapterV2Name;
             const tradePath = [subjectSourceToken, setup.weth.address, subjectDestinationToken];
-            const shouldSwapForExactToken = false;
-            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            const shouldSwapExactTokenForToken = true;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapExactTokenForToken);
             subjectCaller = manager;
           });
 
@@ -989,8 +989,8 @@ describe("TradeModule", () => {
             subjectSetToken = setToken.address;
             subjectAdapterName = uniswapAdapterV2Name;
             const tradePath = [subjectSourceToken, setup.weth.address, subjectDestinationToken];
-            const shouldSwapForExactToken = true;
-            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapForExactToken);
+            const shouldSwapExactTokenForToken = false;
+            subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(tradePath, shouldSwapExactTokenForToken);
             subjectCaller = manager;
           });
 
