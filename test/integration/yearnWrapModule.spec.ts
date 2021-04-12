@@ -51,7 +51,7 @@ describe("yearnWrapModule", () => {
     await yearnSetup.initialize();
 
     daiVault =  await yearnSetup.createAndEnableVaultWithStrategyMock(
-      setup.dai.address, owner.address, owner.address, owner.address, "MockStrategy", "M", ether(100)
+      setup.dai.address, owner.address, owner.address, owner.address, "daiMockStrategy", "yvDAI", ether(100)
     );
 
     // WrapModule setup
@@ -129,6 +129,7 @@ describe("yearnWrapModule", () => {
         const expectedWrappedBalance = previousWrappedBalance.add(setTokensIssued);
         expect(wrappedBalance).to.eq(expectedWrappedBalance);
       });
+
     });
 
     describe("#unwrap", () => {
@@ -190,6 +191,17 @@ describe("yearnWrapModule", () => {
         const expectedWrappedBalance = previousWrappedBalance.sub(delta);
         expect(wrappedBalance).to.eq(expectedWrappedBalance);
       });
+
+      describe("when it is an invalid vault - underlying token", async () => {
+        beforeEach(async () => {
+            subjectUnderlyingToken = setup.usdc.address;
+        });
+
+        it("should revert as it the vault holds a different underlying token", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid token pair");
+        });
+      });
+
     });
   });
 });
