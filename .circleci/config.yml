@@ -31,6 +31,9 @@ jobs:
       - restore_cache:
           key: module-cache-{{ checksum "yarn.lock" }}
       - run:
+          name: Set Up Environment Variables
+          command: cp .env.default .env
+      - run:
           name: Transpile Contracts
           command: yarn build
       - save_cache:
@@ -46,6 +49,9 @@ jobs:
       - checkout
       - restore_cache:
           key: module-cache-{{ checksum "yarn.lock" }}
+      - run:
+          name: Set Up Environment Variables
+          command: cp .env.default .env
       - run:
           name: Transpile OVM Contracts
           command: yarn build:ovm
