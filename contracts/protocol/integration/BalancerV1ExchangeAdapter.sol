@@ -24,7 +24,6 @@ pragma experimental "ABIEncoderV2";
  * @author Set Protocol
  *
  * A Balancer exchange adapter that returns calldata for trading.
- *
  */
 contract BalancerV1ExchangeAdapter {
 
@@ -58,14 +57,11 @@ contract BalancerV1ExchangeAdapter {
     /**
      * Return calldata for Balancer Proxy. Bool to select trade function is encoded in the arbitrary data parameter.
      *
-     * Note: When selecting the swap for exact tokens function, _sourceQuantity is defined as the max token quantity you are willing to trade, and
-     * _minDestinationQuantity is the exact quantity of token you are receiving.
-     *
      * @param  _sourceToken              Address of source token to be sold
      * @param  _destinationToken         Address of destination token to buy
      * @param  _destinationAddress       Address that assets should be transferred to
-     * @param  _sourceQuantity           Amount of source token to sell
-     * @param  _minDestinationQuantity   Min amount of destination token to buy
+     * @param  _sourceQuantity           Fixed/Max amount of source token to sell
+     * @param  _destinationQuantity      Min/Fixed amount of destination tokens to receive
      * @param  _data                     Arbitrary bytes containing bool to determine function string
      *
      * @return address                   Target contract address
@@ -77,7 +73,7 @@ contract BalancerV1ExchangeAdapter {
         address _destinationToken,
         address _destinationAddress,
         uint256 _sourceQuantity,
-        uint256 _minDestinationQuantity,
+        uint256 _destinationQuantity,
         bytes memory _data
     )
         external
@@ -85,15 +81,15 @@ contract BalancerV1ExchangeAdapter {
         returns (address, uint256, bytes memory)
     {   
         (
-            bool shouldSwapFixedAmount
+            bool shouldSwapForFixedOutputAmount
         ) = abi.decode(_data, (bool));
 
         bytes memory callData = abi.encodeWithSignature(
-            shouldSwapFixedAmount ? EXACT_IN : EXACT_OUT,
+            shouldSwapForFixedOutputAmount ? EXACT_OUT : EXACT_IN,
             _sourceToken,
             _destinationToken,
-            shouldSwapFixedAmount ?  _sourceQuantity : _minDestinationQuantity,
-            shouldSwapFixedAmount ? _minDestinationQuantity : _sourceQuantity,
+            shouldSwapForFixedOutputAmount ?  _destinationQuantity : _sourceQuantity,
+            shouldSwapForFixedOutputAmount ? _sourceQuantity : _destinationQuantity,
             BALANCER_POOL_LIMIT
         );
 
@@ -101,7 +97,7 @@ contract BalancerV1ExchangeAdapter {
     }
 
     /**
-     * Generate data parameter to be passed to `getTradeCallData`. Returns encoded trade paths and bool to select trade function.
+     * Generate data parameter to be passed to `getTradeCallData`. Returns encoded bool to select trade function.
      *
      * @param _sellComponent        Address of the token to be sold        
      * @param _buyComponent         Address of the token to be bought
@@ -113,8 +109,9 @@ contract BalancerV1ExchangeAdapter {
         external
         view
         returns (bytes memory) 
-    {        
-        return abi.encode(_fixIn);
+    {   
+        bool shouldSwapForFixedOutputAmount = !_fixIn;
+        return abi.encode(shouldSwapForFixedOutputAmount);
     }
 
     /**
@@ -124,5 +121,14 @@ contract BalancerV1ExchangeAdapter {
      */
     function getSpender() external view returns (address) {
         return balancerProxy;
+    }
+
+    /**
+     * Helper that returns the encoded data of boolean indicating the Balancer swap function to use.
+     *
+     * @return bytes               Encoded data used for trading on Balancer
+     */
+    function getBalancerExchangeData(bool _shouldSwapForFixedOutputAmount) external view returns (bytes memory) {
+        return abi.encode(_shouldSwapForFixedOutputAmount);
     }
 } 

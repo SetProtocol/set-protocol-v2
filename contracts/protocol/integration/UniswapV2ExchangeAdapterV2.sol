@@ -65,8 +65,8 @@ contract UniswapV2ExchangeAdapterV2 {
      * @param  _sourceToken              Address of source token to be sold
      * @param  _destinationToken         Address of destination token to buy
      * @param  _destinationAddress       Address that assets should be transferred to
-     * @param  _sourceQuantity           Amount of source token to sell
-     * @param  _destinationQuantity      Amount of destination token to buy
+     * @param  _sourceQuantity           Fixed/Max amount of source token to sell
+     * @param  _destinationQuantity      Min/Fixed amount of destination token to buy
      * @param  _data                     Arbitrary bytes containing trade path and bool to determine function string
      *
      * @return address                   Target contract address
@@ -90,7 +90,6 @@ contract UniswapV2ExchangeAdapterV2 {
             bool shouldSwapTokensForExactTokens
         ) = abi.decode(_data, (address[],bool));
 
-        // If shouldSwapTokensForExactTokens, use appropriate function string and flip source and destination quantities to conform with Uniswap interface
         bytes memory callData = abi.encodeWithSignature(
             shouldSwapTokensForExactTokens ? SWAP_TOKENS_FOR_EXACT_TOKENS : SWAP_EXACT_TOKENS_FOR_TOKENS,
             shouldSwapTokensForExactTokens ? _destinationQuantity : _sourceQuantity,
@@ -119,7 +118,7 @@ contract UniswapV2ExchangeAdapterV2 {
         address[] memory path = new address[](2);
         path[0] = _sellComponent;
         path[1] = _buyComponent;
-        bool shouldSwapTokensForExactTokens = _fixIn ? false : true;
+        bool shouldSwapTokensForExactTokens = !_fixIn;
         return abi.encode(path, shouldSwapTokensForExactTokens);
     }
 
