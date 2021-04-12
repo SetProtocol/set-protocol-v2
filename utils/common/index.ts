@@ -37,3 +37,6 @@ export {
 export {
   convertLibraryNameToLinkId
 } from "./libraryUtils";
+export {
+  getRandomAddress
+} from "./addressUtils";

@@ -26,11 +26,6 @@ export const getRandomAccount = async (): Promise<Account> => {
   return accounts[accounts.length - 1];
 };
 
-export const getRandomAddress = async (): Promise<Address> => {
-  const wallet = ethers.Wallet.createRandom().connect(provider);
-  return await wallet.getAddress();
-};
-
 export const getEthBalance = async (account: Address): Promise<BigNumber> => {
   return await provider.getBalance(account);
 };

@@ -26,12 +26,11 @@ import {
 
 import { StandardTokenMock } from "../contracts";
 
-import { ether } from "../common";
+import { ether, getRandomAddress } from "../common";
 
 import { AToken__factory } from "../../typechain/factories/AToken__factory";
 import { MAX_UINT_256 } from "../constants";
 import { AaveTokenV2Mintable } from "../../typechain/AaveTokenV2Mintable";
-import { getRandomAddress } from "../test";
 
 export class AaveFixture {
   private _deployer: DeployHelper;
