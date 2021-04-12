@@ -64,7 +64,10 @@ describe("CompoundWrapAdapter", () => {
     );
 
     const compoundLibrary = await deployer.libraries.deployCompound();
-    compoundWrapAdapter = await deployer.adapters.deployCompoundWrapAdapter("Compound", compoundLibrary.address);
+    compoundWrapAdapter = await deployer.adapters.deployCompoundWrapAdapter(
+      "contracts/protocol/integration/lib/Compound.sol:Compound",
+      compoundLibrary.address
+    );
   });
 
   addSnapshotBeforeRestoreAfterEach();
