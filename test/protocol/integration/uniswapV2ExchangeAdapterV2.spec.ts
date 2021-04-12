@@ -92,22 +92,22 @@ describe("UniswapV2ExchangeAdapterV2", () => {
 
   describe("getUniswapExchangeData", async () => {
     let subjectPath: Address[];
-    let subjectShouldTradeForExact: boolean;
+    let subjectShouldTradeExactTokensForTokens: boolean;
 
     beforeEach(async () => {
       subjectPath = [setup.weth.address, setup.wbtc.address, setup.dai.address];
-      subjectShouldTradeForExact = true;
+      subjectShouldTradeExactTokensForTokens = true;
     });
 
     async function subject(): Promise<any> {
-      return await uniswapV2ExchangeAdapter.getUniswapExchangeData(subjectPath, subjectShouldTradeForExact);
+      return await uniswapV2ExchangeAdapter.getUniswapExchangeData(subjectPath, subjectShouldTradeExactTokensForTokens);
     }
 
     it("should return the correct data", async () => {
       const uniswapData = await subject();
       const expectedData = defaultAbiCoder.encode(
         ["address[]", "bool"],
-        [subjectPath, subjectShouldTradeForExact]
+        [subjectPath, subjectShouldTradeExactTokensForTokens]
       );
 
       expect(uniswapData).to.eq(expectedData);
@@ -152,13 +152,13 @@ describe("UniswapV2ExchangeAdapterV2", () => {
       );
     }
 
-    describe("when boolean to swap for exact tokens is false", async () => {
+    describe("when boolean to swap exact tokens for tokens is true", async () => {
       beforeEach(async () => {
         const path = [sourceAddress, setup.weth.address, destinationAddress];
-        const shouldTradeForExact = false;
+        const shouldTradeExactTokensForTokens = true;
         subjectData = defaultAbiCoder.encode(
           ["address[]", "bool"],
-          [path, shouldTradeForExact]
+          [path, shouldTradeExactTokensForTokens]
         );
       });
 
@@ -176,13 +176,13 @@ describe("UniswapV2ExchangeAdapterV2", () => {
       });
     });
 
-    describe("when boolean to swap for exact tokens is true", async () => {
+    describe("when boolean to swap exact tokens for tokens is false", async () => {
       beforeEach(async () => {
         const path = [sourceAddress, setup.weth.address, destinationAddress];
-        const shouldTradeForExact = true;
+        const shouldTradeExactTokensForTokens = false;
         subjectData = defaultAbiCoder.encode(
           ["address[]", "bool"],
-          [path, shouldTradeForExact]
+          [path, shouldTradeExactTokensForTokens]
         );
       });
 

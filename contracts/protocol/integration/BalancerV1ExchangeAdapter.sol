@@ -81,15 +81,15 @@ contract BalancerV1ExchangeAdapter {
         returns (address, uint256, bytes memory)
     {   
         (
-            bool shouldSwapForFixedOutputAmount
+            bool shouldSwapFixedInputAmount
         ) = abi.decode(_data, (bool));
 
         bytes memory callData = abi.encodeWithSignature(
-            shouldSwapForFixedOutputAmount ? EXACT_OUT : EXACT_IN,
+            shouldSwapFixedInputAmount ? EXACT_IN : EXACT_OUT,
             _sourceToken,
             _destinationToken,
-            shouldSwapForFixedOutputAmount ?  _destinationQuantity : _sourceQuantity,
-            shouldSwapForFixedOutputAmount ? _sourceQuantity : _destinationQuantity,
+            shouldSwapFixedInputAmount ? _sourceQuantity : _destinationQuantity,
+            shouldSwapFixedInputAmount ? _destinationQuantity : _sourceQuantity,
             BALANCER_POOL_LIMIT
         );
 
@@ -110,8 +110,7 @@ contract BalancerV1ExchangeAdapter {
         view
         returns (bytes memory) 
     {   
-        bool shouldSwapForFixedOutputAmount = !_fixIn;
-        return abi.encode(shouldSwapForFixedOutputAmount);
+        return abi.encode(_fixIn);
     }
 
     /**
@@ -128,7 +127,7 @@ contract BalancerV1ExchangeAdapter {
      *
      * @return bytes               Encoded data used for trading on Balancer
      */
-    function getBalancerExchangeData(bool _shouldSwapForFixedOutputAmount) external view returns (bytes memory) {
-        return abi.encode(_shouldSwapForFixedOutputAmount);
+    function getBalancerExchangeData(bool _shouldSwarFixeInputtAmount) external view returns (bytes memory) {
+        return abi.encode(_shouldSwarFixeInputtAmount);
     }
 } 

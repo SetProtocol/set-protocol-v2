@@ -87,13 +87,13 @@ contract UniswapV2ExchangeAdapterV2 {
     {   
         (
             address[] memory path,
-            bool shouldSwapTokensForExactTokens
+            bool shouldSwapExactTokensForTokens
         ) = abi.decode(_data, (address[],bool));
 
         bytes memory callData = abi.encodeWithSignature(
-            shouldSwapTokensForExactTokens ? SWAP_TOKENS_FOR_EXACT_TOKENS : SWAP_EXACT_TOKENS_FOR_TOKENS,
-            shouldSwapTokensForExactTokens ? _destinationQuantity : _sourceQuantity,
-            shouldSwapTokensForExactTokens ? _sourceQuantity : _destinationQuantity,
+            shouldSwapExactTokensForTokens ? SWAP_EXACT_TOKENS_FOR_TOKENS : SWAP_TOKENS_FOR_EXACT_TOKENS,
+            shouldSwapExactTokensForTokens ? _sourceQuantity : _destinationQuantity,
+            shouldSwapExactTokensForTokens ? _destinationQuantity : _sourceQuantity,
             path,
             _destinationAddress,
             block.timestamp
@@ -118,8 +118,7 @@ contract UniswapV2ExchangeAdapterV2 {
         address[] memory path = new address[](2);
         path[0] = _sellComponent;
         path[1] = _buyComponent;
-        bool shouldSwapTokensForExactTokens = !_fixIn;
-        return abi.encode(path, shouldSwapTokensForExactTokens);
+        return abi.encode(path, _fixIn);
     }
 
     /**
@@ -136,7 +135,7 @@ contract UniswapV2ExchangeAdapterV2 {
      *
      * @return bytes               Encoded data used for trading on Uniswap
      */
-    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapTokensForExactTokens) external view returns (bytes memory) {
-        return abi.encode(_path, _shouldSwapTokensForExactTokens);
+    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapExactTokensForTokens) external view returns (bytes memory) {
+        return abi.encode(_path, _shouldSwapExactTokensForTokens);
     }
 } 
