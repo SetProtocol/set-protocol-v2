@@ -121,13 +121,4 @@ contract BalancerV1ExchangeAdapter {
     function getSpender() external view returns (address) {
         return balancerProxy;
     }
-
-    /**
-     * Helper that returns the encoded data of boolean indicating the Balancer swap function to use.
-     *
-     * @return bytes               Encoded data used for trading on Balancer
-     */
-    function getBalancerExchangeData(bool _shouldSwarFixeInputtAmount) external view returns (bytes memory) {
-        return abi.encode(_shouldSwarFixeInputtAmount);
-    }
 } 
