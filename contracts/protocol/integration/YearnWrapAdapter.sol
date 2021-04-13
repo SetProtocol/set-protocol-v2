@@ -34,7 +34,7 @@ contract YearnWrapAdapter {
     /**
      * Throws if the underlying/wrapped token pair is not valid
      */
-    modifier onlyValidTokenPair(address _underlyingToken, address _wrappedToken) {
+    modifier _onlyValidTokenPair(address _underlyingToken, address _wrappedToken) {
         require(validTokenPair(_underlyingToken, _wrappedToken), "Must be a valid token pair");
         _;
     }
@@ -63,7 +63,7 @@ contract YearnWrapAdapter {
     )
         external
         view
-        onlyValidTokenPair(_underlyingToken, _wrappedToken)
+        _onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature("deposit(uint256)", _underlyingUnits);
@@ -88,7 +88,7 @@ contract YearnWrapAdapter {
     )
         external
         view
-        onlyValidTokenPair(_underlyingToken, _wrappedToken)
+        _onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature("withdraw(uint256)", _wrappedTokenUnits);
