@@ -124,6 +124,14 @@ import { ExchangeProxy__factory } from "../../typechain/factories/ExchangeProxy_
 
 import { DelegateRegistry__factory } from "../../typechain/factories/DelegateRegistry__factory";
 
+import {
+  Vault,
+  Registry
+} from "../contracts/yearn";
+import { Registry__factory } from "../../typechain/factories/Registry__factory";
+import { Vault__factory } from "../../typechain/factories/Vault__factory";
+
+
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
 
@@ -518,4 +526,18 @@ export default class DeployExternalContracts {
   public async deployDelegateRegistry(): Promise<DelegateRegistry> {
     return await new DelegateRegistry__factory(this._deployerSigner).deploy();
   }
+
+  // YEARN
+  public async deployVault(): Promise<Vault> {
+    return await new Vault__factory(this._deployerSigner).deploy();
+  }
+
+  public async getVault(vaultAddress: Address): Promise<Vault> {
+    return await new Vault__factory(this._deployerSigner).attach(vaultAddress);
+  }
+
+  public async deployRegistry(): Promise<Registry> {
+    return await new Registry__factory(this._deployerSigner).deploy();
+  }
+
 }

@@ -2,7 +2,7 @@
 import { ethers } from "hardhat";
 import { Address } from "../types";
 
-import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixture, UniswapFixture } from "../fixtures";
+import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixture, UniswapFixture, YearnFixture } from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
 
 // Hardhat-Provider Aware Exports
@@ -15,6 +15,7 @@ export const getBalancerFixture = (ownerAddress: Address) => new BalancerFixture
 export const getCurveFixture = (ownerAddress: Address) => new CurveFixture(provider, ownerAddress);
 export const getCompoundFixture = (ownerAddress: Address) => new CompoundFixture(provider, ownerAddress);
 export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(provider, ownerAddress);
+export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
 
 export {
   getAccounts,

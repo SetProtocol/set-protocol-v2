@@ -10,6 +10,7 @@ import {
   AaveMigrationWrapAdapter,
   AaveWrapAdapter,
   CompoundWrapAdapter,
+  YearnWrapAdapter,
   UniswapPairPriceAdapter,
   UniswapV2ExchangeAdapter,
   UniswapV2ExchangeAdapterV2,
@@ -32,6 +33,7 @@ import { ZeroExApiAdapter__factory } from "../../typechain/factories/ZeroExApiAd
 import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/AaveMigrationWrapAdapter__factory";
 import { AaveWrapAdapter__factory } from "../../typechain/factories/AaveWrapAdapter__factory";
 import { CompoundWrapAdapter__factory } from "../../typechain/factories/CompoundWrapAdapter__factory";
+import { YearnWrapAdapter__factory } from "../../typechain/factories/YearnWrapAdapter__factory";
 import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/UniswapPairPriceAdapter__factory";
 import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/UniswapV2ExchangeAdapter__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
@@ -99,6 +101,10 @@ export default class DeployAdapters {
       },
       this._deployerSigner
     ).deploy();
+  }
+
+  public async deployYearnWrapAdapter(): Promise<YearnWrapAdapter> {
+    return await new YearnWrapAdapter__factory(this._deployerSigner).deploy();
   }
 
   public async deployCompoundLikeGovernanceAdapter(governanceAlpha: Address, governanceToken: Address): Promise<CompoundLikeGovernanceAdapter> {

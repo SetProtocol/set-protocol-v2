@@ -4,3 +4,4 @@ export { CompoundFixture } from "./compoundFixture";
 export { CurveFixture } from "./curveFixture";
 export { SystemFixture } from "./systemFixture";
 export { UniswapFixture } from "./uniswapFixture";
+export { YearnFixture } from "./yearnFixture";
