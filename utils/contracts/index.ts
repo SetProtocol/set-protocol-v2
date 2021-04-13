@@ -83,7 +83,6 @@ export { UniswapV2Factory } from "../../typechain/UniswapV2Factory";
 export { UniswapV2Pair } from "../../typechain/UniswapV2Pair";
 export { UniswapV2Router02 } from "../../typechain/UniswapV2Router02";
 export { UniswapYieldHook } from "../../typechain/UniswapYieldHook";
-export { UniswapYieldStrategy } from "../../typechain/UniswapYieldStrategy";
 export { WETH9 } from "../../typechain/WETH9";
 export { WrapAdapterMock } from "../../typechain/WrapAdapterMock";
 export { WrapModule } from "../../typechain/WrapModule";

@@ -18,9 +18,8 @@ import {
   StakingModule,
   StreamingFeeModule,
   TradeModule,
-  UniswapYieldStrategy,
   UniswapV2ExchangeAdapterV2,
-  WrapModule  
+  WrapModule
 } from "../contracts";
 import { Address } from "../types";
 
@@ -40,7 +39,6 @@ import { SingleIndexModule__factory } from "../../typechain/factories/SingleInde
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
 import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
-import { UniswapYieldStrategy__factory } from "../../typechain/factories/UniswapYieldStrategy__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { WrapModule__factory } from "../../typechain/factories/WrapModule__factory";
 
@@ -107,32 +105,6 @@ export default class DeployModules {
     return await new CustomOracleNavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
-  public async deployUniswapYieldStrategy(
-    _controller: Address,
-    _uniswapRouter: Address,
-    _lpToken: Address,
-    _assetOne: Address,
-    _assetTwo: Address,
-    _uni: Address,
-    _rewarder: Address,
-    _feeRecipient: Address
-  ): Promise<UniswapYieldStrategy> {
-    return await new UniswapYieldStrategy__factory(this._deployerSigner).deploy(
-      _controller,
-      _uniswapRouter,
-      _lpToken,
-      _assetOne,
-      _assetTwo,
-      _uni,
-      _rewarder,
-      _feeRecipient
-    );
-  }
-
-  public async getUniswapYieldStrategy(uniswapYieldStrategy: Address): Promise <UniswapYieldStrategy> {
-    return await new UniswapYieldStrategy__factory(this._deployerSigner).attach(uniswapYieldStrategy);
-  }
-
   public async getNavIssuanceModule(navIssuanceModule: Address): Promise <NavIssuanceModule> {
     return await new NavIssuanceModule__factory(this._deployerSigner).attach(navIssuanceModule);
   }
@@ -172,7 +144,7 @@ export default class DeployModules {
   public async deployBalancerV1ExchangeAdapter(balancerProxy: Address): Promise<BalancerV1ExchangeAdapter> {
     return await new BalancerV1ExchangeAdapter__factory(this._deployerSigner).deploy(
       balancerProxy
-    )
+    );
   }
 
   public async deployGovernanceModule(controller: Address): Promise<GovernanceModule> {
