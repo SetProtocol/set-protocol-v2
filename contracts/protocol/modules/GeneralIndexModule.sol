@@ -156,7 +156,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /**
      * MANAGER ONLY: Changes the target allocation of the Set, opening it up for trading by the Sets designated traders. The manager
      * must pass in any new components and their target units (units defined by the amount of that component the manager wants in 10**18
-     * units of a SetToken). Old component target units must be passed in, in the current order of the of the components array on the
+     * units of a SetToken). Old component target units must be passed in, in the current order of the components array on the
      * SetToken. If a component is being removed it's index in the _oldComponentsTargetUnits should be set to 0. Additionally, the
      * positionMultiplier is passed in, in order to adjust the target units in the event fees are accrued or some other activity occurs
      * that changes the positionMultiplier of the Set. This guarantees the same relative allocation between all the components.
@@ -205,7 +205,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * ACCESS LIMITED: Calling trade pushes the current component units closer to the target units defined by the manager in startRebalance().
+     * ACCESS LIMITED: Calling trade() pushes the current component units closer to the target units defined by the manager in startRebalance().
      * Only approved addresses can call, if anyoneTrade is false then contracts are allowed to call otherwise calling address must be EOA.
      *
      * Trade can be called at anytime but will revert if the passed component's target unit is met or cool off period hasn't passed. Trader can pass
@@ -317,9 +317,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * ACCESS LIMITED: For situation where all target units met and remaining WETH, uniformly raise targets by same
-     * percentage in order to allow further trading. Can be called multiple times if necessary, targets are increased
-     * by amount specified by raiseAssetTargetsPercentage as set by manager.
+     * ACCESS LIMITED: For situation where all target units met and remaining WETH, uniformly raise targets by same percentage by applying
+     * to logged positionMultiplier in RebalanceInfo struct. in order to allow further trading. Can be called multiple times if necessary,
+     * targets are increased by amount specified by raiseAssetTargetsPercentage as set by manager.
      *
      * @param _setToken             Address of the SetToken
      */
@@ -511,7 +511,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Calculates the amount of a component is going to be traded and whether the component is being bought
+     * Calculates the amount of a component that is going to be traded and whether the component is being bought
      * or sold. If currentUnit and targetUnit are the same, function will revert.
      * 
      * @param _setToken                 Instance of the SetToken to rebalance
@@ -667,7 +667,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * Function handles all interactions with exchange. All GeneralIndexModule adapters must allow for selling or buying a fixed
      * quantity of a token in return for a non-fixed (floating) quantity of a token. If isSendTokenFixed is true then the adapter
      * will choose the exchange interface associated with inputting a fixed amount, otherwise it will select the interface used for
-     * receiving a fixed amount. 
+     * receiving a fixed amount. Any other exchange specific data can also be created by calling generateDataParam function.
      *
      * @param _tradeInfo            Struct containing trade information used in internal functions
      */
@@ -745,7 +745,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Calculates the amount of a component is going to be traded and whether the component is being bought or sold.
-     * If currentUnit and targetUnit are the same, function will revert. In order to account for fees taken by protocol
+     * If currentUnit and targetUnit are the same, function will revert. In order to account for fees taken by protocol when buying
      * the notional difference between currentUnit and targetUnit is divided by (1 - protocolFee) to make sure that targetUnit
      * can be met. Failure to do so would lead to never being able to meet target of components that need to be bought.
      *
@@ -810,7 +810,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * Check if all targets are met. Due to small rounding errors converting between virtual and real unit on SetToken we allow
      * for a 1 wei buffer when checking if target is met. In order to avoid subtraction overflow errors targetUnits of zero check
      * for an exact amount. In order to avoid repetively reading positionMultiplier state it is grabbed once and _normalizeTargetUnit
-     * is used.
+     * is used. WETH is not checked as it is allowed to float around it's target.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      *
