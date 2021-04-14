@@ -18,7 +18,7 @@
 
 pragma solidity 0.6.10;
 
-import { IGaugeController } from "../../interfaces/external/IGaugeController.sol";
+import { IGaugeController } from "../../../interfaces/external/IGaugeController.sol";
 
 /**
  * @title CurveStakingAdapter

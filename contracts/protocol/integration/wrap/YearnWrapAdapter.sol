@@ -19,23 +19,29 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { ICErc20 } from "../../interfaces/external/ICErc20.sol";
-import { Compound } from "./lib/Compound.sol";
+import { IYearnVault } from "../../../interfaces/external/IYearnVault.sol";
 
 /**
- * @title CompoundWrapAdapter
+ * @title YearnWrapAdapter
  * @author Set Protocol, Ember Fund
  *
- * Wrap adapter for Compound that returns data for wraps/unwraps of tokens
+ * Wrap adapter for Yearn that returns data for wraps/unwraps of tokens
  */
-contract CompoundWrapAdapter {
-  using Compound for ICErc20;
+contract YearnWrapAdapter {
 
+    /* ============ Modifiers ============ */
 
-  /* ============ Constants ============ */
+    /**
+     * Throws if the underlying/wrapped token pair is not valid
+     */
+    modifier _onlyValidTokenPair(address _underlyingToken, address _wrappedToken) {
+        require(validTokenPair(_underlyingToken, _wrappedToken), "Must be a valid token pair");
+        _;
+    }
 
-    // Compound Mock address to indicate ETH. ETH is used directly in Compound protocol (instead of an abstraction such as WETH)
-    address public constant ETH_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    /* ============ Constructor ============ */
+
+    constructor() public { }
 
     /* ============ External Getter Functions ============ */
 
@@ -57,19 +63,11 @@ contract CompoundWrapAdapter {
     )
         external
         view
+        _onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        uint256 value;
-        bytes memory callData;
-        if (_underlyingToken == ETH_TOKEN_ADDRESS) {
-            value = _underlyingUnits;
-            ( , , callData) = ICErc20(_wrappedToken).getMintCEtherCalldata(_underlyingUnits);
-        } else {
-            value = 0;
-            ( , , callData) = ICErc20(_wrappedToken).getMintCTokenCalldata(_underlyingUnits);
-        }
-
-        return (_wrappedToken, value, callData);
+        bytes memory callData = abi.encodeWithSignature("deposit(uint256)", _underlyingUnits);
+        return (address(_wrappedToken), 0, callData);
     }
 
     /**
@@ -90,19 +88,34 @@ contract CompoundWrapAdapter {
     )
         external
         view
+        _onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        ( , , bytes memory callData) = ICErc20(_wrappedToken).getRedeemCalldata(_wrappedTokenUnits);
-        return (_wrappedToken, 0, callData);
+        bytes memory callData = abi.encodeWithSignature("withdraw(uint256)", _wrappedTokenUnits);
+        return (address(_wrappedToken), 0, callData);
     }
 
     /**
      * Returns the address to approve source tokens for wrapping.
-     * @param _wrappedToken         Address of the wrapped token
-     * @return address              Address of the contract to approve tokens to
+     *
+     * @return address        Address of the contract to approve tokens to
      */
-     function getSpenderAddress(address /* _underlyingToken */, address _wrappedToken) external view returns(address) {
-         return address(_wrappedToken);
-     }
+    function getSpenderAddress(address /* _underlyingToken */, address  _wrappedToken) external view returns(address) {
+        return address(_wrappedToken);
+    }
 
+    /* ============ Internal Functions ============ */
+
+    /**
+     * Validates the underlying and wrapped token pair
+     *
+     * @param _underlyingToken     Address of the underlying asset
+     * @param _wrappedToken        Address of the wrapped asset
+     *
+     * @return bool                Whether or not the wrapped token accepts the underlying token as collateral
+     */
+    function validTokenPair(address _underlyingToken, address _wrappedToken) internal view returns(bool) {
+        address unwrappedToken = IYearnVault(_wrappedToken).token();
+        return unwrappedToken == _underlyingToken;
+    }
 }

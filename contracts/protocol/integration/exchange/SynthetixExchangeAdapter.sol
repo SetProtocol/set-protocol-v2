@@ -19,8 +19,8 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { ISynth } from "../../interfaces/external/ISynth.sol";
-import { ISynthetixExchanger } from "../../interfaces/external/ISynthetixExchanger.sol";
+import { ISynth } from "../../../interfaces/external/ISynth.sol";
+import { ISynthetixExchanger } from "../../../interfaces/external/ISynthetixExchanger.sol";
 
 /**
  * @title SynthetixTradeAdapter
