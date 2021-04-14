@@ -14,8 +14,10 @@ import {
   OneInchExchangeMock,
   SetToken,
   StandardTokenMock,
+  StandardTokenWithFeeMock,
   TradeModule,
   UniswapV2ExchangeAdapter,
+  UniswapV2TransferFeeExchangeAdapter,
   UniswapV2ExchangeAdapterV2,
   WETH9,
   ZeroExApiAdapter,
@@ -58,6 +60,8 @@ describe("TradeModule", () => {
 
   let uniswapExchangeAdapter: UniswapV2ExchangeAdapter;
   let uniswapAdapterName: string;
+  let uniswapTransferFeeExchangeAdapter: UniswapV2TransferFeeExchangeAdapter;
+  let uniswapTransferFeeAdapterName: string;
   let uniswapExchangeAdapterV2: UniswapV2ExchangeAdapterV2;
   let uniswapAdapterV2Name: string;
 
@@ -119,6 +123,7 @@ describe("TradeModule", () => {
     );
 
     uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapter(uniswapSetup.router.address);
+    uniswapTransferFeeExchangeAdapter = await deployer.adapters.deployUniswapV2TransferFeeExchangeAdapter(uniswapSetup.router.address);
     uniswapExchangeAdapterV2 = await deployer.adapters.deployUniswapV2ExchangeAdapterV2(uniswapSetup.router.address);
 
     zeroExMock = await deployer.mocks.deployZeroExMock(
@@ -133,6 +138,7 @@ describe("TradeModule", () => {
     kyberAdapterName = "KYBER";
     oneInchAdapterName = "ONEINCH";
     uniswapAdapterName = "UNISWAP";
+    uniswapTransferFeeAdapterName = "UNISWAP_TRANSFER_FEE";
     uniswapAdapterV2Name = "UNISWAPV2";
     zeroExApiAdapterName = "ZERO_EX";
 
@@ -140,12 +146,13 @@ describe("TradeModule", () => {
     await setup.controller.addModule(tradeModule.address);
 
     await setup.integrationRegistry.batchAddIntegration(
-      [tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address],
-      [kyberAdapterName, oneInchAdapterName, uniswapAdapterName, uniswapAdapterV2Name, zeroExApiAdapterName],
+      [tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address],
+      [kyberAdapterName, oneInchAdapterName, uniswapAdapterName, uniswapTransferFeeAdapterName, uniswapAdapterV2Name, zeroExApiAdapterName],
       [
         kyberExchangeAdapter.address,
         oneInchExchangeAdapter.address,
         uniswapExchangeAdapter.address,
+        uniswapTransferFeeExchangeAdapter.address,
         uniswapExchangeAdapterV2.address,
         zeroExApiAdapter.address,
       ]
@@ -248,6 +255,7 @@ describe("TradeModule", () => {
     });
 
     describe("#trade", async () => {
+      let tokenWithFee: StandardTokenWithFeeMock;
       let sourceTokenQuantity: BigNumber;
       let destinationTokenQuantity: BigNumber;
       let isInitialized: boolean;
@@ -789,6 +797,166 @@ describe("TradeModule", () => {
             const [, , expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
               subjectSourceQuantity,
               [subjectSourceToken, setup.weth.address, subjectDestinationToken]
+            );
+
+            await subject();
+
+            const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
+            const newDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
+            expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+          });
+        });
+      });
+
+      context("when trading a Default component with a transfer fee on Uniswap", async () => {
+        cacheBeforeEach(async () => {
+          tokenWithFee = await deployer.mocks.deployTokenWithFeeMock(owner.address, ether(10000), ether(0.01));
+          await tokenWithFee.connect(owner.wallet).approve(uniswapSetup.router.address, ether(10000));
+          await setup.wbtc.connect(owner.wallet).approve(uniswapSetup.router.address, bitcoin(100));
+          const poolPair = await uniswapSetup.createNewPair(tokenWithFee.address, setup.wbtc.address);
+          await uniswapSetup.router.addLiquidity(
+            tokenWithFee.address,
+            setup.wbtc.address,
+            ether(3400),
+            bitcoin(100),
+            ether(3000),
+            bitcoin(99.5),
+            owner.address,
+            MAX_UINT_256
+          );
+          await tokenWithFee.transfer(poolPair.address, ether(0.01));
+
+          tradeModule = tradeModule.connect(manager.wallet);
+          await tradeModule.initialize(setToken.address);
+
+          const wbtcSendQuantity = wbtcUnits;
+          const destinationTokenDecimals = await setup.wbtc.decimals();
+          sourceTokenQuantity = wbtcRate.mul(wbtcSendQuantity).div(10 ** destinationTokenDecimals);
+
+          // Transfer sourceToken from owner to manager for issuance
+          await setup.wbtc.connect(owner.wallet).transfer(manager.address, wbtcUnits.mul(100));
+
+          // Approve tokens to Controller and call issue
+          await setup.wbtc.connect(manager.wallet).approve(setup.issuanceModule.address, ethers.constants.MaxUint256);
+
+          // Deploy mock issuance hook and initialize issuance module
+          setup.issuanceModule = setup.issuanceModule.connect(manager.wallet);
+          mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
+          await setup.issuanceModule.initialize(setToken.address, mockPreIssuanceHook.address);
+
+          issueQuantity = ether(1);
+          await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+          // Trade into token with fee
+          await tradeModule.connect(manager.wallet).trade(
+            setToken.address,
+            uniswapTransferFeeAdapterName,
+            setup.wbtc.address,
+            wbtcSendQuantity,
+            tokenWithFee.address,
+            ZERO,
+            EMPTY_BYTES
+          );
+        });
+
+        beforeEach(() => {
+          // Trade token with fee back to WBTC
+          subjectSourceToken = tokenWithFee.address;
+          subjectDestinationToken = setup.wbtc.address;
+          subjectSourceQuantity = sourceTokenQuantity;
+          subjectSetToken = setToken.address;
+          subjectAdapterName = uniswapTransferFeeAdapterName;
+          subjectData = EMPTY_BYTES;
+          subjectMinDestinationQuantity = ZERO;
+          subjectCaller = manager;
+        });
+
+        async function subject(): Promise<any> {
+          tradeModule = tradeModule.connect(subjectCaller.wallet);
+          return tradeModule.trade(
+            subjectSetToken,
+            subjectAdapterName,
+            subjectSourceToken,
+            subjectSourceQuantity,
+            subjectDestinationToken,
+            subjectMinDestinationQuantity,
+            subjectData
+          );
+        }
+
+        it("should transfer the correct components to the SetToken", async () => {
+          const oldDestinationTokenBalance = await setup.wbtc.balanceOf(setToken.address);
+          const [, expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
+            subjectSourceQuantity.sub(ether(0.01)), // Sub transfer fee
+            [subjectSourceToken, subjectDestinationToken]
+          );
+
+          await subject();
+
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
+          const newDestinationTokenBalance = await setup.wbtc.balanceOf(setToken.address);
+          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+        });
+
+        it("should transfer the correct components from the SetToken", async () => {
+          const oldSourceTokenBalance = await tokenWithFee.balanceOf(setToken.address);
+
+          await subject();
+
+          const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+          const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
+          const newSourceTokenBalance = await tokenWithFee.balanceOf(setToken.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+        });
+
+        it("should update the positions on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+          const [, expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
+            subjectSourceQuantity.sub(ether(0.01)), // Sub transfer fee
+            [subjectSourceToken, subjectDestinationToken]
+          );
+
+          await subject();
+
+          // All WBTC is sold for WETH
+          const currentPositions = await setToken.getPositions();
+          const newSecondPosition = (await setToken.getPositions())[1];
+
+          expect(initialPositions.length).to.eq(1);
+          expect(currentPositions.length).to.eq(2);
+          expect(newSecondPosition.component).to.eq(subjectDestinationToken);
+          expect(newSecondPosition.unit).to.eq(expectedReceiveQuantity);
+          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        describe("when path is through multiple trading pairs", async () => {
+          beforeEach(async () => {
+            await setup.wbtc.connect(owner.wallet).approve(uniswapSetup.router.address, bitcoin(1000));
+            await setup.dai.connect(owner.wallet).approve(uniswapSetup.router.address, ether(1000000));
+            await uniswapSetup.router.addLiquidity(
+              setup.wbtc.address,
+              setup.dai.address,
+              bitcoin(10),
+              ether(1000000),
+              ether(995),
+              ether(995000),
+              owner.address,
+              MAX_UINT_256
+            );
+
+            subjectDestinationToken = setup.dai.address;
+            const tradePath = [subjectSourceToken, setup.wbtc.address, subjectDestinationToken];
+            subjectData = defaultAbiCoder.encode(
+              ["address[]"],
+              [tradePath]
+            );
+          });
+
+          it("should transfer the correct components to the SetToken", async () => {
+            const oldDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
+            const [, , expectedReceiveQuantity] = await uniswapSetup.router.getAmountsOut(
+              subjectSourceQuantity.sub(ether(0.01)), // Sub transfer fee
+              [subjectSourceToken, setup.wbtc.address, subjectDestinationToken]
             );
 
             await subject();
