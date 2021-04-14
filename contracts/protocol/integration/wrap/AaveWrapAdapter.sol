@@ -19,29 +19,51 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { IYearnVault } from "../../interfaces/external/IYearnVault.sol";
+import { IAaveLendingPool } from "../../../interfaces/external/IAaveLendingPool.sol";
+import { IAaveLendingPoolCore } from "../../../interfaces/external/IAaveLendingPoolCore.sol";
 
 /**
- * @title YearnWrapAdapter
- * @author Set Protocol, Ember Fund
+ * @title AaveWrapAdapter
+ * @author Set Protocol
  *
- * Wrap adapter for Yearn that returns data for wraps/unwraps of tokens
+ * Wrap adapter for Aave that returns data for wraps/unwraps of tokens
  */
-contract YearnWrapAdapter {
+contract AaveWrapAdapter {
 
     /* ============ Modifiers ============ */
 
     /**
      * Throws if the underlying/wrapped token pair is not valid
      */
-    modifier _onlyValidTokenPair(address _underlyingToken, address _wrappedToken) {
+    modifier onlyValidTokenPair(address _underlyingToken, address _wrappedToken) {
         require(validTokenPair(_underlyingToken, _wrappedToken), "Must be a valid token pair");
         _;
     }
 
+    /* ============ Constants ============ */
+
+    // Aave Mock address to indicate ETH. ETH is used directly in Aave protocol (instead of an abstraction such as WETH)
+    address public constant ETH_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    /* ============ State Variables ============ */
+
+    // Address of Aave Lending Pool to deposit underlying/reserve tokens
+    IAaveLendingPool public immutable aaveLendingPool;
+
+    // Address of Aave Lending Pool Core to send approvals
+    IAaveLendingPoolCore public immutable aaveLendingPoolCore;
+
     /* ============ Constructor ============ */
 
-    constructor() public { }
+    /**
+     * Set state variables
+     *
+     * @param _aaveLendingPool    Address of Aave Lending Pool to deposit underlying/reserve tokens
+     */
+    constructor(IAaveLendingPool _aaveLendingPool) public {
+        aaveLendingPool = _aaveLendingPool;
+        aaveLendingPoolCore = IAaveLendingPoolCore(_aaveLendingPool.core());
+    }
 
     /* ============ External Getter Functions ============ */
 
@@ -63,11 +85,15 @@ contract YearnWrapAdapter {
     )
         external
         view
-        _onlyValidTokenPair(_underlyingToken, _wrappedToken)
+        onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        bytes memory callData = abi.encodeWithSignature("deposit(uint256)", _underlyingUnits);
-        return (address(_wrappedToken), 0, callData);
+        uint256 value = _underlyingToken == ETH_TOKEN_ADDRESS ? _underlyingUnits : 0;
+
+        // deposit(address _reserve, uint256 _amount, uint16 _referralCode)
+        bytes memory callData = abi.encodeWithSignature("deposit(address,uint256,uint16)", _underlyingToken, _underlyingUnits, 0);
+
+        return (address(aaveLendingPool), value, callData);
     }
 
     /**
@@ -88,20 +114,22 @@ contract YearnWrapAdapter {
     )
         external
         view
-        _onlyValidTokenPair(_underlyingToken, _wrappedToken)
+        onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        bytes memory callData = abi.encodeWithSignature("withdraw(uint256)", _wrappedTokenUnits);
+        // redeem(uint256 _amount)
+        bytes memory callData = abi.encodeWithSignature("redeem(uint256)", _wrappedTokenUnits);
+
         return (address(_wrappedToken), 0, callData);
     }
 
     /**
-     * Returns the address to approve source tokens for wrapping.
+     * Returns the address to approve source tokens for wrapping. This is the Aave Lending Pool Core
      *
      * @return address        Address of the contract to approve tokens to
      */
-    function getSpenderAddress(address /* _underlyingToken */, address  _wrappedToken) external view returns(address) {
-        return address(_wrappedToken);
+    function getSpenderAddress(address /* _underlyingToken */, address /* _wrappedToken */) external view returns(address) {
+        return address(aaveLendingPoolCore);
     }
 
     /* ============ Internal Functions ============ */
@@ -115,7 +143,7 @@ contract YearnWrapAdapter {
      * @return bool                Whether or not the wrapped token accepts the underlying token as collateral
      */
     function validTokenPair(address _underlyingToken, address _wrappedToken) internal view returns(bool) {
-        address unwrappedToken = IYearnVault(_wrappedToken).token();
-        return unwrappedToken == _underlyingToken;
+        address aToken = aaveLendingPoolCore.getReserveATokenAddress(_underlyingToken);
+        return aToken == _wrappedToken;
     }
 }

@@ -22,13 +22,13 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { IPriceOracle } from "../../interfaces/IPriceOracle.sol";
-import { IUniswapV2Pair } from "../../interfaces/external/IUniswapV2Pair.sol";
-import { UniswapV2Library } from "../../../external/contracts/uniswap/lib/UniswapV2Library.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
-import { ResourceIdentifier } from "../lib/ResourceIdentifier.sol";
+import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { IPriceOracle } from "../../../interfaces/IPriceOracle.sol";
+import { IUniswapV2Pair } from "../../../interfaces/external/IUniswapV2Pair.sol";
+import { UniswapV2Library } from "../../../../external/contracts/uniswap/lib/UniswapV2Library.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
+import { ResourceIdentifier } from "../../lib/ResourceIdentifier.sol";
 
 contract UniswapPairPriceAdapter is Ownable {
     using AddressArrayUtils for address[];

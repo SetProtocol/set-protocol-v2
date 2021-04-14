@@ -28,8 +28,8 @@ pragma experimental "ABIEncoderV2";
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
-import { IKyberNetworkProxy } from "../../interfaces/external/IKyberNetworkProxy.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
+import { IKyberNetworkProxy } from "../../../interfaces/external/IKyberNetworkProxy.sol";
 
 contract KyberExchangeAdapter {
     using SafeMath for uint256;
