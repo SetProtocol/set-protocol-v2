@@ -40,12 +40,17 @@ import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
  * @title GeneralIndexModule
  * @author Set Protocol
  *
- * Smart contract that facilitates rebalances for indices. Manager can set target unit amounts, max trade sizes, the
- * exchange to trade on, and the cool down period between trades (on a per asset basis). 
+ * Smart contract that facilitates rebalances for indices. Manager can update allocation by calling startRebalance().
+ * There is no "end" to a rebalance, however once there are no more tokens to sell the rebalance is effectively over
+ * until the manager calls startRebalance() again with a new allocation. Once a new allocation is passed in, allowed 
+ * traders can submit rebalance transactions by calling trade() and specifying the component they wish to rebalance.
+ * All parameterizations for a trade are set by the manager ahead of time, including max trade size, coolOffPeriod bet-
+ * ween trades, and exchange to trade on. Once a component's target allocation is met any further attempted trades of
+ * that component will revert.
  *
  * SECURITY ASSUMPTION:
  *  - Works with following modules: StreamingFeeModule, BasicIssuanceModule (any other module additions to Sets using
-      this module need to be examined separately)
+ *    this module need to be examined separately)
  */
 contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     using SafeCast for int256;
@@ -149,8 +154,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /* ============ External Functions ============ */
 
     /**
-     * MANAGER ONLY: Set new target units, zeroing out any units for components being removed from index. Log position multiplier to
-     * adjust target units in case fees are accrued. Validate that every oldComponent has a targetUnit and that no components have been duplicated.
+     * MANAGER ONLY: Changes the target allocation of the Set, opening it up for trading by the Sets designated traders. The manager
+     * must pass in any new components and their target units (units defined by the amount of that component the manager wants in 10**18
+     * units of a SetToken). Old component target units must be passed in, in the current order of the of the components array on the
+     * SetToken. If a component is being removed it's index in the _oldComponentsTargetUnits should be set to 0. Additionally, the
+     * positionMultiplier is passed in, in order to adjust the target units in the event fees are accrued or some other activity occurs
+     * that changes the positionMultiplier of the Set. This guarantees the same relative allocation between all the components.
      *
      * @param _setToken                         Address of the SetToken to be rebalanced
      * @param _newComponents                    Array of new components to add to allocation
@@ -196,8 +205,14 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * ACCESS LIMITED: Only approved addresses can call if anyoneTrade is false. Determines trade size
-     * and direction and swaps into or out of WETH on exchange specified by manager.
+     * ACCESS LIMITED: Calling trade pushes the current component units closer to the target units defined by the manager in startRebalance().
+     * Only approved addresses can call, if anyoneTrade is false then contracts are allowed to call otherwise calling address must be EOA.
+     *
+     * Trade can be called at anytime but will revert if the passed component's target unit is met or cool off period hasn't passed. Trader can pass
+     * in a max/min amount of ETH spent/received in the trade based on if the component is being bought/sold in order to prevent sandwich attacks.
+     * The parameters defined by the manager are used to determine which exchange will be used and the size of the trade. Trade size will default
+     * to max trade size unless the max trade size would exceed the target, then an amount that would match the target unit is traded. Protocol fees,
+     * if enabled, are collected in the token received in a trade.
      *
      * @param _setToken             Address of the SetToken
      * @param _component            Address of SetToken component to trade
@@ -240,10 +255,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * ACCESS LIMITED: Only approved addresses can call if anyoneTrade is false. Only callable when 1) there are no
-     * more components to be sold and, 2) entire remaining WETH amount can be traded such that resulting inflows won't
-     * exceed components maxTradeSize nor overshoot the target unit. To be used near the end of rebalances when a
-     * component's calculated trade size is greater in value than remaining WETH.
+     * ACCESS LIMITED: Only callable when 1) there are no more components to be sold and, 2) entire remaining WETH amount (above WETH target) can be
+     * traded such that resulting inflows won't exceed component's maxTradeSize nor overshoot the target unit. To be used near the end of rebalances
+     * when a component's calculated trade size is greater in value than remaining WETH.
+     *
+     * Only approved addresses can call, if anyoneTrade is false then contracts are allowed to call otherwise calling address must be EOA. Trade
+     * can be called at anytime but will revert if the passed component's target unit is met or cool off period hasn't passed. Like with trade()
+     * a minimum component receive amount can be set.
      *
      * @param _setToken                     Address of the SetToken
      * @param _component                    Address of the SetToken component to trade
@@ -300,8 +318,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * ACCESS LIMITED: For situation where all target units met and remaining WETH, uniformly raise targets by same
-     * percentage in order to allow further trading. Can be called multiple times if necessary, increase should be
-     * small in order to reduce tracking error.
+     * percentage in order to allow further trading. Can be called multiple times if necessary, targets are increased
+     * by amount specified by raiseAssetTargetsPercentage as set by manager.
      *
      * @param _setToken             Address of the SetToken
      */
@@ -318,7 +336,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * MANAGER ONLY: Set trade maximums for passed components of the SetToken
+     * MANAGER ONLY: Set trade maximums for passed components of the SetToken. Can be called at anytime.
      *
      * @param _setToken             Address of the SetToken
      * @param _components           Array of components
@@ -341,7 +359,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Set exchange for passed components of the SetToken
+     * MANAGER ONLY: Set exchange for passed components of the SetToken. Can be called at anytime.
      *
      * @param _setToken             Address of the SetToken
      * @param _components           Array of components
@@ -369,7 +387,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Set cool off periods for passed components of the SetToken
+     * MANAGER ONLY: Set cool off periods for passed components of the SetToken. Can be called at any time.
      *
      * @param _setToken             Address of the SetToken
      * @param _components           Array of components
@@ -392,7 +410,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Set amount by which all component's targets units would be raised
+     * MANAGER ONLY: Set amount by which all component's targets units would be raised. Can be called at any time.
      *
      * @param _setToken                     Address of the SetToken
      * @param _raiseTargetPercentage        Amount to raise all component's unit targets by (in precise units)     
@@ -410,7 +428,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * MANAGER ONLY: Toggle ability for passed addresses to trade.
+     * MANAGER ONLY: Toggles ability for passed addresses to call trade() or tradeRemainingWETH(). Can be called at any time.
      *
      * @param _setToken          Address of the SetToken
      * @param _traders           Array trader addresses to toggle status
@@ -435,7 +453,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Toggle whether anyone can trade, bypassing the traderAllowList
+     * MANAGER ONLY: Toggle whether anyone can trade, if true bypasses the traderAllowList. Can be called at anytime.
      *
      * @param _setToken         Address of the SetToken
      * @param _status           Boolean indicating if anyone can trade
@@ -446,7 +464,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Set target units to current units and last trade to zero. Initialize module.
+     * MANAGER ONLY: Called to initialize module to SetToken in order to allow GeneralIndexModule access for rebalances.
+     * Grabs the current units for each asset in the Set and set's the targetUnit to that unit in order to prevent any
+     * trading until startRebalance() is explicitly called. Position multiplier is also logged in order to make sure any
+     * position multiplier changes don't unintentionally open the Set for rebalancing.
      *
      * @param _setToken         Address of the Set Token
      */
@@ -527,7 +548,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /* ============ Internal Functions ============ */
 
     /**
-     * Validate that component is a valid component and enough time has elapsed since component's last trade.
+     * Validate that component is a valid component and enough time has elapsed since component's last trade. Traders
+     * cannot explicitly trade WETH, it may only implicitly be traded by being the quote asset for other component trades.
      *
      * @param _setToken         Instance of the SetToken
      * @param _component        IERC20 component to be validated
@@ -642,7 +664,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * Invoke approve for send token, get method data and invoke trade in the context of the SetToken.
+     * Function handles all interactions with exchange. All GeneralIndexModule adapters must allow for selling or buying a fixed
+     * quantity of a token in return for a non-fixed (floating) quantity of a token. If isSendTokenFixed is true then the adapter
+     * will choose the exchange interface associated with inputting a fixed amount, otherwise it will select the interface used for
+     * receiving a fixed amount. 
      *
      * @param _tradeInfo            Struct containing trade information used in internal functions
      */
@@ -678,7 +703,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Retrieve fee from controller and calculate total protocol fee and send from SetToken to protocol recipient.
-     * The protocol fee is collected from the receiving token in the trade.
+     * The protocol fee is collected from the amount of received token in the trade.
      *
      * @param _tradeInfo                Struct containing trade information used in internal functions
      * 
@@ -694,8 +719,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Update SetToken positions. If this function is called after the fees have been accrued, 
-     * it returns net amount of bought tokens.
+     * Update SetToken positions. This function is intended to be called after the fees have been accrued, hence
+     * it returns the amount of tokens bought net of fees.
      *
      * @param _tradeInfo                Struct containing trade information used in internal functions
      *
@@ -719,8 +744,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Calculates the amount of a component is going to be traded and whether the component is being bought
-     * or sold. If currentUnit and targetUnit are the same, function will revert.
+     * Calculates the amount of a component is going to be traded and whether the component is being bought or sold.
+     * If currentUnit and targetUnit are the same, function will revert. In order to account for fees taken by protocol
+     * the notional difference between currentUnit and targetUnit is divided by (1 - protocolFee) to make sure that targetUnit
+     * can be met. Failure to do so would lead to never being able to meet target of components that need to be bought.
      *
      * @param _setToken                 Instance of the SetToken to rebalance
      * @param _component                IERC20 component to trade
@@ -757,7 +784,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Check if there are any more tokens to sell.
+     * Check if there are any more tokens to sell. Since we allow WETH to float around it's target during rebalances it is not checked.
+     * In order to avoid repetively reading positionMultiplier state it is grabbed once and _normalizeTargetUnit is used.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      *
@@ -780,7 +808,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Check if all targets are met. Due to small rounding errors converting between virtual and real unit on SetToken we allow
-     * for a 1 wei buffer.
+     * for a 1 wei buffer when checking if target is met. In order to avoid subtraction overflow errors targetUnits of zero check
+     * for an exact amount. In order to avoid repetively reading positionMultiplier state it is grabbed once and _normalizeTargetUnit
+     * is used.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      *
@@ -811,7 +841,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Normalize target unit to current position multiplier in case fees have been accrued.
+     * Normalize target unit to current position multiplier in case position multiplier has been changed since startRebalance()
+     * was last called.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      * @param _component            IERC20 component whose normalized target unit is required
@@ -848,7 +879,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * Validate component position unit has not exceeded it's target unit.
+     * Validate component position unit has not exceeded it's target unit. This is used during tradeRemainingWETH() to make sure
+     * the amount of component bought does not exceed the targetUnit.
      * 
      * @param _setToken         Instance of the SetToken
      * @param _component        IERC20 component whose position units are to be validated
@@ -860,8 +892,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
     
     /**
-     * Determine if passed address is allowed to call trade for the SetToken. 
-     * If anyoneTrade set to true anyone can call otherwise needs to be approved.
+     * Determine if passed address is allowed to call trade for the SetToken. If anyoneTrade set to true anyone can call otherwise
+     * needs to be approved.
      * 
      * @param _setToken             Instance of SetToken to be rebalanced
      * @param  _caller              Address of the trader who called contract function
