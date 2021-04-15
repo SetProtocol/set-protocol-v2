@@ -42,7 +42,7 @@ import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
  *
  * Smart contract that facilitates rebalances for indices. Manager can update allocation by calling startRebalance().
  * There is no "end" to a rebalance, however once there are no more tokens to sell the rebalance is effectively over
- * until the manager calls startRebalance() again with a new allocation. Once a new allocation is passed in, allowed 
+ * until the manager calls startRebalance() again with a new allocation. Once a new allocation is passed in, allowed
  * traders can submit rebalance transactions by calling trade() and specifying the component they wish to rebalance.
  * All parameterizations for a trade are set by the manager ahead of time, including max trade size, coolOffPeriod bet-
  * ween trades, and exchange to trade on. WETH is used as the quote asset for all trades, near the end of rebalance
@@ -109,7 +109,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     event AnyoneTradeUpdated(ISetToken indexed _setToken, bool indexed _status);
     event TraderStatusUpdated(ISetToken indexed _setToken, address indexed _trader, bool _status);
-    
+
     event TradeExecuted(
         ISetToken indexed _setToken,
         address indexed _sellComponent,
@@ -120,18 +120,18 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 _netAmountBought,
         uint256 _protocolFee
     );
-    
+
     /* ============ Constants ============ */
-    
+
     uint256 private constant GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX = 0;
-    
+
     /* ============ State Variables ============ */
 
     mapping(ISetToken => mapping(IERC20 => TradeExecutionParams)) public executionInfo;     // Mapping of SetToken to execution parameters of each asset on SetToken
     mapping(ISetToken => TradePermissionInfo) public permissionInfo;                        // Mapping of SetToken to trading permissions
     mapping(ISetToken => RebalanceInfo) public rebalanceInfo;                               // Mapping of SetToken to relevant data for current rebalance
     IWETH public weth;                                                                      // Weth contract address
-    
+
     /* ============ Modifiers ============ */
 
     modifier onlyAllowedTrader(ISetToken _setToken, address _caller) {
@@ -185,7 +185,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         address[] memory currentComponents = _setToken.getComponents();
         require(
-            currentComponents.length == _oldComponentsTargetUnits.length, 
+            currentComponents.length == _oldComponentsTargetUnits.length,
             "New allocation must have target for all old components"
         );
 
@@ -195,7 +195,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         require(!aggregateComponents.hasDuplicate(), "Cannot duplicate components");
 
         for (uint256 i = 0; i < aggregateComponents.length; i++) {
-            
+
             executionInfo[_setToken][IERC20(aggregateComponents[i])].targetUnit = aggregateTargetUnits[i];
 
             emit TargetUnitsUpdated(_setToken, aggregateComponents[i], aggregateTargetUnits[i], _positionMultiplier);
@@ -220,25 +220,25 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _ethQuantityLimit     Max/min amount of ETH spent/received during trade
      */
     function trade(
-        ISetToken _setToken, 
-        IERC20 _component, 
+        ISetToken _setToken,
+        IERC20 _component,
         uint256 _ethQuantityLimit
-    ) 
-        external 
-        nonReentrant 
-        onlyAllowedTrader(_setToken, msg.sender) 
-        onlyEOAIfUnrestricted(_setToken) 
-        virtual 
+    )
+        external
+        nonReentrant
+        onlyAllowedTrader(_setToken, msg.sender)
+        onlyEOAIfUnrestricted(_setToken)
+        virtual
     {
 
         _validateTradeParameters(_setToken, _component);
 
         TradeInfo memory tradeInfo = _createTradeInfo(_setToken, _component, _ethQuantityLimit);
-        
+
         _executeTrade(tradeInfo);
-        
+
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
-        
+
         (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionState(tradeInfo);
 
         executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
@@ -269,42 +269,42 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _componentQuantityLimit       Min amount of component received during trade
      */
     function tradeRemainingWETH(
-        ISetToken _setToken, 
-        IERC20 _component, 
+        ISetToken _setToken,
+        IERC20 _component,
         uint256 _componentQuantityLimit
-    ) 
-        external 
-        nonReentrant 
-        onlyAllowedTrader(_setToken, msg.sender) 
-        onlyEOAIfUnrestricted(_setToken) 
-        virtual 
+    )
+        external
+        nonReentrant
+        onlyAllowedTrader(_setToken, msg.sender)
+        onlyEOAIfUnrestricted(_setToken)
+        virtual
     {
 
         require(_noTokensToSell(_setToken), "Sell other set components first");
         require(
-            executionInfo[_setToken][weth].targetUnit < _setToken.getDefaultPositionRealUnit(address(weth)).toUint256(), 
+            executionInfo[_setToken][weth].targetUnit < _setToken.getDefaultPositionRealUnit(address(weth)).toUint256(),
             "WETH is below target unit and can not be traded"
         );
 
         _validateTradeParameters(_setToken, _component);
-        
+
         TradeInfo memory tradeInfo = _createTradeRemainingInfo(_setToken, _component, _componentQuantityLimit);
-        
+
         _executeTrade(tradeInfo);
-        
+
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
-        
+
         (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionState(tradeInfo);
-        
+
         require(
-            netBuyAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize, 
+            netBuyAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize,
             "Trade amount exceeds max allowed trade size"
         );
-        
+
         _validateComponentPositionUnit(_setToken, _component);
-        
+
         executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
-        
+
         emit TradeExecuted(
             tradeInfo.setToken,
             tradeInfo.sendToken,
@@ -338,7 +338,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             PreciseUnitMath.preciseUnit().add(rebalanceInfo[_setToken].raiseTargetPercentage)
         );
     }
-    
+
     /**
      * MANAGER ONLY: Set trade maximums for passed components of the SetToken. Can be called at anytime.
      *
@@ -385,7 +385,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             if (_components[i] != address(weth)) {
                 require(bytes(_exchangeNames[i]).length != 0, "Exchange name can not be an empty string");
                 executionInfo[_setToken][IERC20(_components[i])].exchangeName = _exchangeNames[i];
-                emit AssetExchangeUpdated(_setToken, _components[i], _exchangeNames[i]);    
+                emit AssetExchangeUpdated(_setToken, _components[i], _exchangeNames[i]);
             }
         }
     }
@@ -417,20 +417,20 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * MANAGER ONLY: Set amount by which all component's targets units would be raised. Can be called at any time.
      *
      * @param _setToken                     Address of the SetToken
-     * @param _raiseTargetPercentage        Amount to raise all component's unit targets by (in precise units)     
+     * @param _raiseTargetPercentage        Amount to raise all component's unit targets by (in precise units)
      */
     function updateRaiseTargetPercentage(
-        ISetToken _setToken, 
+        ISetToken _setToken,
         uint256 _raiseTargetPercentage
-    ) 
-        external 
-        onlyManagerAndValidSet(_setToken) 
+    )
+        external
+        onlyManagerAndValidSet(_setToken)
     {
         require(_raiseTargetPercentage > 0, "Target percentage must be > 0");
         rebalanceInfo[_setToken].raiseTargetPercentage = _raiseTargetPercentage;
-        emit RaiseTargetPercentageUpdated(_setToken, _raiseTargetPercentage);       
+        emit RaiseTargetPercentageUpdated(_setToken, _raiseTargetPercentage);
     }
-    
+
     /**
      * MANAGER ONLY: Toggles ability for passed addresses to call trade() or tradeRemainingWETH(). Can be called at any time.
      *
@@ -439,12 +439,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _statuses          Booleans indicating if matching trader can trade
      */
     function updateTraderStatus(
-        ISetToken _setToken, 
-        address[] calldata _traders, 
+        ISetToken _setToken,
+        address[] calldata _traders,
         bool[] calldata _statuses
-    ) 
-        external 
-        onlyManagerAndValidSet(_setToken) 
+    )
+        external
+        onlyManagerAndValidSet(_setToken)
     {
         require(_traders.length == _statuses.length, "Array length mismatch");
         require(_traders.length > 0, "Array length must be > 0");
@@ -487,13 +487,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             executionInfo[_setToken][IERC20(position.component)].targetUnit = position.unit.toUint256();
             executionInfo[_setToken][IERC20(position.component)].lastTradeTimestamp = 0;
         }
-        
+
         rebalanceInfo[_setToken].positionMultiplier = _setToken.positionMultiplier().toUint256();
         _setToken.initializeModule();
     }
-    
+
     /**
-     * Called by a SetToken to notify that this module was removed from the SetToken. 
+     * Called by a SetToken to notify that this module was removed from the SetToken.
      * Clears the state of the calling SetToken.
      */
     function removeModule() external override {
@@ -502,12 +502,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /* ============ External View Functions ============ */
-    
+
     /**
      * Get the array of SetToken components involved in rebalance.
-     * 
+     *
      * @param _setToken         Address of the SetToken
-     * 
+     *
      * @return address[]        Array of _setToken components involved in rebalance
      */
     function getRebalanceComponents(ISetToken _setToken) external view returns (address[] memory) {
@@ -517,7 +517,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /**
      * Calculates the amount of a component that is going to be traded and whether the component is being bought
      * or sold. If currentUnit and targetUnit are the same, function will revert.
-     * 
+     *
      * @param _setToken                 Instance of the SetToken to rebalance
      * @param _component                IERC20 component to trade
      *
@@ -539,16 +539,16 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Get if a given address is an allowed trader.
-     * 
+     *
      * @param _setToken         Address of the SetToken
      * @param _trader           Address of the trader
-     * 
+     *
      * @return bool             True if _trader is allowed to trade, else false
      */
     function getIsAllowedTrader(ISetToken _setToken, address _trader) external view returns (bool) {
         return _isAllowedTrader(_setToken, _trader);
     }
-    
+
     /* ============ Internal Functions ============ */
 
     /**
@@ -561,7 +561,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     function _validateTradeParameters(ISetToken _setToken, IERC20 _component) internal view virtual {
         require(address(_component) != address(weth), "Can not explicitly trade WETH");
         require(
-            rebalanceInfo[_setToken].rebalanceComponents.contains(address(_component)), 
+            rebalanceInfo[_setToken].rebalanceComponents.contains(address(_component)),
             "Passed component not included in rebalance"
         );
 
@@ -582,17 +582,17 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @return TradeInfo            Struct containing data for trade
      */
     function _createTradeInfo(
-        ISetToken _setToken, 
-        IERC20 _component, 
+        ISetToken _setToken,
+        IERC20 _component,
         uint256 _ethQuantityLimit
-    ) 
-        internal 
-        view 
-        virtual 
-        returns (TradeInfo memory) 
+    )
+        internal
+        view
+        virtual
+        returns (TradeInfo memory)
     {
-        
-        uint256 totalSupply = _setToken.totalSupply();     
+
+        uint256 totalSupply = _setToken.totalSupply();
 
         TradeInfo memory tradeInfo;
         tradeInfo.setToken = _setToken;
@@ -603,18 +603,18 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             tradeInfo.isSendTokenFixed,
             tradeInfo.totalFixedQuantity
         ) = _calculateTradeSizeAndDirection(_setToken, _component, totalSupply);
-        
+
         tradeInfo.sendToken = tradeInfo.isSendTokenFixed ? address(_component) : address(weth);
-        
+
         tradeInfo.receiveToken = tradeInfo.isSendTokenFixed ? address(weth): address(_component);
-        
+
         tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
         tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
 
-        tradeInfo.floatingQuantityLimit = tradeInfo.isSendTokenFixed 
-            ? _ethQuantityLimit 
+        tradeInfo.floatingQuantityLimit = tradeInfo.isSendTokenFixed
+            ? _ethQuantityLimit
             : _ethQuantityLimit.min(tradeInfo.preTradeSendTokenBalance);
-        
+
         tradeInfo.setTotalSupply = totalSupply;
 
         return tradeInfo;
@@ -630,15 +630,15 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @return TradeInfo                    Struct containing data for trade
      */
     function _createTradeRemainingInfo(
-        ISetToken _setToken, 
-        IERC20 _component, 
+        ISetToken _setToken,
+        IERC20 _component,
         uint256 _componentQuantityLimit
-    ) 
-        internal 
-        view 
-        returns (TradeInfo memory) 
+    )
+        internal
+        view
+        returns (TradeInfo memory)
     {
-        
+
         uint256 totalSupply = _setToken.totalSupply();
 
         uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(weth)).toUint256();
@@ -653,7 +653,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         tradeInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
 
         tradeInfo.isSendTokenFixed = true;
-                
+
         tradeInfo.sendToken = address(weth);
         tradeInfo.receiveToken = address(_component);
 
@@ -666,7 +666,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         tradeInfo.preTradeReceiveTokenBalance = _component.balanceOf(address(_setToken));
         return tradeInfo;
     }
-    
+
     /**
      * Function handles all interactions with exchange. All GeneralIndexModule adapters must allow for selling or buying a fixed
      * quantity of a token in return for a non-fixed (floating) quantity of a token. If isSendTokenFixed is true then the adapter
@@ -676,19 +676,19 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _tradeInfo            Struct containing trade information used in internal functions
      */
     function _executeTrade(TradeInfo memory _tradeInfo) internal virtual {
-        
+
         _tradeInfo.setToken.invokeApprove(
-            _tradeInfo.sendToken, 
-            _tradeInfo.exchangeAdapter.getSpender(), 
+            _tradeInfo.sendToken,
+            _tradeInfo.exchangeAdapter.getSpender(),
             _tradeInfo.isSendTokenFixed ? _tradeInfo.totalFixedQuantity : _tradeInfo.floatingQuantityLimit
         );
 
         bytes memory tradeData = _tradeInfo.exchangeAdapter.generateDataParam(
-            _tradeInfo.sendToken, 
-            _tradeInfo.receiveToken, 
+            _tradeInfo.sendToken,
+            _tradeInfo.receiveToken,
             _tradeInfo.isSendTokenFixed
         );
-        
+
         (
             address targetExchange,
             uint256 callValue,
@@ -710,15 +710,15 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * The protocol fee is collected from the amount of received token in the trade.
      *
      * @param _tradeInfo                Struct containing trade information used in internal functions
-     * 
+     *
      * @return protocolFee              Amount of receive token taken as protocol fee
-     */    
+     */
     function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFee) {
-        
+
         uint256 exchangedQuantity =  IERC20(_tradeInfo.receiveToken).balanceOf(address(_tradeInfo.setToken)).sub(_tradeInfo.preTradeReceiveTokenBalance);
-        
+
         protocolFee = getModuleFee(GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
-        
+
         payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFee);
     }
 
@@ -771,7 +771,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     {
         uint256 protocolFee = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX);
         uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
-        
+
         uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
 
@@ -782,7 +782,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         isSendTokenFixed = targetNotional < currentNotional;
 
-        totalFixedQuantity = isSendTokenFixed 
+        totalFixedQuantity = isSendTokenFixed
             ? componentMaxSize.min(currentNotional.sub(targetNotional))
             : componentMaxSize.min(targetNotional.sub(currentNotional).preciseDiv(PreciseUnitMath.preciseUnit().sub(protocolFee)));
     }
@@ -870,22 +870,22 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @return uint256                          Normalized target unit of the component
      */
     function _normalizeTargetUnit(
-        ISetToken _setToken, 
-        IERC20 _component, 
-        uint256 _currentPositionMultiplier, 
+        ISetToken _setToken,
+        IERC20 _component,
+        uint256 _currentPositionMultiplier,
         uint256 _positionMultiplier
-    ) 
-        internal 
-        view 
-        returns (uint256) 
+    )
+        internal
+        view
+        returns (uint256)
     {
         return executionInfo[_setToken][_component].targetUnit.mul(_currentPositionMultiplier).div(_positionMultiplier);
     }
-    
+
     /**
      * Validate component position unit has not exceeded it's target unit. This is used during tradeRemainingWETH() to make sure
      * the amount of component bought does not exceed the targetUnit.
-     * 
+     *
      * @param _setToken         Instance of the SetToken
      * @param _component        IERC20 component whose position units are to be validated
      */
@@ -894,11 +894,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
         require(currentUnit <= targetUnit, "Can not exceed target unit");
     }
-    
+
     /**
      * Determine if passed address is allowed to call trade for the SetToken. If anyoneTrade set to true anyone can call otherwise
      * needs to be approved.
-     * 
+     *
      * @param _setToken             Instance of SetToken to be rebalanced
      * @param  _caller              Address of the trader who called contract function
      *
