@@ -114,9 +114,69 @@ describe("UniswapV2ExchangeAdapterV2", () => {
     });
   });
 
+
+  describe("generateDataParam", async () => {
+    let sourceToken: Address;
+    let destinationToken: Address;
+
+    let subjectSourceToken: Address;
+    let subjectDestinationToken: Address;
+    let subjectFixIn: boolean;
+
+    beforeEach(async () => {
+      sourceToken = setup.wbtc.address;
+      destinationToken = setup.weth.address;
+
+      subjectSourceToken = sourceToken;
+      subjectDestinationToken = destinationToken;
+    });
+
+    async function subject(): Promise<any> {
+      return await uniswapV2ExchangeAdapter.generateDataParam(
+        subjectSourceToken,
+        subjectDestinationToken,
+        subjectFixIn
+      );
+    }
+
+    describe("when boolean fixed input amount is true", async () => {
+      beforeEach(async () => {
+        subjectFixIn = true;
+      });
+
+      it("should return the correct trade calldata", async () => {
+        const dataParam = await subject();
+
+        const path = [sourceToken, destinationToken];
+        const expectedDataParam = defaultAbiCoder.encode(
+          ["address[]", "bool"],
+          [path, subjectFixIn]
+        );
+        expect(JSON.stringify(dataParam)).to.eq(JSON.stringify(expectedDataParam));
+      });
+    });
+
+    describe("when boolean fixed input amount is false", async () => {
+      beforeEach(async () => {
+        subjectFixIn = false;
+      });
+
+      it("should return the correct trade calldata", async () => {
+        const dataParam = await subject();
+
+        const path = [sourceToken, destinationToken];
+        const expectedDataParam = defaultAbiCoder.encode(
+          ["address[]", "bool"],
+          [path, subjectFixIn]
+        );
+        expect(JSON.stringify(dataParam)).to.eq(JSON.stringify(expectedDataParam));
+      });
+    });
+  });
+
   describe("getTradeCalldata", async () => {
-    let sourceAddress: Address;
-    let destinationAddress: Address;
+    let sourceToken: Address;
+    let destinationToken: Address;
     let sourceQuantity: BigNumber;
     let destinationQuantity: BigNumber;
 
@@ -128,13 +188,13 @@ describe("UniswapV2ExchangeAdapterV2", () => {
     let subjectData: Bytes;
 
     beforeEach(async () => {
-      sourceAddress = setup.wbtc.address;          // WBTC Address
+      sourceToken = setup.wbtc.address;          // WBTC Address
       sourceQuantity = BigNumber.from(100000000);  // Trade 1 WBTC
-      destinationAddress = setup.dai.address;      // DAI Address
+      destinationToken = setup.dai.address;      // DAI Address
       destinationQuantity = ether(30000);          // Receive at least 30k DAI
 
-      subjectSourceToken = sourceAddress;
-      subjectDestinationToken = destinationAddress;
+      subjectSourceToken = sourceToken;
+      subjectDestinationToken = destinationToken;
       subjectMockSetToken = mockSetToken.address;
       subjectSourceQuantity = sourceQuantity;
       subjectMinDestinationQuantity = destinationQuantity;
@@ -154,7 +214,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
 
     describe("when boolean to swap exact tokens for tokens is true", async () => {
       beforeEach(async () => {
-        const path = [sourceAddress, setup.weth.address, destinationAddress];
+        const path = [sourceToken, setup.weth.address, destinationToken];
         const shouldTradeExactTokensForTokens = true;
         subjectData = defaultAbiCoder.encode(
           ["address[]", "bool"],
@@ -168,7 +228,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
         const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapExactTokensForTokens", [
           sourceQuantity,
           destinationQuantity,
-          [sourceAddress, setup.weth.address, destinationAddress],
+          [sourceToken, setup.weth.address, destinationToken],
           subjectMockSetToken,
           callTimestamp,
         ]);
@@ -178,7 +238,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
 
     describe("when boolean to swap exact tokens for tokens is false", async () => {
       beforeEach(async () => {
-        const path = [sourceAddress, setup.weth.address, destinationAddress];
+        const path = [sourceToken, setup.weth.address, destinationToken];
         const shouldTradeExactTokensForTokens = false;
         subjectData = defaultAbiCoder.encode(
           ["address[]", "bool"],
@@ -192,7 +252,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
         const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapTokensForExactTokens", [
           destinationQuantity, // Source and destination quantity are flipped for swapTokensForExactTokens
           sourceQuantity,
-          [sourceAddress, setup.weth.address, destinationAddress],
+          [sourceToken, setup.weth.address, destinationToken],
           subjectMockSetToken,
           callTimestamp,
         ]);
