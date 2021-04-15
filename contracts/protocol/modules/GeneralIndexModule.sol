@@ -45,8 +45,9 @@ import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
  * until the manager calls startRebalance() again with a new allocation. Once a new allocation is passed in, allowed 
  * traders can submit rebalance transactions by calling trade() and specifying the component they wish to rebalance.
  * All parameterizations for a trade are set by the manager ahead of time, including max trade size, coolOffPeriod bet-
- * ween trades, and exchange to trade on. Once a component's target allocation is met any further attempted trades of
- * that component will revert.
+ * ween trades, and exchange to trade on. WETH is used as the quote asset for all trades, near the end of rebalance
+ * tradeRemaingingWETH() or raiseAssetTargets() can be called to clean up any excess WETH positions. Once a component's
+ * target allocation is met any further attempted trades of that component will revert.
  *
  * SECURITY ASSUMPTION:
  *  - Works with following modules: StreamingFeeModule, BasicIssuanceModule (any other module additions to Sets using
@@ -318,8 +319,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * ACCESS LIMITED: For situation where all target units met and remaining WETH, uniformly raise targets by same percentage by applying
-     * to logged positionMultiplier in RebalanceInfo struct. in order to allow further trading. Can be called multiple times if necessary,
-     * targets are increased by amount specified by raiseAssetTargetsPercentage as set by manager.
+     * to logged positionMultiplier in RebalanceInfo struct, in order to allow further trading. Can be called multiple times if necessary,
+     * targets are increased by amount specified by raiseAssetTargetsPercentage as set by manager. In order to reduce tracking error
+     * raising the target by a smaller amount allows greater granualarity in finding an equilibrium between the excess ETH and components
+     * that need to be bought. Raising the targets too much could result in vastly under allocating to WETH as more WETH than necessary is
+     * spent buying the components to meet their new target.
      *
      * @param _setToken             Address of the SetToken
      */
