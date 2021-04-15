@@ -10,6 +10,8 @@ import {
   OneInchExchangeAdapter,
   AaveMigrationWrapAdapter,
   AaveWrapAdapter,
+  CompoundWrapAdapter,
+  YearnWrapAdapter,
   UniswapPairPriceAdapter,
   UniswapV2ExchangeAdapter,
   UniswapV2ExchangeAdapterV2,
@@ -18,7 +20,7 @@ import {
   SynthetixExchangeAdapter,
   CompoundBravoGovernanceAdapter
 } from "../contracts";
-
+import { convertLibraryNameToLinkId } from "../common";
 import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
@@ -31,6 +33,8 @@ import { OneInchExchangeAdapter__factory } from "../../typechain/factories/OneIn
 import { ZeroExApiAdapter__factory } from "../../typechain/factories/ZeroExApiAdapter__factory";
 import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/AaveMigrationWrapAdapter__factory";
 import { AaveWrapAdapter__factory } from "../../typechain/factories/AaveWrapAdapter__factory";
+import { CompoundWrapAdapter__factory } from "../../typechain/factories/CompoundWrapAdapter__factory";
+import { YearnWrapAdapter__factory } from "../../typechain/factories/YearnWrapAdapter__factory";
 import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/UniswapPairPriceAdapter__factory";
 import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/UniswapV2ExchangeAdapter__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
@@ -87,6 +91,21 @@ export default class DeployAdapters {
 
   public async deployAaveWrapAdapter(aaveLendingPool: Address): Promise<AaveWrapAdapter> {
     return await new AaveWrapAdapter__factory(this._deployerSigner).deploy(aaveLendingPool);
+  }
+
+  public async deployCompoundWrapAdapter(libraryName: string, libraryAddress: Address): Promise<CompoundWrapAdapter> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+    return await new CompoundWrapAdapter__factory(
+       // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
+  }
+
+  public async deployYearnWrapAdapter(): Promise<YearnWrapAdapter> {
+    return await new YearnWrapAdapter__factory(this._deployerSigner).deploy();
   }
 
   public async deployBalancerV1ExchangeAdapter(balancerProxy: Address): Promise<BalancerV1ExchangeAdapter> {
