@@ -789,20 +789,18 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Check if there are any more tokens to sell. Since we allow WETH to float around it's target during rebalances it is not checked.
-     * In order to avoid repetively reading positionMultiplier state it is grabbed once and _normalizeTargetUnit is used.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      *
      * @return bool                 True if there is not any component that can be sold, otherwise false
      */
     function _noTokensToSell(ISetToken _setToken) internal view returns (bool) {
-        uint256 positionMultiplier = rebalanceInfo[_setToken].positionMultiplier;
-        uint256 currentPositionMultiplier = _setToken.positionMultiplier().toUint256();
         address[] memory rebalanceComponents = rebalanceInfo[_setToken].rebalanceComponents;
+
         for (uint256 i = 0; i < rebalanceComponents.length; i++) {
             address component = rebalanceComponents[i];
             if (component != address(weth)) {
-                uint256 normalizedTargetUnit = _normalizeTargetUnit(_setToken, IERC20(component), currentPositionMultiplier, positionMultiplier);
+                uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(component));
                 bool canSell =  normalizedTargetUnit < _setToken.getDefaultPositionRealUnit(component).toUint256();
                 if (canSell) { return false; }
             }
@@ -813,22 +811,19 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /**
      * Check if all targets are met. Due to small rounding errors converting between virtual and real unit on SetToken we allow
      * for a 1 wei buffer when checking if target is met. In order to avoid subtraction overflow errors targetUnits of zero check
-     * for an exact amount. In order to avoid repetively reading positionMultiplier state it is grabbed once and _normalizeTargetUnit
-     * is used. WETH is not checked as it is allowed to float around it's target.
+     * for an exact amount. WETH is not checked as it is allowed to float around it's target.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      *
      * @return bool                 True if all component's target units have been met, otherwise false
      */
     function _allTargetsMet(ISetToken _setToken) internal view returns (bool) {
-        uint256 positionMultiplier = rebalanceInfo[_setToken].positionMultiplier;
-        uint256 currentPositionMultiplier = _setToken.positionMultiplier().toUint256();
-
         address[] memory rebalanceComponents = rebalanceInfo[_setToken].rebalanceComponents;
+
         for (uint256 i = 0; i < rebalanceComponents.length; i++) {
             address component = rebalanceComponents[i];
             if (component != address(weth)) {
-                uint256 normalizedTargetUnit = _normalizeTargetUnit(_setToken, IERC20(component), currentPositionMultiplier, positionMultiplier);
+                uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(component));
                 uint256 currentUnit = _setToken.getDefaultPositionRealUnit(component).toUint256();
 
                 bool targetUnmet;
@@ -845,41 +840,19 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Normalize target unit to current position multiplier in case position multiplier has been changed since startRebalance()
-     * was last called.
-     *
-     * @param _setToken             Instance of the SetToken to be rebalanced
-     * @param _component            IERC20 component whose normalized target unit is required
-     *
-     * @return uint256              Normalized target unit of the component
-     */
-    function _getNormalizedTargetUnit(ISetToken _setToken, IERC20 _component) internal view returns(uint256) {
-        uint256 currentPositionMultiplier = _setToken.positionMultiplier().toUint256();
-        uint256 positionMultiplier = rebalanceInfo[_setToken].positionMultiplier;
-        return _normalizeTargetUnit(_setToken, _component, currentPositionMultiplier, positionMultiplier);
-    }
-
-    /**
-     * Calculates the normalized target unit value.
+     * Calculates and returns the normalized target unit value.
      *
      * @param _setToken                         Instance of the SettToken to be rebalanced
      * @param _component                        IERC20 component whose normalized target unit is required
-     * @param _currentPositionMultiplier        Current position multiplier value
-     * @param _positionMultiplier               Position multiplier value when rebalance started
      *
      * @return uint256                          Normalized target unit of the component
      */
-    function _normalizeTargetUnit(
-        ISetToken _setToken,
-        IERC20 _component,
-        uint256 _currentPositionMultiplier,
-        uint256 _positionMultiplier
-    )
-        internal
-        view
-        returns (uint256)
-    {
-        return executionInfo[_setToken][_component].targetUnit.mul(_currentPositionMultiplier).div(_positionMultiplier);
+    function _getNormalizedTargetUnit(ISetToken _setToken, IERC20 _component) internal view returns(uint256) {
+        // (targetUnit * current position multiplier) / position multiplier when rebalance started
+        return executionInfo[_setToken][_component]
+            .targetUnit
+            .mul(_setToken.positionMultiplier().toUint256())
+            .div(rebalanceInfo[_setToken].positionMultiplier);
     }
 
     /**
