@@ -798,12 +798,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         address[] memory rebalanceComponents = rebalanceInfo[_setToken].rebalanceComponents;
 
         for (uint256 i = 0; i < rebalanceComponents.length; i++) {
-            address component = rebalanceComponents[i];
-            if (component != address(weth)) {
-                uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(component));
-                bool canSell =  normalizedTargetUnit < _setToken.getDefaultPositionRealUnit(component).toUint256();
-                if (canSell) { return false; }
-            }
+            if (_canSell(_setToken, rebalanceComponents[i]) ) { return false; }
         }
         return true;
     }
@@ -892,5 +887,24 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         require(_components.length == _data.length, "Array length mismatch");
         require(_components.length > 0, "Array length must be > 0");
         require(!_components.hasDuplicate(), "Cannot duplicate components");
+    }
+
+    /**
+     * Checks if sell conditions are met. The component cannot be WETH and its normalized target
+     * unit must be less than its default position real unit
+     *
+     * @param _setToken                         Instance of the SetToken to be rebalanced
+     * @param _component                        Component evaluated for sale
+     *
+     * @return bool                             True if sell allowed, false otherwise
+     */
+    function _canSell(ISetToken _setToken, address _component) internal view returns(bool) {
+        return (
+            _component != address(weth) &&
+            (
+                _getNormalizedTargetUnit(_setToken, IERC20(_component)) <
+                _setToken.getDefaultPositionRealUnit(_component).toUint256()
+            )
+        );
     }
 }
