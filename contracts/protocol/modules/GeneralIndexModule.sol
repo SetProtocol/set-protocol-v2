@@ -186,7 +186,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         address[] memory currentComponents = _setToken.getComponents();
         require(
             currentComponents.length == _oldComponentsTargetUnits.length,
-            "New allocation must have target for all old components"
+            "Old Components targets missing"
         );
 
         address[] memory aggregateComponents = currentComponents.extend(_newComponents);
@@ -283,7 +283,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         require(_noTokensToSell(_setToken), "Sell other set components first");
         require(
             executionInfo[_setToken][weth].targetUnit < _setToken.getDefaultPositionRealUnit(address(weth)).toUint256(),
-            "WETH is below target unit and can not be traded"
+            "WETH is below target unit"
         );
 
         _validateTradeParameters(_setToken, _component);
@@ -298,7 +298,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         require(
             netBuyAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize,
-            "Trade amount exceeds max allowed trade size"
+            "Trade amount > max trade size"
         );
 
         _validateComponentPositionUnit(_setToken, _component);
@@ -331,7 +331,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         require(
             _allTargetsMet(_setToken)
             && _setToken.getDefaultPositionRealUnit(address(weth)).toUint256() > _getNormalizedTargetUnit(_setToken, weth),
-            "Targets must be met and ETH remaining in order to raise target"
+            "Targets not met or ETH =~ 0"
         );
 
         rebalanceInfo[_setToken].positionMultiplier = rebalanceInfo[_setToken].positionMultiplier.preciseDiv(
@@ -383,7 +383,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         for (uint256 i = 0; i < _components.length; i++) {
             if (_components[i] != address(weth)) {
-                require(bytes(_exchangeNames[i]).length != 0, "Exchange name can not be an empty string");
+                require(bytes(_exchangeNames[i]).length != 0, "Exchange name is empty string");
                 executionInfo[_setToken][IERC20(_components[i])].exchangeName = _exchangeNames[i];
                 emit AssetExchangeUpdated(_setToken, _components[i], _exchangeNames[i]);
             }
@@ -562,13 +562,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         require(address(_component) != address(weth), "Can not explicitly trade WETH");
         require(
             rebalanceInfo[_setToken].rebalanceComponents.contains(address(_component)),
-            "Passed component not included in rebalance"
+            "Component not part of rebalance"
         );
 
         TradeExecutionParams memory componentInfo = executionInfo[_setToken][_component];
         require(
             componentInfo.lastTradeTimestamp.add(componentInfo.coolOffPeriod) <= block.timestamp,
-            "Cool off period has not elapsed."
+            "Component cool off in progress"
         );
     }
 

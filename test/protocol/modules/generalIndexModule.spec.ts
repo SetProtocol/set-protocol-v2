@@ -348,7 +348,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("New allocation must have target for all old components");
+          await expect(subject()).to.be.revertedWith("Old Components targets missing");
         });
       });
 
@@ -520,7 +520,7 @@ describe("GeneralIndexModule", () => {
 
         describe("for component other than weth", async () => {
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Exchange name can not be an empty string");
+            await expect(subject()).to.be.revertedWith("Exchange name is empty string");
           });
         });
 
@@ -888,7 +888,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Cool off period has not elapsed.");
+            await expect(subject()).to.be.revertedWith("Component cool off in progress");
           });
         });
 
@@ -912,7 +912,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Passed component not included in rebalance");
+            await expect(subject()).to.be.revertedWith("Component not part of rebalance");
           });
         });
 
@@ -1472,7 +1472,7 @@ describe("GeneralIndexModule", () => {
             });
 
             it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Cool off period has not elapsed.");
+              await expect(subject()).to.be.revertedWith("Component cool off in progress");
             });
           });
 
@@ -1483,7 +1483,7 @@ describe("GeneralIndexModule", () => {
             });
 
             it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Passed component not included in rebalance");
+              await expect(subject()).to.be.revertedWith("Component not part of rebalance");
             });
           });
 
@@ -1553,7 +1553,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade reverts", async () => {
-            await expect(subject()).to.be.revertedWith("Trade amount exceeds max allowed trade size");
+            await expect(subject()).to.be.revertedWith("Trade amount > max trade size");
           });
         });
 
@@ -1613,7 +1613,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade reverts", async () => {
-            await expect(subject()).to.be.revertedWith("WETH is below target unit and can not be traded");
+            await expect(subject()).to.be.revertedWith("WETH is below target unit");
           });
         });
       });
@@ -1919,7 +1919,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade reverts", async () => {
-            await expect(subject()).to.be.revertedWith("Targets must be met and ETH remaining in order to raise target");
+            await expect(subject()).to.be.revertedWith("Targets not met or ETH =~ 0");
           });
         });
 
@@ -1936,7 +1936,7 @@ describe("GeneralIndexModule", () => {
             });
 
             it("the trade reverts", async () => {
-              await expect(subject()).to.be.revertedWith("Targets must be met and ETH remaining in order to raise target");
+              await expect(subject()).to.be.revertedWith("Targets not met or ETH =~ 0");
             });
           });
         });
