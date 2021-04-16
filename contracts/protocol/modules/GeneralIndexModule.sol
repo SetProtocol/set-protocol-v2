@@ -804,9 +804,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Check if all targets are met. Due to small rounding errors converting between virtual and real unit on SetToken we allow
-     * for a 1 wei buffer when checking if target is met. In order to avoid subtraction overflow errors targetUnits of zero check
-     * for an exact amount. WETH is not checked as it is allowed to float around it's target.
+     * Check if all targets are met.
      *
      * @param _setToken             Instance of the SetToken to be rebalanced
      *
@@ -816,20 +814,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         address[] memory rebalanceComponents = rebalanceInfo[_setToken].rebalanceComponents;
 
         for (uint256 i = 0; i < rebalanceComponents.length; i++) {
-            address component = rebalanceComponents[i];
-            if (component != address(weth)) {
-                uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(component));
-                uint256 currentUnit = _setToken.getDefaultPositionRealUnit(component).toUint256();
-
-                bool targetUnmet;
-                if (normalizedTargetUnit > 0) {
-                    targetUnmet = (normalizedTargetUnit.sub(1) > currentUnit || normalizedTargetUnit.add(1) < currentUnit);
-                } else {
-                    targetUnmet = normalizedTargetUnit != _setToken.getDefaultPositionRealUnit(component).toUint256();
-                }
-
-                if (targetUnmet) { return false; }
-            }
+            if (_targetUnmet(_setToken, rebalanceComponents[i])) { return false; }
         }
         return true;
     }
@@ -906,5 +891,27 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
                 _setToken.getDefaultPositionRealUnit(_component).toUint256()
             )
         );
+    }
+
+    /**
+     * Determines if a target is met. Due to small rounding errors converting between virtual and
+     * real unit on SetToken we allow for a 1 wei buffer when checking if target is met. In order to
+     * avoid subtraction overflow errors targetUnits of zero check for an exact amount. WETH is not
+     * checked as it is allowed to float around its target.
+     *
+     * @param _setToken                         Instance of the SetToken to be rebalanced
+     * @param _component                        Component whose target is evaluated
+     *
+     * @return bool                             True if component's target units are met, false otherwise
+     */
+    function _targetUnmet(ISetToken _setToken, address _component) internal view returns(bool) {
+        if (_component == address(weth)) return false;
+
+        uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(_component));
+        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(_component).toUint256();
+
+        return (normalizedTargetUnit > 0)
+            ? (normalizedTargetUnit.sub(1) > currentUnit || normalizedTargetUnit.add(1) < currentUnit)
+            : normalizedTargetUnit != currentUnit;
     }
 }
