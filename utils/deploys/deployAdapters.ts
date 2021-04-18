@@ -3,6 +3,7 @@ import { Signer } from "ethers";
 import {
   AaveGovernanceAdapter,
   AaveGovernanceV2Adapter,
+  BalancerV1ExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
   KyberExchangeAdapter,
@@ -20,12 +21,12 @@ import {
   SynthetixExchangeAdapter,
   CompoundBravoGovernanceAdapter
 } from "../contracts";
-
 import { convertLibraryNameToLinkId } from "../common";
 import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
+import { BalancerV1ExchangeAdapter__factory } from "../../typechain/factories/BalancerV1ExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
@@ -111,6 +112,10 @@ export default class DeployAdapters {
 
   public async deployYearnWrapAdapter(): Promise<YearnWrapAdapter> {
     return await new YearnWrapAdapter__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployBalancerV1ExchangeAdapter(balancerProxy: Address): Promise<BalancerV1ExchangeAdapter> {
+    return await new BalancerV1ExchangeAdapter__factory(this._deployerSigner).deploy(balancerProxy);
   }
 
   public async deployCompoundLikeGovernanceAdapter(governanceAlpha: Address, governanceToken: Address): Promise<CompoundLikeGovernanceAdapter> {

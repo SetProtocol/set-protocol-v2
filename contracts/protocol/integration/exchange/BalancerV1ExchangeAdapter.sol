@@ -34,7 +34,7 @@ contract BalancerV1ExchangeAdapter {
     
     /* ============ State Variables ============ */
     
-    // Address of Uniswap V2 Router02 contract
+    // Address of Balancer V1 Proxy contract
     address public immutable balancerProxy;
     // Balancer proxy function string for swapping exact tokens for a minimum of receive tokens
     string internal constant EXACT_IN = "smartSwapExactIn(address,address,uint256,uint256,uint256)";
@@ -99,15 +99,15 @@ contract BalancerV1ExchangeAdapter {
     /**
      * Generate data parameter to be passed to `getTradeCallData`. Returns encoded bool to select trade function.
      *
-     * @param _sellComponent        Address of the token to be sold        
-     * @param _buyComponent         Address of the token to be bought
+     * @param _sourceToken          Address of the source token to be sold        
+     * @param _destinationToken     Address of the destination token to buy
      * @param _fixIn                Boolean representing if input tokens amount is fixed
      * 
      * @return bytes                Data parameter to be passed to `getTradeCallData`          
      */
-    function generateDataParam(address _sellComponent, address _buyComponent, bool _fixIn)
+    function generateDataParam(address _sourceToken, address _destinationToken, bool _fixIn)
         external
-        view
+        pure
         returns (bytes memory) 
     {   
         return abi.encode(_fixIn);
@@ -120,5 +120,14 @@ contract BalancerV1ExchangeAdapter {
      */
     function getSpender() external view returns (address) {
         return balancerProxy;
+    }
+
+    /**
+     * Helper that returns the encoded data of boolean indicating the Balancer function to use
+     *
+     * @return bytes               Encoded data used for trading on Balancer
+     */
+    function getBalancerExchangeData(bool _shouldSwapFixedInputAmount) external pure returns (bytes memory) {
+        return abi.encode(_shouldSwapFixedInputAmount);
     }
 } 

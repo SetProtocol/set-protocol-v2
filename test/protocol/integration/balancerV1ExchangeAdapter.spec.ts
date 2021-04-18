@@ -7,9 +7,10 @@ import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
   EMPTY_BYTES,
+  THREE,
   ZERO,
 } from "@utils/constants";
-import { UniswapV2ExchangeAdapterV2 } from "@utils/contracts";
+import { BalancerV1ExchangeAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -18,23 +19,22 @@ import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getSystemFixture,
-  getUniswapFixture,
-  getWaffleExpect,
-  getLastBlockTimestamp
+  getBalancerFixture,
+  getWaffleExpect
 } from "@utils/test/index";
 
-import { SystemFixture, UniswapFixture } from "@utils/fixtures";
+import { SystemFixture, BalancerFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("UniswapV2ExchangeAdapterV2", () => {
+describe("BalancerV1ExchangeAdapter", () => {
   let owner: Account;
   let mockSetToken: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
-  let uniswapSetup: UniswapFixture;
+  let balancerSetup: BalancerFixture;
 
-  let uniswapV2ExchangeAdapter: UniswapV2ExchangeAdapterV2;
+  let balancerV1ExchangeAdapter: BalancerV1ExchangeAdapter;
 
   before(async () => {
     [
@@ -46,74 +46,71 @@ describe("UniswapV2ExchangeAdapterV2", () => {
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    uniswapSetup = getUniswapFixture(owner.address);
-    await uniswapSetup.initialize(
+    balancerSetup = getBalancerFixture(owner.address);
+    await balancerSetup.initialize(
       owner,
-      setup.weth.address,
-      setup.wbtc.address,
-      setup.dai.address
+      setup.weth,
+      setup.wbtc,
+      setup.dai
     );
 
-    uniswapV2ExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapterV2(uniswapSetup.router.address);
+    balancerV1ExchangeAdapter = await deployer.adapters.deployBalancerV1ExchangeAdapter(balancerSetup.exchange.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
 
   describe("constructor", async () => {
-    let subjectUniswapRouter: Address;
+    let subjectBalancerProxyAddress: Address;
 
     beforeEach(async () => {
-      subjectUniswapRouter = uniswapSetup.router.address;
+        subjectBalancerProxyAddress = balancerSetup.exchange.address;
     });
 
     async function subject(): Promise<any> {
-      return await deployer.adapters.deployUniswapV2ExchangeAdapterV2(subjectUniswapRouter);
+      return await deployer.adapters.deployBalancerV1ExchangeAdapter(subjectBalancerProxyAddress);
     }
 
-    it("should have the correct router address", async () => {
-      const deployedUniswapV2ExchangeAdapterV2 = await subject();
+    it("should have the correct proxy address", async () => {
+      const deployedBalancerV1ExchangeAdapter = await subject();
 
-      const actualRouterAddress = await deployedUniswapV2ExchangeAdapterV2.router();
-      expect(actualRouterAddress).to.eq(uniswapSetup.router.address);
+      const actualProxyAddress = await deployedBalancerV1ExchangeAdapter.balancerProxy();
+      expect(actualProxyAddress).to.eq(subjectBalancerProxyAddress);
     });
   });
 
   describe("getSpender", async () => {
     async function subject(): Promise<any> {
-      return await uniswapV2ExchangeAdapter.getSpender();
+      return await balancerV1ExchangeAdapter.getSpender();
     }
 
     it("should return the correct spender address", async () => {
       const spender = await subject();
 
-      expect(spender).to.eq(uniswapSetup.router.address);
+      expect(spender).to.eq(balancerSetup.exchange.address);
     });
   });
 
-  describe("getUniswapExchangeData", async () => {
-    let subjectPath: Address[];
-    let subjectShouldTradeExactTokensForTokens: boolean;
+  describe("getBalancerExchangeData", async () => {
+    let subjectShouldSwapFixedInputAmount: boolean;
 
     beforeEach(async () => {
-      subjectPath = [setup.weth.address, setup.wbtc.address, setup.dai.address];
-      subjectShouldTradeExactTokensForTokens = true;
+      subjectShouldSwapFixedInputAmount = true;
     });
 
     async function subject(): Promise<any> {
-      return await uniswapV2ExchangeAdapter.getUniswapExchangeData(subjectPath, subjectShouldTradeExactTokensForTokens);
+      return await balancerV1ExchangeAdapter.getBalancerExchangeData(subjectShouldSwapFixedInputAmount);
     }
 
     it("should return the correct data", async () => {
-      const uniswapData = await subject();
+      const balancerData = await subject();
       const expectedData = defaultAbiCoder.encode(
-        ["address[]", "bool"],
-        [subjectPath, subjectShouldTradeExactTokensForTokens]
+        ["bool"],
+        [subjectShouldSwapFixedInputAmount]
       );
 
-      expect(uniswapData).to.eq(expectedData);
+      expect(balancerData).to.eq(expectedData);
     });
   });
-
 
   describe("generateDataParam", async () => {
     let sourceToken: Address;
@@ -125,14 +122,14 @@ describe("UniswapV2ExchangeAdapterV2", () => {
 
     beforeEach(async () => {
       sourceToken = setup.wbtc.address;
-      destinationToken = setup.weth.address;
+      destinationToken = setup.dai.address;
 
       subjectSourceToken = sourceToken;
       subjectDestinationToken = destinationToken;
     });
 
     async function subject(): Promise<any> {
-      return await uniswapV2ExchangeAdapter.generateDataParam(
+      return await balancerV1ExchangeAdapter.generateDataParam(
         subjectSourceToken,
         subjectDestinationToken,
         subjectFixIn
@@ -147,10 +144,9 @@ describe("UniswapV2ExchangeAdapterV2", () => {
       it("should return the correct trade calldata", async () => {
         const dataParam = await subject();
 
-        const path = [sourceToken, destinationToken];
         const expectedDataParam = defaultAbiCoder.encode(
-          ["address[]", "bool"],
-          [path, subjectFixIn]
+          ["bool"],
+          [subjectFixIn]
         );
         expect(JSON.stringify(dataParam)).to.eq(JSON.stringify(expectedDataParam));
       });
@@ -164,10 +160,9 @@ describe("UniswapV2ExchangeAdapterV2", () => {
       it("should return the correct trade calldata", async () => {
         const dataParam = await subject();
 
-        const path = [sourceToken, destinationToken];
         const expectedDataParam = defaultAbiCoder.encode(
-          ["address[]", "bool"],
-          [path, subjectFixIn]
+          ["bool"],
+          [subjectFixIn]
         );
         expect(JSON.stringify(dataParam)).to.eq(JSON.stringify(expectedDataParam));
       });
@@ -188,10 +183,10 @@ describe("UniswapV2ExchangeAdapterV2", () => {
     let subjectData: Bytes;
 
     beforeEach(async () => {
-      sourceToken = setup.wbtc.address;          // WBTC Address
-      sourceQuantity = BigNumber.from(100000000);  // Trade 1 WBTC
-      destinationToken = setup.dai.address;      // DAI Address
-      destinationQuantity = ether(30000);          // Receive at least 30k DAI
+      sourceToken = setup.wbtc.address;          		// WBTC Address
+      sourceQuantity = BigNumber.from(100000000);  	// Trade 1 WBTC
+      destinationToken = setup.dai.address;      		// DAI Address
+      destinationQuantity = ether(30000);          	// Receive at least 30k DAI
 
       subjectSourceToken = sourceToken;
       subjectDestinationToken = destinationToken;
@@ -202,7 +197,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
     });
 
     async function subject(): Promise<any> {
-      return await uniswapV2ExchangeAdapter.getTradeCalldata(
+      return await balancerV1ExchangeAdapter.getTradeCalldata(
         subjectSourceToken,
         subjectDestinationToken,
         subjectMockSetToken,
@@ -212,51 +207,43 @@ describe("UniswapV2ExchangeAdapterV2", () => {
       );
     }
 
-    describe("when boolean to swap exact tokens for tokens is true", async () => {
+    describe("when boolean fixed input amount is true", async () => {
       beforeEach(async () => {
-        const path = [sourceToken, setup.weth.address, destinationToken];
-        const shouldTradeExactTokensForTokens = true;
-        subjectData = defaultAbiCoder.encode(
-          ["address[]", "bool"],
-          [path, shouldTradeExactTokensForTokens]
-        );
+        const shouldSwapFixedInputAmount = true;
+        subjectData = defaultAbiCoder.encode(["bool"], [shouldSwapFixedInputAmount]);
       });
 
       it("should return the correct trade calldata", async () => {
         const calldata = await subject();
-        const callTimestamp = await getLastBlockTimestamp();
-        const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapExactTokensForTokens", [
+
+        const expectedCallData = balancerSetup.exchange.interface.encodeFunctionData("smartSwapExactIn", [
+          sourceToken,
+          destinationToken,
           sourceQuantity,
           destinationQuantity,
-          [sourceToken, setup.weth.address, destinationToken],
-          subjectMockSetToken,
-          callTimestamp,
+          THREE,
         ]);
-        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([balancerSetup.exchange.address, ZERO, expectedCallData]));
       });
     });
 
-    describe("when boolean to swap exact tokens for tokens is false", async () => {
+    describe("when boolean fixed input amount is false", async () => {
       beforeEach(async () => {
-        const path = [sourceToken, setup.weth.address, destinationToken];
-        const shouldTradeExactTokensForTokens = false;
-        subjectData = defaultAbiCoder.encode(
-          ["address[]", "bool"],
-          [path, shouldTradeExactTokensForTokens]
-        );
+        const shouldSwapFixedInputAmount = false;
+        subjectData = defaultAbiCoder.encode(["bool"], [shouldSwapFixedInputAmount]);
       });
 
       it("should return the correct trade calldata", async () => {
         const calldata = await subject();
-        const callTimestamp = await getLastBlockTimestamp();
-        const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapTokensForExactTokens", [
-          destinationQuantity, // Source and destination quantity are flipped for swapTokensForExactTokens
+
+        const expectedCallData = balancerSetup.exchange.interface.encodeFunctionData("smartSwapExactOut", [
+          sourceToken,
+          destinationToken,
+          destinationQuantity, // Source and destination quantity are flipped for smartSwapExactOut
           sourceQuantity,
-          [sourceToken, setup.weth.address, destinationToken],
-          subjectMockSetToken,
-          callTimestamp,
+          THREE,
         ]);
-        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([balancerSetup.exchange.address, ZERO, expectedCallData]));
       });
     });
   });

@@ -104,20 +104,20 @@ contract UniswapV2ExchangeAdapterV2 {
     /**
      * Generate data parameter to be passed to `getTradeCallData`. Returns encoded trade paths and bool to select trade function.
      *
-     * @param _sellComponent        Address of the token to be sold        
-     * @param _buyComponent         Address of the token to be bought
+     * @param _sourceToken          Address of the source token to be sold        
+     * @param _destinationToken     Address of the destination token to buy
      * @param _fixIn                Boolean representing if input tokens amount is fixed
      * 
      * @return bytes                Data parameter to be passed to `getTradeCallData`          
      */
-    function generateDataParam(address _sellComponent, address _buyComponent, bool _fixIn)
+    function generateDataParam(address _sourceToken, address _destinationToken, bool _fixIn)
         external
-        view
+        pure
         returns (bytes memory) 
     {
         address[] memory path = new address[](2);
-        path[0] = _sellComponent;
-        path[1] = _buyComponent;
+        path[0] = _sourceToken;
+        path[1] = _destinationToken;
         return abi.encode(path, _fixIn);
     }
 
@@ -135,7 +135,7 @@ contract UniswapV2ExchangeAdapterV2 {
      *
      * @return bytes               Encoded data used for trading on Uniswap
      */
-    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapExactTokensForTokens) external view returns (bytes memory) {
+    function getUniswapExchangeData(address[] memory _path, bool _shouldSwapExactTokensForTokens) external pure returns (bytes memory) {
         return abi.encode(_path, _shouldSwapExactTokensForTokens);
     }
 } 
