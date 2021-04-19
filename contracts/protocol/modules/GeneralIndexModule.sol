@@ -239,9 +239,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
 
-        (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionState(tradeInfo);
-
-        executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
+        (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         emit TradeExecuted(
             tradeInfo.setToken,
@@ -294,7 +292,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
 
-        (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionState(tradeInfo);
+        (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         require(
             netBuyAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize,
@@ -302,8 +300,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         );
 
         _validateComponentPositionUnit(_setToken, _component);
-
-        executionInfo[_setToken][_component].lastTradeTimestamp = block.timestamp;
 
         emit TradeExecuted(
             tradeInfo.setToken,
@@ -723,15 +719,19 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Update SetToken positions. This function is intended to be called after the fees have been accrued, hence
-     * it returns the amount of tokens bought net of fees.
+     * Update SetToken positions and executionInfo's last trade timestamp. This function is intended
+     * to be called after the fees have been accrued, hence it returns the amount of tokens bought net of fees.
      *
      * @param _tradeInfo                Struct containing trade information used in internal functions
+     * @param _component                IERC20 component which was traded
      *
      * @return sellAmount               Amount of sendTokens used in the trade
      * @return netBuyAmount             Amount of receiveTokens received in the trade (net of fees)
      */
-    function _updatePositionState(TradeInfo memory _tradeInfo) internal returns (uint256 sellAmount, uint256 netBuyAmount) {
+    function _updatePositionStateAndTimestamp(TradeInfo memory _tradeInfo, IERC20 _component)
+        internal
+        returns (uint256 sellAmount, uint256 netBuyAmount)
+    {
         (uint256 postTradeSendTokenBalance,,) = _tradeInfo.setToken.calculateAndEditDefaultPosition(
             _tradeInfo.sendToken,
             _tradeInfo.setTotalSupply,
@@ -745,6 +745,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         sellAmount = _tradeInfo.preTradeSendTokenBalance.sub(postTradeSendTokenBalance);
         netBuyAmount = postTradeReceiveTokenBalance.sub(_tradeInfo.preTradeReceiveTokenBalance);
+
+        executionInfo[_tradeInfo.setToken][_component].lastTradeTimestamp = block.timestamp;
     }
 
     /**
