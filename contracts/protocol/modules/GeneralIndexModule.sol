@@ -415,7 +415,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _setToken                     Address of the SetToken
      * @param _raiseTargetPercentage        Amount to raise all component's unit targets by (in precise units)
      */
-    function updateRaiseTargetPercentage(
+    function setRaiseTargetPercentage(
         ISetToken _setToken,
         uint256 _raiseTargetPercentage
     )
@@ -434,7 +434,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _traders           Array trader addresses to toggle status
      * @param _statuses          Booleans indicating if matching trader can trade
      */
-    function updateTraderStatus(
+    function setTraderStatus(
         ISetToken _setToken,
         address[] calldata _traders,
         bool[] calldata _statuses
@@ -458,7 +458,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _setToken         Address of the SetToken
      * @param _status           Boolean indicating if anyone can trade
      */
-    function updateAnyoneTrade(ISetToken _setToken, bool _status) external onlyManagerAndValidSet(_setToken) {
+    function setAnyoneTrade(ISetToken _setToken, bool _status) external onlyManagerAndValidSet(_setToken) {
         permissionInfo[_setToken].anyoneTrade = _status;
         emit AnyoneTradeUpdated(_setToken, _status);
     }

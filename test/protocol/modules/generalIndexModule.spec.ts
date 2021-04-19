@@ -262,7 +262,7 @@ describe("GeneralIndexModule", () => {
       await indexModule.setTradeMaximums(setToken.address, components, tradeMaximums);
       await indexModule.setExchanges(setToken.address, components, exchanges);
       await indexModule.setCoolOffPeriods(setToken.address, components, coolOffPeriods);
-      await indexModule.updateTraderStatus(setToken.address, [trader.address], [true]);
+      await indexModule.setTraderStatus(setToken.address, [trader.address], [true]);
     }
 
     cacheBeforeEach(async () => {
@@ -881,7 +881,7 @@ describe("GeneralIndexModule", () => {
 
         describe("when anyoneTrade is true and a random address calls", async () => {
           beforeEach(async () => {
-            await indexModule.updateAnyoneTrade(subjectSetToken.address, true);
+            await indexModule.setAnyoneTrade(subjectSetToken.address, true);
             subjectCaller = await getRandomAccount();
           });
 
@@ -959,7 +959,7 @@ describe("GeneralIndexModule", () => {
 
           beforeEach(async () => {
             contractCaller = await deployer.mocks.deployContractCallerMock();
-            await indexModule.connect(owner.wallet).updateTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
+            await indexModule.connect(owner.wallet).setTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
 
             subjectTarget = indexModule.address;
             subjectCallData = indexModule.interface.encodeFunctionData("trade", [subjectSetToken.address, subjectComponent, ZERO]);
@@ -980,7 +980,7 @@ describe("GeneralIndexModule", () => {
 
           describe("when anyone trade is true", async () => {
             beforeEach(async () => {
-              await indexModule.connect(owner.wallet).updateAnyoneTrade(subjectSetToken.address, true);
+              await indexModule.connect(owner.wallet).setAnyoneTrade(subjectSetToken.address, true);
             });
 
             it("the trader reverts", async () => {
@@ -1520,7 +1520,7 @@ describe("GeneralIndexModule", () => {
 
             beforeEach(async () => {
               contractCaller = await deployer.mocks.deployContractCallerMock();
-              await indexModule.connect(owner.wallet).updateTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
+              await indexModule.connect(owner.wallet).setTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
 
               subjectTarget = indexModule.address;
               subjectIncreaseTime = ONE_MINUTE_IN_SECONDS.mul(5);
@@ -1807,7 +1807,7 @@ describe("GeneralIndexModule", () => {
         subjectTraders = [trader.address];
         subjectStatuses = [true];
 
-        return await indexModule.connect(subjectCaller.wallet).updateTraderStatus(
+        return await indexModule.connect(subjectCaller.wallet).setTraderStatus(
           subjectSetToken.address,
           subjectTraders,
           subjectStatuses
@@ -1839,7 +1839,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe("#updateRaiseTargetPercentage", async () => {
+    describe("#setRaiseTargetPercentage", async () => {
       let subjectRaiseTargetPercentage: BigNumber;
 
       beforeEach(async () => {
@@ -1849,13 +1849,13 @@ describe("GeneralIndexModule", () => {
       });
 
       async function subject(): Promise<ContractTransaction> {
-        return await indexModule.connect(subjectCaller.wallet).updateRaiseTargetPercentage(
+        return await indexModule.connect(subjectCaller.wallet).setRaiseTargetPercentage(
           subjectSetToken.address,
           subjectRaiseTargetPercentage
         );
       }
 
-      it("updates raiseTargetPercentage", async () => {
+      it("sets raiseTargetPercentage", async () => {
         await subject();
         const newRaiseTargetPercentage = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
 
@@ -1903,7 +1903,7 @@ describe("GeneralIndexModule", () => {
           await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, MAX_UINT_256);
         }
 
-        await indexModule.updateRaiseTargetPercentage(subjectSetToken.address, ether(.0025));
+        await indexModule.setRaiseTargetPercentage(subjectSetToken.address, ether(.0025));
       };
 
       async function subject(): Promise<ContractTransaction> {
@@ -2067,7 +2067,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe("#updateTraderStatus", async () => {
+    describe("#setTraderStatus", async () => {
       let subjectTraders: Address[];
       let subjectStatuses: boolean[];
 
@@ -2079,7 +2079,7 @@ describe("GeneralIndexModule", () => {
       });
 
       async function subject(): Promise<ContractTransaction> {
-        return await indexModule.connect(subjectCaller.wallet).updateTraderStatus(
+        return await indexModule.connect(subjectCaller.wallet).setTraderStatus(
           subjectSetToken.address,
           subjectTraders,
           subjectStatuses
