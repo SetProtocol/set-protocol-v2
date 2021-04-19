@@ -1633,6 +1633,54 @@ describe("GeneralIndexModule", () => {
       });
     });
 
+    describe("#getRebalanceComponents", async () => {
+      before(async () => {
+        // current units [ether(86.9565217), bitcoin(.01111111), ether(100), ZERO]
+        newComponents = [];
+        oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(55)];
+        newTargetUnits = [];
+        issueAmount = ether("20.000000000000000001");
+      });
+
+      const startRebalance = async () => {
+        await setup.approveAndIssueSetToken(subjectSetToken, issueAmount);
+        await indexModule.startRebalance(
+          subjectSetToken.address,
+          newComponents,
+          newTargetUnits,
+          oldTargetUnits,
+          await index.positionMultiplier()
+        );
+      };
+
+      const initializeSubjectVariables = () => {
+        subjectSetToken = index;
+      };
+
+      beforeEach(async () => {
+        initializeSubjectVariables();
+        await startRebalance();
+      });
+
+      async function subject(tokenAddress: Address): Promise<any> {
+        return await indexModule.getRebalanceComponents(tokenAddress);
+      }
+
+      it("the components being rebalanced should be returned", async () => {
+        const expectedComponents = [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address];
+
+        const rebalanceComponents = await subject(subjectSetToken.address);
+
+        expect(rebalanceComponents).to.deep.eq(expectedComponents);
+      });
+
+      describe("when set token is not valid", async () => {
+        it("should revert", async () => {
+          await expect(subject(ADDRESS_ZERO)).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+    });
+
     describe("#getComponentTradeQuantityAndDirection", async () => {
       let subjectComponent: Address;
 
@@ -1725,6 +1773,68 @@ describe("GeneralIndexModule", () => {
 
           expect(componentQuantity).to.eq(expectedWbtcSize);
           expect(isSell).to.be.false;
+        });
+      });
+
+      describe("when the setToken is not valid", async () => {
+        beforeEach(() => {
+          subjectSetToken = { address: ADDRESS_ZERO } as SetToken;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+
+      describe("when the component is not valid", async () => {
+        beforeEach(() => {
+          subjectComponent = ADDRESS_ZERO;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Component not recognized");
+        });
+      });
+    });
+
+    describe("#getIsAllowedTrader", async () => {
+      let subjectTraders: Address[];
+      let subjectStatuses: boolean[];
+
+      beforeEach(async () => {
+        subjectCaller = owner;
+        subjectSetToken = index;
+        subjectTraders = [trader.address];
+        subjectStatuses = [true];
+
+        return await indexModule.connect(subjectCaller.wallet).updateTraderStatus(
+          subjectSetToken.address,
+          subjectTraders,
+          subjectStatuses
+        );
+      });
+
+      async function subject(): Promise<Boolean> {
+        return await indexModule.connect(subjectCaller.wallet).getIsAllowedTrader(
+          subjectSetToken.address,
+          subjectTraders[0],
+        );
+      }
+
+      it("returns trader status", async () => {
+        await subject();
+
+        const isTrader = await subject();
+        expect(isTrader).to.be.true;
+      });
+
+      describe("when the setToken is not valid", async () => {
+        beforeEach(() => {
+          subjectSetToken = { address: ADDRESS_ZERO } as SetToken;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
         });
       });
     });

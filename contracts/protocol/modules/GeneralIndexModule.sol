@@ -506,7 +506,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @return address[]        Array of _setToken components involved in rebalance
      */
-    function getRebalanceComponents(ISetToken _setToken) external view returns (address[] memory) {
+    function getRebalanceComponents(ISetToken _setToken)
+        external
+        view
+        onlyValidAndInitializedSet(_setToken)
+        returns (address[] memory)
+    {
         return rebalanceInfo[_setToken].rebalanceComponents;
     }
 
@@ -526,8 +531,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     )
         external
         view
+        onlyValidAndInitializedSet(_setToken)
         returns (bool, uint256)
     {
+        require(_setToken.isComponent(address(_component)), "Component not recognized");
         uint256 totalSupply = _setToken.totalSupply();
         return _calculateTradeSizeAndDirection(_setToken, _component, totalSupply);
     }
@@ -541,7 +548,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @return bool             True if _trader is allowed to trade, else false
      */
-    function getIsAllowedTrader(ISetToken _setToken, address _trader) external view returns (bool) {
+    function getIsAllowedTrader(ISetToken _setToken, address _trader)
+        external
+        view
+        onlyValidAndInitializedSet(_setToken)
+        returns (bool)
+    {
         return _isAllowedTrader(_setToken, _trader);
     }
 
