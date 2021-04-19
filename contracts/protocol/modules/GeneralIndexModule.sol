@@ -279,7 +279,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     {
         require(_noTokensToSell(_setToken), "Sell other set components first");
         require(
-            executionInfo[_setToken][weth].targetUnit < _setToken.getDefaultPositionRealUnit(address(weth)).toUint256(),
+            executionInfo[_setToken][weth].targetUnit < _getDefaultPositionRealUnit(_setToken, weth),
             "WETH is below target unit"
         );
 
@@ -324,7 +324,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     function raiseAssetTargets(ISetToken _setToken) external onlyAllowedTrader(_setToken) virtual {
         require(
             _allTargetsMet(_setToken)
-            && _setToken.getDefaultPositionRealUnit(address(weth)).toUint256() > _getNormalizedTargetUnit(_setToken, weth),
+            && _getDefaultPositionRealUnit(_setToken, weth) > _getNormalizedTargetUnit(_setToken, weth),
             "Targets not met or ETH =~ 0"
         );
 
@@ -652,7 +652,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         uint256 totalSupply = _setToken.totalSupply();
 
-        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(weth)).toUint256();
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, weth);
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, weth);
 
         uint256 currentNotional = totalSupply.getDefaultTotalNotional(currentUnit);
@@ -787,7 +787,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 protocolFee = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX);
         uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
 
-        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
 
         require(currentUnit != targetUnit, "Target already met");
@@ -887,9 +887,21 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _component        IERC20 component whose position units are to be validated
      */
     function _validateComponentPositionUnit(ISetToken _setToken, IERC20 _component) internal view {
-        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
         require(currentUnit <= targetUnit, "Can not exceed target unit");
+    }
+
+    /**
+     * Get the SetToken's default position as uint256
+     *
+     * @param _setToken         Instance of the SetToken
+     * @param _component        IERC20 component to fetch the default position for
+     *
+     * return uint256           Real unit position
+     */
+    function _getDefaultPositionRealUnit(ISetToken _setToken, IERC20 _component) internal view returns (uint256) {
+        return _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
     }
 
     /**
@@ -932,7 +944,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             _component != address(weth) &&
             (
                 _getNormalizedTargetUnit(_setToken, IERC20(_component)) <
-                _setToken.getDefaultPositionRealUnit(_component).toUint256()
+                _getDefaultPositionRealUnit(_setToken,IERC20(_component))
             )
         );
     }
@@ -952,7 +964,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         if (_component == address(weth)) return false;
 
         uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(_component));
-        uint256 currentUnit = _setToken.getDefaultPositionRealUnit(_component).toUint256();
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, IERC20(_component));
 
         return (normalizedTargetUnit > 0)
             ? (normalizedTargetUnit.sub(1) > currentUnit || normalizedTargetUnit.add(1) < currentUnit)
