@@ -121,6 +121,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 _protocolFee
     );
 
+    event RebalanceStarted(ISetToken indexed _setToken);
+
     /* ============ Constants ============ */
 
     uint256 private constant GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX = 0;
@@ -203,6 +205,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         rebalanceInfo[_setToken].rebalanceComponents = aggregateComponents;
         rebalanceInfo[_setToken].positionMultiplier = _positionMultiplier;
+
+        emit RebalanceStarted(_setToken);
     }
 
     /**

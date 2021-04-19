@@ -333,6 +333,12 @@ describe("GeneralIndexModule", () => {
         expect(positionMultiplier).to.be.eq(expectedPositionMultiplier);
       });
 
+      it("emits the correct RebalanceStarted event", async () => {
+        await expect(subject()).to.emit(indexModule, "RebalanceStarted").withArgs(
+          subjectSetToken.address
+        );
+      });
+
       describe("newComponents and newComponentsTargetUnits are not of same length", async () => {
         beforeEach(async () => {
           subjectNewTargetUnits = [];
