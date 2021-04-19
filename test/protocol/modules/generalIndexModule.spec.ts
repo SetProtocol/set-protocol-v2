@@ -11,7 +11,8 @@ import {
   ether,
   preciseDiv,
   preciseMul,
-  preciseMulCeil
+  preciseMulCeil,
+  hashAdapterName
 } from "@utils/index";
 import {
   cacheBeforeEach,
@@ -475,9 +476,9 @@ describe("GeneralIndexModule", () => {
         await subject();
 
         for (let i = 0; i < subjectComponents.length; i++) {
-          const exchangeName = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeName;
-          const exepctedExchangeName = subjectExchanges[i];
-          expect(exchangeName).to.be.eq(exepctedExchangeName);
+          const exchangeNameHash = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeNameHash;
+          const expectedExchangeNameHash = await hashAdapterName(subjectExchanges[i]);
+          expect(exchangeNameHash).to.be.eq(expectedExchangeNameHash);
         }
       });
 
@@ -513,14 +514,22 @@ describe("GeneralIndexModule", () => {
         });
       });
 
-      describe("when exchange name is empty string", async () => {
+      describe("when exchange is not a valid integration", async () => {
         beforeEach(async () => {
-          subjectExchanges = [uniswapAdapterName, ""];
+          await setup.integrationRegistry.removeIntegration(indexModule.address, sushiswapAdapterName);
+        });
+
+        afterEach(async () => {
+          await setup.integrationRegistry.addIntegration(
+            indexModule.address,
+            sushiswapAdapterName,
+            sushiswapExchangeAdapter.address
+          );
         });
 
         describe("for component other than weth", async () => {
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Exchange name is empty string");
+            await expect(subject()).to.be.revertedWith("Must be valid adapter");
           });
         });
 
@@ -892,13 +901,18 @@ describe("GeneralIndexModule", () => {
           });
         });
 
-        describe("when correct exchange has not been set", async () => {
+        describe("when exchange adapter has been removed from integration registry", async () => {
           beforeEach(async () => {
-            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], ["BadExchangeName"]);
+            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], [balancerAdapterName]);
+            await setup.integrationRegistry.removeIntegration(indexModule.address, balancerAdapterName);
           });
 
           afterEach(async () => {
-            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], [balancerAdapterName]);
+            await setup.integrationRegistry.addIntegration(
+              indexModule.address,
+              balancerAdapterName,
+              balancerExchangeAdapter.address
+            );
           });
 
           it("the trade reverts", async () => {

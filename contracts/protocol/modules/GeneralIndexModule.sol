@@ -72,7 +72,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 maxSize;                 // Max trade size in precise units
         uint256 coolOffPeriod;           // Required time between trades for the asset
         uint256 lastTradeTimestamp;      // Timestamp of last trade
-        string exchangeName;             // Name of exchange adapter
+        bytes32 exchangeNameHash;        // Keccak hash of exchange adapter name
     }
 
     struct TradePermissionInfo {
@@ -384,7 +384,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         for (uint256 i = 0; i < _components.length; i++) {
             if (_components[i] != address(weth)) {
                 require(bytes(_exchangeNames[i]).length != 0, "Exchange name is empty string");
-                executionInfo[_setToken][IERC20(_components[i])].exchangeName = _exchangeNames[i];
+                executionInfo[_setToken][IERC20(_components[i])].exchangeNameHash = _getValidExchangeAdapterHash(_exchangeNames[i]);
                 emit AssetExchangeUpdated(_setToken, _components[i], _exchangeNames[i]);
             }
         }
@@ -597,7 +597,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         TradeInfo memory tradeInfo;
         tradeInfo.setToken = _setToken;
 
-        tradeInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
+        tradeInfo.exchangeAdapter = _getExchangeAdapter(_setToken, _component);
 
         (
             tradeInfo.isSendTokenFixed,
@@ -650,7 +650,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         TradeInfo memory tradeInfo;
         tradeInfo.setToken = _setToken;
 
-        tradeInfo.exchangeAdapter = IExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
+        tradeInfo.exchangeAdapter = _getExchangeAdapter(_setToken, _component);
 
         tradeInfo.isSendTokenFixed = true;
 
@@ -833,6 +833,35 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             .targetUnit
             .mul(_setToken.positionMultiplier().toUint256())
             .div(rebalanceInfo[_setToken].positionMultiplier);
+    }
+
+    /**
+     * Gets exchange adapter address for a component after checking that it exists in the
+     * IntegrationRegistry. This method is called during a trade and must validate the adapter
+     * because its state may have changed since it was set in a separate transaction.
+     *
+     * @param _setToken                         Instance of the SetToken to be rebalanced
+     * @param _component                        IERC20 component whose exchange adapter is fetched
+     *
+     * @return IExchangeAdapter                 Adapter address
+     */
+    function _getExchangeAdapter(ISetToken _setToken, IERC20 _component) internal view returns(IExchangeAdapter) {
+        return IExchangeAdapter(getAndValidateAdapterWithHash(executionInfo[_setToken][_component].exchangeNameHash));
+    }
+
+    /**
+     * Gets the keccak256 hash of an exchange name after checking that it is a valid adapter. The
+     * IntegrationRegistry contract uses this hash as a mapping key to the adapter address. The
+     * method is called when setting exchanges for components before or during a rebalance.
+     *
+     * @param  _exchangeName                    Name of exchange adapter
+     *
+     * @return {bytes32}                        Keccak hash of the exchange adapter name
+     */
+    function _getValidExchangeAdapterHash(string memory _exchangeName) internal view returns (bytes32){
+        bytes32 exchangeNameHash = getNameHash(_exchangeName);
+        getAndValidateAdapterWithHash(exchangeNameHash);
+        return exchangeNameHash;
     }
 
     /**
