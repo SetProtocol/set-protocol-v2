@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /* ============ Constants ============ */
 
-    uint256 private constant GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX = 0;
+    uint256 private constant GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX = 0;                   // Id of protocol fee % assigned to this module in the Controller
 
     /* ============ State Variables ============ */
 
@@ -197,9 +197,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         require(!aggregateComponents.hasDuplicate(), "Cannot duplicate components");
 
         for (uint256 i = 0; i < aggregateComponents.length; i++) {
-
             executionInfo[_setToken][IERC20(aggregateComponents[i])].targetUnit = aggregateTargetUnits[i];
-
             emit TargetUnitsUpdated(_setToken, aggregateComponents[i], aggregateTargetUnits[i], _positionMultiplier);
         }
 
@@ -234,7 +232,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         onlyEOAIfUnrestricted(_setToken)
         virtual
     {
-
         _validateTradeParameters(_setToken, _component);
 
         TradeInfo memory tradeInfo = _createTradeInfo(_setToken, _component, _ethQuantityLimit);
@@ -242,7 +239,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _executeTrade(tradeInfo);
 
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
-
         (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         emit TradeExecuted(
@@ -281,7 +277,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         onlyEOAIfUnrestricted(_setToken)
         virtual
     {
-
         require(_noTokensToSell(_setToken), "Sell other set components first");
         require(
             executionInfo[_setToken][weth].targetUnit < _setToken.getDefaultPositionRealUnit(address(weth)).toUint256(),
@@ -295,7 +290,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _executeTrade(tradeInfo);
 
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
-
         (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         require(
@@ -334,6 +328,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             "Targets not met or ETH =~ 0"
         );
 
+        // positionMultiplier / (10^18 + raiseTargetPercentage)
+        // ex: (10 ** 18) / ((10 ** 18) + ether(.0025)) => 997506234413965087
         rebalanceInfo[_setToken].positionMultiplier = rebalanceInfo[_setToken].positionMultiplier.preciseDiv(
             PreciseUnitMath.preciseUnit().add(rebalanceInfo[_setToken].raiseTargetPercentage)
         );
@@ -341,6 +337,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * MANAGER ONLY: Set trade maximums for passed components of the SetToken. Can be called at anytime.
+     * Note: Trade maximums must be set before rebalance can begin properly - they are zero by
+     * default and trades will not execute if a component's trade size is greater than the maximum.
      *
      * @param _setToken             Address of the SetToken
      * @param _components           Array of components
@@ -603,7 +601,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         virtual
         returns (TradeInfo memory)
     {
-
         uint256 totalSupply = _setToken.totalSupply();
 
         TradeInfo memory tradeInfo;
@@ -617,12 +614,14 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         ) = _calculateTradeSizeAndDirection(_setToken, _component, totalSupply);
 
         tradeInfo.sendToken = tradeInfo.isSendTokenFixed ? address(_component) : address(weth);
-
         tradeInfo.receiveToken = tradeInfo.isSendTokenFixed ? address(weth): address(_component);
 
         tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
         tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
 
+        // If this is a trade from component into the bridge asset, sell the limit specified by
+        // the user in the trade method call parameter. If it's a trade from the bridge asset into
+        // a component, buy the lesser of user's limit or the SetToken's remaining bridge asset balance.
         tradeInfo.floatingQuantityLimit = tradeInfo.isSendTokenFixed
             ? _ethQuantityLimit
             : _ethQuantityLimit.min(tradeInfo.preTradeSendTokenBalance);
@@ -663,14 +662,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         tradeInfo.setToken = _setToken;
 
         tradeInfo.exchangeAdapter = _getExchangeAdapter(_setToken, _component);
-
         tradeInfo.isSendTokenFixed = true;
 
         tradeInfo.sendToken = address(weth);
         tradeInfo.receiveToken = address(_component);
 
         tradeInfo.setTotalSupply = totalSupply;
-
         tradeInfo.totalFixedQuantity =  currentNotional.sub(targetNotional);
         tradeInfo.floatingQuantityLimit = _componentQuantityLimit;
 
@@ -726,11 +723,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @return protocolFee              Amount of receive token taken as protocol fee
      */
     function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFee) {
-
-        uint256 exchangedQuantity =  IERC20(_tradeInfo.receiveToken).balanceOf(address(_tradeInfo.setToken)).sub(_tradeInfo.preTradeReceiveTokenBalance);
+        uint256 exchangedQuantity =  IERC20(_tradeInfo.receiveToken)
+            .balanceOf(address(_tradeInfo.setToken))
+            .sub(_tradeInfo.preTradeReceiveTokenBalance);
 
         protocolFee = getModuleFee(GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
-
         payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFee);
     }
 
