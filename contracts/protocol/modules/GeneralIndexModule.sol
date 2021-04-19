@@ -136,8 +136,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /* ============ Modifiers ============ */
 
-    modifier onlyAllowedTrader(ISetToken _setToken, address _caller) {
-        require(_isAllowedTrader(_setToken, _caller), "Address not permitted to trade");
+    modifier onlyAllowedTrader(ISetToken _setToken) {
+        require(_isAllowedTrader(_setToken, msg.sender), "Address not permitted to trade");
         _;
     }
 
@@ -228,7 +228,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     )
         external
         nonReentrant
-        onlyAllowedTrader(_setToken, msg.sender)
+        onlyAllowedTrader(_setToken)
         onlyEOAIfUnrestricted(_setToken)
         virtual
     {
@@ -273,7 +273,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     )
         external
         nonReentrant
-        onlyAllowedTrader(_setToken, msg.sender)
+        onlyAllowedTrader(_setToken)
         onlyEOAIfUnrestricted(_setToken)
         virtual
     {
@@ -321,7 +321,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken             Address of the SetToken
      */
-    function raiseAssetTargets(ISetToken _setToken) external onlyAllowedTrader(_setToken, msg.sender) virtual {
+    function raiseAssetTargets(ISetToken _setToken) external onlyAllowedTrader(_setToken) virtual {
         require(
             _allTargetsMet(_setToken)
             && _setToken.getDefaultPositionRealUnit(address(weth)).toUint256() > _getNormalizedTargetUnit(_setToken, weth),
@@ -897,13 +897,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * needs to be approved.
      *
      * @param _setToken             Instance of SetToken to be rebalanced
-     * @param  _caller              Address of the trader who called contract function
+     * @param  _trader              Address of the trader who called contract function
      *
-     * @return bool                 True if caller is an approved trader for the SetToken
+     * @return bool                 True if trader is an approved trader for the SetToken
      */
-    function _isAllowedTrader(ISetToken _setToken, address _caller) internal view returns (bool) {
+    function _isAllowedTrader(ISetToken _setToken, address _trader) internal view returns (bool) {
         TradePermissionInfo storage permissions = permissionInfo[_setToken];
-        return permissions.anyoneTrade || permissions.tradeAllowList[_caller];
+        return permissions.anyoneTrade || permissions.tradeAllowList[_trader];
     }
 
     /**
