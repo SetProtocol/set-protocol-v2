@@ -182,19 +182,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         external
         onlyManagerAndValidSet(_setToken)
     {
-        // Don't use validate arrays because empty arrays are valid
-        require(_newComponents.length == _newComponentsTargetUnits.length, "Array length mismatch");
-
-        address[] memory currentComponents = _setToken.getComponents();
-        require(
-            currentComponents.length == _oldComponentsTargetUnits.length,
-            "Old Components targets missing"
+        ( address[] memory aggregateComponents, uint256[] memory aggregateTargetUnits ) = _getAggregateComponentsAndUnits(
+            _setToken.getComponents(),
+            _newComponents,
+            _newComponentsTargetUnits,
+            _oldComponentsTargetUnits
         );
-
-        address[] memory aggregateComponents = currentComponents.extend(_newComponents);
-        uint256[] memory aggregateTargetUnits = _oldComponentsTargetUnits.extend(_newComponentsTargetUnits);
-
-        require(!aggregateComponents.hasDuplicate(), "Cannot duplicate components");
 
         for (uint256 i = 0; i < aggregateComponents.length; i++) {
             executionInfo[_setToken][IERC20(aggregateComponents[i])].targetUnit = aggregateTargetUnits[i];
@@ -863,6 +856,41 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function _getExchangeAdapter(ISetToken _setToken, IERC20 _component) internal view returns(IExchangeAdapter) {
         return IExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
+    }
+
+    /**
+     * Extends and/or updates the current component set and its target units with new components and targets,
+     * Validates inputs, requiring that that new components and new target units arrays are the same size, and
+     * that the number of old components target units matches the number of current components. Throws if
+     * a duplicate component has been added.
+     *
+     * @param  _currentComponents               Complete set of current SetToken components
+     * @param _newComponents                    Array of new components to add to allocation
+     * @param _newComponentsTargetUnits         Array of target units at end of rebalance for new components, maps to same index of _newComponents array
+     * @param _oldComponentsTargetUnits         Array of target units at end of rebalance for old component, maps to same index of
+     *                                               _setToken.getComponents() array, if component being removed set to 0.
+     *
+     * @return aggregateComponents              Array of current components extended by new components, without duplicates
+     * @return aggregateTargetUnits             Array of old component target units extended by new target units, without duplicates
+     */
+    function _getAggregateComponentsAndUnits(
+        address[] memory _currentComponents,
+        address[] calldata _newComponents,
+        uint256[] calldata _newComponentsTargetUnits,
+        uint256[] calldata _oldComponentsTargetUnits
+    )
+        internal
+        view
+        returns (address[] memory aggregateComponents, uint256[] memory aggregateTargetUnits)
+    {
+        // Don't use validate arrays because empty arrays are valid
+        require(_newComponents.length == _newComponentsTargetUnits.length, "Array length mismatch");
+        require(_currentComponents.length == _oldComponentsTargetUnits.length, "Old Components targets missing");
+
+        aggregateComponents = _currentComponents.extend(_newComponents);
+        aggregateTargetUnits = _oldComponentsTargetUnits.extend(_newComponentsTargetUnits);
+
+        require(!aggregateComponents.hasDuplicate(), "Cannot duplicate components");
     }
 
     /**
