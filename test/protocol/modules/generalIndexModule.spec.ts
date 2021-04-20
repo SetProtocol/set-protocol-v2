@@ -416,7 +416,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+          await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
         });
       });
 
@@ -504,7 +504,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+          await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
         });
       });
 
@@ -2128,7 +2128,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Cannot duplicate traders");
+          await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
         });
       });
 
