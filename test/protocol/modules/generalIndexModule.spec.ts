@@ -11,8 +11,7 @@ import {
   ether,
   preciseDiv,
   preciseMul,
-  preciseMulCeil,
-  hashAdapterName
+  preciseMulCeil
 } from "@utils/index";
 import {
   cacheBeforeEach,
@@ -482,9 +481,9 @@ describe("GeneralIndexModule", () => {
         await subject();
 
         for (let i = 0; i < subjectComponents.length; i++) {
-          const exchangeNameHash = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeNameHash;
-          const expectedExchangeNameHash = await hashAdapterName(subjectExchanges[i]);
-          expect(exchangeNameHash).to.be.eq(expectedExchangeNameHash);
+          const exchangeName = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeName;
+          const expectedExchangeName = subjectExchanges[i];
+          expect(exchangeName).to.be.eq(expectedExchangeName);
         }
       });
 
@@ -535,7 +534,7 @@ describe("GeneralIndexModule", () => {
 
         describe("for component other than weth", async () => {
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be valid adapter");
+            await expect(subject()).to.be.revertedWith("Unrecognized exchange name");
           });
         });
 
