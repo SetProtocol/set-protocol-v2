@@ -190,6 +190,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         );
 
         for (uint256 i = 0; i < aggregateComponents.length; i++) {
+            _validateComponentPositionType(_setToken, aggregateComponents[i]);
             executionInfo[_setToken][IERC20(aggregateComponents[i])].targetUnit = aggregateTargetUnits[i];
             emit TargetUnitsUpdated(_setToken, aggregateComponents[i], aggregateTargetUnits[i], _positionMultiplier);
         }
@@ -476,6 +477,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         for (uint256 i = 0; i < positions.length; i++) {
             ISetToken.Position memory position = positions[i];
+            _validateComponentPositionType(_setToken, position.component);
             executionInfo[_setToken][IERC20(position.component)].targetUnit = position.unit.toUint256();
             executionInfo[_setToken][IERC20(position.component)].lastTradeTimestamp = 0;
         }
@@ -904,6 +906,19 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
         uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
         require(currentUnit <= targetUnit, "Can not exceed target unit");
+    }
+
+    /**
+     * Validate that no external position modules are associated with component on the SetToken.
+     *
+     * @param _setToken         Instance of the SetToken
+     * @param _component        Component to check for external positions
+     */
+    function _validateComponentPositionType(ISetToken _setToken, address _component) internal view {
+        require(
+            _setToken.getExternalPositionModules(_component).length == 0,
+            "External positions not allowed"
+        );
     }
 
     /**

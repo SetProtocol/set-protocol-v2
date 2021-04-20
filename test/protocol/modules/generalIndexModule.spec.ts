@@ -33,6 +33,7 @@ const expect = getWaffleExpect();
 describe("GeneralIndexModule", () => {
   let owner: Account;
   let trader: Account;
+  let positionModule: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
@@ -42,6 +43,7 @@ describe("GeneralIndexModule", () => {
 
   let index: SetToken;
   let indexWithWeth: SetToken;
+  let indexWithPositionModule: SetToken;
   let indexModule: GeneralIndexModule;
 
   let balancerExchangeAdapter: BalancerV1ExchangeAdapter;
@@ -62,6 +64,7 @@ describe("GeneralIndexModule", () => {
     [
       owner,
       trader,
+      positionModule,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -80,6 +83,7 @@ describe("GeneralIndexModule", () => {
       setup.weth.address
     );
     await setup.controller.addModule(indexModule.address);
+    await setup.controller.addModule(positionModule.address);
 
     balancerExchangeAdapter = await deployer.modules.deployBalancerV1ExchangeAdapter(balancerSetup.exchange.address);
     sushiswapExchangeAdapter = await deployer.modules.deployUniswapV2ExchangeAdapterV2(sushiswapSetup.router.address);
@@ -119,6 +123,9 @@ describe("GeneralIndexModule", () => {
 
     await setup.streamingFeeModule.initialize(index.address, feeSettings);
     await setup.issuanceModule.initialize(index.address, ADDRESS_ZERO);
+
+    indexWithPositionModule = await setup.createSetToken(indexComponents, indexUnits, [positionModule.address]);
+    await indexWithPositionModule.connect(positionModule.wallet).initializeModule();
 
     indexWithWethComponents = [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address, setup.weth.address];
     indexWithWethUnits = [ether(86.9565217), bitcoin(.01111111), ether(100), ether(0.434782609)];
@@ -243,6 +250,29 @@ describe("GeneralIndexModule", () => {
         expect(isModuleEnabled).to.eq(true);
       });
     });
+
+    describe("when there are external positions for a component", async () => {
+        beforeEach(async () => {
+          subjectSetToken = indexWithPositionModule;
+          await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
+            indexComponents[0],
+            positionModule.address
+          );
+        });
+
+        afterEach(async () => {
+          await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
+            indexComponents[0],
+            positionModule.address
+          );
+        });
+
+        it("should revert", async() => {
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("External positions not allowed");
+          });
+        });
+      });
   });
 
   describe("when module is initalized", async () => {
@@ -366,6 +396,29 @@ describe("GeneralIndexModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+        });
+      });
+
+      describe("when there are external positions for a component", async () => {
+        beforeEach(async () => {
+          subjectSetToken = indexWithPositionModule;
+          await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
+            subjectNewComponents[0],
+            positionModule.address
+          );
+        });
+
+        afterEach(async () => {
+          await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
+            subjectNewComponents[0],
+            positionModule.address
+          );
+        });
+
+        it("should revert", async() => {
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("External positions not allowed");
+          });
         });
       });
     });
