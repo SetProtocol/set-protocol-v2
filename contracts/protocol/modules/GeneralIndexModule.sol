@@ -116,8 +116,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         address indexed _buyComponent,
         IExchangeAdapter _exchangeAdapter,
         address _executor,
-        uint256 _amountSold,
-        uint256 _netAmountBought,
+        uint256 _netAmountSold,
+        uint256 _netAmountReceived,
         uint256 _protocolFee
     );
 
@@ -233,7 +233,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _executeTrade(tradeInfo);
 
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
-        (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
+        (uint256 netSendAmount, uint256 netReceiveAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         emit TradeExecuted(
             tradeInfo.setToken,
@@ -241,8 +241,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             tradeInfo.receiveToken,
             tradeInfo.exchangeAdapter,
             msg.sender,
-            sellAmount,
-            netBuyAmount,
+            netSendAmount,
+            netReceiveAmount,
             protocolFee
         );
     }
@@ -284,10 +284,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _executeTrade(tradeInfo);
 
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
-        (uint256 sellAmount, uint256 netBuyAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
+        (uint256 netSendAmount, uint256 netReceiveAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         require(
-            netBuyAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize,
+            netReceiveAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize,
             "Trade amount > max trade size"
         );
 
@@ -299,8 +299,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             tradeInfo.receiveToken,
             tradeInfo.exchangeAdapter,
             msg.sender,
-            sellAmount,
-            netBuyAmount,
+            netSendAmount,
+            netReceiveAmount,
             protocolFee
         );
     }
@@ -734,12 +734,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _tradeInfo                Struct containing trade information used in internal functions
      * @param _component                IERC20 component which was traded
      *
-     * @return sellAmount               Amount of sendTokens used in the trade
-     * @return netBuyAmount             Amount of receiveTokens received in the trade (net of fees)
+     * @return netSendAmount            Amount of sendTokens used in the trade
+     * @return netReceiveAmount         Amount of receiveTokens received in the trade (net of fees)
      */
     function _updatePositionStateAndTimestamp(TradeInfo memory _tradeInfo, IERC20 _component)
         internal
-        returns (uint256 sellAmount, uint256 netBuyAmount)
+        returns (uint256 netSendAmount, uint256 netReceiveAmount)
     {
         (uint256 postTradeSendTokenBalance,,) = _tradeInfo.setToken.calculateAndEditDefaultPosition(
             _tradeInfo.sendToken,
@@ -752,8 +752,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             _tradeInfo.preTradeReceiveTokenBalance
         );
 
-        sellAmount = _tradeInfo.preTradeSendTokenBalance.sub(postTradeSendTokenBalance);
-        netBuyAmount = postTradeReceiveTokenBalance.sub(_tradeInfo.preTradeReceiveTokenBalance);
+        netSendAmount = _tradeInfo.preTradeSendTokenBalance.sub(postTradeSendTokenBalance);
+        netReceiveAmount = postTradeReceiveTokenBalance.sub(_tradeInfo.preTradeReceiveTokenBalance);
 
         executionInfo[_tradeInfo.setToken][_component].lastTradeTimestamp = block.timestamp;
     }
