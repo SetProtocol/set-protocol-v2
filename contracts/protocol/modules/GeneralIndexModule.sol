@@ -590,7 +590,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _component            IERC20 component to trade
      * @param _ethQuantityLimit     Max/min amount of weth spent/received during trade
      *
-     * @return TradeInfo            Struct containing data for trade
+     * @return tradeInfo            Struct containing data for trade
      */
     function _createTradeInfo(
         ISetToken _setToken,
@@ -600,9 +600,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         internal
         view
         virtual
-        returns (TradeInfo memory)
+        returns (TradeInfo memory tradeInfo)
     {
-        TradeInfo memory tradeInfo = _getDefaultTradeInfo(_setToken, _component, true);
+        tradeInfo = _getDefaultTradeInfo(_setToken, _component, true);
 
         if (tradeInfo.isSendTokenFixed){
             tradeInfo.sendQuantity = tradeInfo.totalFixedQuantity;
@@ -611,8 +611,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             tradeInfo.sendQuantity = _ethQuantityLimit.min(tradeInfo.preTradeSendTokenBalance);
             tradeInfo.floatingQuantityLimit = tradeInfo.totalFixedQuantity;
         }
-
-        return tradeInfo;
     }
 
     /**
@@ -622,7 +620,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _component                    IERC20 component to trade
      * @param _minComponentReceived         Min amount of component received during trade
      *
-     * @return TradeInfo                    Struct containing data for tradeRemaining info
+     * @return tradeInfo                    Struct containing data for tradeRemaining info
      */
     function _createTradeRemainingInfo(
         ISetToken _setToken,
@@ -631,9 +629,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     )
         internal
         view
-        returns (TradeInfo memory)
+        returns (TradeInfo memory tradeInfo)
     {
-        TradeInfo memory tradeInfo = _getDefaultTradeInfo(_setToken, _component, false);
+        tradeInfo = _getDefaultTradeInfo(_setToken, _component, false);
 
         (,,
             uint256 currentNotional,
@@ -643,8 +641,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         tradeInfo.sendQuantity =  currentNotional.sub(targetNotional);
         tradeInfo.floatingQuantityLimit = _minComponentReceived;
         tradeInfo.isSendTokenFixed = true;
-
-        return tradeInfo;
     }
 
     /**
@@ -658,14 +654,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _component                    IERC20 component to trade
      * @param  calculateTradeDirection      Indicates whether method should calculate trade size and direction
      *
-     * @return {TradeInfo}                  Struct containing partial data for trade
+     * @return tradeInfo                    Struct containing partial data for trade
      */
     function _getDefaultTradeInfo(ISetToken _setToken, IERC20 _component, bool calculateTradeDirection)
         internal
         view
-        returns (TradeInfo memory)
+        returns (TradeInfo memory tradeInfo)
     {
-        TradeInfo memory tradeInfo;
         tradeInfo.setToken = _setToken;
         tradeInfo.setTotalSupply = _setToken.totalSupply();
         tradeInfo.exchangeAdapter = _getExchangeAdapter(_setToken, _component);
@@ -687,8 +682,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
         tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
-
-        return tradeInfo;
     }
 
     /**
