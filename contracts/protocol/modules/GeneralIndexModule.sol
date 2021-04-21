@@ -310,7 +310,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * ACCESS LIMITED: For situation where all target units met and remaining WETH, uniformly raise targets by same percentage by applying
      * to logged positionMultiplier in RebalanceInfo struct, in order to allow further trading. Can be called multiple times if necessary,
      * targets are increased by amount specified by raiseAssetTargetsPercentage as set by manager. In order to reduce tracking error
-     * raising the target by a smaller amount allows greater granualarity in finding an equilibrium between the excess ETH and components
+     * raising the target by a smaller amount allows greater granularity in finding an equilibrium between the excess ETH and components
      * that need to be bought. Raising the targets too much could result in vastly under allocating to WETH as more WETH than necessary is
      * spent buying the components to meet their new target.
      *
@@ -878,8 +878,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /**
      * Calculates and returns the normalized target unit value.
      *
-     * @param _setToken                         Instance of the SettToken to be rebalanced
-     * @param _component                        IERC20 component whose normalized target unit is required
+     * @param _setToken             Instance of the SetToken to be rebalanced
+     * @param _component            IERC20 component whose normalized target unit is required
      *
      * @return uint256                          Normalized target unit of the component
      */
