@@ -1804,12 +1804,12 @@ describe("GeneralIndexModule", () => {
         const expectedDaiSize = preciseMul(currentDaiUnit, totalSupply).sub(preciseMul(ether(55), totalSupply));
 
         const [
-          isSell,
+          isSendTokenFixed,
           componentQuantity,
         ] = await subject();
 
         expect(componentQuantity).to.eq(expectedDaiSize);
-        expect(isSell).to.be.true;
+        expect(isSendTokenFixed).to.be.true;
       });
 
       describe("and the buy component does not meet the max trade size", async () => {
@@ -1834,12 +1834,12 @@ describe("GeneralIndexModule", () => {
           );
 
           const [
-            isSell,
+            isSendTokenFixed,
             componentQuantity,
           ] = await subject();
 
           expect(componentQuantity).to.eq(expectedWbtcSize);
-          expect(isSell).to.be.false;
+          expect(isSendTokenFixed).to.be.false;
         });
       });
 
