@@ -107,6 +107,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     event AssetExchangeUpdated(ISetToken indexed _setToken, address indexed _component, string _newExchangeName);
     event CoolOffPeriodUpdated(ISetToken indexed _setToken, address indexed _component, uint256 _newCoolOffPeriod);
     event RaiseTargetPercentageUpdated(ISetToken indexed _setToken, uint256 indexed _raiseTargetPercentage);
+    event PositionMultiplierUpdated(ISetToken indexed _setToken, uint256 indexed positionMultiplier);
 
     event AnyoneTradeUpdated(ISetToken indexed _setToken, bool indexed _status);
     event TraderStatusUpdated(ISetToken indexed _setToken, address indexed _trader, bool _status);
@@ -328,6 +329,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         rebalanceInfo[_setToken].positionMultiplier = rebalanceInfo[_setToken].positionMultiplier.preciseDiv(
             PreciseUnitMath.preciseUnit().add(rebalanceInfo[_setToken].raiseTargetPercentage)
         );
+        emit PositionMultiplierUpdated(_setToken, rebalanceInfo[_setToken].positionMultiplier);
     }
 
     /**

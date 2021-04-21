@@ -2003,6 +2003,20 @@ describe("GeneralIndexModule", () => {
           expect(positionMultiplier).to.eq(expectedPositionMultiplier);
         });
 
+        it("emits correct PositionMultiplierUpdated event", async () => {
+          const prePositionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          const expectedPositionMultiplier = preciseDiv(
+            prePositionMultiplier,
+            PRECISE_UNIT.add(ether(.0025))
+          );
+
+          await expect(subject()).to.emit(indexModule, "PositionMultiplierUpdated").withArgs(
+            subjectSetToken.address,
+            expectedPositionMultiplier
+          );
+        });
+
         describe("when the calling address is not a permissioned address", async () => {
           beforeEach(async () => {
             subjectCaller = await getRandomAccount();
