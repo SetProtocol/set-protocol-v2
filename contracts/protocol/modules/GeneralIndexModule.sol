@@ -133,7 +133,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     mapping(ISetToken => mapping(IERC20 => TradeExecutionParams)) public executionInfo;     // Mapping of SetToken to execution parameters of each asset on SetToken
     mapping(ISetToken => TradePermissionInfo) public permissionInfo;                        // Mapping of SetToken to trading permissions
     mapping(ISetToken => RebalanceInfo) public rebalanceInfo;                               // Mapping of SetToken to relevant data for current rebalance
-    IWETH public weth;                                                                      // Weth contract address
+    IWETH public immutable weth;                                                            // Weth contract address
 
     /* ============ Modifiers ============ */
 
