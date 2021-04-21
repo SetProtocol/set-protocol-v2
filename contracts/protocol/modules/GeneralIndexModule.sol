@@ -258,12 +258,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken                     Address of the SetToken
      * @param _component                    Address of the SetToken component to trade
-     * @param _componentQuantityLimit       Min amount of component received during trade
+     * @param _minComponentReceived        Min amount of component received during trade
      */
     function tradeRemainingWETH(
         ISetToken _setToken,
         IERC20 _component,
-        uint256 _componentQuantityLimit
+        uint256 _minComponentReceived
     )
         external
         nonReentrant
@@ -279,7 +279,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         _validateTradeParameters(_setToken, _component);
 
-        TradeInfo memory tradeInfo = _createTradeRemainingInfo(_setToken, _component, _componentQuantityLimit);
+        TradeInfo memory tradeInfo = _createTradeRemainingInfo(_setToken, _component, _minComponentReceived);
 
         _executeTrade(tradeInfo);
 
@@ -632,14 +632,14 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @param _setToken                     Instance of the SetToken to rebalance
      * @param _component                    IERC20 component to trade
-     * @param _componentQuantityLimit       Min amount of component received during trade
+     * @param _minComponentReceived         Min amount of component received during trade
      *
      * @return TradeInfo                    Struct containing data for trade
      */
     function _createTradeRemainingInfo(
         ISetToken _setToken,
         IERC20 _component,
-        uint256 _componentQuantityLimit
+        uint256 _minComponentReceived
     )
         internal
         view
@@ -665,7 +665,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         tradeInfo.setTotalSupply = totalSupply;
         tradeInfo.totalFixedQuantity =  currentNotional.sub(targetNotional);
-        tradeInfo.floatingQuantityLimit = _componentQuantityLimit;
+        tradeInfo.floatingQuantityLimit = _minComponentReceived;
 
         tradeInfo.preTradeSendTokenBalance = weth.balanceOf(address(_setToken));
         tradeInfo.preTradeReceiveTokenBalance = _component.balanceOf(address(_setToken));

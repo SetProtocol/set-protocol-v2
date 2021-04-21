@@ -1346,7 +1346,7 @@ describe("GeneralIndexModule", () => {
     describe("#tradeRemainingWETH", async () => {
       let subjectComponent: Address;
       let subjectIncreaseTime: BigNumber;
-      let subjectComponentQuantityLimit: BigNumber;
+      let subjectMinComponentReceived: BigNumber;
 
       before(async () => {
         // current units [ether(86.9565217), bitcoin(.01111111), ether(100)]
@@ -1389,7 +1389,7 @@ describe("GeneralIndexModule", () => {
         subjectSetToken = index;
         subjectComponent = setup.wbtc.address;
         subjectIncreaseTime = ONE_MINUTE_IN_SECONDS.mul(5);
-        subjectComponentQuantityLimit = ZERO;
+        subjectMinComponentReceived = ZERO;
       };
 
       async function subject(): Promise<ContractTransaction> {
@@ -1397,7 +1397,7 @@ describe("GeneralIndexModule", () => {
         return await indexModule.connect(subjectCaller.wallet).tradeRemainingWETH(
           subjectSetToken.address,
           subjectComponent,
-          subjectComponentQuantityLimit
+          subjectMinComponentReceived
         );
       }
 
@@ -1416,7 +1416,7 @@ describe("GeneralIndexModule", () => {
               [setup.weth.address, setup.wbtc.address]
             );
 
-            subjectComponentQuantityLimit = expectedWbtcOut;
+            subjectMinComponentReceived = expectedWbtcOut;
           });
 
           it("the position units and lastTradeTimestamp should be set as expected", async () => {
@@ -1513,13 +1513,13 @@ describe("GeneralIndexModule", () => {
             });
           });
 
-          describe("when exchange returns amount less than subjectComponentQuantityLimit", async () => {
+          describe("when exchange returns amount less than subjectMinComponentReceived", async () => {
             beforeEach(async () => {
               [, expectedWbtcOut] = await sushiswapSetup.router.getAmountsOut(
                 wethAmountIn,
                 [setup.weth.address, setup.wbtc.address]
               );
-              subjectComponentQuantityLimit = expectedWbtcOut.mul(2);
+              subjectMinComponentReceived = expectedWbtcOut.mul(2);
             });
 
             it("should revert", async () => {
@@ -1530,7 +1530,7 @@ describe("GeneralIndexModule", () => {
           describe("when the target has been met and trading overshoots target unit", async () => {
             beforeEach(async () => {
               subjectComponent = setup.dai.address;
-              subjectComponentQuantityLimit = ZERO;
+              subjectMinComponentReceived = ZERO;
             });
 
             it("the trade reverts", async () => {
@@ -1551,7 +1551,7 @@ describe("GeneralIndexModule", () => {
           describe("when the passed component is not included in rebalance components", async () => {
             beforeEach(async () => {
               subjectComponent = sushiswapSetup.uni.address;
-              subjectComponentQuantityLimit = ZERO;
+              subjectMinComponentReceived = ZERO;
             });
 
             it("should revert", async () => {
@@ -1584,7 +1584,7 @@ describe("GeneralIndexModule", () => {
               subjectIncreaseTime = ONE_MINUTE_IN_SECONDS.mul(5);
               subjectCallData = indexModule.interface.encodeFunctionData(
                 "tradeRemainingWETH",
-                [subjectSetToken.address, subjectComponent, subjectComponentQuantityLimit]
+                [subjectSetToken.address, subjectComponent, subjectMinComponentReceived]
               );
               subjectValue = ZERO;
             });
