@@ -91,10 +91,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         IExchangeAdapter exchangeAdapter;       // Instance of Exchange Adapter
         address sendToken;                      // Address of token being sold
         address receiveToken;                   // Address of token being bought
-        bool isSendTokenFixed;                  // Boolean indicating fixed asset is send token
+        bool isSell;                            // Boolean indicating component (or WETH) is being sold
         uint256 setTotalSupply;                 // Total supply of Set (in precise units)
-        uint256 totalFixedQuantity;             // Total quanity of fixed asset being traded
-        uint256 floatingQuantityLimit;          // Max/min amount of floating token spent/received during trade
+        uint256 totalFixedQuantity;             // Total quantity of fixed asset being traded
+        uint256 sendQuantity;                   // Units of component sent to the exchange
+        uint256 minReceiveQuantity;             // Min units of component be received from the exchange
         uint256 preTradeSendTokenBalance;       // Total initial balance of token being sold
         uint256 preTradeReceiveTokenBalance;    // Total initial balance of token being bought
     }
@@ -580,6 +581,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Create and return TradeInfo struct. This function reverts if the target has already been met.
+     * If this is a trade from component into WETH, sell the total fixed component quantity
+     * and expect to receive an ETH amount the user has specified (or more). If it's a trade from
+     * WETH into a component, sell the lesser of: the user's WETH limit OR the SetToken's
+     * remaining WETH balance and expect to receive a fixed component quantity.
      *
      * @param _setToken             Instance of the SetToken to rebalance
      * @param _component            IERC20 component to trade
@@ -597,32 +602,15 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         virtual
         returns (TradeInfo memory)
     {
-        uint256 totalSupply = _setToken.totalSupply();
+        TradeInfo memory tradeInfo = _getDefaultTradeInfo(_setToken, _component, true);
 
-        TradeInfo memory tradeInfo;
-        tradeInfo.setToken = _setToken;
-
-        tradeInfo.exchangeAdapter = _getExchangeAdapter(_setToken, _component);
-
-        (
-            tradeInfo.isSendTokenFixed,
-            tradeInfo.totalFixedQuantity
-        ) = _calculateTradeSizeAndDirection(_setToken, _component, totalSupply);
-
-        tradeInfo.sendToken = tradeInfo.isSendTokenFixed ? address(_component) : address(weth);
-        tradeInfo.receiveToken = tradeInfo.isSendTokenFixed ? address(weth): address(_component);
-
-        tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
-        tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
-
-        // If this is a trade from component into the bridge asset, sell the limit specified by
-        // the user in the trade method call parameter. If it's a trade from the bridge asset into
-        // a component, buy the lesser of user's limit or the SetToken's remaining bridge asset balance.
-        tradeInfo.floatingQuantityLimit = tradeInfo.isSendTokenFixed
-            ? _ethQuantityLimit
-            : _ethQuantityLimit.min(tradeInfo.preTradeSendTokenBalance);
-
-        tradeInfo.setTotalSupply = totalSupply;
+        if (tradeInfo.isSell){
+            tradeInfo.sendQuantity = tradeInfo.totalFixedQuantity;
+            tradeInfo.minReceiveQuantity = _ethQuantityLimit;
+        } else {
+            tradeInfo.sendQuantity = _ethQuantityLimit.min(tradeInfo.preTradeSendTokenBalance);
+            tradeInfo.minReceiveQuantity = tradeInfo.totalFixedQuantity;
+        }
 
         return tradeInfo;
     }
@@ -634,7 +622,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _component                    IERC20 component to trade
      * @param _minComponentReceived         Min amount of component received during trade
      *
-     * @return TradeInfo                    Struct containing data for trade
+     * @return TradeInfo                    Struct containing data for tradeRemaining info
      */
     function _createTradeRemainingInfo(
         ISetToken _setToken,
@@ -645,36 +633,68 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         view
         returns (TradeInfo memory)
     {
+        TradeInfo memory tradeInfo = _getDefaultTradeInfo(_setToken, _component, false);
 
-        uint256 totalSupply = _setToken.totalSupply();
+        (,,
+            uint256 currentNotional,
+            uint256 targetNotional
+        ) = _getUnitsAndNotionalAmounts(_setToken, weth, tradeInfo.setTotalSupply);
 
-        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, weth);
-        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, weth);
+        tradeInfo.sendQuantity =  currentNotional.sub(targetNotional);
+        tradeInfo.minReceiveQuantity = _minComponentReceived;
+        tradeInfo.isSell = true;
 
-        uint256 currentNotional = totalSupply.getDefaultTotalNotional(currentUnit);
-        uint256 targetNotional = totalSupply.preciseMulCeil(targetUnit);
+        return tradeInfo;
+    }
 
+    /**
+     * Create and returns a partial TradeInfo struct with all fields that overlap between `trade`
+     * and `tradeRemaining` info constructors filled in. Values for `sendQuantity` and `minReceiveQuantity`
+     * are derived separately, outside this method. `trade` requires that trade size and direction are
+     * calculated, whereas `tradeRemaining` is a special case that is automatically considered a "sell"
+     * from the standpoint of trade execution, but a "buy" in terms of how the sendToken and receiveToken
+     * parameters are determined.
+     *
+     * @param _setToken                     Instance of the SetToken to rebalance
+     * @param _component                    IERC20 component to trade
+     * @param  calculateTradeDirection      Indicates whether method should calculate trade size and direction
+     *
+     * @return {TradeInfo}                  Struct containing partial data for trade
+     */
+    function _getDefaultTradeInfo(ISetToken _setToken, IERC20 _component, bool calculateTradeDirection)
+        internal
+        view
+        returns (TradeInfo memory)
+    {
         TradeInfo memory tradeInfo;
         tradeInfo.setToken = _setToken;
-
+        tradeInfo.setTotalSupply = _setToken.totalSupply();
         tradeInfo.exchangeAdapter = _getExchangeAdapter(_setToken, _component);
-        tradeInfo.isSendTokenFixed = true;
 
-        tradeInfo.sendToken = address(weth);
-        tradeInfo.receiveToken = address(_component);
+        if(calculateTradeDirection){
+            (
+                tradeInfo.isSell,
+                tradeInfo.totalFixedQuantity
+            ) = _calculateTradeSizeAndDirection(_setToken, _component, tradeInfo.setTotalSupply);
+        }
 
-        tradeInfo.setTotalSupply = totalSupply;
-        tradeInfo.totalFixedQuantity =  currentNotional.sub(targetNotional);
-        tradeInfo.floatingQuantityLimit = _minComponentReceived;
+        if (tradeInfo.isSell){
+            tradeInfo.sendToken = address(_component);
+            tradeInfo.receiveToken = address(weth);
+        } else {
+            tradeInfo.sendToken = address(weth);
+            tradeInfo.receiveToken = address(_component);
+        }
 
-        tradeInfo.preTradeSendTokenBalance = weth.balanceOf(address(_setToken));
-        tradeInfo.preTradeReceiveTokenBalance = _component.balanceOf(address(_setToken));
+        tradeInfo.preTradeSendTokenBalance = IERC20(tradeInfo.sendToken).balanceOf(address(_setToken));
+        tradeInfo.preTradeReceiveTokenBalance = IERC20(tradeInfo.receiveToken).balanceOf(address(_setToken));
+
         return tradeInfo;
     }
 
     /**
      * Function handles all interactions with exchange. All GeneralIndexModule adapters must allow for selling or buying a fixed
-     * quantity of a token in return for a non-fixed (floating) quantity of a token. If isSendTokenFixed is true then the adapter
+     * quantity of a token in return for a non-fixed (floating) quantity of a token. If `isSell` is true then the adapter
      * will choose the exchange interface associated with inputting a fixed amount, otherwise it will select the interface used for
      * receiving a fixed amount. Any other exchange specific data can also be created by calling generateDataParam function.
      *
@@ -685,13 +705,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _tradeInfo.setToken.invokeApprove(
             _tradeInfo.sendToken,
             _tradeInfo.exchangeAdapter.getSpender(),
-            _tradeInfo.isSendTokenFixed ? _tradeInfo.totalFixedQuantity : _tradeInfo.floatingQuantityLimit
+            _tradeInfo.sendQuantity
         );
 
         bytes memory tradeData = _tradeInfo.exchangeAdapter.generateDataParam(
             _tradeInfo.sendToken,
             _tradeInfo.receiveToken,
-            _tradeInfo.isSendTokenFixed
+            _tradeInfo.isSell
         );
 
         (
@@ -702,8 +722,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             _tradeInfo.sendToken,
             _tradeInfo.receiveToken,
             address(_tradeInfo.setToken),
-            _tradeInfo.isSendTokenFixed ? _tradeInfo.totalFixedQuantity : _tradeInfo.floatingQuantityLimit,
-            _tradeInfo.isSendTokenFixed ? _tradeInfo.floatingQuantityLimit : _tradeInfo.totalFixedQuantity,
+            _tradeInfo.sendQuantity,
+            _tradeInfo.minReceiveQuantity,
             tradeData
         );
 
@@ -768,7 +788,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _component                IERC20 component to trade
      * @param _totalSupply              Total supply of _setToken
      *
-     * @return isSendTokenFixed         Boolean indicating if sendToken is fixed (if component is being sold)
+     * @return isSell                   Boolean indicating if component is being sold
      * @return totalFixedQuantity       Amount of fixed token to send or receive
      */
     function _calculateTradeSizeAndDirection(
@@ -778,24 +798,57 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     )
         internal
         view
-        returns (bool isSendTokenFixed, uint256 totalFixedQuantity)
+        returns (bool isSell, uint256 totalFixedQuantity)
     {
         uint256 protocolFee = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX);
         uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
 
-        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
-        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
+        (
+            uint256 currentUnit,
+            uint256 targetUnit,
+            uint256 currentNotional,
+            uint256 targetNotional
+        ) = _getUnitsAndNotionalAmounts(_setToken, _component, _totalSupply);
 
         require(currentUnit != targetUnit, "Target already met");
 
-        uint256 currentNotional = _totalSupply.getDefaultTotalNotional(currentUnit);
-        uint256 targetNotional = _totalSupply.preciseMulCeil(targetUnit);
+        isSell = targetNotional < currentNotional;
 
-        isSendTokenFixed = targetNotional < currentNotional;
-
-        totalFixedQuantity = isSendTokenFixed
+        // ? - lesserOf: (componentMaxSize, (currentNotional - targetNotional))
+        // : - lesserOf: (componentMaxSize, (targetNotional - currentNotional) / 10 ** 18 - protocolFee)
+        totalFixedQuantity = isSell
             ? componentMaxSize.min(currentNotional.sub(targetNotional))
             : componentMaxSize.min(targetNotional.sub(currentNotional).preciseDiv(PreciseUnitMath.preciseUnit().sub(protocolFee)));
+    }
+
+    /**
+     * Gets unit and notional amount values for current position and target. These are necessary
+     * to calculate the trade size and direction for regular trades and the `sendQuantity` for
+     * remainingWEth trades.
+     *
+     * @param _setToken                 Instance of the SetToken to rebalance
+     * @param _component                IERC20 component to calculate notional amounts for
+     * @param _totalSupply              SetToken total supply
+     *
+     * @return uint256              Current default position real unit of component
+     * @return uint256              Normalized unit of the trade target
+     * @return uint256              Current notional amount: total notional amount of SetToken default position
+     * @return uint256              Target notional amount: Total SetToken supply * targetUnit
+     */
+    function _getUnitsAndNotionalAmounts(ISetToken _setToken, IERC20 _component, uint256 _totalSupply)
+        internal
+        view
+        returns (uint256, uint256, uint256, uint256)
+    {
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
+        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
+
+        return (
+            currentUnit,
+            targetUnit,
+            _totalSupply.getDefaultTotalNotional(currentUnit),
+            _totalSupply.preciseMulCeil(targetUnit)
+        );
     }
 
     /**
