@@ -81,4 +81,8 @@ contract PreciseUnitMathMock {
     function safePower(uint256 a, uint256 b) external pure returns(uint256) {
         return a.safePower(b);
     }
+
+    function approximatelyEquals(uint256 a, uint256 b, uint256 range) external pure returns (bool) {
+        return a.approximatelyEquals(b, range);
+    }
 }

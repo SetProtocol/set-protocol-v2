@@ -462,4 +462,66 @@ describe("PreciseUnitMath", () => {
       });
     });
   });
+
+  describe("#approximatelyEquals: uint256", async () => {
+    let subjectA: BigNumber;
+    let subjectB: BigNumber;
+    let subjectRange: BigNumber;
+
+    beforeEach(async () => {
+      subjectA = ether(2);
+      subjectB = ether(3);
+      subjectRange = ether(2);
+    });
+
+    async function subject(): Promise<[BigNumber]> {
+      return mathMock.approximatelyEquals(subjectA, subjectB, subjectRange);
+    }
+
+    it("should return true when approximately equal within range", async () => {
+      expect(await subject()).to.be.true;
+    });
+
+    describe("when not approximately equal and a < b", async () => {
+      beforeEach(async () => {
+        subjectRange = ether(.5);
+      });
+
+      it("should return false", async () => {
+        expect(await subject()).to.be.false;
+      });
+    });
+
+    describe("when not approximately equal and a > b", async () => {
+      beforeEach(async () => {
+        subjectB = ether(1);
+        subjectRange = ether(.5);
+      });
+
+      it("should return false", async () => {
+        expect(await subject()).to.be.false;
+      });
+    });
+
+    describe("when exactly within range and a < b", async () => {
+      beforeEach(async () => {
+        subjectRange = ether(1);
+      });
+
+      it("should return true", async () => {
+        expect(await subject()).to.be.true;
+      });
+    });
+
+    describe("when exactly within range and a > b", async () => {
+      beforeEach(async () => {
+        subjectB = ether(1);
+        subjectRange = ether(1);
+      });
+
+      it("should return true", async () => {
+        expect(await subject()).to.be.true;
+      });
+    });
+  });
 });

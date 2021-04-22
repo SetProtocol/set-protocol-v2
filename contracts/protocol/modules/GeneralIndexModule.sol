@@ -1034,7 +1034,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, IERC20(_component));
 
         return (normalizedTargetUnit > 0)
-            ? (normalizedTargetUnit.sub(1) > currentUnit || normalizedTargetUnit.add(1) < currentUnit)
+            ? !(normalizedTargetUnit.approximatelyEquals(currentUnit, 1))
             : normalizedTargetUnit != currentUnit;
     }
 
