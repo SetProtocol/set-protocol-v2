@@ -347,13 +347,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function setTradeMaximums(
         ISetToken _setToken,
-        address[] calldata _components,
-        uint256[] calldata _tradeMaximums
+        address[] memory _components,
+        uint256[] memory _tradeMaximums
     )
         external
         onlyManagerAndValidSet(_setToken)
     {
-        _validateAddressAndUintArrays(_components, _tradeMaximums);
+        _components.validatePairsWithArray(_tradeMaximums);
 
         for (uint256 i = 0; i < _components.length; i++) {
             executionInfo[_setToken][IERC20(_components[i])].maxSize = _tradeMaximums[i];
@@ -370,13 +370,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function setExchanges(
         ISetToken _setToken,
-        address[] calldata _components,
-        string[] calldata _exchangeNames
+        address[] memory _components,
+        string[] memory _exchangeNames
     )
         external
         onlyManagerAndValidSet(_setToken)
     {
-        _validateAddressAndStringArrays(_components, _exchangeNames);
+        _components.validatePairsWithArray(_exchangeNames);
 
         for (uint256 i = 0; i < _components.length; i++) {
             if (_components[i] != address(weth)) {
@@ -401,13 +401,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function setCoolOffPeriods(
         ISetToken _setToken,
-        address[] calldata _components,
-        uint256[] calldata _coolOffPeriods
+        address[] memory _components,
+        uint256[] memory _coolOffPeriods
     )
         external
         onlyManagerAndValidSet(_setToken)
     {
-        _validateAddressAndUintArrays(_components, _coolOffPeriods);
+        _components.validatePairsWithArray(_coolOffPeriods);
 
         for (uint256 i = 0; i < _components.length; i++) {
             executionInfo[_setToken][IERC20(_components[i])].coolOffPeriod = _coolOffPeriods[i];
@@ -442,13 +442,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function setTraderStatus(
         ISetToken _setToken,
-        address[] calldata _traders,
-        bool[] calldata _statuses
+        address[] memory _traders,
+        bool[] memory _statuses
     )
         external
         onlyManagerAndValidSet(_setToken)
     {
-        _validateAddressAndBoolArrays(_traders, _statuses);
+        _traders.validatePairsWithArray(_statuses);
 
         for (uint256 i = 0; i < _traders.length; i++) {
             if (_statuses[i]) {
@@ -995,52 +995,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     function _isAllowedTrader(ISetToken _setToken, address _trader) internal view returns (bool) {
         TradePermissionInfo storage permissions = permissionInfo[_setToken];
         return permissions.anyoneTrade || permissions.tradeAllowList[_trader];
-    }
-
-    /**
-     * Validate address and uint arrays are of equal length. Validate that address arrays
-     * are not empty and contain no duplicate elements.
-     *
-     * @param _addresses            Array of addresses
-     * @param _data                 Array of uint256 values
-     */
-    function _validateAddressAndUintArrays(address[] calldata _addresses, uint256[] calldata _data) internal pure {
-        require(_addresses.length == _data.length, "Array length mismatch");
-        _validateAddressArray(_addresses);
-    }
-
-    /**
-     * Validate address and string arrays are of equal length. Validate that address arrays
-     * are not empty and contain no duplicate elements.
-     *
-     * @param _addresses            Array of addresses
-     * @param _data                 Array of string values
-     */
-    function _validateAddressAndStringArrays(address[] calldata _addresses, string[] calldata _data) internal pure {
-        require(_addresses.length == _data.length, "Array length mismatch");
-        _validateAddressArray(_addresses);
-    }
-
-    /**
-     * Validate address and bool arrays are of equal length. Validate that address arrays
-     * are not empty and contain no duplicate elements.
-     *
-     * @param _addresses            Array of addresses
-     * @param _data                 Array of bool values
-     */
-    function _validateAddressAndBoolArrays(address[] calldata _addresses, bool[] calldata _data) internal pure {
-        require(_addresses.length == _data.length, "Array length mismatch");
-        _validateAddressArray(_addresses);
-    }
-
-    /**
-     * Validate address arrays are not empty and contain no duplicate elements.
-     *
-     * @param _addresses           Array of addresses
-     */
-    function _validateAddressArray(address[] calldata _addresses) internal pure {
-        require(_addresses.length > 0, "Array length must be > 0");
-        require(!_addresses.hasDuplicate(), "Cannot duplicate addresses");
     }
 
     /**
