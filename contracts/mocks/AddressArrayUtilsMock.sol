@@ -51,6 +51,26 @@ contract AddressArrayUtilsMock {
         return A.pop(index);
     }
 
+    function testValidatePairsWithArrayUint(address[] memory A, uint[] memory a) external view {
+        A.validatePairsWithArray(a);
+    }
+
+    function testValidatePairsWithArrayBool(address[] memory A, bool[] memory a) external view {
+        A.validatePairsWithArray(a);
+    }
+
+    function testValidatePairsWithArrayString(address[] memory A, string[] memory a) external view {
+        A.validatePairsWithArray(a);
+    }
+
+    function testValidatePairsWithArrayAddress(address[] memory A, address[] memory a) external view {
+        A.validatePairsWithArray(a);
+    }
+
+    function testValidatePairsWithArrayBytes(address[] memory A, bytes memory a) external view {
+        A.validatePairsWithArray(a);
+    }
+
     function setStorageArray(address[] memory A) external {
         storageArray = A;
     }

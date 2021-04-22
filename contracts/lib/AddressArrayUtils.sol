@@ -74,7 +74,7 @@ library AddressArrayUtils {
 
     /**
      * @param A The input array to search
-     * @param a The address to remove     
+     * @param a The address to remove
      * @return Returns the array with the object removed.
      */
     function remove(address[] memory A, address a)
@@ -148,5 +148,75 @@ library AddressArrayUtils {
             newAddresses[aLength + j] = B[j];
         }
         return newAddresses;
+    }
+
+    /**
+     * Validate that address and uint array lengths match. Validate address array is not empty
+     * and contains no duplicate elements.
+     *
+     * @param A         Array of addresses
+     * @param B         Array of uint
+     */
+    function validatePairsWithArray(address[] memory A, uint[] memory B) internal pure {
+        require(A.length == B.length, "Array length mismatch");
+        _validateLengthAndUniqueness(A);
+    }
+
+    /**
+     * Validate that address and bool array lengths match. Validate address array is not empty
+     * and contains no duplicate elements.
+     *
+     * @param A         Array of addresses
+     * @param B         Array of bool
+     */
+    function validatePairsWithArray(address[] memory A, bool[] memory B) internal pure {
+        require(A.length == B.length, "Array length mismatch");
+        _validateLengthAndUniqueness(A);
+    }
+
+    /**
+     * Validate that address and string array lengths match. Validate address array is not empty
+     * and contains no duplicate elements.
+     *
+     * @param A         Array of addresses
+     * @param B         Array of strings
+     */
+    function validatePairsWithArray(address[] memory A, string[] memory B) internal pure {
+        require(A.length == B.length, "Array length mismatch");
+        _validateLengthAndUniqueness(A);
+    }
+
+    /**
+     * Validate that address array lengths match, and calling address array are not empty
+     * and contain no duplicate elements.
+     *
+     * @param A         Array of addresses
+     * @param B         Array of addresses
+     */
+    function validatePairsWithArray(address[] memory A, address[] memory B) internal pure {
+        require(A.length == B.length, "Array length mismatch");
+        _validateLengthAndUniqueness(A);
+    }
+
+    /**
+     * Validate that address and bytes array lengths match. Validate address array is not empty
+     * and contains no duplicate elements.
+     *
+     * @param A         Array of addresses
+     * @param B         Array of bytes
+     */
+    function validatePairsWithArray(address[] memory A, bytes memory B) internal pure {
+        require(A.length == B.length, "Array length mismatch");
+        _validateLengthAndUniqueness(A);
+    }
+
+    /**
+     * Validate address array is not empty and contains no duplicate elements.
+     *
+     * @param A          Array of addresses
+     */
+    function _validateLengthAndUniqueness(address[] memory A) internal pure {
+        require(A.length > 0, "Array length must be > 0");
+        require(!hasDuplicate(A), "Cannot duplicate addresses");
     }
 }

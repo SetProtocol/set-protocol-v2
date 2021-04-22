@@ -1,4 +1,5 @@
 import "module-alias/register";
+import { ethers } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address } from "@utils/types";
@@ -271,6 +272,251 @@ describe("AddressArrayUtils", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Index must be < A length");
+      });
+    });
+  });
+
+  describe("#validatePairsWithArray (uint)", async () => {
+    let subjectArray: Address[];
+    let subjectUintArray: BigNumber[];
+
+    beforeEach(async () => {
+      subjectArray = baseArray;
+      subjectUintArray = [BigNumber.from(1), BigNumber.from(2), BigNumber.from(3)];
+    });
+
+    async function subject(): Promise<any> {
+      return addressArrayUtils.testValidatePairsWithArrayUint(subjectArray, subjectUintArray);
+    }
+
+    it("should validate equal non-zero length arrays when subject array has no duplicates", async () => {
+      await subject();
+    });
+
+    describe("when array lengths do not match", async () => {
+      beforeEach(async () => {
+        subjectUintArray = [BigNumber.from(1), BigNumber.from(2)];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length mismatch");
+      });
+    });
+
+    describe("when arrays are zero length", async () => {
+      beforeEach(async () => {
+        subjectArray = [];
+        subjectUintArray = [];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length must be > 0");
+      });
+    });
+
+    describe("when calling address array contains duplicates", async () => {
+      beforeEach(async () => {
+        subjectArray = [accountOne.address, accountOne.address, accountThree.address];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
+      });
+    });
+  });
+
+  describe("#validatePairsWithArray (bool)", async () => {
+    let subjectArray: Address[];
+    let subjectBoolArray: boolean[];
+
+    beforeEach(async () => {
+      subjectArray = baseArray;
+      subjectBoolArray = [true, false, true];
+    });
+
+    async function subject(): Promise<any> {
+      return addressArrayUtils.testValidatePairsWithArrayBool(subjectArray, subjectBoolArray);
+    }
+
+    it("should validate equal non-zero length arrays when subject array has no duplicates", async () => {
+      await subject();
+    });
+
+    describe("when array lengths do not match", async () => {
+      beforeEach(async () => {
+        subjectBoolArray = [true, false];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length mismatch");
+      });
+    });
+
+    describe("when arrays are zero length", async () => {
+      beforeEach(async () => {
+        subjectArray = [];
+        subjectBoolArray = [];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length must be > 0");
+      });
+    });
+
+    describe("when calling address array contains duplicates", async () => {
+      beforeEach(async () => {
+        subjectArray = [accountOne.address, accountOne.address, accountThree.address];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
+      });
+    });
+  });
+
+  describe("#validatePairsWithArray (string)", async () => {
+    let subjectArray: Address[];
+    let subjectStringArray: string[];
+
+    beforeEach(async () => {
+      subjectArray = baseArray;
+      subjectStringArray = ["a", "b", "c"];
+    });
+
+    async function subject(): Promise<any> {
+      return addressArrayUtils.testValidatePairsWithArrayString(subjectArray, subjectStringArray);
+    }
+
+    it("should validate equal non-zero length arrays when subject array has no duplicates", async () => {
+      await subject();
+    });
+
+    describe("when array lengths do not match", async () => {
+      beforeEach(async () => {
+        subjectStringArray = ["a", "b"];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length mismatch");
+      });
+    });
+
+    describe("when arrays are zero length", async () => {
+      beforeEach(async () => {
+        subjectArray = [];
+        subjectStringArray = [];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length must be > 0");
+      });
+    });
+
+    describe("when calling address array contains duplicates", async () => {
+      beforeEach(async () => {
+        subjectArray = [accountOne.address, accountOne.address, accountThree.address];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
+      });
+    });
+  });
+
+  describe("#validatePairsWithArray (address)", async () => {
+    let subjectArray: Address[];
+    let subjectAddressArray: Address[];
+
+    beforeEach(async () => {
+      subjectArray = baseArray;
+      subjectAddressArray = baseArray;
+    });
+
+    async function subject(): Promise<any> {
+      return addressArrayUtils.testValidatePairsWithArrayAddress(subjectArray, subjectAddressArray);
+    }
+
+    it("should validate equal non-zero length arrays when subject array has no duplicates", async () => {
+      await subject();
+    });
+
+    describe("when array lengths do not match", async () => {
+      beforeEach(async () => {
+        subjectAddressArray = [baseArray[0], baseArray[1]];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length mismatch");
+      });
+    });
+
+    describe("when arrays are zero length", async () => {
+      beforeEach(async () => {
+        subjectArray = [];
+        subjectAddressArray = [];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length must be > 0");
+      });
+    });
+
+    describe("when calling address array contains duplicates", async () => {
+      beforeEach(async () => {
+        subjectArray = [accountOne.address, accountOne.address, accountThree.address];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
+      });
+    });
+  });
+
+  describe("#validatePairsWithArray (bytes)", async () => {
+    let subjectArray: Address[];
+    let subjectBytesArray: Uint8Array;
+
+    beforeEach(async () => {
+      subjectArray = baseArray;
+      subjectBytesArray = ethers.utils.randomBytes(3);
+    });
+
+    async function subject(): Promise<any> {
+      return addressArrayUtils.testValidatePairsWithArrayBytes(subjectArray, subjectBytesArray);
+    }
+
+    it("should validate equal non-zero length arrays when subject array has no duplicates", async () => {
+      await subject();
+    });
+
+    describe("when array lengths do not match", async () => {
+      beforeEach(async () => {
+        subjectBytesArray = ethers.utils.randomBytes(2);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length mismatch");
+      });
+    });
+
+    describe("when arrays are zero length", async () => {
+      beforeEach(async () => {
+        subjectArray = [];
+        subjectBytesArray = ethers.utils.randomBytes(0);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Array length must be > 0");
+      });
+    });
+
+    describe("when calling address array contains duplicates", async () => {
+      beforeEach(async () => {
+        subjectArray = [accountOne.address, accountOne.address, accountThree.address];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
       });
     });
   });
