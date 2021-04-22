@@ -140,14 +140,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /* ============ Modifiers ============ */
 
     modifier onlyAllowedTrader(ISetToken _setToken) {
-        require(_isAllowedTrader(_setToken, msg.sender), "Address not permitted to trade");
+        _validateOnlyAllowedTrader(_setToken);
         _;
     }
 
     modifier onlyEOAIfUnrestricted(ISetToken _setToken) {
-        if(permissionInfo[_setToken].anyoneTrade) {
-            require(msg.sender == tx.origin, "Caller must be EOA Address");
-        }
+        _validateOnlyEOAIfUnrestricted(_setToken);
         _;
     }
 
@@ -1071,5 +1069,25 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         return (normalizedTargetUnit > 0)
             ? (normalizedTargetUnit.sub(1) > currentUnit || normalizedTargetUnit.add(1) < currentUnit)
             : normalizedTargetUnit != currentUnit;
+    }
+
+    /* ============== Modifier Helpers ===============
+     * Internal functions used to reduce bytecode size
+     */
+
+    /*
+     * Trader must be whitelisted for SetToken
+     */
+    function _validateOnlyAllowedTrader(ISetToken _setToken) internal view {
+        require(_isAllowedTrader(_setToken, msg.sender), "Address not permitted to trade");
+    }
+
+    /*
+     * Trade must be an EOA if `anyoneTrade` has been enabled for SetToken on the module.
+     */
+    function _validateOnlyEOAIfUnrestricted(ISetToken _setToken) internal view {
+        if(permissionInfo[_setToken].anyoneTrade) {
+            require(msg.sender == tx.origin, "Caller must be EOA Address");
+        }
     }
 }

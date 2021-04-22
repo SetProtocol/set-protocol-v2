@@ -38,6 +38,10 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
  * @author Set Protocol
  *
  * Abstract class that houses common Module-related state and functions.
+ *
+ * CHANGELOG:
+ * - 4/21/21: Delegated modifier logic to internal helpers to reduce contract size
+ *
  */
 abstract contract ModuleBase is IModule {
     using AddressArrayUtils for address[];
@@ -57,19 +61,18 @@ abstract contract ModuleBase is IModule {
 
     /* ============ Modifiers ============ */
 
-    modifier onlyManagerAndValidSet(ISetToken _setToken) { 
-        require(isSetManager(_setToken, msg.sender), "Must be the SetToken manager");
-        require(isSetValidAndInitialized(_setToken), "Must be a valid and initialized SetToken");
+    modifier onlyManagerAndValidSet(ISetToken _setToken) {
+        _validateOnlyManagerAndValidSet(_setToken);
         _;
     }
 
     modifier onlySetManager(ISetToken _setToken, address _caller) {
-        require(isSetManager(_setToken, _caller), "Must be the SetToken manager");
+        _validateOnlySetManager(_setToken, _caller);
         _;
     }
 
     modifier onlyValidAndInitializedSet(ISetToken _setToken) {
-        require(isSetValidAndInitialized(_setToken), "Must be a valid and initialized SetToken");
+        _validateOnlyValidAndInitializedSet(_setToken);
         _;
     }
 
@@ -77,15 +80,7 @@ abstract contract ModuleBase is IModule {
      * Throws if the sender is not a SetToken's module or module not enabled
      */
     modifier onlyModule(ISetToken _setToken) {
-        require(
-            _setToken.moduleStates(msg.sender) == ISetToken.ModuleState.INITIALIZED,
-            "Only the module can call"
-        );
-
-        require(
-            controller.isModule(msg.sender),
-            "Module must be enabled on controller"
-        );
+        _validateOnlyModule(_setToken);
         _;
     }
 
@@ -94,8 +89,7 @@ abstract contract ModuleBase is IModule {
      * and that the SetToken is valid
      */
     modifier onlyValidAndPendingSet(ISetToken _setToken) {
-        require(controller.isSet(address(_setToken)), "Must be controller-enabled SetToken");
-        require(isSetPendingInitialization(_setToken), "Must be pending initialization");        
+        _validateOnlyValidAndPendingSet(_setToken);
         _;
     }
 
@@ -190,5 +184,54 @@ abstract contract ModuleBase is IModule {
      */
     function getNameHash(string memory _name) internal pure returns(bytes32) {
         return keccak256(bytes(_name));
+    }
+
+    /* ============== Modifier Helpers ===============
+     * Internal functions used to reduce bytecode size
+     */
+
+    /**
+     * Caller must SetToken manager and SetToken must be valid and initialized
+     */
+    function _validateOnlyManagerAndValidSet(ISetToken _setToken) internal view {
+       require(isSetManager(_setToken, msg.sender), "Must be the SetToken manager");
+       require(isSetValidAndInitialized(_setToken), "Must be a valid and initialized SetToken");
+    }
+
+    /**
+     * Caller must SetToken manager
+     */
+    function _validateOnlySetManager(ISetToken _setToken, address _caller) internal view {
+        require(isSetManager(_setToken, _caller), "Must be the SetToken manager");
+    }
+
+    /**
+     * SetToken must be valid and initialized
+     */
+    function _validateOnlyValidAndInitializedSet(ISetToken _setToken) internal view {
+        require(isSetValidAndInitialized(_setToken), "Must be a valid and initialized SetToken");
+    }
+
+    /**
+     * Caller must be initialized module and module must be enabled on the controller
+     */
+    function _validateOnlyModule(ISetToken _setToken) internal view {
+        require(
+            _setToken.moduleStates(msg.sender) == ISetToken.ModuleState.INITIALIZED,
+            "Only the module can call"
+        );
+
+        require(
+            controller.isModule(msg.sender),
+            "Module must be enabled on controller"
+        );
+    }
+
+    /**
+     * SetToken must be in a pending state and module must be in pending state
+     */
+    function _validateOnlyValidAndPendingSet(ISetToken _setToken) internal view {
+        require(controller.isSet(address(_setToken)), "Must be controller-enabled SetToken");
+        require(isSetPendingInitialization(_setToken), "Must be pending initialization");
     }
 }
