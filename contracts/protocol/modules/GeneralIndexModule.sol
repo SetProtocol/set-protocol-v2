@@ -932,7 +932,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256[] calldata _oldComponentsTargetUnits
     )
         internal
-        view
+        pure
         returns (address[] memory aggregateComponents, uint256[] memory aggregateTargetUnits)
     {
         // Don't use validate arrays because empty arrays are valid
