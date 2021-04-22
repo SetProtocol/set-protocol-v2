@@ -67,7 +67,7 @@ contract AddressArrayUtilsMock {
         A.validatePairsWithArray(a);
     }
 
-    function testValidatePairsWithArrayBytes(address[] memory A, bytes memory a) external view {
+    function testValidatePairsWithArrayBytes(address[] memory A, bytes[] memory a) external view {
         A.validatePairsWithArray(a);
     }
 

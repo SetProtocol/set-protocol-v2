@@ -32,6 +32,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
  *
  * CHANGELOG:
  * - 9/21/20: Added safePower function
+ * - 4/21/21: Added approximatelyEquals function
  */
 library PreciseUnitMath {
     using SafeMath for uint256;

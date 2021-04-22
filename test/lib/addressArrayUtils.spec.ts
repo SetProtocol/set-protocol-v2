@@ -1,5 +1,4 @@
 import "module-alias/register";
-import { ethers } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address } from "@utils/types";
@@ -474,11 +473,11 @@ describe("AddressArrayUtils", () => {
 
   describe("#validatePairsWithArray (bytes)", async () => {
     let subjectArray: Address[];
-    let subjectBytesArray: Uint8Array;
+    let subjectBytesArray: string[];
 
     beforeEach(async () => {
       subjectArray = baseArray;
-      subjectBytesArray = ethers.utils.randomBytes(3);
+      subjectBytesArray = ["0x", "0x523454", "0x7890"];
     });
 
     async function subject(): Promise<any> {
@@ -491,7 +490,7 @@ describe("AddressArrayUtils", () => {
 
     describe("when array lengths do not match", async () => {
       beforeEach(async () => {
-        subjectBytesArray = ethers.utils.randomBytes(2);
+        subjectBytesArray = ["0x", "0x523454"];
       });
 
       it("should revert", async () => {
@@ -502,7 +501,7 @@ describe("AddressArrayUtils", () => {
     describe("when arrays are zero length", async () => {
       beforeEach(async () => {
         subjectArray = [];
-        subjectBytesArray = ethers.utils.randomBytes(0);
+        subjectBytesArray = [];
       });
 
       it("should revert", async () => {

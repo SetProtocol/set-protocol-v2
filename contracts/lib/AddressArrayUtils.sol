@@ -23,6 +23,9 @@ pragma solidity 0.6.10;
  * @author Set Protocol
  *
  * Utility functions to handle Address Arrays
+ *
+ * CHANGELOG:
+ * - 4/21/21: Added validatePairsWithArray methods
  */
 library AddressArrayUtils {
 
@@ -205,7 +208,7 @@ library AddressArrayUtils {
      * @param A         Array of addresses
      * @param B         Array of bytes
      */
-    function validatePairsWithArray(address[] memory A, bytes memory B) internal pure {
+    function validatePairsWithArray(address[] memory A, bytes[] memory B) internal pure {
         require(A.length == B.length, "Array length mismatch");
         _validateLengthAndUniqueness(A);
     }
