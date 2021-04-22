@@ -30,7 +30,7 @@ import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe.only("GeneralIndexModule", () => {
+describe("GeneralIndexModule", () => {
   let owner: Account;
   let trader: Account;
   let positionModule: Account;
