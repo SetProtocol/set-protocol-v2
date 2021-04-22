@@ -2241,18 +2241,139 @@ describe("GeneralIndexModule", () => {
     });
 
     describe("#removeModule", async () => {
+      let subjectStatuses: boolean[];
+      let subjectTraders: Address[];
+
       beforeEach(async () => {
         subjectSetToken = index;
         subjectCaller = owner;
+        subjectTraders = [trader.address];
+        subjectStatuses = [true];
       });
-      async function subject(): Promise<any> {
-        return subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+
+      afterEach(restoreModule);
+
+      async function restoreModule() {
+        const isModuleEnabled = await subjectSetToken.isInitializedModule(indexModule.address);
+
+        if (!isModuleEnabled) {
+          await subjectSetToken.connect(subjectCaller.wallet).addModule(indexModule.address);
+          await indexModule.connect(subjectCaller.wallet).initialize(subjectSetToken.address);
+        }
       }
 
-      it("should remove the module", async () => {
-        await subject();
-        const isModuleEnabled = await subjectSetToken.isInitializedModule(indexModule.address);
-        expect(isModuleEnabled).to.eq(false);
+      describe("removal", async () => {
+        async function subject(andRestore?: boolean): Promise<any> {
+          return subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+        }
+
+        it("should remove the module", async () => {
+          await subject();
+          const isModuleEnabled = await subjectSetToken.isInitializedModule(indexModule.address);
+          expect(isModuleEnabled).to.eq(false);
+        });
+      });
+
+      describe("when restoring module after removal and using permissionInfo", async () => {
+        beforeEach(async () => {
+          await indexModule.connect(subjectCaller.wallet).setTraderStatus(
+            subjectSetToken.address,
+            subjectTraders,
+            subjectStatuses
+          );
+
+          await indexModule.connect(subjectCaller.wallet).setAnyoneTrade(
+            subjectSetToken.address,
+            true
+          );
+        });
+
+        async function subject(andRestore?: boolean): Promise<any> {
+          await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+          await restoreModule();
+        }
+
+        it("should have removed traders from the permissions whitelist", async () => {
+          let isTraderOne = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(isTraderOne).to.be.true;
+
+          await subject();
+
+          isTraderOne = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(isTraderOne).to.be.false;
+        });
+
+        it("should have set anyoneTrade to false", async () => {
+          // The public getter return sig generated for permissionInfo's abi
+          // is  <bool>anyoneTrade (and nothing else).
+          let anyoneTrade = await indexModule.permissionInfo(subjectSetToken.address);
+          expect(anyoneTrade).to.be.true;
+
+          await subject();
+
+          anyoneTrade = await indexModule.permissionInfo(subjectSetToken.address);
+          expect(anyoneTrade).to.be.false;
+        });
+      });
+
+      describe("when restoring module after removal and using rebalanceInfo", async () => {
+        let subjectNewComponents;
+        let subjectNewTargetUnits;
+        let subjectOldTargetUnits;
+        let subjectPositionMultiplier;
+
+        beforeEach(async () => {
+          subjectNewComponents = [sushiswapSetup.uni.address];
+          subjectNewTargetUnits = [ether(50)];
+          subjectOldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(50)];
+          subjectPositionMultiplier = MAX_UINT_256;
+
+          await indexModule.startRebalance(
+            subjectSetToken.address,
+            subjectNewComponents,
+            subjectNewTargetUnits,
+            subjectOldTargetUnits,
+            subjectPositionMultiplier
+          );
+
+          await indexModule.setRaiseTargetPercentage(subjectSetToken.address, MAX_UINT_256);
+        });
+
+        async function subject(andRestore?: boolean): Promise<any> {
+          await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+          await restoreModule();
+        }
+
+        it("should have cleared the rebalance components array", async () => {
+          const preRemoveComponents = await indexModule.getRebalanceComponents(subjectSetToken.address);
+
+          await subject();
+
+          const postRemoveComponents = await indexModule.getRebalanceComponents(subjectSetToken.address);
+
+          expect(preRemoveComponents.length).to.equal(4);
+          expect(postRemoveComponents.length).to.equal(ZERO);
+        });
+
+        it("should have reset the positionMultiplier to PRECISE_UNIT", async () => {
+          const preRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          await subject();
+
+          const postRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+          expect(preRemoveMultiplier).to.equal(MAX_UINT_256);
+          expect(postRemoveMultiplier).to.equal(PRECISE_UNIT);
+        });
+
+        it("should have zeroed out the raiseTargetPercentage", async () => {
+          const preRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
+
+          await subject();
+
+          const postRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
+          expect(preRemoveMultiplier).to.equal(MAX_UINT_256);
+          expect(postRemoveMultiplier).to.equal(ZERO);
+        });
       });
     });
   });

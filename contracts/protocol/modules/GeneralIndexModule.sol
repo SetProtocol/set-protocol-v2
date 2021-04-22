@@ -78,6 +78,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     struct TradePermissionInfo {
         bool anyoneTrade;                               // Boolean indicating if anyone can execute a trade
+        address[] tradersHistory;                       // Tracks whitelisted traders to be deleted on module removal
         mapping(address => bool) tradeAllowList;        // Mapping indicating which addresses are allowed to execute trade
     }
 
@@ -450,6 +451,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _validateAddressAndBoolArrays(_traders, _statuses);
 
         for (uint256 i = 0; i < _traders.length; i++) {
+            if (_statuses[i]) {
+                permissionInfo[_setToken].tradersHistory.push(_traders[i]);
+            }
             permissionInfo[_setToken].tradeAllowList[_traders[i]] = _statuses[i];
             emit TraderStatusUpdated(_setToken, _traders[i], _statuses[i]);
         }
@@ -494,9 +498,18 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Called by a SetToken to notify that this module was removed from the SetToken.
-     * Clears the state of the calling SetToken.
+     * Clears the rebalanceInfo and permissionsInfo of the calling SetToken.
+     * IMPORTANT: SetToken's execution settings, including trade maximums and exchange names,
+     * are NOT DELETED. Restoring a previously removed module requires that care is taken to
+     * initialize execution settings appropriately.
      */
     function removeModule() external override {
+        TradePermissionInfo storage tokenPermissionInfo = permissionInfo[ISetToken(msg.sender)];
+
+        for (uint i = 0; i < tokenPermissionInfo.tradersHistory.length; i++) {
+            tokenPermissionInfo.tradeAllowList[tokenPermissionInfo.tradersHistory[i]] = false;
+        }
+
         delete rebalanceInfo[ISetToken(msg.sender)];
         delete permissionInfo[ISetToken(msg.sender)];
     }
