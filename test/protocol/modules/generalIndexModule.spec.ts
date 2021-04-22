@@ -1906,6 +1906,45 @@ describe("GeneralIndexModule", () => {
       });
     });
 
+    describe("#getAllowedTraders", async () => {
+      let subjectTraders: Address[];
+      let subjectStatuses: boolean[];
+
+      beforeEach(async () => {
+        subjectCaller = owner;
+        subjectSetToken = index;
+        subjectTraders = [trader.address];
+        subjectStatuses = [true];
+
+        return await indexModule.connect(subjectCaller.wallet).setTraderStatus(
+          subjectSetToken.address,
+          subjectTraders,
+          subjectStatuses
+        );
+      });
+
+      async function subject(): Promise<Boolean> {
+        return await indexModule.connect(subjectCaller.wallet).getAllowedTraders(subjectSetToken.address);
+      }
+
+      it("returns trader status", async () => {
+        await subject();
+
+        const expectedTraders = await subject();
+        expect(expectedTraders).to.deep.equal(subjectTraders);
+      });
+
+      describe("when the setToken is not valid", async () => {
+        beforeEach(() => {
+          subjectSetToken = { address: ADDRESS_ZERO } as SetToken;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+    });
+
     describe("#setRaiseTargetPercentage", async () => {
       let subjectRaiseTargetPercentage: BigNumber;
 
@@ -2197,11 +2236,26 @@ describe("GeneralIndexModule", () => {
           const preConditionTrader = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
           expect(preConditionTrader).to.be.true;
 
-
           await subject();
 
           const postConditionTrader = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
           expect(postConditionTrader).to.be.false;
+        });
+
+        it("the tradersHistory should be updated correctly", async() => {
+          const preConditionTraders = await indexModule.getAllowedTraders(subjectSetToken.address);
+          expect(preConditionTraders).to.deep.equal(subjectTraders);
+
+          await subject();
+
+          const postConditionTraders = await indexModule.getAllowedTraders(subjectSetToken.address);
+          const expectedTraders = subjectTraders.slice(1);
+
+          expect(expectedTraders[0]).to.not.equal(expectedTraders[1]);
+          expect(postConditionTraders[0]).to.not.equal(postConditionTraders[1]);
+
+          expect(postConditionTraders.includes(expectedTraders[0])).to.be.true;
+          expect(postConditionTraders.includes(expectedTraders[1])).to.be.true;
         });
       });
 

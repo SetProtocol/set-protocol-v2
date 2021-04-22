@@ -572,6 +572,22 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         return _isAllowedTrader(_setToken, _trader);
     }
 
+    /**
+     * Get the list of traders who are allowed to call trade(), tradeRemainingWeth(), and raiseAssetTarget()
+     *
+     * @param _setToken         Address of the SetToken
+     *
+     * @return address[]
+     */
+    function getAllowedTraders(ISetToken _setToken)
+        external
+        view
+        onlyValidAndInitializedSet(_setToken)
+        returns (address[] memory)
+    {
+        return permissionInfo[_setToken].tradersHistory;
+    }
+
     /* ============ Internal Functions ============ */
 
     /**
@@ -1050,9 +1066,9 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
      */
     function _updateTradersHistory(ISetToken _setToken, address _trader, bool _status) internal {
-        if (_status) {
+        if (_status && !permissionInfo[_setToken].tradersHistory.contains(_trader)) {
             permissionInfo[_setToken].tradersHistory.push(_trader);
-        } else if(permissionInfo[_setToken].tradersHistory.contains(_trader)) {
+        } else if(!_status && permissionInfo[_setToken].tradersHistory.contains(_trader)) {
             permissionInfo[_setToken].tradersHistory.removeStorage(_trader);
         }
     }
