@@ -474,7 +474,7 @@ describe("PreciseUnitMath", () => {
       subjectRange = ether(2);
     });
 
-    async function subject(): Promise<[BigNumber]> {
+    async function subject(): Promise<boolean> {
       return mathMock.approximatelyEquals(subjectA, subjectB, subjectRange);
     }
 

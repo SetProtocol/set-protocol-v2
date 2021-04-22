@@ -78,7 +78,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     struct TradePermissionInfo {
         bool anyoneTrade;                               // Boolean indicating if anyone can execute a trade
-        address[] tradersHistory;                       // Tracks whitelisted traders to be deleted on module removal
+        address[] tradersHistory;                       // Tracks permissioned traders to be deleted on module removal
         mapping(address => bool) tradeAllowList;        // Mapping indicating which addresses are allowed to execute trade
     }
 
@@ -1043,7 +1043,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
 
     /*
-     * Trader must be whitelisted for SetToken
+     * Trader must be permissioned for SetToken
      */
     function _validateOnlyAllowedTrader(ISetToken _setToken) internal view {
         require(_isAllowedTrader(_setToken, msg.sender), "Address not permitted to trade");
