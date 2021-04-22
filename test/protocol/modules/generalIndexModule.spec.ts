@@ -4,7 +4,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address, StreamingFeeState } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, MAX_UINT_256, PRECISE_UNIT, THREE, ZERO, ONE_DAY_IN_SECONDS } from "@utils/constants";
-import { BalancerV1ExchangeAdapter, ContractCallerMock, GeneralIndexModule, SetToken, UniswapV2ExchangeAdapterV2 } from "@utils/contracts";
+import { BalancerV1IndexExchangeAdapter, ContractCallerMock, GeneralIndexModule, SetToken, UniswapV2IndexExchangeAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   bitcoin,
@@ -46,11 +46,11 @@ describe("GeneralIndexModule", () => {
   let indexWithPositionModule: SetToken;
   let indexModule: GeneralIndexModule;
 
-  let balancerExchangeAdapter: BalancerV1ExchangeAdapter;
+  let balancerExchangeAdapter: BalancerV1IndexExchangeAdapter;
   let balancerAdapterName: string;
-  let sushiswapExchangeAdapter: UniswapV2ExchangeAdapterV2;
+  let sushiswapExchangeAdapter: UniswapV2IndexExchangeAdapter;
   let sushiswapAdapterName: string;
-  let uniswapExchangeAdapter: UniswapV2ExchangeAdapterV2;
+  let uniswapExchangeAdapter: UniswapV2IndexExchangeAdapter;
   let uniswapAdapterName: string;
 
   let indexComponents: Address[];
@@ -85,9 +85,9 @@ describe("GeneralIndexModule", () => {
     await setup.controller.addModule(indexModule.address);
     await setup.controller.addModule(positionModule.address);
 
-    balancerExchangeAdapter = await deployer.modules.deployBalancerV1ExchangeAdapter(balancerSetup.exchange.address);
-    sushiswapExchangeAdapter = await deployer.modules.deployUniswapV2ExchangeAdapterV2(sushiswapSetup.router.address);
-    uniswapExchangeAdapter = await deployer.modules.deployUniswapV2ExchangeAdapterV2(uniswapSetup.router.address);
+    balancerExchangeAdapter = await deployer.adapters.deployBalancerV1IndexExchangeAdapter(balancerSetup.exchange.address);
+    sushiswapExchangeAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(sushiswapSetup.router.address);
+    uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(uniswapSetup.router.address);
 
     balancerAdapterName = "BALANCER";
     sushiswapAdapterName = "SUSHISWAP";
@@ -608,6 +608,70 @@ describe("GeneralIndexModule", () => {
           it("should not revert", async () => {
             await expect(subject()).to.not.be.reverted;
           });
+        });
+      });
+    });
+
+    describe("#setExchangeData", async () => {
+      let uniBytes: string;
+      let wbtcBytes: string;
+
+      let subjectComponents: Address[];
+      let subjectExchangeData: string[];
+
+      beforeEach(async () => {
+        uniBytes = "0x";
+        wbtcBytes = "0x7890";
+
+        subjectSetToken = index;
+        subjectCaller = owner;
+        subjectComponents = [uniswapSetup.uni.address, setup.wbtc.address];
+        subjectExchangeData = [uniBytes, wbtcBytes];
+      });
+
+      async function subject(): Promise<ContractTransaction> {
+        return await indexModule.connect(subjectCaller.wallet).setExchangeData(subjectSetToken.address, subjectComponents, subjectExchangeData);
+      }
+
+      it("should set values correctly", async () => {
+        await subject();
+
+        for (let i = 0; i < subjectComponents.length; i++) {
+          const exchangeName = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeData;
+          const exepctedExchangeName = subjectExchangeData[i];
+          expect(exchangeName).to.be.eq(exepctedExchangeName);
+        }
+      });
+
+      describe("when array lengths are not same", async () => {
+        beforeEach(async () => {
+          subjectExchangeData = ["0x", "0x523454", "0x7890"];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Array length mismatch");
+        });
+      });
+
+      describe("when component array has duplicate values", async () => {
+        beforeEach(async () => {
+          subjectComponents = [uniswapSetup.uni.address, setup.wbtc.address, uniswapSetup.uni.address];
+          subjectExchangeData = ["0x", "0x523454", "0x7890"];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+        });
+      });
+
+      describe("when component array has no values", async () => {
+        beforeEach(async () => {
+          subjectComponents = [];
+          subjectExchangeData = [];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Array length must be > 0");
         });
       });
     });

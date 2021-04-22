@@ -1,7 +1,6 @@
 import "module-alias/register";
 
 import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -10,7 +9,7 @@ import {
   THREE,
   ZERO,
 } from "@utils/constants";
-import { BalancerV1ExchangeAdapter } from "@utils/contracts";
+import { BalancerV1IndexExchangeAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -27,14 +26,14 @@ import { SystemFixture, BalancerFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("BalancerV1ExchangeAdapter", () => {
+describe("BalancerV1IndexExchangeAdapter", () => {
   let owner: Account;
   let mockSetToken: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
   let balancerSetup: BalancerFixture;
 
-  let balancerV1ExchangeAdapter: BalancerV1ExchangeAdapter;
+  let balancerV1ExchangeAdapter: BalancerV1IndexExchangeAdapter;
 
   before(async () => {
     [
@@ -54,7 +53,7 @@ describe("BalancerV1ExchangeAdapter", () => {
       setup.dai
     );
 
-    balancerV1ExchangeAdapter = await deployer.adapters.deployBalancerV1ExchangeAdapter(balancerSetup.exchange.address);
+    balancerV1ExchangeAdapter = await deployer.adapters.deployBalancerV1IndexExchangeAdapter(balancerSetup.exchange.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -67,7 +66,7 @@ describe("BalancerV1ExchangeAdapter", () => {
     });
 
     async function subject(): Promise<any> {
-      return await deployer.adapters.deployBalancerV1ExchangeAdapter(subjectBalancerProxyAddress);
+      return await deployer.adapters.deployBalancerV1IndexExchangeAdapter(subjectBalancerProxyAddress);
     }
 
     it("should have the correct proxy address", async () => {
@@ -90,85 +89,6 @@ describe("BalancerV1ExchangeAdapter", () => {
     });
   });
 
-  describe("getBalancerExchangeData", async () => {
-    let subjectShouldSwapFixedInputAmount: boolean;
-
-    beforeEach(async () => {
-      subjectShouldSwapFixedInputAmount = true;
-    });
-
-    async function subject(): Promise<any> {
-      return await balancerV1ExchangeAdapter.getBalancerExchangeData(subjectShouldSwapFixedInputAmount);
-    }
-
-    it("should return the correct data", async () => {
-      const balancerData = await subject();
-      const expectedData = defaultAbiCoder.encode(
-        ["bool"],
-        [subjectShouldSwapFixedInputAmount]
-      );
-
-      expect(balancerData).to.eq(expectedData);
-    });
-  });
-
-  describe("generateDataParam", async () => {
-    let sourceToken: Address;
-    let destinationToken: Address;
-
-    let subjectSourceToken: Address;
-    let subjectDestinationToken: Address;
-    let subjectFixIn: boolean;
-
-    beforeEach(async () => {
-      sourceToken = setup.wbtc.address;
-      destinationToken = setup.dai.address;
-
-      subjectSourceToken = sourceToken;
-      subjectDestinationToken = destinationToken;
-    });
-
-    async function subject(): Promise<any> {
-      return await balancerV1ExchangeAdapter.generateDataParam(
-        subjectSourceToken,
-        subjectDestinationToken,
-        subjectFixIn
-      );
-    }
-
-    describe("when boolean fixed input amount is true", async () => {
-      beforeEach(async () => {
-        subjectFixIn = true;
-      });
-
-      it("should return the correct trade calldata", async () => {
-        const dataParam = await subject();
-
-        const expectedDataParam = defaultAbiCoder.encode(
-          ["bool"],
-          [subjectFixIn]
-        );
-        expect(JSON.stringify(dataParam)).to.eq(JSON.stringify(expectedDataParam));
-      });
-    });
-
-    describe("when boolean fixed input amount is false", async () => {
-      beforeEach(async () => {
-        subjectFixIn = false;
-      });
-
-      it("should return the correct trade calldata", async () => {
-        const dataParam = await subject();
-
-        const expectedDataParam = defaultAbiCoder.encode(
-          ["bool"],
-          [subjectFixIn]
-        );
-        expect(JSON.stringify(dataParam)).to.eq(JSON.stringify(expectedDataParam));
-      });
-    });
-  });
-
   describe("getTradeCalldata", async () => {
     let sourceToken: Address;
     let destinationToken: Address;
@@ -178,6 +98,7 @@ describe("BalancerV1ExchangeAdapter", () => {
     let subjectMockSetToken: Address;
     let subjectSourceToken: Address;
     let subjectDestinationToken: Address;
+    let subjectIsSendTokenFixed: boolean;
     let subjectSourceQuantity: BigNumber;
     let subjectMinDestinationQuantity: BigNumber;
     let subjectData: Bytes;
@@ -191,6 +112,7 @@ describe("BalancerV1ExchangeAdapter", () => {
       subjectSourceToken = sourceToken;
       subjectDestinationToken = destinationToken;
       subjectMockSetToken = mockSetToken.address;
+      subjectIsSendTokenFixed = true;
       subjectSourceQuantity = sourceQuantity;
       subjectMinDestinationQuantity = destinationQuantity;
       subjectData = EMPTY_BYTES;
@@ -201,6 +123,7 @@ describe("BalancerV1ExchangeAdapter", () => {
         subjectSourceToken,
         subjectDestinationToken,
         subjectMockSetToken,
+        subjectIsSendTokenFixed,
         subjectSourceQuantity,
         subjectMinDestinationQuantity,
         subjectData,
@@ -208,11 +131,6 @@ describe("BalancerV1ExchangeAdapter", () => {
     }
 
     describe("when boolean fixed input amount is true", async () => {
-      beforeEach(async () => {
-        const shouldSwapFixedInputAmount = true;
-        subjectData = defaultAbiCoder.encode(["bool"], [shouldSwapFixedInputAmount]);
-      });
-
       it("should return the correct trade calldata", async () => {
         const calldata = await subject();
 
@@ -229,8 +147,7 @@ describe("BalancerV1ExchangeAdapter", () => {
 
     describe("when boolean fixed input amount is false", async () => {
       beforeEach(async () => {
-        const shouldSwapFixedInputAmount = false;
-        subjectData = defaultAbiCoder.encode(["bool"], [shouldSwapFixedInputAmount]);
+        subjectIsSendTokenFixed = false;
       });
 
       it("should return the correct trade calldata", async () => {

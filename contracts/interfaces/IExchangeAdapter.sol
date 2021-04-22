@@ -30,9 +30,4 @@ interface IExchangeAdapter {
         external
         view
         returns (address, uint256, bytes memory);
-    function generateDataParam(
-        address _sellComponent, 
-        address _buyComponent, 
-        bool _fixIn
-    ) external view returns (bytes memory);
 }

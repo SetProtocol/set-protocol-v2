@@ -19,13 +19,16 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
+
 /**
- * @title BalancerV1ExchangeAdapter
+ * @title BalancerV1IndexExchangeAdapter
  * @author Set Protocol
  *
- * A Balancer exchange adapter that returns calldata for trading.
+ * A Balancer exchange adapter that returns calldata for trading with GeneralIndexModule, allows trading a fixed input amount or for a fixed
+ * output amount.
  */
-contract BalancerV1ExchangeAdapter {
+contract BalancerV1IndexExchangeAdapter is IIndexExchangeAdapter {
 
     /* ============ Constants ============ */
 
@@ -55,14 +58,17 @@ contract BalancerV1ExchangeAdapter {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Return calldata for Balancer Proxy. Bool to select trade function is encoded in the arbitrary data parameter.
+     * Return calldata for Balancer Proxy, _isSendTokenFixed indicates whether a fixed amount of token should be sold for an unfixed amount, or
+     * if an unfixed amount of token should be spent for a fixed amount.
+     *
+     * Note: When _isSendTokenFixed is false, _sourceQuantity is defined as the max token quantity you are willing to trade, and
+     * _destinationQuantity is the exact quantity of token you are receiving.
      *
      * @param  _sourceToken              Address of source token to be sold
      * @param  _destinationToken         Address of destination token to buy
-     * @param  _destinationAddress       Address that assets should be transferred to
+     * @param  _isSendTokenFixed         Boolean indicating if the send quantity is fixed, used to determine correct trade interface
      * @param  _sourceQuantity           Fixed/Max amount of source token to sell
      * @param  _destinationQuantity      Min/Fixed amount of destination tokens to receive
-     * @param  _data                     Arbitrary bytes containing bool to determine function string
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
@@ -71,25 +77,23 @@ contract BalancerV1ExchangeAdapter {
     function getTradeCalldata(
         address _sourceToken,
         address _destinationToken,
-        address _destinationAddress,
+        address /*_destinationAddress*/,
+        bool _isSendTokenFixed,
         uint256 _sourceQuantity,
         uint256 _destinationQuantity,
-        bytes memory _data
+        bytes memory /*_data*/
     )
         external
         view
+        override
         returns (address, uint256, bytes memory)
     {   
-        (
-            bool shouldSwapFixedInputAmount
-        ) = abi.decode(_data, (bool));
-
         bytes memory callData = abi.encodeWithSignature(
-            shouldSwapFixedInputAmount ? EXACT_IN : EXACT_OUT,
+            _isSendTokenFixed ? EXACT_IN : EXACT_OUT,
             _sourceToken,
             _destinationToken,
-            shouldSwapFixedInputAmount ? _sourceQuantity : _destinationQuantity,
-            shouldSwapFixedInputAmount ? _destinationQuantity : _sourceQuantity,
+            _isSendTokenFixed ? _sourceQuantity : _destinationQuantity,
+            _isSendTokenFixed ? _destinationQuantity : _sourceQuantity,
             BALANCER_POOL_LIMIT
         );
 
@@ -97,37 +101,11 @@ contract BalancerV1ExchangeAdapter {
     }
 
     /**
-     * Generate data parameter to be passed to `getTradeCallData`. Returns encoded bool to select trade function.
-     *
-     * @param _sourceToken          Address of the source token to be sold        
-     * @param _destinationToken     Address of the destination token to buy
-     * @param _fixIn                Boolean representing if input tokens amount is fixed
-     * 
-     * @return bytes                Data parameter to be passed to `getTradeCallData`          
-     */
-    function generateDataParam(address _sourceToken, address _destinationToken, bool _fixIn)
-        external
-        pure
-        returns (bytes memory) 
-    {   
-        return abi.encode(_fixIn);
-    }
-
-    /**
      * Returns the address to approve source tokens to for trading. This is the Balancer proxy address
      *
      * @return address             Address of the contract to approve tokens to
      */
-    function getSpender() external view returns (address) {
+    function getSpender() external view override returns (address) {
         return balancerProxy;
-    }
-
-    /**
-     * Helper that returns the encoded data of boolean indicating the Balancer function to use
-     *
-     * @return bytes               Encoded data used for trading on Balancer
-     */
-    function getBalancerExchangeData(bool _shouldSwapFixedInputAmount) external pure returns (bytes memory) {
-        return abi.encode(_shouldSwapFixedInputAmount);
     }
 } 

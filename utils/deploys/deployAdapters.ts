@@ -3,7 +3,7 @@ import { Signer } from "ethers";
 import {
   AaveGovernanceAdapter,
   AaveGovernanceV2Adapter,
-  BalancerV1ExchangeAdapter,
+  BalancerV1IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
   KyberExchangeAdapter,
@@ -14,8 +14,9 @@ import {
   YearnWrapAdapter,
   UniswapPairPriceAdapter,
   UniswapV2ExchangeAdapter,
-  UniswapV2TransferFeeExchangeAdapter,
   UniswapV2ExchangeAdapterV2,
+  UniswapV2IndexExchangeAdapter,
+  UniswapV2TransferFeeExchangeAdapter,
   ZeroExApiAdapter,
   SnapshotGovernanceAdapter,
   SynthetixExchangeAdapter,
@@ -26,7 +27,7 @@ import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
-import { BalancerV1ExchangeAdapter__factory } from "../../typechain/factories/BalancerV1ExchangeAdapter__factory";
+import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
@@ -40,6 +41,7 @@ import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/Unis
 import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/UniswapV2ExchangeAdapter__factory";
 import { UniswapV2TransferFeeExchangeAdapter__factory } from "../../typechain/factories/UniswapV2TransferFeeExchangeAdapter__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
+import { UniswapV2IndexExchangeAdapter__factory } from "../../typechain/factories/UniswapV2IndexExchangeAdapter__factory";
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
@@ -79,6 +81,10 @@ export default class DeployAdapters {
     return await new UniswapV2ExchangeAdapterV2__factory(this._deployerSigner).deploy(uniswapV2Router);
   }
 
+  public async deployUniswapV2IndexExchangeAdapter(uniswapV2Router: Address): Promise<UniswapV2IndexExchangeAdapter> {
+    return await new UniswapV2IndexExchangeAdapter__factory(this._deployerSigner).deploy(uniswapV2Router);
+  }
+
   public async deployAaveGovernanceAdapter(aaveProtoGovernance: Address, aaveToken: Address): Promise<AaveGovernanceAdapter> {
     return await new AaveGovernanceAdapter__factory(this._deployerSigner).deploy(aaveProtoGovernance, aaveToken);
   }
@@ -114,8 +120,8 @@ export default class DeployAdapters {
     return await new YearnWrapAdapter__factory(this._deployerSigner).deploy();
   }
 
-  public async deployBalancerV1ExchangeAdapter(balancerProxy: Address): Promise<BalancerV1ExchangeAdapter> {
-    return await new BalancerV1ExchangeAdapter__factory(this._deployerSigner).deploy(balancerProxy);
+  public async deployBalancerV1IndexExchangeAdapter(balancerProxy: Address): Promise<BalancerV1IndexExchangeAdapter> {
+    return await new BalancerV1IndexExchangeAdapter__factory(this._deployerSigner).deploy(balancerProxy);
   }
 
   public async deployCompoundLikeGovernanceAdapter(governanceAlpha: Address, governanceToken: Address): Promise<CompoundLikeGovernanceAdapter> {
