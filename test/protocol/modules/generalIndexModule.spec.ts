@@ -637,9 +637,9 @@ describe("GeneralIndexModule", () => {
         await subject();
 
         for (let i = 0; i < subjectComponents.length; i++) {
-          const exchangeName = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeData;
-          const exepctedExchangeName = subjectExchangeData[i];
-          expect(exchangeName).to.be.eq(exepctedExchangeName);
+          const exchangeData = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeData;
+          const expectedExchangeData = subjectExchangeData[i];
+          expect(exchangeData).to.be.eq(expectedExchangeData);
         }
       });
 
