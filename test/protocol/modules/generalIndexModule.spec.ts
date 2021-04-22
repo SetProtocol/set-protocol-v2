@@ -30,7 +30,7 @@ import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe("GeneralIndexModule", () => {
+describe.only("GeneralIndexModule", () => {
   let owner: Account;
   let trader: Account;
   let positionModule: Account;
@@ -660,7 +660,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+          await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
         });
       });
 

@@ -428,15 +428,13 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      */
     function setExchangeData(
         ISetToken _setToken,
-        address[] calldata _components,
-        bytes[] calldata _exchangeData
+        address[] memory _components,
+        bytes[] memory _exchangeData
     )
         external
         onlyManagerAndValidSet(_setToken)
     {
-        require(_components.length == _exchangeData.length, "Array length mismatch");
-        require(_components.length > 0, "Array length must be > 0");
-        require(!_components.hasDuplicate(), "Cannot duplicate components");
+        _components.validatePairsWithArray(_exchangeData);
 
         for (uint256 i = 0; i < _components.length; i++) {
             executionInfo[_setToken][IERC20(_components[i])].exchangeData = _exchangeData[i];
@@ -959,8 +957,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * @return IExchangeAdapter                 Adapter address
      */
-    function _getExchangeAdapter(ISetToken _setToken, IERC20 _component) internal view returns(IExchangeAdapter) {
-        return IExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
+    function _getExchangeAdapter(ISetToken _setToken, IERC20 _component) internal view returns(IIndexExchangeAdapter) {
+        return IIndexExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
     }
 
     /**
