@@ -32,6 +32,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
  *
  * CHANGELOG:
  * - 9/21/20: Added safePower function
+ * - 4/21/21: Added approximatelyEquals function
  */
 library PreciseUnitMath {
     using SafeMath for uint256;
@@ -149,16 +150,16 @@ library PreciseUnitMath {
     }
 
     /**
-     * @dev Multiplies value a by value b where rounding is towards the lesser number. 
-     * (positive values are rounded towards zero and negative values are rounded away from 0). 
+     * @dev Multiplies value a by value b where rounding is towards the lesser number.
+     * (positive values are rounded towards zero and negative values are rounded away from 0).
      */
     function conservativePreciseMul(int256 a, int256 b) internal pure returns (int256) {
         return divDown(a.mul(b), PRECISE_UNIT_INT);
     }
 
     /**
-     * @dev Divides value a by value b where rounding is towards the lesser number. 
-     * (positive values are rounded towards zero and negative values are rounded away from 0). 
+     * @dev Divides value a by value b where rounding is towards the lesser number.
+     * (positive values are rounded towards zero and negative values are rounded away from 0).
      */
     function conservativePreciseDiv(int256 a, int256 b) internal pure returns (int256) {
         return divDown(a.mul(PRECISE_UNIT_INT), b);
@@ -186,5 +187,12 @@ library PreciseUnitMath {
         }
 
         return result;
+    }
+
+    /**
+     * @dev Returns true if a =~ b within range, false otherwise.
+     */
+    function approximatelyEquals(uint256 a, uint256 b, uint256 range) internal pure returns (bool) {
+        return a <= b.add(range) && a >= b.sub(range);
     }
 }

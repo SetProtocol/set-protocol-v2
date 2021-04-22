@@ -33,6 +33,7 @@ const expect = getWaffleExpect();
 describe("GeneralIndexModule", () => {
   let owner: Account;
   let trader: Account;
+  let positionModule: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
@@ -42,6 +43,7 @@ describe("GeneralIndexModule", () => {
 
   let index: SetToken;
   let indexWithWeth: SetToken;
+  let indexWithPositionModule: SetToken;
   let indexModule: GeneralIndexModule;
 
   let balancerExchangeAdapter: BalancerV1ExchangeAdapter;
@@ -62,6 +64,7 @@ describe("GeneralIndexModule", () => {
     [
       owner,
       trader,
+      positionModule,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -80,6 +83,7 @@ describe("GeneralIndexModule", () => {
       setup.weth.address
     );
     await setup.controller.addModule(indexModule.address);
+    await setup.controller.addModule(positionModule.address);
 
     balancerExchangeAdapter = await deployer.modules.deployBalancerV1ExchangeAdapter(balancerSetup.exchange.address);
     sushiswapExchangeAdapter = await deployer.modules.deployUniswapV2ExchangeAdapterV2(sushiswapSetup.router.address);
@@ -119,6 +123,13 @@ describe("GeneralIndexModule", () => {
 
     await setup.streamingFeeModule.initialize(index.address, feeSettings);
     await setup.issuanceModule.initialize(index.address, ADDRESS_ZERO);
+
+    indexWithPositionModule = await setup.createSetToken(
+      indexComponents,
+      indexUnits,
+      [positionModule.address, indexModule.address]
+    );
+    await indexWithPositionModule.connect(positionModule.wallet).initializeModule();
 
     indexWithWethComponents = [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address, setup.weth.address];
     indexWithWethUnits = [ether(86.9565217), bitcoin(.01111111), ether(100), ether(0.434782609)];
@@ -243,6 +254,27 @@ describe("GeneralIndexModule", () => {
         expect(isModuleEnabled).to.eq(true);
       });
     });
+
+    describe("when there are external positions for a component", async () => {
+        beforeEach(async () => {
+          subjectSetToken = indexWithPositionModule;
+          await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
+            indexComponents[0],
+            positionModule.address
+          );
+        });
+
+        afterEach(async () => {
+          await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
+            indexComponents[0],
+            positionModule.address
+          );
+        });
+
+        it("should revert", async() => {
+           await expect(subject()).to.be.revertedWith("External positions not allowed");
+        });
+      });
   });
 
   describe("when module is initalized", async () => {
@@ -261,7 +293,7 @@ describe("GeneralIndexModule", () => {
       await indexModule.setTradeMaximums(setToken.address, components, tradeMaximums);
       await indexModule.setExchanges(setToken.address, components, exchanges);
       await indexModule.setCoolOffPeriods(setToken.address, components, coolOffPeriods);
-      await indexModule.updateTraderStatus(setToken.address, [trader.address], [true]);
+      await indexModule.setTraderStatus(setToken.address, [trader.address], [true]);
     }
 
     cacheBeforeEach(async () => {
@@ -280,6 +312,14 @@ describe("GeneralIndexModule", () => {
         [ether(800), bitcoin(.1), ether(1000), ether(10000), ether(500)],
         [uniswapAdapterName, sushiswapAdapterName, balancerAdapterName, "", sushiswapAdapterName],
         [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(2), ZERO, ONE_MINUTE_IN_SECONDS],
+      );
+
+      await initSetToken(
+        indexWithPositionModule,
+        [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address, sushiswapSetup.uni.address],
+        [ether(800), bitcoin(.1), ether(1000), ether(500)],
+        [uniswapAdapterName, sushiswapAdapterName, balancerAdapterName, sushiswapAdapterName],
+        [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(2), ONE_MINUTE_IN_SECONDS]
       );
     });
 
@@ -332,6 +372,12 @@ describe("GeneralIndexModule", () => {
         expect(positionMultiplier).to.be.eq(expectedPositionMultiplier);
       });
 
+      it("emits the correct RebalanceStarted event", async () => {
+        await expect(subject()).to.emit(indexModule, "RebalanceStarted").withArgs(
+          subjectSetToken.address
+        );
+      });
+
       describe("newComponents and newComponentsTargetUnits are not of same length", async () => {
         beforeEach(async () => {
           subjectNewTargetUnits = [];
@@ -348,7 +394,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("New allocation must have target for all old components");
+          await expect(subject()).to.be.revertedWith("Old Components targets missing");
         });
       });
 
@@ -360,6 +406,28 @@ describe("GeneralIndexModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+        });
+      });
+
+      describe("when there are external positions for a component", async () => {
+        beforeEach(async () => {
+          subjectSetToken = indexWithPositionModule;
+
+          await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
+            subjectNewComponents[0],
+            positionModule.address
+          );
+        });
+
+        afterEach(async () => {
+          await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
+            subjectNewComponents[0],
+            positionModule.address
+          );
+        });
+
+        it("should revert", async() => {
+          await expect(subject()).to.be.revertedWith("External positions not allowed");
         });
       });
     });
@@ -410,7 +478,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+          await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
         });
       });
 
@@ -476,8 +544,8 @@ describe("GeneralIndexModule", () => {
 
         for (let i = 0; i < subjectComponents.length; i++) {
           const exchangeName = (await indexModule.executionInfo(subjectSetToken.address, subjectComponents[i])).exchangeName;
-          const exepctedExchangeName = subjectExchanges[i];
-          expect(exchangeName).to.be.eq(exepctedExchangeName);
+          const expectedExchangeName = subjectExchanges[i];
+          expect(exchangeName).to.be.eq(expectedExchangeName);
         }
       });
 
@@ -498,7 +566,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Cannot duplicate components");
+          await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
         });
       });
 
@@ -513,14 +581,22 @@ describe("GeneralIndexModule", () => {
         });
       });
 
-      describe("when exchange name is empty string", async () => {
+      describe("when exchange is not a valid integration", async () => {
         beforeEach(async () => {
-          subjectExchanges = [uniswapAdapterName, ""];
+          await setup.integrationRegistry.removeIntegration(indexModule.address, sushiswapAdapterName);
+        });
+
+        afterEach(async () => {
+          await setup.integrationRegistry.addIntegration(
+            indexModule.address,
+            sushiswapAdapterName,
+            sushiswapExchangeAdapter.address
+          );
         });
 
         describe("for component other than weth", async () => {
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Exchange name can not be an empty string");
+            await expect(subject()).to.be.revertedWith("Unrecognized exchange name");
           });
         });
 
@@ -872,7 +948,7 @@ describe("GeneralIndexModule", () => {
 
         describe("when anyoneTrade is true and a random address calls", async () => {
           beforeEach(async () => {
-            await indexModule.updateAnyoneTrade(subjectSetToken.address, true);
+            await indexModule.setAnyoneTrade(subjectSetToken.address, true);
             subjectCaller = await getRandomAccount();
           });
 
@@ -888,17 +964,22 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Cool off period has not elapsed.");
+            await expect(subject()).to.be.revertedWith("Component cool off in progress");
           });
         });
 
-        describe("when correct exchange has not been set", async () => {
+        describe("when exchange adapter has been removed from integration registry", async () => {
           beforeEach(async () => {
-            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], ["BadExchangeName"]);
+            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], [balancerAdapterName]);
+            await setup.integrationRegistry.removeIntegration(indexModule.address, balancerAdapterName);
           });
 
           afterEach(async () => {
-            await indexModule.setExchanges(subjectSetToken.address, [subjectComponent], [balancerAdapterName]);
+            await setup.integrationRegistry.addIntegration(
+              indexModule.address,
+              balancerAdapterName,
+              balancerExchangeAdapter.address
+            );
           });
 
           it("the trade reverts", async () => {
@@ -912,7 +993,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Passed component not included in rebalance");
+            await expect(subject()).to.be.revertedWith("Component not part of rebalance");
           });
         });
 
@@ -945,7 +1026,7 @@ describe("GeneralIndexModule", () => {
 
           beforeEach(async () => {
             contractCaller = await deployer.mocks.deployContractCallerMock();
-            await indexModule.connect(owner.wallet).updateTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
+            await indexModule.connect(owner.wallet).setTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
 
             subjectTarget = indexModule.address;
             subjectCallData = indexModule.interface.encodeFunctionData("trade", [subjectSetToken.address, subjectComponent, ZERO]);
@@ -966,7 +1047,7 @@ describe("GeneralIndexModule", () => {
 
           describe("when anyone trade is true", async () => {
             beforeEach(async () => {
-              await indexModule.connect(owner.wallet).updateAnyoneTrade(subjectSetToken.address, true);
+              await indexModule.connect(owner.wallet).setAnyoneTrade(subjectSetToken.address, true);
             });
 
             it("the trader reverts", async () => {
@@ -1274,7 +1355,7 @@ describe("GeneralIndexModule", () => {
     describe("#tradeRemainingWETH", async () => {
       let subjectComponent: Address;
       let subjectIncreaseTime: BigNumber;
-      let subjectComponentQuantityLimit: BigNumber;
+      let subjectMinComponentReceived: BigNumber;
 
       before(async () => {
         // current units [ether(86.9565217), bitcoin(.01111111), ether(100)]
@@ -1317,7 +1398,7 @@ describe("GeneralIndexModule", () => {
         subjectSetToken = index;
         subjectComponent = setup.wbtc.address;
         subjectIncreaseTime = ONE_MINUTE_IN_SECONDS.mul(5);
-        subjectComponentQuantityLimit = ZERO;
+        subjectMinComponentReceived = ZERO;
       };
 
       async function subject(): Promise<ContractTransaction> {
@@ -1325,7 +1406,7 @@ describe("GeneralIndexModule", () => {
         return await indexModule.connect(subjectCaller.wallet).tradeRemainingWETH(
           subjectSetToken.address,
           subjectComponent,
-          subjectComponentQuantityLimit
+          subjectMinComponentReceived
         );
       }
 
@@ -1344,7 +1425,7 @@ describe("GeneralIndexModule", () => {
               [setup.weth.address, setup.wbtc.address]
             );
 
-            subjectComponentQuantityLimit = expectedWbtcOut;
+            subjectMinComponentReceived = expectedWbtcOut;
           });
 
           it("the position units and lastTradeTimestamp should be set as expected", async () => {
@@ -1441,13 +1522,13 @@ describe("GeneralIndexModule", () => {
             });
           });
 
-          describe("when exchange returns amount less than subjectComponentQuantityLimit", async () => {
+          describe("when exchange returns amount less than subjectMinComponentReceived", async () => {
             beforeEach(async () => {
               [, expectedWbtcOut] = await sushiswapSetup.router.getAmountsOut(
                 wethAmountIn,
                 [setup.weth.address, setup.wbtc.address]
               );
-              subjectComponentQuantityLimit = expectedWbtcOut.mul(2);
+              subjectMinComponentReceived = expectedWbtcOut.mul(2);
             });
 
             it("should revert", async () => {
@@ -1458,7 +1539,7 @@ describe("GeneralIndexModule", () => {
           describe("when the target has been met and trading overshoots target unit", async () => {
             beforeEach(async () => {
               subjectComponent = setup.dai.address;
-              subjectComponentQuantityLimit = ZERO;
+              subjectMinComponentReceived = ZERO;
             });
 
             it("the trade reverts", async () => {
@@ -1472,18 +1553,18 @@ describe("GeneralIndexModule", () => {
             });
 
             it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Cool off period has not elapsed.");
+              await expect(subject()).to.be.revertedWith("Component cool off in progress");
             });
           });
 
           describe("when the passed component is not included in rebalance components", async () => {
             beforeEach(async () => {
               subjectComponent = sushiswapSetup.uni.address;
-              subjectComponentQuantityLimit = ZERO;
+              subjectMinComponentReceived = ZERO;
             });
 
             it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Passed component not included in rebalance");
+              await expect(subject()).to.be.revertedWith("Component not part of rebalance");
             });
           });
 
@@ -1506,13 +1587,13 @@ describe("GeneralIndexModule", () => {
 
             beforeEach(async () => {
               contractCaller = await deployer.mocks.deployContractCallerMock();
-              await indexModule.connect(owner.wallet).updateTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
+              await indexModule.connect(owner.wallet).setTraderStatus(subjectSetToken.address, [contractCaller.address], [true]);
 
               subjectTarget = indexModule.address;
               subjectIncreaseTime = ONE_MINUTE_IN_SECONDS.mul(5);
               subjectCallData = indexModule.interface.encodeFunctionData(
                 "tradeRemainingWETH",
-                [subjectSetToken.address, subjectComponent, subjectComponentQuantityLimit]
+                [subjectSetToken.address, subjectComponent, subjectMinComponentReceived]
               );
               subjectValue = ZERO;
             });
@@ -1553,7 +1634,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade reverts", async () => {
-            await expect(subject()).to.be.revertedWith("Trade amount exceeds max allowed trade size");
+            await expect(subject()).to.be.revertedWith("Trade amount > max trade size");
           });
         });
 
@@ -1613,8 +1694,56 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade reverts", async () => {
-            await expect(subject()).to.be.revertedWith("WETH is below target unit and can not be traded");
+            await expect(subject()).to.be.revertedWith("WETH is below target unit");
           });
+        });
+      });
+    });
+
+    describe("#getRebalanceComponents", async () => {
+      before(async () => {
+        // current units [ether(86.9565217), bitcoin(.01111111), ether(100), ZERO]
+        newComponents = [];
+        oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(55)];
+        newTargetUnits = [];
+        issueAmount = ether("20.000000000000000001");
+      });
+
+      const startRebalance = async () => {
+        await setup.approveAndIssueSetToken(subjectSetToken, issueAmount);
+        await indexModule.startRebalance(
+          subjectSetToken.address,
+          newComponents,
+          newTargetUnits,
+          oldTargetUnits,
+          await index.positionMultiplier()
+        );
+      };
+
+      const initializeSubjectVariables = () => {
+        subjectSetToken = index;
+      };
+
+      beforeEach(async () => {
+        initializeSubjectVariables();
+        await startRebalance();
+      });
+
+      async function subject(tokenAddress: Address): Promise<any> {
+        return await indexModule.getRebalanceComponents(tokenAddress);
+      }
+
+      it("the components being rebalanced should be returned", async () => {
+        const expectedComponents = [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address];
+
+        const rebalanceComponents = await subject(subjectSetToken.address);
+
+        expect(rebalanceComponents).to.deep.eq(expectedComponents);
+      });
+
+      describe("when set token is not valid", async () => {
+        it("should revert", async () => {
+          await expect(subject(ADDRESS_ZERO)).to.be.revertedWith("Must be a valid and initialized SetToken");
         });
       });
     });
@@ -1675,12 +1804,12 @@ describe("GeneralIndexModule", () => {
         const expectedDaiSize = preciseMul(currentDaiUnit, totalSupply).sub(preciseMul(ether(55), totalSupply));
 
         const [
-          isSell,
+          isSendTokenFixed,
           componentQuantity,
         ] = await subject();
 
         expect(componentQuantity).to.eq(expectedDaiSize);
-        expect(isSell).to.be.true;
+        expect(isSendTokenFixed).to.be.true;
       });
 
       describe("and the buy component does not meet the max trade size", async () => {
@@ -1705,17 +1834,118 @@ describe("GeneralIndexModule", () => {
           );
 
           const [
-            isSell,
+            isSendTokenFixed,
             componentQuantity,
           ] = await subject();
 
           expect(componentQuantity).to.eq(expectedWbtcSize);
-          expect(isSell).to.be.false;
+          expect(isSendTokenFixed).to.be.false;
+        });
+      });
+
+      describe("when the setToken is not valid", async () => {
+        beforeEach(() => {
+          subjectSetToken = { address: ADDRESS_ZERO } as SetToken;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+
+      describe("when the component is not valid", async () => {
+        beforeEach(() => {
+          subjectComponent = ADDRESS_ZERO;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Component not recognized");
         });
       });
     });
 
-    describe("#updateRaiseTargetPercentage", async () => {
+    describe("#getIsAllowedTrader", async () => {
+      let subjectTraders: Address[];
+      let subjectStatuses: boolean[];
+
+      beforeEach(async () => {
+        subjectCaller = owner;
+        subjectSetToken = index;
+        subjectTraders = [trader.address];
+        subjectStatuses = [true];
+
+        return await indexModule.connect(subjectCaller.wallet).setTraderStatus(
+          subjectSetToken.address,
+          subjectTraders,
+          subjectStatuses
+        );
+      });
+
+      async function subject(): Promise<Boolean> {
+        return await indexModule.connect(subjectCaller.wallet).getIsAllowedTrader(
+          subjectSetToken.address,
+          subjectTraders[0],
+        );
+      }
+
+      it("returns trader status", async () => {
+        await subject();
+
+        const isTrader = await subject();
+        expect(isTrader).to.be.true;
+      });
+
+      describe("when the setToken is not valid", async () => {
+        beforeEach(() => {
+          subjectSetToken = { address: ADDRESS_ZERO } as SetToken;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+    });
+
+    describe("#getAllowedTraders", async () => {
+      let subjectTraders: Address[];
+      let subjectStatuses: boolean[];
+
+      beforeEach(async () => {
+        subjectCaller = owner;
+        subjectSetToken = index;
+        subjectTraders = [trader.address];
+        subjectStatuses = [true];
+
+        return await indexModule.connect(subjectCaller.wallet).setTraderStatus(
+          subjectSetToken.address,
+          subjectTraders,
+          subjectStatuses
+        );
+      });
+
+      async function subject(): Promise<Address[]> {
+        return await indexModule.connect(subjectCaller.wallet).getAllowedTraders(subjectSetToken.address);
+      }
+
+      it("returns trader status", async () => {
+        await subject();
+
+        const expectedTraders = await subject();
+        expect(expectedTraders).to.deep.equal(subjectTraders);
+      });
+
+      describe("when the setToken is not valid", async () => {
+        beforeEach(() => {
+          subjectSetToken = { address: ADDRESS_ZERO } as SetToken;
+        });
+
+        it("should revert", async () => {
+          expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+    });
+
+    describe("#setRaiseTargetPercentage", async () => {
       let subjectRaiseTargetPercentage: BigNumber;
 
       beforeEach(async () => {
@@ -1725,13 +1955,13 @@ describe("GeneralIndexModule", () => {
       });
 
       async function subject(): Promise<ContractTransaction> {
-        return await indexModule.connect(subjectCaller.wallet).updateRaiseTargetPercentage(
+        return await indexModule.connect(subjectCaller.wallet).setRaiseTargetPercentage(
           subjectSetToken.address,
           subjectRaiseTargetPercentage
         );
       }
 
-      it("updates raiseTargetPercentage", async () => {
+      it("sets raiseTargetPercentage", async () => {
         await subject();
         const newRaiseTargetPercentage = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
 
@@ -1779,7 +2009,7 @@ describe("GeneralIndexModule", () => {
           await indexModule.connect(trader.wallet).trade(subjectSetToken.address, setup.wbtc.address, MAX_UINT_256);
         }
 
-        await indexModule.updateRaiseTargetPercentage(subjectSetToken.address, ether(.0025));
+        await indexModule.setRaiseTargetPercentage(subjectSetToken.address, ether(.0025));
       };
 
       async function subject(): Promise<ContractTransaction> {
@@ -1810,6 +2040,20 @@ describe("GeneralIndexModule", () => {
           const positionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
 
           expect(positionMultiplier).to.eq(expectedPositionMultiplier);
+        });
+
+        it("emits correct AssetTargetsRaised event", async () => {
+          const prePositionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          const expectedPositionMultiplier = preciseDiv(
+            prePositionMultiplier,
+            PRECISE_UNIT.add(ether(.0025))
+          );
+
+          await expect(subject()).to.emit(indexModule, "AssetTargetsRaised").withArgs(
+            subjectSetToken.address,
+            expectedPositionMultiplier
+          );
         });
 
         describe("when the calling address is not a permissioned address", async () => {
@@ -1919,7 +2163,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("the trade reverts", async () => {
-            await expect(subject()).to.be.revertedWith("Targets must be met and ETH remaining in order to raise target");
+            await expect(subject()).to.be.revertedWith("Targets not met or ETH =~ 0");
           });
         });
 
@@ -1936,14 +2180,14 @@ describe("GeneralIndexModule", () => {
             });
 
             it("the trade reverts", async () => {
-              await expect(subject()).to.be.revertedWith("Targets must be met and ETH remaining in order to raise target");
+              await expect(subject()).to.be.revertedWith("Targets not met or ETH =~ 0");
             });
           });
         });
       });
     });
 
-    describe("#updateTraderStatus", async () => {
+    describe("#setTraderStatus", async () => {
       let subjectTraders: Address[];
       let subjectStatuses: boolean[];
 
@@ -1955,7 +2199,7 @@ describe("GeneralIndexModule", () => {
       });
 
       async function subject(): Promise<ContractTransaction> {
-        return await indexModule.connect(subjectCaller.wallet).updateTraderStatus(
+        return await indexModule.connect(subjectCaller.wallet).setTraderStatus(
           subjectSetToken.address,
           subjectTraders,
           subjectStatuses
@@ -1982,6 +2226,39 @@ describe("GeneralIndexModule", () => {
         );
       });
 
+      describe("when de-authorizing a trader", async () => {
+        beforeEach(async () => {
+          await subject();
+          subjectStatuses = [false, true, true];
+        });
+
+        it("the trader status should be flipped to false", async () => {
+          const preConditionTrader = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(preConditionTrader).to.be.true;
+
+          await subject();
+
+          const postConditionTrader = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(postConditionTrader).to.be.false;
+        });
+
+        it("the tradersHistory should be updated correctly", async() => {
+          const preConditionTraders = await indexModule.getAllowedTraders(subjectSetToken.address);
+          expect(preConditionTraders).to.deep.equal(subjectTraders);
+
+          await subject();
+
+          const postConditionTraders = await indexModule.getAllowedTraders(subjectSetToken.address);
+          const expectedTraders = subjectTraders.slice(1);
+
+          expect(expectedTraders[0]).to.not.equal(expectedTraders[1]);
+          expect(postConditionTraders[0]).to.not.equal(postConditionTraders[1]);
+
+          expect(postConditionTraders.includes(expectedTraders[0])).to.be.true;
+          expect(postConditionTraders.includes(expectedTraders[1])).to.be.true;
+        });
+      });
+
       describe("when array lengths don't match", async () => {
         beforeEach(async () => {
           subjectTraders = [trader.address, await getRandomAddress()];
@@ -1999,7 +2276,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Cannot duplicate traders");
+          await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
         });
       });
 
@@ -2036,18 +2313,139 @@ describe("GeneralIndexModule", () => {
     });
 
     describe("#removeModule", async () => {
+      let subjectStatuses: boolean[];
+      let subjectTraders: Address[];
+
       beforeEach(async () => {
         subjectSetToken = index;
         subjectCaller = owner;
+        subjectTraders = [trader.address, await getRandomAddress()];
+        subjectStatuses = [true, false];
       });
-      async function subject(): Promise<any> {
-        return subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+
+      afterEach(restoreModule);
+
+      async function restoreModule() {
+        const isModuleEnabled = await subjectSetToken.isInitializedModule(indexModule.address);
+
+        if (!isModuleEnabled) {
+          await subjectSetToken.connect(subjectCaller.wallet).addModule(indexModule.address);
+          await indexModule.connect(subjectCaller.wallet).initialize(subjectSetToken.address);
+        }
       }
 
-      it("should remove the module", async () => {
-        await subject();
-        const isModuleEnabled = await subjectSetToken.isInitializedModule(indexModule.address);
-        expect(isModuleEnabled).to.eq(false);
+      describe("removal", async () => {
+        async function subject(andRestore?: boolean): Promise<any> {
+          return subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+        }
+
+        it("should remove the module", async () => {
+          await subject();
+          const isModuleEnabled = await subjectSetToken.isInitializedModule(indexModule.address);
+          expect(isModuleEnabled).to.eq(false);
+        });
+      });
+
+      describe("when restoring module after removal and using permissionInfo", async () => {
+        beforeEach(async () => {
+          await indexModule.connect(subjectCaller.wallet).setTraderStatus(
+            subjectSetToken.address,
+            subjectTraders,
+            subjectStatuses
+          );
+
+          await indexModule.connect(subjectCaller.wallet).setAnyoneTrade(
+            subjectSetToken.address,
+            true
+          );
+        });
+
+        async function subject(andRestore?: boolean): Promise<any> {
+          await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+          await restoreModule();
+        }
+
+        it("should have removed traders from the permissions whitelist", async () => {
+          let isTraderOne = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(isTraderOne).to.be.true;
+
+          await subject();
+
+          isTraderOne = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(isTraderOne).to.be.false;
+        });
+
+        it("should have set anyoneTrade to false", async () => {
+          // The public getter return sig generated for permissionInfo's abi
+          // is  <bool>anyoneTrade (and nothing else).
+          let anyoneTrade = await indexModule.permissionInfo(subjectSetToken.address);
+          expect(anyoneTrade).to.be.true;
+
+          await subject();
+
+          anyoneTrade = await indexModule.permissionInfo(subjectSetToken.address);
+          expect(anyoneTrade).to.be.false;
+        });
+      });
+
+      describe("when restoring module after removal and using rebalanceInfo", async () => {
+        let subjectNewComponents;
+        let subjectNewTargetUnits;
+        let subjectOldTargetUnits;
+        let subjectPositionMultiplier;
+
+        beforeEach(async () => {
+          subjectNewComponents = [sushiswapSetup.uni.address];
+          subjectNewTargetUnits = [ether(50)];
+          subjectOldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(50)];
+          subjectPositionMultiplier = MAX_UINT_256;
+
+          await indexModule.startRebalance(
+            subjectSetToken.address,
+            subjectNewComponents,
+            subjectNewTargetUnits,
+            subjectOldTargetUnits,
+            subjectPositionMultiplier
+          );
+
+          await indexModule.setRaiseTargetPercentage(subjectSetToken.address, MAX_UINT_256);
+        });
+
+        async function subject(andRestore?: boolean): Promise<any> {
+          await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
+          await restoreModule();
+        }
+
+        it("should have cleared the rebalance components array", async () => {
+          const preRemoveComponents = await indexModule.getRebalanceComponents(subjectSetToken.address);
+
+          await subject();
+
+          const postRemoveComponents = await indexModule.getRebalanceComponents(subjectSetToken.address);
+
+          expect(preRemoveComponents.length).to.equal(4);
+          expect(postRemoveComponents.length).to.equal(ZERO);
+        });
+
+        it("should have reset the positionMultiplier to PRECISE_UNIT", async () => {
+          const preRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+
+          await subject();
+
+          const postRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
+          expect(preRemoveMultiplier).to.equal(MAX_UINT_256);
+          expect(postRemoveMultiplier).to.equal(PRECISE_UNIT);
+        });
+
+        it("should have zeroed out the raiseTargetPercentage", async () => {
+          const preRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
+
+          await subject();
+
+          const postRemoveMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).raiseTargetPercentage;
+          expect(preRemoveMultiplier).to.equal(MAX_UINT_256);
+          expect(postRemoveMultiplier).to.equal(ZERO);
+        });
       });
     });
   });
