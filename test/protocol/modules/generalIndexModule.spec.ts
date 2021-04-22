@@ -2247,8 +2247,8 @@ describe("GeneralIndexModule", () => {
       beforeEach(async () => {
         subjectSetToken = index;
         subjectCaller = owner;
-        subjectTraders = [trader.address];
-        subjectStatuses = [true];
+        subjectTraders = [trader.address, await getRandomAddress()];
+        subjectStatuses = [true, false];
       });
 
       afterEach(restoreModule);
