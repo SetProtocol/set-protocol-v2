@@ -2003,7 +2003,7 @@ describe("GeneralIndexModule", () => {
           expect(positionMultiplier).to.eq(expectedPositionMultiplier);
         });
 
-        it("emits correct PositionMultiplierUpdated event", async () => {
+        it("emits correct AssetTargetsRaised event", async () => {
           const prePositionMultiplier = (await indexModule.rebalanceInfo(subjectSetToken.address)).positionMultiplier;
 
           const expectedPositionMultiplier = preciseDiv(
@@ -2011,7 +2011,7 @@ describe("GeneralIndexModule", () => {
             PRECISE_UNIT.add(ether(.0025))
           );
 
-          await expect(subject()).to.emit(indexModule, "PositionMultiplierUpdated").withArgs(
+          await expect(subject()).to.emit(indexModule, "AssetTargetsRaised").withArgs(
             subjectSetToken.address,
             expectedPositionMultiplier
           );
