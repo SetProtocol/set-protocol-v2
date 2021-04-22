@@ -1053,7 +1053,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         if (_status) {
             permissionInfo[_setToken].tradersHistory.push(_trader);
         } else if(permissionInfo[_setToken].tradersHistory.contains(_trader)) {
-            permissionInfo[_setToken].tradersHistory = permissionInfo[_setToken].tradersHistory.remove(_trader);
+            permissionInfo[_setToken].tradersHistory.removeStorage(_trader);
         }
     }
 
