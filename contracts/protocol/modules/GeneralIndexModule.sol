@@ -451,9 +451,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _traders.validatePairsWithArray(_statuses);
 
         for (uint256 i = 0; i < _traders.length; i++) {
-            if (_statuses[i]) {
-                permissionInfo[_setToken].tradersHistory.push(_traders[i]);
-            }
+            _updateTradersHistory(_setToken, _traders[i], _statuses[i]);
             permissionInfo[_setToken].tradeAllowList[_traders[i]] = _statuses[i];
             emit TraderStatusUpdated(_setToken, _traders[i], _statuses[i]);
         }
@@ -1036,6 +1034,25 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         return (normalizedTargetUnit > 0)
             ? !(normalizedTargetUnit.approximatelyEquals(currentUnit, 1))
             : normalizedTargetUnit != currentUnit;
+    }
+
+    /**
+     * Adds or removes newly permissioned trader to/from permissionsInfo traderHistory. It's
+     * necessary to verify that traderHistory contains the address because AddressArrayUtils will
+     * throw when attempting to remove a non-element and it's possible someone can set a new
+     * trader's status to false.
+     *
+     * @param _setToken                         Instance of the SetToken
+     * @param _trader                           Trader whose permission is being set
+     * @param _status                           Boolean permission being set
+
+     */
+    function _updateTradersHistory(ISetToken _setToken, address _trader, bool _status) internal {
+        if (_status) {
+            permissionInfo[_setToken].tradersHistory.push(_trader);
+        } else if(permissionInfo[_setToken].tradersHistory.contains(_trader)) {
+            permissionInfo[_setToken].tradersHistory = permissionInfo[_setToken].tradersHistory.remove(_trader);
+        }
     }
 
     /* ============== Modifier Helpers ===============

@@ -2187,6 +2187,24 @@ describe("GeneralIndexModule", () => {
         );
       });
 
+      describe("when de-authorizing a trader", async () => {
+        beforeEach(async () => {
+          await subject();
+          subjectStatuses = [false, true, true];
+        });
+
+        it("the trader status should be flipped to false", async () => {
+          const preConditionTrader = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(preConditionTrader).to.be.true;
+
+
+          await subject();
+
+          const postConditionTrader = await indexModule.getIsAllowedTrader(subjectSetToken.address, subjectTraders[0]);
+          expect(postConditionTrader).to.be.false;
+        });
+      });
+
       describe("when array lengths don't match", async () => {
         beforeEach(async () => {
           subjectTraders = [trader.address, await getRandomAddress()];
