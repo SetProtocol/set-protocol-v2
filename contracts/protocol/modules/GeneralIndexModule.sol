@@ -788,9 +788,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Calculates the amount of a component is going to be traded and whether the component is being bought or sold.
-     * If currentUnit and targetUnit are the same, function will revert. In order to account for fees taken by protocol when buying
-     * the notional difference between currentUnit and targetUnit is divided by (1 - protocolFee) to make sure that targetUnit
-     * can be met. Failure to do so would lead to never being able to meet target of components that need to be bought.
+     * If currentUnit and targetUnit are the same, function will revert.
      *
      * @param _setToken                 Instance of the SetToken to rebalance
      * @param _component                IERC20 component to trade
@@ -822,6 +820,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         isSendTokenFixed = targetNotional < currentNotional;
 
+        // In order to account for fees taken by protocol when buying the notional difference between currentUnit
+        // and targetUnit is divided by (1 - protocolFee) to make sure that targetUnit can be met. Failure to
+        // do so would lead to never being able to meet target of components that need to be bought.
+        //
         // ? - lesserOf: (componentMaxSize, (currentNotional - targetNotional))
         // : - lesserOf: (componentMaxSize, (targetNotional - currentNotional) / 10 ** 18 - protocolFee)
         totalFixedQuantity = isSendTokenFixed
