@@ -1923,7 +1923,7 @@ describe("GeneralIndexModule", () => {
         );
       });
 
-      async function subject(): Promise<Boolean> {
+      async function subject(): Promise<Address[]> {
         return await indexModule.connect(subjectCaller.wallet).getAllowedTraders(subjectSetToken.address);
       }
 
