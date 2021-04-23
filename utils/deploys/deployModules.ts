@@ -4,7 +4,6 @@ import { convertLibraryNameToLinkId } from "../common";
 import {
   AirdropModule,
   AmmModule,
-  BalancerV1ExchangeAdapter,
   BasicIssuanceModule,
   ClaimModule,
   CompoundLeverageModule,
@@ -18,14 +17,12 @@ import {
   StakingModule,
   StreamingFeeModule,
   TradeModule,
-  UniswapV2ExchangeAdapterV2,
   WrapModule
 } from "../contracts";
 import { Address } from "../types";
 
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
-import { BalancerV1ExchangeAdapter__factory } from "../../typechain/factories/BalancerV1ExchangeAdapter__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
 import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__factory";
 import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
@@ -39,7 +36,6 @@ import { SingleIndexModule__factory } from "../../typechain/factories/SingleInde
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
 import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
-import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { WrapModule__factory } from "../../typechain/factories/WrapModule__factory";
 
 export default class DeployModules {
@@ -132,18 +128,6 @@ export default class DeployModules {
     return await new GeneralIndexModule__factory(this._deployerSigner).deploy(
       controller,
       weth
-    );
-  }
-
-  public async deployUniswapV2ExchangeAdapterV2(router: Address): Promise<UniswapV2ExchangeAdapterV2> {
-    return await new UniswapV2ExchangeAdapterV2__factory(this._deployerSigner).deploy(
-      router
-    );
-  }
-
-  public async deployBalancerV1ExchangeAdapter(balancerProxy: Address): Promise<BalancerV1ExchangeAdapter> {
-    return await new BalancerV1ExchangeAdapter__factory(this._deployerSigner).deploy(
-      balancerProxy
     );
   }
 
