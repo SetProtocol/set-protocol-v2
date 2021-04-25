@@ -23,6 +23,8 @@ internalTask(TASK_COMPILE_SOLIDITY_COMPILE).setAction(setupNativeSolc);
 // Fix gas to be string instead of number in typechain files
 internalTask(TASK_TEST_SETUP_TEST_ENVIRONMENT)
   .setAction(async function setupNativeSolc({ input }, { config }, runSuper) {
+    if (process.env.NO_COMPILE === "true") return;
+
     const replace = require("replace-in-file");
 
     const options = {
