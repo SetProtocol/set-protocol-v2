@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -37,7 +37,7 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  * @author Set Protocol
  *
  * Smart contract that enables leverage trading using Compound as the lending protocol. This module is paired with a debt issuance module that will call
- * functions on this module to keep interest accrual and liquidation state updated. This does not allow borrowing of assets from Compound alone. Each 
+ * functions on this module to keep interest accrual and liquidation state updated. This does not allow borrowing of assets from Compound alone. Each
  * asset is leveraged when using this module.
  *
  * Note: Do not use this module in conjunction with other debt modules that allow Compound debt positions as it could lead to double counting of
@@ -106,7 +106,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     );
 
     event AnySetAllowedUpdated(
-        bool indexed _anySetAllowed    
+        bool indexed _anySetAllowed
     );
 
     /* ============ Constants ============ */
@@ -155,7 +155,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * Instantiate addresses. Underlying to cToken mapping is created.
-     * 
+     *
      * @param _controller               Address of controller contract
      * @param _compToken                Address of COMP token
      * @param _comptroller              Address of Compound Comptroller
@@ -214,7 +214,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
-        // For levering up, send quantity is derived from borrow asset and receive quantity is derived from 
+        // For levering up, send quantity is derived from borrow asset and receive quantity is derived from
         // collateral asset
         ActionInfo memory leverInfo = _createAndValidateActionInfo(
             _setToken,
@@ -273,7 +273,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
-        // Note: for delevering, send quantity is derived from collateral asset and receive quantity is derived from 
+        // Note: for delevering, send quantity is derived from collateral asset and receive quantity is derived from
         // repay asset
         ActionInfo memory deleverInfo = _createAndValidateActionInfo(
             _setToken,
@@ -332,7 +332,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         onlyManagerAndValidSet(_setToken)
     {
         uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(_setToken.totalSupply());
-        
+
         require(borrowCTokenEnabled[_setToken][underlyingToCToken[_repayAsset]], "Borrow not enabled");
         uint256 notionalRepayQuantity = underlyingToCToken[_repayAsset].borrowBalanceCurrent(address(_setToken));
 
@@ -374,7 +374,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * CALLABLE BY ANYBODY: Sync Set positions with enabled Compound collateral and borrow positions. For collateral 
+     * CALLABLE BY ANYBODY: Sync Set positions with enabled Compound collateral and borrow positions. For collateral
      * assets, update cToken default position. For borrow assets, update external borrow position.
      * - Collateral assets may come out of sync when a position is liquidated
      * - Borrow assets may come out of sync when interest is accrued or position is liquidated and borrow is repaid
@@ -457,7 +457,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         for(uint256 i = 0; i < modules.length; i++) {
             try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
         }
-        
+
         // Enable collateral and borrow assets on Compound
         addCollateralAssets(_setToken, _collateralAssets);
 
@@ -495,7 +495,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
             delete collateralCTokenEnabled[setToken][cToken];
         }
-        
+
         delete enabledAssets[setToken];
 
         // Try if unregister exists on any of the modules
@@ -557,7 +557,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         for(uint256 i = 0; i < _collateralAssets.length; i++) {
             ICErc20 cToken = underlyingToCToken[_collateralAssets[i]];
             require(collateralCTokenEnabled[_setToken][cToken], "Collateral not enabled");
-            
+
             // Note: Will only exit market if cToken is not enabled as a borrow asset as well
             // If there is an existing borrow balance, will revert and market cannot be exited on Compound
             if (!borrowCTokenEnabled[_setToken][cToken]) {
@@ -611,7 +611,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         for(uint256 i = 0; i < _borrowAssets.length; i++) {
             ICErc20 cToken = underlyingToCToken[_borrowAssets[i]];
             require(borrowCTokenEnabled[_setToken][cToken], "Borrow not enabled");
-            
+
             // Note: Will only exit market if cToken is not enabled as a collateral asset as well
             // If there is an existing borrow balance, will revert and market cannot be exited on Compound
             if (!collateralCTokenEnabled[_setToken][cToken]) {
@@ -649,7 +649,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * GOVERNANCE ONLY: Add Compound market to module with stored underlying to cToken mapping in case of market additions to Compound.
      *
-     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit 
+     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit
      *
      * @param _cToken                   Address of cToken to add
      * @param _underlying               Address of underlying token that maps to cToken
@@ -662,7 +662,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * GOVERNANCE ONLY: Remove Compound market on stored underlying to cToken mapping in case of market removals
      *
-     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit 
+     * IMPORTANT: Validations are skipped in order to get contract under bytecode limit
      *
      * @param _underlying               Address of underlying token to remove
      */
@@ -744,7 +744,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /* ============ Internal Functions ============ */
 
     /**
-     * Mints the specified cToken from the underlying of the specified notional quantity. If cEther, the WETH must be 
+     * Mints the specified cToken from the underlying of the specified notional quantity. If cEther, the WETH must be
      * unwrapped as it only accepts the underlying ETH.
      */
     function _mintCToken(ISetToken _setToken, ICErc20 _cToken, IERC20 _underlyingToken, uint256 _mintNotional) internal {
@@ -847,7 +847,7 @@ contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function _accrueProtocolFee(ISetToken _setToken, IERC20 _receiveToken, uint256 _exchangedQuantity) internal returns(uint256) {
         uint256 protocolFeeTotal = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
-        
+
         payProtocolFeeFromSetToken(_setToken, address(_receiveToken), protocolFeeTotal);
 
         return protocolFeeTotal;

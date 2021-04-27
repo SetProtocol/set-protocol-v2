@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
@@ -38,7 +38,7 @@ import { AddressArrayUtils } from "../lib/AddressArrayUtils.sol";
  * @author Set Protocol
  *
  * ERC20 Token contract that allows privileged modules to make modifications to its positions and invoke function calls
- * from the SetToken. 
+ * from the SetToken.
  */
 contract SetToken is ERC20 {
     using SafeMath for uint256;
@@ -64,7 +64,7 @@ contract SetToken is ERC20 {
 
     event Invoked(address indexed _target, uint indexed _value, bytes _data, bytes _returnValue);
     event ModuleAdded(address indexed _module);
-    event ModuleRemoved(address indexed _module);    
+    event ModuleRemoved(address indexed _module);
     event ModuleInitialized(address indexed _module);
     event ManagerEdited(address _newManager, address _oldManager);
     event PendingModuleRemoved(address indexed _module);
@@ -144,7 +144,7 @@ contract SetToken is ERC20 {
 
     /**
      * When a new SetToken is created, initializes Positions in default state and adds modules into pending state.
-     * All parameter validations are on the SetTokenCreator contract. Validations are performed already on the 
+     * All parameter validations are on the SetTokenCreator contract. Validations are performed already on the
      * SetTokenCreator. Initiates the positionMultiplier as 1e18 (no adjustments).
      *
      * @param _components             List of addresses of components for initial Positions
@@ -216,7 +216,7 @@ contract SetToken is ERC20 {
      */
     function addComponent(address _component) external onlyModule whenLockedOnlyLocker {
         require(!isComponent(_component), "Must not be component");
-        
+
         components.push(_component);
 
         emit ComponentAdded(_component);
@@ -255,7 +255,7 @@ contract SetToken is ERC20 {
     }
 
     /**
-     * PRIVELEGED MODULE FUNCTION. Low level function that removes a module from a component's 
+     * PRIVELEGED MODULE FUNCTION. Low level function that removes a module from a component's
      * externalPositionModules array and deletes the associated externalPosition.
      */
     function removeExternalPositionModule(
@@ -274,7 +274,7 @@ contract SetToken is ERC20 {
     }
 
     /**
-     * PRIVELEGED MODULE FUNCTION. Low level function that edits a component's external position virtual unit. 
+     * PRIVELEGED MODULE FUNCTION. Low level function that edits a component's external position virtual unit.
      * Takes a real unit and converts it to virtual before committing.
      */
     function editExternalPositionUnit(
@@ -314,7 +314,7 @@ contract SetToken is ERC20 {
      * PRIVELEGED MODULE FUNCTION. Modifies the position multiplier. This is typically used to efficiently
      * update all the Positions' units at once in applications where inflation is awarded (e.g. subscription fees).
      */
-    function editPositionMultiplier(int256 _newMultiplier) external onlyModule whenLockedOnlyLocker {        
+    function editPositionMultiplier(int256 _newMultiplier) external onlyModule whenLockedOnlyLocker {
         _validateNewMultiplier(_newMultiplier);
 
         positionMultiplier = _newMultiplier;
@@ -357,7 +357,7 @@ contract SetToken is ERC20 {
     }
 
     /**
-     * MANAGER ONLY. Adds a module into a PENDING state; Module must later be initialized via 
+     * MANAGER ONLY. Adds a module into a PENDING state; Module must later be initialized via
      * module's initialize function
      */
     function addModule(address _module) external onlyManager {
@@ -406,7 +406,7 @@ contract SetToken is ERC20 {
     function initializeModule() external {
         require(!isLocked, "Only when unlocked");
         require(moduleStates[msg.sender] == ISetToken.ModuleState.PENDING, "Module must be pending");
-        
+
         moduleStates[msg.sender] = ISetToken.ModuleState.INITIALIZED;
         modules.push(msg.sender);
 
@@ -575,7 +575,7 @@ contract SetToken is ERC20 {
     }
 
     /**
-     * To prevent virtual to real unit conversion issues (where real unit may be 0), the 
+     * To prevent virtual to real unit conversion issues (where real unit may be 0), the
      * product of the positionMultiplier and the lowest absolute virtualUnit value (across default and
      * external positions) must be greater than 0.
      */
@@ -586,7 +586,7 @@ contract SetToken is ERC20 {
     }
 
     /**
-     * Loops through all of the positions and returns the smallest absolute value of 
+     * Loops through all of the positions and returns the smallest absolute value of
      * the virtualUnit.
      *
      * @return Min virtual unit across positions denominated as int256
@@ -617,7 +617,7 @@ contract SetToken is ERC20 {
             }
         }
 
-        return minimumUnit.toInt256();        
+        return minimumUnit.toInt256();
     }
 
     /**
@@ -638,7 +638,7 @@ contract SetToken is ERC20 {
             // Increment the position count by each external position module
             address[] memory externalModules = _externalPositionModules(component);
             if (externalModules.length > 0) {
-                positionCount = positionCount.add(externalModules.length);  
+                positionCount = positionCount.add(externalModules.length);
             }
         }
 

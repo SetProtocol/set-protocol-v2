@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -37,7 +37,7 @@ contract TradeAdapterMock {
         uint256 balance = ERC20(_token).balanceOf(address(this));
         require(ERC20(_token).transfer(msg.sender, balance), "ERC20 transfer failed");
     }
-    
+
     /* ============ Trade Functions ============ */
 
     function trade(

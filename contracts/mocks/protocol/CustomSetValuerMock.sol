@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { ISetValuer } from "../../interfaces/ISetValuer.sol";
@@ -42,7 +42,7 @@ contract CustomSetValuerMock is ISetValuer {
      * Gets the valuation of a SetToken using data from the price oracle. Reverts
      * if no price exists for a component in the SetToken. Note: this works for external
      * positions and negative (debt) positions.
-     * 
+     *
      * Note: There is a risk that the valuation is off if airdrops aren't retrieved or
      * debt builds up via interest and its not reflected in the position
      *

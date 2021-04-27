@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
@@ -107,4 +107,4 @@ contract UniswapV2IndexExchangeAdapter is IIndexExchangeAdapter {
     function getSpender() external view override returns (address) {
         return router;
     }
-} 
+}

@@ -14,7 +14,7 @@
     limitations under the License.
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { ICErc20 } from "./ICErc20.sol";
 

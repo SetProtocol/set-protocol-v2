@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -38,7 +38,7 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * @title IssuanceModule
  * @author Set Protocol
  *
- * The IssuanceModule is a module that enables users to issue and redeem SetTokens that contain default and 
+ * The IssuanceModule is a module that enables users to issue and redeem SetTokens that contain default and
  * non-debt external Positions. Managers are able to set an external contract hook that is called before an
  * issuance is called.
  */
@@ -70,7 +70,7 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
     /* ============ External Functions ============ */
 
     /**
-     * Deposits components to the SetToken and replicates any external module component positions and mints 
+     * Deposits components to the SetToken and replicates any external module component positions and mints
      * the SetToken. Any issuances with SetTokens that have external positions with negative unit will revert.
      *
      * @param _setToken             Instance of the SetToken contract
@@ -81,7 +81,7 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
         ISetToken _setToken,
         uint256 _quantity,
         address _to
-    ) 
+    )
         external
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
@@ -140,7 +140,7 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
 
         for (uint256 i = 0; i < components.length; i++) {
             _executeExternalPositionHooks(_setToken, _quantity, IERC20(components[i]), false);
-            
+
             _setToken.strictInvokeTransfer(
                 components[i],
                 _to,
@@ -208,8 +208,8 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
         for (uint256 i = 0; i < issuanceUnits.length; i++) {
             // Use preciseMulCeil to round up to ensure overcollateration when small issue quantities are provided
             // and preciseMul to round down to ensure overcollateration when small redeem quantities are provided
-            notionalUnits[i] = _isIssue ? 
-                issuanceUnits[i].preciseMulCeil(_quantity) : 
+            notionalUnits[i] = _isIssue ?
+                issuanceUnits[i].preciseMulCeil(_quantity) :
                 issuanceUnits[i].preciseMul(_quantity);
         }
 
@@ -244,7 +244,7 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
             totalUnits[i] = cumulativeUnits.toUint256();
         }
 
-        return (components, totalUnits);        
+        return (components, totalUnits);
     }
 
     /**
@@ -271,7 +271,7 @@ contract IssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * For each component's external module positions, calculate the total notional quantity, and 
+     * For each component's external module positions, calculate the total notional quantity, and
      * call the module's issue hook or redeem hook.
      * Note: It is possible that these hooks can cause the states of other modules to change.
      * It can be problematic if the a hook called an external function that called back into a module, resulting in state inconsistencies.

@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -150,7 +150,7 @@ contract AmmAdapterMock is ERC20 {
         );
         return (address(this), 0, callData);
     }
-    
+
     function isValidPool(address _pool) public view returns(bool) {
         return _pool == address(this) || _pool == approvedToken;
     }

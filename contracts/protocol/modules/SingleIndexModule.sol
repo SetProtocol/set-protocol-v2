@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -169,7 +169,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
     )
         external
         onlyManagerAndValidSet(index)
-    {   
+    {
         // Don't use validate arrays because empty arrays are valid
         require(_newComponents.length == _newComponentsTargetUnits.length, "Array length mismatch");
 
@@ -329,7 +329,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Toggle ability for passed addresses to trade from current state 
+     * MANAGER ONLY: Toggle ability for passed addresses to trade from current state
      *
      * @param _traders           Array trader addresses to toggle status
      * @param _statuses          Booleans indicating if matching trader can trade
@@ -393,7 +393,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
      */
     function getTargetUnits(address[] calldata _components) external view returns(uint256[] memory) {
         uint256 currentPositionMultiplier = index.positionMultiplier().toUint256();
-        
+
         uint256[] memory targetUnits = new uint256[](_components.length);
         for (uint256 i = 0; i < _components.length; i++) {
             targetUnits[i] = _normalizeTargetUnit(_components[i], currentPositionMultiplier);
@@ -483,7 +483,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
         virtual
     {
         uint256 wethBalance = weth.balanceOf(address(index));
-        
+
         (
             address exchangeAddress,
             bytes memory tradeCallData
@@ -561,7 +561,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
             BALANCER_POOL_LIMIT
         );
 
-        return (exchangeAddress, tradeCallData);       
+        return (exchangeAddress, tradeCallData);
     }
 
     /**
@@ -579,7 +579,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
         returns(address, bytes memory)
     {
         address exchangeAddress = _exchange == uint256(ExchangeId.Uniswap) ? uniswapRouter : sushiswapRouter;
-        
+
         string memory functionSignature;
         address[] memory path = new address[](2);
         uint256 limit;
@@ -592,7 +592,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
         }
         path[0] = _sellComponent;
         path[1] = _buyComponent;
-        
+
         bytes memory tradeCallData = abi.encodeWithSignature(
             functionSignature,
             _amount,

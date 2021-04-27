@@ -10,7 +10,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -41,7 +41,7 @@ contract ERC20Viewer {
     {
         // Cache length of addresses to fetch balances for
         uint256 addressesCount = _tokenAddresses.length;
-        
+
         // Instantiate output array in memory
         uint256[] memory balances = new uint256[](addressesCount);
 
@@ -72,7 +72,7 @@ contract ERC20Viewer {
     {
         // Cache length of addresses to fetch allowances for
         uint256 addressesCount = _tokenAddresses.length;
-        
+
         // Instantiate output array in memory
         uint256[] memory allowances = new uint256[](addressesCount);
 

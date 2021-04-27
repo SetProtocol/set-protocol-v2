@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -39,7 +39,7 @@ contract UniswapYieldHook is INAVIssuanceHook, Ownable {
     constructor(address[] memory _assets, uint256[] memory _limits) public {
         require(_assets.length == _limits.length, "Arrays must be equal");
         require(_assets.length != 0, "Array must not be empty");
-        
+
         for (uint256 i = 0; i < _assets.length; i++) {
             address asset = _assets[i];
             require(assetLimits[asset] == 0, "Asset already added");
@@ -104,6 +104,6 @@ contract UniswapYieldHook is INAVIssuanceHook, Ownable {
     }
 
     /* ============ Getters ============ */
-    
+
     function getAssets() external view returns(address[] memory) { return assets; }
 }

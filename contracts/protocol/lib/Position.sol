@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -59,7 +59,7 @@ library Position {
     function hasExternalPosition(ISetToken _setToken, address _component) internal view returns(bool) {
         return _setToken.getExternalPositionModules(_component).length > 0;
     }
-    
+
     /**
      * Returns whether the SetToken component default position real unit is greater than or equal to units passed in.
      */
@@ -80,12 +80,12 @@ library Position {
         view
         returns(bool)
     {
-       return _setToken.getExternalPositionRealUnit(_component, _positionModule) >= _unit.toInt256();    
+       return _setToken.getExternalPositionRealUnit(_component, _positionModule) >= _unit.toInt256();
     }
 
     /**
      * If the position does not exist, create a new Position and add to the SetToken. If it already exists,
-     * then set the position units. If the new units is 0, remove the position. Handles adding/removing of 
+     * then set the position units. If the new units is 0, remove the position. Handles adding/removing of
      * components where needed (in light of potential external positions).
      *
      * @param _setToken           Address of SetToken being modified
@@ -111,7 +111,7 @@ library Position {
 
     /**
      * Update an external position and remove and external positions or components if necessary. The logic flows as follows:
-     * 1) If component is not already added then add component and external position. 
+     * 1) If component is not already added then add component and external position.
      * 2) If component is added but no existing external position using the passed module exists then add the external position.
      * 3) If the existing position is being added to then just update the unit and data
      * 4) If the position is being closed and no other external positions or default positions are associated with the component
@@ -188,7 +188,7 @@ library Position {
      * @return                    Notional tracked balance
      */
     function getDefaultTrackedBalance(ISetToken _setToken, address _component) internal view returns(uint256) {
-        int256 positionUnit = _setToken.getDefaultPositionRealUnit(_component); 
+        int256 positionUnit = _setToken.getDefaultPositionRealUnit(_component);
         return _setToken.totalSupply().preciseMul(positionUnit.toUint256());
     }
 

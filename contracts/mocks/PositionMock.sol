@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { ISetToken } from "../interfaces/ISetToken.sol";
@@ -34,14 +34,14 @@ contract PositionMock {
     }
 
     function testHasDefaultPosition(ISetToken _setToken, address _component) external view returns(bool) {
-        return Position.hasDefaultPosition(_setToken, _component);    
+        return Position.hasDefaultPosition(_setToken, _component);
     }
 
     function testHasExternalPosition(ISetToken _setToken, address _component) external view returns(bool) {
         return Position.hasExternalPosition(_setToken, _component);
     }
     function testHasSufficientDefaultUnits(ISetToken _setToken, address _component, uint256 _unit) external view returns(bool) {
-        return Position.hasSufficientDefaultUnits(_setToken, _component, _unit);    
+        return Position.hasSufficientDefaultUnits(_setToken, _component, _unit);
     }
     function testHasSufficientExternalUnits(
         ISetToken _setToken,
@@ -53,11 +53,11 @@ contract PositionMock {
         view
         returns(bool)
     {
-        return Position.hasSufficientExternalUnits(_setToken, _component, _module, _unit);    
+        return Position.hasSufficientExternalUnits(_setToken, _component, _module, _unit);
     }
 
     function testEditDefaultPosition(ISetToken _setToken, address _component, uint256 _newUnit) external {
-        return Position.editDefaultPosition(_setToken, _component, _newUnit);   
+        return Position.editDefaultPosition(_setToken, _component, _newUnit);
     }
 
     function testEditExternalPosition(

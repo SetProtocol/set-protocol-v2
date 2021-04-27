@@ -15,7 +15,7 @@
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -56,13 +56,13 @@ interface ISetToken is IERC20 {
 
     /**
      * A struct that stores a component's cash position details and external positions
-     * This data structure allows O(1) access to a component's cash position units and 
+     * This data structure allows O(1) access to a component's cash position units and
      * virtual units.
      *
      * @param virtualUnit               Virtual value of a component's DEFAULT position. Stored as virtual for efficiency
      *                                  updating all units at once via the position multiplier. Virtual units are achieved
      *                                  by dividing a "real" value by the "positionMultiplier"
-     * @param componentIndex            
+     * @param componentIndex
      * @param externalPositionModules   List of external modules attached to each external position. Each module
      *                                  maps to an external position
      * @param externalPositions         Mapping of module => ExternalPosition struct for a given component
@@ -87,7 +87,7 @@ interface ISetToken is IERC20 {
 
 
     /* ============ Functions ============ */
-    
+
     function addComponent(address _component) external;
     function removeComponent(address _component) external;
     function editDefaultPositionUnit(address _component, int256 _realUnit) external;
@@ -115,7 +115,7 @@ interface ISetToken is IERC20 {
     function manager() external view returns (address);
     function moduleStates(address _module) external view returns (ModuleState);
     function getModules() external view returns (address[] memory);
-    
+
     function getDefaultPositionRealUnit(address _component) external view returns(int256);
     function getExternalPositionRealUnit(address _component, address _positionModule) external view returns(int256);
     function getComponents() external view returns(address[] memory);
@@ -123,7 +123,7 @@ interface ISetToken is IERC20 {
     function getExternalPositionData(address _component, address _positionModule) external view returns(bytes memory);
     function isExternalPositionModule(address _component, address _module) external view returns(bool);
     function isComponent(address _component) external view returns(bool);
-    
+
     function positionMultiplier() external view returns (int256);
     function getPositions() external view returns (Position[] memory);
     function getTotalComponentRealUnits(address _component) external view returns(int256);

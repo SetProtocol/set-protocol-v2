@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 /**
@@ -29,7 +29,7 @@ pragma experimental "ABIEncoderV2";
 contract OneInchExchangeAdapter {
 
     /* ============ State Variables ============ */
-    
+
     // Address of 1Inch approve token address
     address public oneInchApprovalAddress;
 
@@ -86,7 +86,7 @@ contract OneInchExchangeAdapter {
         external
         view
         returns (address, uint256, bytes memory)
-    {   
+    {
         bytes4 signature;
         address fromToken;
         address toToken;

@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -179,7 +179,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     /**
      * MODULE ONLY: On issuance, replicates all staking positions for a given component by staking the component transferred into
      * the SetToken by an issuer. The amount staked should only be the notional amount required to replicate a _setTokenQuantity
-     * amount of a position. No updates to positions should take place. 
+     * amount of a position. No updates to positions should take place.
      *
      * @param _setToken                 Address of SetToken contract
      * @param _component                Address of token being staked
@@ -205,7 +205,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     /**
      * MODULE ONLY: On redemption, unwind all staking positions for a given asset by unstaking the given component. The amount
      * unstaked should only be the notional amount required to unwind a _setTokenQuantity amount of a position. No updates to
-     * positions should take place. 
+     * positions should take place.
      *
      * @param _setToken                 Address of SetToken contract
      * @param _component                Address of token being staked
@@ -266,7 +266,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function hasStakingPosition(ISetToken _setToken, IERC20 _component, address _stakeContract) public view returns(bool) {
         return getStakingContracts(_setToken, _component).contains(_stakeContract);
     }
-    
+
     function getStakingContracts(ISetToken _setToken, IERC20 _component) public view returns(address[] memory) {
         return stakingPositions[_setToken][_component].stakingContracts;
     }
@@ -391,7 +391,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
 
         uint256 newDefaultTokenUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256().sub(_componentPositionUnits);
         _setToken.editDefaultPosition(address(_component), newDefaultTokenUnit);
-        
+
         int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this))
             .add(_componentPositionUnits.toInt256());
         _setToken.editExternalPosition(address(_component), address(this), newExternalTokenUnit, "");
@@ -417,7 +417,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
         uint256 _componentPositionUnits
     )
         internal
-    {   
+    {
         uint256 remainingPositionUnits = getStakingPositionUnit(_setToken, _component, _stakeContract).sub(_componentPositionUnits);
 
         if (remainingPositionUnits > 0) {
@@ -428,12 +428,12 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
         }
 
         uint256 newTokenUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256().add(_componentPositionUnits);
-        
+
         _setToken.editDefaultPosition(address(_component), newTokenUnit);
-        
+
         int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this))
             .sub(_componentPositionUnits.toInt256());
-        
+
         _setToken.editExternalPosition(address(_component), address(this), newExternalTokenUnit, "");
     }
 }

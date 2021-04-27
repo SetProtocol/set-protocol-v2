@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 /**
@@ -84,7 +84,7 @@ contract UniswapV2ExchangeAdapterV2 {
         external
         view
         returns (address, uint256, bytes memory)
-    {   
+    {
         (
             address[] memory path,
             bool shouldSwapExactTokensForTokens
@@ -104,16 +104,16 @@ contract UniswapV2ExchangeAdapterV2 {
     /**
      * Generate data parameter to be passed to `getTradeCallData`. Returns encoded trade paths and bool to select trade function.
      *
-     * @param _sourceToken          Address of the source token to be sold        
+     * @param _sourceToken          Address of the source token to be sold
      * @param _destinationToken     Address of the destination token to buy
      * @param _fixIn                Boolean representing if input tokens amount is fixed
-     * 
-     * @return bytes                Data parameter to be passed to `getTradeCallData`          
+     *
+     * @return bytes                Data parameter to be passed to `getTradeCallData`
      */
     function generateDataParam(address _sourceToken, address _destinationToken, bool _fixIn)
         external
         pure
-        returns (bytes memory) 
+        returns (bytes memory)
     {
         address[] memory path = new address[](2);
         path[0] = _sourceToken;
@@ -138,4 +138,4 @@ contract UniswapV2ExchangeAdapterV2 {
     function getUniswapExchangeData(address[] memory _path, bool _shouldSwapExactTokensForTokens) external pure returns (bytes memory) {
         return abi.encode(_path, _shouldSwapExactTokensForTokens);
     }
-} 
+}

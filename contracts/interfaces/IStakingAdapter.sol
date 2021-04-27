@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 /**
  * @title IStakingAdapter
@@ -32,7 +32,7 @@ interface IStakingAdapter {
         uint256 _notionalAmount
     )
         external
-        view 
+        view
         returns(address, uint256, bytes memory);
 
     function getUnstakeCallData(
@@ -40,6 +40,6 @@ interface IStakingAdapter {
         uint256 _notionalAmount
     )
         external
-        view 
+        view
         returns(address, uint256, bytes memory);
 }

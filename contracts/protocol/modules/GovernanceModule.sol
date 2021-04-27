@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -33,7 +33,7 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  * @author Set Protocol
  *
  * A smart contract module that enables participating in governance of component tokens held in the SetToken.
- * Examples of intended protocols include Compound, Uniswap, and Maker governance. 
+ * Examples of intended protocols include Compound, Uniswap, and Maker governance.
  */
 contract GovernanceModule is ModuleBase, ReentrancyGuard {
     using Invoke for ISetToken;

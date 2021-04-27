@@ -12,7 +12,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -87,7 +87,7 @@ contract BasicIssuanceModule is ModuleBase, ReentrancyGuard {
         ISetToken _setToken,
         uint256 _quantity,
         address _to
-    ) 
+    )
         external
         nonReentrant
         onlyValidAndInitializedSet(_setToken)

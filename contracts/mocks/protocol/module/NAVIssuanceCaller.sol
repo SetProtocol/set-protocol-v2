@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -36,7 +36,7 @@ contract NAVIssuanceCaller {
         uint256 _reserveAssetQuantity,
         uint256 _minSetTokenReceiveQuantity,
         address _to
-    ) 
+    )
         external
     {
         IERC20(_reserveAsset).approve(address(navIssuance), _reserveAssetQuantity);
@@ -55,7 +55,7 @@ contract NAVIssuanceCaller {
         uint256 _setTokenQuantity,
         uint256 _minReserveReceiveQuantity,
         address _to
-    ) 
+    )
         external
     {
         navIssuance.redeem(

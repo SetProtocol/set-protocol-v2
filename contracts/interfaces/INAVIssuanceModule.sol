@@ -15,7 +15,7 @@
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { ISetToken } from "./ISetToken.sol";
 
@@ -26,15 +26,15 @@ interface INAVIssuanceModule {
         uint256 _reserveAssetQuantity,
         uint256 _minSetTokenReceiveQuantity,
         address _to
-    ) 
+    )
         external;
-    
+
     function redeem(
         ISetToken _setToken,
         address _reserveAsset,
         uint256 _setTokenQuantity,
         uint256 _minReserveReceiveQuantity,
         address _to
-    ) 
+    )
         external;
 }

@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 /**
@@ -70,7 +70,7 @@ contract UniswapV2ExchangeAdapter {
         external
         view
         returns (address, uint256, bytes memory)
-    {   
+    {
         address[] memory path;
 
         if(_data.length == 0){
@@ -104,4 +104,4 @@ contract UniswapV2ExchangeAdapter {
     {
         return router;
     }
-} 
+}

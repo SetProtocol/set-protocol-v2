@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
@@ -34,9 +34,9 @@ contract BalancerV1IndexExchangeAdapter is IIndexExchangeAdapter {
 
     // Amount of pools examined when fetching quote
     uint256 private constant BALANCER_POOL_LIMIT = 3;
-    
+
     /* ============ State Variables ============ */
-    
+
     // Address of Balancer V1 Proxy contract
     address public immutable balancerProxy;
     // Balancer proxy function string for swapping exact tokens for a minimum of receive tokens
@@ -87,7 +87,7 @@ contract BalancerV1IndexExchangeAdapter is IIndexExchangeAdapter {
         view
         override
         returns (address, uint256, bytes memory)
-    {   
+    {
         bytes memory callData = abi.encodeWithSignature(
             _isSendTokenFixed ? EXACT_IN : EXACT_OUT,
             _sourceToken,
@@ -108,4 +108,4 @@ contract BalancerV1IndexExchangeAdapter is IIndexExchangeAdapter {
     function getSpender() external view override returns (address) {
         return balancerProxy;
     }
-} 
+}

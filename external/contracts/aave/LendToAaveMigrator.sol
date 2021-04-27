@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import {IERC20} from "../interfaces/IERC20.sol";
 import {SafeMath} from "../open-zeppelin/SafeMath.sol";
@@ -9,7 +9,7 @@ import {VersionedInitializable} from "../utils/VersionedInitializable.sol";
 /**
 * @title LendToAaveMigrator
 * @notice This contract implements the migration from LEND to AAVE token
-* @author Aave 
+* @author Aave
 */
 contract LendToAaveMigrator is VersionedInitializable {
     using SafeMath for uint256;
@@ -18,7 +18,7 @@ contract LendToAaveMigrator is VersionedInitializable {
     IERC20 public immutable LEND;
     uint256 public immutable LEND_AAVE_RATIO;
     uint256 public constant REVISION = 1;
-    
+
     uint256 public _totalLendMigrated;
 
     /**
@@ -31,7 +31,7 @@ contract LendToAaveMigrator is VersionedInitializable {
     /**
     * @param aave the address of the AAVE token
     * @param lend the address of the LEND token
-    * @param lendAaveRatio the exchange rate between LEND and AAVE 
+    * @param lendAaveRatio the exchange rate between LEND and AAVE
      */
     constructor(IERC20 aave, IERC20 lend, uint256 lendAaveRatio) public {
         AAVE = aave;

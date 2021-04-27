@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -122,7 +122,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 premiumPercentage;                     // Premium percentage (0.01% = 1e14, 1% = 1e16). This premium is a buffer around oracle
                                                        // prices paid by user to the SetToken, which prevents arbitrage and oracle front running
         uint256 maxPremiumPercentage;                  // Maximum premium percentage manager is allowed to set (configured by manager)
-        uint256 minSetTokenSupply;                     // Minimum SetToken supply required for issuance and redemption 
+        uint256 minSetTokenSupply;                     // Minimum SetToken supply required for issuance and redemption
                                                        // to prevent dramatic inflationary changes to the SetToken's position multiplier
     }
 
@@ -148,7 +148,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
 
     // Mapping of SetToken to NAV issuance settings struct
     mapping(ISetToken => NAVIssuanceSettings) public navIssuanceSettings;
-    
+
     // Mapping to efficiently check a SetToken's reserve asset validity
     // SetToken => reserveAsset => isReserveAsset
     mapping(ISetToken => mapping(address => bool)) public isReserveAsset;
@@ -184,7 +184,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     /* ============ External Functions ============ */
-    
+
     /**
      * Deposits the allowed reserve asset into the SetToken and mints the appropriate % of Net Asset Value of the SetToken
      * to the specified _to address.
@@ -201,13 +201,13 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 _reserveAssetQuantity,
         uint256 _minSetTokenReceiveQuantity,
         address _to
-    ) 
+    )
         external
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
         _validateCommon(_setToken, _reserveAsset, _reserveAssetQuantity);
-        
+
         _callPreIssueHooks(_setToken, _reserveAsset, _reserveAssetQuantity, msg.sender, _to);
 
         ActionInfo memory issueInfo = _createIssuanceInfo(_setToken, _reserveAsset, _reserveAssetQuantity);
@@ -231,7 +231,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         ISetToken _setToken,
         uint256 _minSetTokenReceiveQuantity,
         address _to
-    ) 
+    )
         external
         payable
         nonReentrant
@@ -240,7 +240,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         weth.deposit{ value: msg.value }();
 
         _validateCommon(_setToken, address(weth), msg.value);
-        
+
         _callPreIssueHooks(_setToken, address(weth), msg.value, msg.sender, _to);
 
         ActionInfo memory issueInfo = _createIssuanceInfo(_setToken, address(weth), msg.value);
@@ -268,7 +268,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 _setTokenQuantity,
         uint256 _minReserveReceiveQuantity,
         address _to
-    ) 
+    )
         external
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
@@ -309,7 +309,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 _setTokenQuantity,
         uint256 _minReserveReceiveQuantity,
         address payable _to
-    ) 
+    )
         external
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
@@ -332,7 +332,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         );
 
         weth.withdraw(redeemInfo.netFlowQuantity);
-        
+
         _to.transfer(redeemInfo.netFlowQuantity);
 
         _handleRedemptionFees(_setToken, address(weth), redeemInfo);
@@ -348,7 +348,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
      */
     function addReserveAsset(ISetToken _setToken, address _reserveAsset) external onlyManagerAndValidSet(_setToken) {
         require(!isReserveAsset[_setToken][_reserveAsset], "Reserve asset already exists");
-        
+
         navIssuanceSettings[_setToken].reserveAssets.push(_reserveAsset);
         isReserveAsset[_setToken][_reserveAsset] = true;
 
@@ -378,7 +378,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
      */
     function editPremium(ISetToken _setToken, uint256 _premiumPercentage) external onlyManagerAndValidSet(_setToken) {
         require(_premiumPercentage <= navIssuanceSettings[_setToken].maxPremiumPercentage, "Premium must be less than maximum allowed");
-        
+
         navIssuanceSettings[_setToken].premiumPercentage = _premiumPercentage;
 
         emit PremiumEdited(_setToken, _premiumPercentage);
@@ -400,7 +400,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         onlyManagerAndValidSet(_setToken)
     {
         require(_managerFeePercentage <= navIssuanceSettings[_setToken].maxManagerFee, "Manager fee must be less than maximum allowed");
-        
+
         navIssuanceSettings[_setToken].managerFees[_managerFeeIndex] = _managerFeePercentage;
 
         emit ManagerFeeEdited(_setToken, _managerFeePercentage, _managerFeeIndex);
@@ -414,7 +414,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
      */
     function editFeeRecipient(ISetToken _setToken, address _managerFeeRecipient) external onlyManagerAndValidSet(_setToken) {
         require(_managerFeeRecipient != address(0), "Fee recipient must not be 0 address");
-        
+
         navIssuanceSettings[_setToken].feeRecipient = _managerFeeRecipient;
 
         emit FeeRecipientEdited(_setToken, _managerFeeRecipient);
@@ -465,7 +465,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         for (uint256 i = 0; i < navIssuanceSettings[setToken].reserveAssets.length; i++) {
             delete isReserveAsset[setToken][navIssuanceSettings[setToken].reserveAssets[i]];
         }
-        
+
         delete navIssuanceSettings[setToken];
     }
 
@@ -782,7 +782,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         address _reserveAsset,
         address _to,
         ActionInfo memory _issueInfo
-    ) 
+    )
         internal
     {
         _setToken.editPositionMultiplier(_issueInfo.newPositionMultiplier);
@@ -800,7 +800,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
             _issueInfo.setTokenQuantity,
             _issueInfo.managerFee,
             _issueInfo.protocolFees
-        );        
+        );
     }
 
     function _handleRedeemStateUpdates(
@@ -808,7 +808,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         address _reserveAsset,
         address _to,
         ActionInfo memory _redeemInfo
-    ) 
+    )
         internal
     {
         _setToken.editPositionMultiplier(_redeemInfo.newPositionMultiplier);
@@ -824,7 +824,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
             _redeemInfo.setTokenQuantity,
             _redeemInfo.managerFee,
             _redeemInfo.protocolFees
-        );      
+        );
     }
 
     function _handleRedemptionFees(ISetToken _setToken, address _reserveAsset, ActionInfo memory _redeemInfo) internal {
@@ -932,7 +932,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 protocolDirectFeePercent = controller.getModuleFee(address(this), _protocolDirectFeeIndex);
         uint256 protocolManagerShareFeePercent = controller.getModuleFee(address(this), _protocolManagerFeeIndex);
         uint256 managerFeePercent = navIssuanceSettings[_setToken].managerFees[_managerFeeIndex];
-        
+
         // Calculate revenue share split percentage
         uint256 protocolRevenueSharePercentage = protocolManagerShareFeePercent.preciseMul(managerFeePercent);
         uint256 managerRevenueSharePercentage = managerFeePercent.sub(protocolRevenueSharePercentage);
@@ -997,7 +997,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
      * The new position multiplier is calculated as follows:
      * inflationPercentage = (newSupply - oldSupply) / newSupply
      * newMultiplier = (1 - inflationPercentage) * positionMultiplier
-     */    
+     */
     function _getIssuePositionMultiplier(
         ISetToken _setToken,
         ActionInfo memory _issueInfo
@@ -1017,11 +1017,11 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Calculate deflation and new position multiplier. Note: Round deflation down in order to round position multiplier down
-     * 
+     *
      * The new position multiplier is calculated as follows:
      * deflationPercentage = (oldSupply - newSupply) / newSupply
      * newMultiplier = (1 + deflationPercentage) * positionMultiplier
-     */ 
+     */
     function _getRedeemPositionMultiplier(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
@@ -1043,7 +1043,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
      * The new position reserve asset unit is calculated as follows:
      * totalReserve = (oldUnit * oldSetTokenSupply) + reserveQuantity
      * newUnit = totalReserve / newSetTokenSupply
-     */ 
+     */
     function _getIssuePositionUnit(
         ISetToken _setToken,
         address _reserveAsset,
@@ -1065,7 +1065,7 @@ contract CustomOracleNavIssuanceModule is ModuleBase, ReentrancyGuard {
      * The new position reserve asset unit is calculated as follows:
      * totalReserve = (oldUnit * oldSetTokenSupply) - reserveQuantityToSendOut
      * newUnit = totalReserve / newSetTokenSupply
-     */ 
+     */
     function _getRedeemPositionUnit(
         ISetToken _setToken,
         address _reserveAsset,

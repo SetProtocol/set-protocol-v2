@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -121,7 +121,7 @@ abstract contract ModuleBase is IModule {
     /**
      * Gets the integration for the module with the passed in name. Validates that the address is not empty
      */
-    function getAndValidateAdapter(string memory _integrationName) internal view returns(address) { 
+    function getAndValidateAdapter(string memory _integrationName) internal view returns(address) {
         bytes32 integrationHash = getNameHash(_integrationName);
         return getAndValidateAdapterWithHash(integrationHash);
     }
@@ -129,13 +129,13 @@ abstract contract ModuleBase is IModule {
     /**
      * Gets the integration for the module with the passed in hash. Validates that the address is not empty
      */
-    function getAndValidateAdapterWithHash(bytes32 _integrationHash) internal view returns(address) { 
+    function getAndValidateAdapterWithHash(bytes32 _integrationHash) internal view returns(address) {
         address adapter = controller.getIntegrationRegistry().getIntegrationAdapterWithHash(
             address(this),
             _integrationHash
         );
 
-        require(adapter != address(0), "Must be valid adapter"); 
+        require(adapter != address(0), "Must be valid adapter");
         return adapter;
     }
 
@@ -152,7 +152,7 @@ abstract contract ModuleBase is IModule {
      */
     function payProtocolFeeFromSetToken(ISetToken _setToken, address _token, uint256 _feeQuantity) internal {
         if (_feeQuantity > 0) {
-            _setToken.strictInvokeTransfer(_token, controller.feeRecipient(), _feeQuantity); 
+            _setToken.strictInvokeTransfer(_token, controller.feeRecipient(), _feeQuantity);
         }
     }
 
@@ -171,7 +171,7 @@ abstract contract ModuleBase is IModule {
     }
 
     /**
-     * Returns true if SetToken must be enabled on the controller 
+     * Returns true if SetToken must be enabled on the controller
      * and module is registered on the SetToken
      */
     function isSetValidAndInitialized(ISetToken _setToken) internal view returns(bool) {

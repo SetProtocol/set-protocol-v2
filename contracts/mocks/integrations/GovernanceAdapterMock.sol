@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -61,7 +61,7 @@ contract GovernanceAdapterMock {
         bytes memory /* _data */
     )
         external
-        view 
+        view
         returns(address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature("castVote(uint256,bool)", _proposalId, _support);
@@ -70,7 +70,7 @@ contract GovernanceAdapterMock {
 
     function getProposeCalldata(bytes memory _proposalData)
         external
-        view 
+        view
         returns(address, uint256, bytes memory)
     {
         (uint256 proposalId) = abi.decode(_proposalData, (uint256));

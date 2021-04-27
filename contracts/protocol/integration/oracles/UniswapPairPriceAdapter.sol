@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -37,7 +37,7 @@ contract UniswapPairPriceAdapter is Ownable {
     using ResourceIdentifier for IController;
 
     /* ============ Structs ============ */
-    
+
     /**
      * Struct containing information for get price function
      */
@@ -105,7 +105,7 @@ contract UniswapPairPriceAdapter is Ownable {
             // Add to storage
             allowedUniswapPools.push(address(uniswapPoolToAdd));
             uniswapPoolsToSettings[address(uniswapPoolToAdd)] = poolSettings;
-        } 
+        }
     }
 
     /* ============ External Functions ============ */
@@ -194,7 +194,7 @@ contract UniswapPairPriceAdapter is Ownable {
     {
         PoolSettings memory poolInfo = uniswapPoolsToSettings[_poolAddress];
         IUniswapV2Pair poolToken = IUniswapV2Pair(_poolAddress);
-        
+
         // Get prices against master quote asset. Note: if prices do not exist, function will revert
         uint256 tokenOnePriceToMaster = _priceOracle.getPrice(poolInfo.tokenOne, _masterQuoteAsset);
         uint256 tokenTwoPriceToMaster = _priceOracle.getPrice(poolInfo.tokenTwo, _masterQuoteAsset);

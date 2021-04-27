@@ -1,4 +1,4 @@
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import "../../../../contracts/interfaces/external/IUniswapV2Pair.sol";
 

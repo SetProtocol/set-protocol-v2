@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -51,7 +51,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     using Position for ISetToken;
 
     /* ============ Structs ============ */
-    
+
     struct AirdropSettings {
         address[] airdrops;    // Array of tokens manager is allowing to be absorbed
         address feeRecipient;  // Address airdrop fees are sent to
@@ -278,7 +278,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
         if (amountAirdropped > 0) {
             (uint256 managerTake, uint256 protocolTake, uint256 totalFees) = _handleFees(_setToken, _token, amountAirdropped);
-            
+
             uint256 newUnit = _getPostAirdropUnit(_setToken, preFeeTokenBalance, totalFees);
 
             _setToken.editDefaultPosition(_token, newUnit);
@@ -309,13 +309,13 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
         if (airdropFee > 0) {
             uint256 managerTake = _amountAirdropped.preciseMul(airdropFee);
-            
+
             uint256 protocolTake = ModuleBase.getModuleFee(AIRDROP_MODULE_PROTOCOL_FEE_INDEX, managerTake);
             uint256 netManagerTake = managerTake.sub(protocolTake);
             uint256 totalFees = netManagerTake.add(protocolTake);
 
             _setToken.invokeTransfer(_component, airdropSettings[_setToken].feeRecipient, netManagerTake);
-            
+
             ModuleBase.payProtocolFeeFromSetToken(_setToken, _component, protocolTake);
 
             return (netManagerTake, protocolTake, totalFees);
@@ -326,7 +326,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Retrieve new unit, which is the current balance less fees paid divided by total supply
-     */ 
+     */
     function _getPostAirdropUnit(
         ISetToken _setToken,
         uint256 _totalComponentBalance,
@@ -339,9 +339,9 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
     /**
      * If absorption is confined to the manager, manager must be caller
-     */ 
+     */
     function _isValidCaller(ISetToken _setToken) internal view returns(bool) {
-        return airdropSettings[_setToken].anyoneAbsorb || isSetManager(_setToken, msg.sender);       
+        return airdropSettings[_setToken].anyoneAbsorb || isSetManager(_setToken, msg.sender);
     }
 
     function _airdrops(ISetToken _setToken) internal view returns(address[] memory) {

@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
@@ -66,7 +66,7 @@ contract StakingAdapterMock {
         uint256 _notionalAmount
     )
         external
-        view 
+        view
         returns(address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature("stake(uint256)", _notionalAmount);
@@ -78,7 +78,7 @@ contract StakingAdapterMock {
         uint256 _notionalAmount
     )
         external
-        view 
+        view
         returns(address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature("unstake(uint256)", _notionalAmount);

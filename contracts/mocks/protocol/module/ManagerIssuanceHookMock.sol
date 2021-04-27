@@ -15,7 +15,7 @@
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 
@@ -28,14 +28,14 @@ contract ManagerIssuanceHookMock {
     function invokePreIssueHook(ISetToken _setToken, uint256 _issueQuantity, address _sender, address _to) external {
         retrievedSetToken = _setToken;
         retrievedIssueQuantity = _issueQuantity;
-        retrievedSender = _sender;    
-        retrievedTo = _to;        
+        retrievedSender = _sender;
+        retrievedTo = _to;
     }
 
     function invokePreRedeemHook(ISetToken _setToken, uint256 _redeemQuantity, address _sender, address _to) external {
         retrievedSetToken = _setToken;
         retrievedIssueQuantity = _redeemQuantity;
-        retrievedSender = _sender;    
-        retrievedTo = _to;        
+        retrievedSender = _sender;
+        retrievedTo = _to;
     }
 }

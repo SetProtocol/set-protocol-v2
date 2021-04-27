@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 
@@ -32,7 +32,7 @@ contract CompoundLikeGovernanceAdapter {
 
     // Signature of the propose function in Compound Governor Alpha. This is used to encode the calldata for the propose function
     string public constant PROPOSE_SIGNATURE = "propose(address[],uint256[],string[],bytes[],string)";
-    
+
     // Signature of the delegate function in Compound Governor Alpha
     string public constant DELEGATE_SIGNATURE = "delegate(address)";
 

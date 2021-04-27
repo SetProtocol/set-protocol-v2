@@ -12,7 +12,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
@@ -27,13 +27,13 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  * @author Set Protocol
  *
  * Module that enables managers to claim tokens from external protocols given to the Set as part of participating in
- * incentivized activities of other protocols. The ClaimModule works in conjunction with ClaimAdapters, in which the 
+ * incentivized activities of other protocols. The ClaimModule works in conjunction with ClaimAdapters, in which the
  * claimAdapterID / integrationNames are stored on the integration registry.
- * 
+ *
  * Design:
  * The ecosystem is coalescing around a few standards of how reward programs are created, using forks of popular
  * contracts such as Synthetix's Mintr. Thus, the Claim architecture reflects a more functional vs external-protocol
- * approach where an adapter with common functionality can be used across protocols. 
+ * approach where an adapter with common functionality can be used across protocols.
  *
  * Definitions:
  * Reward Pool: A reward pool is a contract associated with an external protocol's reward. Examples of reward pools
@@ -220,7 +220,7 @@ contract ClaimModule is ModuleBase {
             _removeClaim(_setToken, _rewardPools[i], _integrationNames[i]);
         }
     }
- 
+
     /**
      * SET MANAGER ONLY. Initializes this module to the SetToken.
      *
@@ -404,7 +404,7 @@ contract ClaimModule is ModuleBase {
     }
 
     /**
-     * Internal version. Adds a new rewardPool to the list to perform claims for the SetToken indicating the list of claim 
+     * Internal version. Adds a new rewardPool to the list to perform claims for the SetToken indicating the list of claim
      * integrations. Each claim integration is associated to an adapter that provides the functionality to claim the rewards
      * for a specific token.
      *
@@ -429,7 +429,7 @@ contract ClaimModule is ModuleBase {
 
     /**
      * Validates and store the adapter address used to claim rewards for the passed rewardPool. If no adapters
-     * left after removal then remove rewardPool from rewardPoolList and delete entry in claimSettings. 
+     * left after removal then remove rewardPool from rewardPoolList and delete entry in claimSettings.
      *
      * @param _setToken                 Address of SetToken
      * @param _rewardPool               Address of the rewardPool that identifies the contract governing claims
@@ -449,7 +449,7 @@ contract ClaimModule is ModuleBase {
     }
 
     /**
-     * For batch functions validate arrays are of equal length and not empty. Return length of array for iteration. 
+     * For batch functions validate arrays are of equal length and not empty. Return length of array for iteration.
      *
      * @param _rewardPools              Addresses of the rewardPool that identifies the contract governing claims
      * @param _integrationNames         IDs of claim module integration (mapping on integration registry)

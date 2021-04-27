@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -40,7 +40,7 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * @author Set Protocol
  *
  * A smart contract module that enables joining and exiting of AMM Pools using multiple or a single ERC20s.
- * Examples of intended protocols include Curve, Uniswap, and Balancer. 
+ * Examples of intended protocols include Curve, Uniswap, and Balancer.
  */
 contract AmmModule is ModuleBase, ReentrancyGuard {
     using SafeCast for int256;
@@ -61,7 +61,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         address[] _components,
         int256[] _componentBalancesDelta  // Change in SetToken component token balances
     );
-    
+
     event LiquidityRemoved(
         ISetToken indexed _setToken,
         address indexed _ammPool,
@@ -80,11 +80,11 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         address liquidityToken;                     // Address of the AMM pool token
         uint256 preActionLiquidityTokenBalance;     // Balance of liquidity token before add/remove liquidity action
         uint256[] preActionComponentBalances;       // Balance of components before add/remove liquidity action
-        uint256 liquidityQuantity;                  // When adding liquidity, minimum quantity of liquidity required. 
+        uint256 liquidityQuantity;                  // When adding liquidity, minimum quantity of liquidity required.
                                                     // When removing liquidity, quantity to dispose of
         uint256[] totalNotionalComponents;          // When adding liquidity, maximum components provided
                                                     // When removing liquidity, minimum components to receive
-        uint256[] componentUnits;                   // List of inputted component real units 
+        uint256[] componentUnits;                   // List of inputted component real units
         address[] components;                       // List of component addresses for providing/removing liquidity
     }
 
@@ -140,11 +140,11 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
 
         emit LiquidityAdded(_setToken, _ammPool, liquidityTokenDelta, _components, componentsDelta);
     }
-    
+
     /**
-     * SET MANAGER ONLY. Adds liquidity to an AMM pool for a specified AMM using a single asset if supported. 
+     * SET MANAGER ONLY. Adds liquidity to an AMM pool for a specified AMM using a single asset if supported.
      * Differs from addLiquidity as it will opt to use the AMMs single asset liquidity function if it exists
-     * User specifies what component and component quantity to contribute and the minimum number of 
+     * User specifies what component and component quantity to contribute and the minimum number of
      * liquidity pool tokens to receive.
      *
      * @param _setToken                 Address of SetToken
@@ -197,7 +197,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * SET MANAGER ONLY. Removes liquidity from an AMM pool for a specified AMM. User specifies the exact number of 
+     * SET MANAGER ONLY. Removes liquidity from an AMM pool for a specified AMM. User specifies the exact number of
      * liquidity pool tokens to provide and the components and minimum quantity of component units to receive
      *
      * @param _setToken                  Address of SetToken
@@ -244,7 +244,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
             liquidityTokenDelta,
             _components,
             componentsDelta
-        );        
+        );
     }
 
     /**
@@ -266,7 +266,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         uint256 _poolTokenPositionUnits,
         address _component,
         uint256 _minComponentUnitsReceived
-    ) 
+    )
         external
         nonReentrant
         onlyManagerAndValidSet(_setToken)
@@ -343,14 +343,14 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         actionInfo.preActionComponentBalances = _getTokenBalances(address(_setToken), _components);
 
         actionInfo.liquidityQuantity = actionInfo.totalSupply.getDefaultTotalNotional(_poolTokenInPositionUnit);
-                                       
+
         actionInfo.totalNotionalComponents = _getTotalNotionalComponents(_setToken, _componentUnits);
 
         actionInfo.componentUnits = _componentUnits;
-                                       
-        actionInfo.components = _components;                  
 
-        return actionInfo;        
+        actionInfo.components = _components;
+
+        return actionInfo;
     }
 
     function _getActionInfoSingleAsset(
@@ -430,7 +430,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
             );
         }
     }
-    
+
     function _executeAddLiquidity(ActionInfo memory _actionInfo) internal {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
@@ -454,9 +454,9 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
             _actionInfo.liquidityQuantity
         );
 
-        _actionInfo.setToken.invoke(targetAmm, callValue, methodData);        
+        _actionInfo.setToken.invoke(targetAmm, callValue, methodData);
     }
-    
+
     function _executeRemoveLiquidity(ActionInfo memory _actionInfo) internal {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
@@ -467,7 +467,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
             _actionInfo.liquidityQuantity
         );
 
-        _actionInfo.setToken.invoke(targetAmm, callValue, methodData);        
+        _actionInfo.setToken.invoke(targetAmm, callValue, methodData);
     }
 
     function _executeRemoveLiquiditySingleAsset(ActionInfo memory _actionInfo) internal {
@@ -480,9 +480,9 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
             _actionInfo.liquidityQuantity
         );
 
-        _actionInfo.setToken.invoke(targetAmm, callValue, methodData);        
+        _actionInfo.setToken.invoke(targetAmm, callValue, methodData);
     }
-    
+
     function _validateMinimumLiquidityReceived(ActionInfo memory _actionInfo) internal view {
         uint256 liquidityTokenBalance = IERC20(_actionInfo.liquidityToken).balanceOf(address(_actionInfo.setToken));
 

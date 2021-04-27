@@ -22,14 +22,14 @@
  *
  * Governance adapter for Snapshot delegation that returns data delegating and revoking delegations
  */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 
 contract SnapshotGovernanceAdapter {
 
     /* ============ Constants ============ */
-    
+
     // Signature of the delegate function for Snapshot
     string public constant SET_DELEGATE_SIGNATURE = "setDelegate(bytes32,address)";
 

@@ -1,4 +1,4 @@
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -37,7 +37,7 @@ contract DebtModuleMock is ModuleBase {
 
     function moduleIssueHook(ISetToken /*_setToken*/, uint256 /*_setTokenQuantity*/) external { moduleIssueHookCalled = true; }
     function moduleRedeemHook(ISetToken /*_setToken*/, uint256 /*_setTokenQuantity*/) external { moduleRedeemHookCalled = true; }
-    
+
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,

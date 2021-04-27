@@ -15,7 +15,7 @@
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -31,7 +31,7 @@ interface IModuleIssuanceHook {
 
     function moduleIssueHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
     function moduleRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
-    
+
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,

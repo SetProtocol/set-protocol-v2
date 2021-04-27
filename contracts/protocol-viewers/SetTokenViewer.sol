@@ -15,7 +15,7 @@
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 
@@ -49,7 +49,7 @@ contract SetTokenViewer {
     )
         external
         view
-        returns (address[] memory) 
+        returns (address[] memory)
     {
         address[] memory managers = new address[](_setTokens.length);
 

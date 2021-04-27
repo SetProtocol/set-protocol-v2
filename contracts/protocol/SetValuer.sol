@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -48,7 +48,7 @@ contract SetValuer {
     using SafeCast for int256;
     using SafeCast for uint256;
     using SignedSafeMath for int256;
-    
+
     /* ============ State Variables ============ */
 
     // Instance of the Controller contract
@@ -71,7 +71,7 @@ contract SetValuer {
      * Gets the valuation of a SetToken using data from the price oracle. Reverts
      * if no price exists for a component in the SetToken. Note: this works for external
      * positions and negative (debt) positions.
-     * 
+     *
      * Note: There is a risk that the valuation is off if airdrops aren't retrieved or
      * debt builds up via interest and its not reflected in the position
      *
