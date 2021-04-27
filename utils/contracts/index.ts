@@ -40,6 +40,7 @@ export { InvokeMock } from "../../typechain/InvokeMock";
 export { ISetValuer } from "../../typechain/ISetValuer";
 export { IssuanceModule } from "../../typechain/IssuanceModule";
 export { KyberExchangeAdapter } from "../../typechain/KyberExchangeAdapter";
+export { KyberIndexExchangeAdapter } from "../../typechain/KyberIndexExchangeAdapter";
 export { KyberNetworkProxyMock } from "../../typechain/KyberNetworkProxyMock";
 export { LendToAaveMigrator } from "../../typechain/LendToAaveMigrator";
 export { ManagerIssuanceHookMock } from "../../typechain/ManagerIssuanceHookMock";

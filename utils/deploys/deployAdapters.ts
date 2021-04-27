@@ -7,6 +7,7 @@ import {
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
   KyberExchangeAdapter,
+  KyberIndexExchangeAdapter,
   OneInchExchangeAdapter,
   AaveMigrationWrapAdapter,
   AaveWrapAdapter,
@@ -31,6 +32,7 @@ import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factori
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
+import { KyberIndexExchangeAdapter__factory } from "../../typechain/factories/KyberIndexExchangeAdapter__factory";
 import { OneInchExchangeAdapter__factory } from "../../typechain/factories/OneInchExchangeAdapter__factory";
 import { ZeroExApiAdapter__factory } from "../../typechain/factories/ZeroExApiAdapter__factory";
 import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/AaveMigrationWrapAdapter__factory";
@@ -55,6 +57,10 @@ export default class DeployAdapters {
 
   public async deployKyberExchangeAdapter(kyberNetworkProxy: Address): Promise<KyberExchangeAdapter> {
     return await new KyberExchangeAdapter__factory(this._deployerSigner).deploy(kyberNetworkProxy);
+  }
+
+  public async deployKyberIndexExchangeAdapter(kyberNetworkProxy: Address): Promise<KyberIndexExchangeAdapter> {
+    return await new KyberIndexExchangeAdapter__factory(this._deployerSigner).deploy(kyberNetworkProxy);
   }
 
   public async deployOneInchExchangeAdapter(
