@@ -14,8 +14,6 @@
     limitations under the License.
 
     SPDX-License-Identifier: Apache License, Version 2.0
-
-    // @unsupported: ovm
 */
 pragma solidity 0.6.12;
 

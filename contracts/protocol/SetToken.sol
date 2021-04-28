@@ -14,14 +14,12 @@
     limitations under the License.
 
     SPDX-License-Identifier: Apache License, Version 2.0
-
-    // @unsupported: ovm
 */
 
 pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+import { Address } from "../../external/contracts/openzeppelin/utils/Address.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
