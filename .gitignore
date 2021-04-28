@@ -1,7 +1,9 @@
 .DS_Store
 /artifacts
+/artifacts-ovm
 /build
 /cache
+/cache-ovm
 /dist
 /etherscan
 /flatten

@@ -7,17 +7,25 @@ import "@nomiclabs/hardhat-waffle";
 import "hardhat-typechain";
 import "solidity-coverage";
 import "hardhat-deploy";
+import "hardhat-contract-sizer";
+import "@eth-optimism/plugins/hardhat/compiler";
 import "./tasks";
+
+const defaultMnemonic = "test test test test test test test test test test test junk";
+const OVM = process.env.OVM === "true";
 
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.6.12",
     settings: {
-      optimizer: { enabled: true, runs: 200 },
+      optimizer: { enabled: true, runs: 1 },
     },
   },
   namedAccounts: {
     deployer: 0,
+  },
+  ovm: {
+    solcVersion: "0.6.12"
   },
   networks: {
     hardhat: {
@@ -45,19 +53,29 @@ const config: HardhatUserConfig = {
       // @ts-ignore
       accounts: [`0x${process.env.PRODUCTION_MAINNET_DEPLOY_PRIVATE_KEY}`],
     },
-    // To update coverage network configuration got o .solcover.js and update param in providerOptions field
-    coverage: {
-      url: "http://127.0.0.1:8555", // Coverage launches its own ganache-cli client
-      timeout: 100000,
-    },
+    optimism: {
+      url: 'http://127.0.0.1:8545',
+      accounts: { mnemonic: defaultMnemonic },
+      // L2 test account balances not automatically initiated with an ETH balance
+      gasPrice: 0,
+      gas: 8000000,
+      blockGasLimit: 8000000,
+      // @ts-ignore
+      ovm: true,
+    }
   },
   typechain: {
     outDir: "typechain",
     target: "ethers-v5",
   },
   mocha: {
-    timeout: 100000,
+    grep: "@ovm",
   },
+  paths: {
+    artifacts: OVM ? "./artifacts-ovm" : "./artifacts",
+    cache: OVM ? "./cache-ovm" : "./cache",
+  },
+
 };
 
 function getHardhatPrivateKeys() {
