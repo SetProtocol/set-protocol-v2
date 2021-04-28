@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: agpl-3.0
+// @unsupported: ovm
 pragma solidity 0.6.12;
 
 import {IERC20} from "../interfaces/IERC20.sol";
