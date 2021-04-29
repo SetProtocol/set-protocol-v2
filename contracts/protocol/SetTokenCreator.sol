@@ -75,13 +75,13 @@ contract SetTokenCreator {
         returns (address)
     {
         require(_components.length > 0, "Must have at least 1 component");
-        require(_components.length == _units.length, "Component and unit lengths must be the same");
-        require(!_components.hasDuplicate(), "Components must not have a duplicate");
+        require(_components.length == _units.length, "Comp. & unit lengths not equal");
+        require(!_components.hasDuplicate(), "Duplicate component");
         require(_modules.length > 0, "Must have at least 1 module");
         require(_manager != address(0), "Manager must not be empty");
 
         for (uint256 i = 0; i < _components.length; i++) {
-            require(_components[i] != address(0), "Component must not be null address");
+            require(_components[i] != address(0), "Component is null address");
             require(_units[i] > 0, "Units must be greater than 0");
         }
 
