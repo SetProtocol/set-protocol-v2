@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 
-yarn compile
+set -o errexit
+
 yarn patch-hardhat-typechain
 yarn patch-ovm-compiler
-yarn typechain
+yarn compile
+yarn compile:ovm
 yarn fix-typechain
 yarn transpile-dist
