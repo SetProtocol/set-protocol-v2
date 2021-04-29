@@ -195,11 +195,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         );
 
         for (uint256 i = 0; i < aggregateComponents.length; i++) {
-            require(
-                _setToken.getExternalPositionModules(aggregateComponents[i]).length == 0,
-                "External positions not allowed"
-            );
-
+            require(!_setToken.hasExternalPosition(aggregateComponents[i]), "External positions not allowed");
             executionInfo[_setToken][IERC20(aggregateComponents[i])].targetUnit = aggregateTargetUnits[i];
             emit TargetUnitsUpdated(_setToken, aggregateComponents[i], aggregateTargetUnits[i], _positionMultiplier);
         }
@@ -636,6 +632,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             componentInfo.lastTradeTimestamp.add(componentInfo.coolOffPeriod) <= block.timestamp,
             "Component cool off in progress"
         );
+
+        require(!_setToken.hasExternalPosition(address(_component)), "External positions not allowed");
     }
 
     /**

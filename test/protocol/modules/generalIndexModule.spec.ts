@@ -43,7 +43,6 @@ describe("GeneralIndexModule", () => {
 
   let index: SetToken;
   let indexWithWeth: SetToken;
-  let indexWithPositionModule: SetToken;
   let indexModule: GeneralIndexModule;
 
   let balancerExchangeAdapter: BalancerV1IndexExchangeAdapter;
@@ -111,7 +110,7 @@ describe("GeneralIndexModule", () => {
     index = await setup.createSetToken(
       indexComponents,
       indexUnits,               // $100 of each
-      [setup.issuanceModule.address, setup.streamingFeeModule.address, indexModule.address],
+      [setup.issuanceModule.address, setup.streamingFeeModule.address, indexModule.address, positionModule.address],
     );
 
     const feeSettings = {
@@ -123,13 +122,7 @@ describe("GeneralIndexModule", () => {
 
     await setup.streamingFeeModule.initialize(index.address, feeSettings);
     await setup.issuanceModule.initialize(index.address, ADDRESS_ZERO);
-
-    indexWithPositionModule = await setup.createSetToken(
-      indexComponents,
-      indexUnits,
-      [positionModule.address, indexModule.address]
-    );
-    await indexWithPositionModule.connect(positionModule.wallet).initializeModule();
+    await index.connect(positionModule.wallet).initializeModule();
 
     indexWithWethComponents = [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address, setup.weth.address];
     indexWithWethUnits = [ether(86.9565217), bitcoin(.01111111), ether(100), ether(0.434782609)];
@@ -256,25 +249,24 @@ describe("GeneralIndexModule", () => {
     });
 
     describe("when there are external positions for a component", async () => {
-        beforeEach(async () => {
-          subjectSetToken = indexWithPositionModule;
-          await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
-            indexComponents[0],
-            positionModule.address
-          );
-        });
-
-        afterEach(async () => {
-          await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
-            indexComponents[0],
-            positionModule.address
-          );
-        });
-
-        it("should revert", async() => {
-           await expect(subject()).to.be.revertedWith("External positions not allowed");
-        });
+      beforeEach(async () => {
+        await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
+          indexComponents[0],
+          positionModule.address
+        );
       });
+
+      afterEach(async () => {
+        await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
+          indexComponents[0],
+          positionModule.address
+        );
+      });
+
+      it("should revert", async() => {
+         await expect(subject()).to.be.revertedWith("External positions not allowed");
+      });
+    });
   });
 
   describe("when module is initalized", async () => {
@@ -312,14 +304,6 @@ describe("GeneralIndexModule", () => {
         [ether(800), bitcoin(.1), ether(1000), ether(10000), ether(500)],
         [uniswapAdapterName, sushiswapAdapterName, balancerAdapterName, "", sushiswapAdapterName],
         [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(2), ZERO, ONE_MINUTE_IN_SECONDS],
-      );
-
-      await initSetToken(
-        indexWithPositionModule,
-        [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address, sushiswapSetup.uni.address],
-        [ether(800), bitcoin(.1), ether(1000), ether(500)],
-        [uniswapAdapterName, sushiswapAdapterName, balancerAdapterName, sushiswapAdapterName],
-        [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(2), ONE_MINUTE_IN_SECONDS]
       );
     });
 
@@ -411,8 +395,6 @@ describe("GeneralIndexModule", () => {
 
       describe("when there are external positions for a component", async () => {
         beforeEach(async () => {
-          subjectSetToken = indexWithPositionModule;
-
           await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
             subjectNewComponents[0],
             positionModule.address
@@ -427,7 +409,7 @@ describe("GeneralIndexModule", () => {
         });
 
         it("should revert", async() => {
-          await expect(subject()).to.be.revertedWith("External positions not allowed");
+           await expect(subject()).to.be.revertedWith("External positions not allowed");
         });
       });
     });
@@ -1081,6 +1063,26 @@ describe("GeneralIndexModule", () => {
           });
         });
 
+        describe("when there are external positions for a component", async () => {
+          beforeEach(async () => {
+            await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
+              subjectComponent,
+              positionModule.address
+            );
+          });
+
+          afterEach(async () => {
+            await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
+              subjectComponent,
+              positionModule.address
+            );
+          });
+
+          it("should revert", async() => {
+             await expect(subject()).to.be.revertedWith("External positions not allowed");
+          });
+        });
+
         describe("when caller is a contract", async () => {
           let subjectTarget: Address;
           let subjectCallData: string;
@@ -1659,6 +1661,26 @@ describe("GeneralIndexModule", () => {
 
             it("should revert", async () => {
               await expect(subject()).to.be.revertedWith("Component not part of rebalance");
+            });
+          });
+
+          describe("when there are external positions for a component", async () => {
+            beforeEach(async () => {
+              await subjectSetToken.connect(positionModule.wallet).addExternalPositionModule(
+                subjectComponent,
+                positionModule.address
+              );
+            });
+
+            afterEach(async () => {
+              await subjectSetToken.connect(positionModule.wallet).removeExternalPositionModule(
+                subjectComponent,
+                positionModule.address
+              );
+            });
+
+            it("should revert", async() => {
+               await expect(subject()).to.be.revertedWith("External positions not allowed");
             });
           });
 
