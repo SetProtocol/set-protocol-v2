@@ -238,6 +238,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         _executeTrade(tradeInfo);
 
         uint256 protocolFee = _accrueProtocolFee(tradeInfo);
+
         (uint256 netSendAmount, uint256 netReceiveAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         emit TradeExecuted(
@@ -614,29 +615,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /* ============ Internal Functions ============ */
 
     /**
-     * Validate that component is a valid component and enough time has elapsed since component's last trade. Traders
-     * cannot explicitly trade WETH, it may only implicitly be traded by being the quote asset for other component trades.
-     *
-     * @param _setToken         Instance of the SetToken
-     * @param _component        IERC20 component to be validated
-     */
-    function _validateTradeParameters(ISetToken _setToken, IERC20 _component) internal view virtual {
-        require(address(_component) != address(weth), "Can not explicitly trade WETH");
-        require(
-            rebalanceInfo[_setToken].rebalanceComponents.contains(address(_component)),
-            "Component not part of rebalance"
-        );
-
-        TradeExecutionParams memory componentInfo = executionInfo[_setToken][_component];
-        require(
-            componentInfo.lastTradeTimestamp.add(componentInfo.coolOffPeriod) <= block.timestamp,
-            "Component cool off in progress"
-        );
-
-        require(!_setToken.hasExternalPosition(address(_component)), "External positions not allowed");
-    }
-
-    /**
      * Create and return TradeInfo struct. This function reverts if the target has already been met.
      * If this is a trade from component into WETH, sell the total fixed component quantity
      * and expect to receive an ETH amount the user has specified (or more). If it's a trade from
@@ -823,6 +801,25 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
+     * Adds or removes newly permissioned trader to/from permissionsInfo traderHistory. It's
+     * necessary to verify that traderHistory contains the address because AddressArrayUtils will
+     * throw when attempting to remove a non-element and it's possible someone can set a new
+     * trader's status to false.
+     *
+     * @param _setToken                         Instance of the SetToken
+     * @param _trader                           Trader whose permission is being set
+     * @param _status                           Boolean permission being set
+
+     */
+    function _updateTradersHistory(ISetToken _setToken, address _trader, bool _status) internal {
+        if (_status && !permissionInfo[_setToken].tradersHistory.contains(_trader)) {
+            permissionInfo[_setToken].tradersHistory.push(_trader);
+        } else if(!_status && permissionInfo[_setToken].tradersHistory.contains(_trader)) {
+            permissionInfo[_setToken].tradersHistory.removeStorage(_trader);
+        }
+    }
+
+    /**
      * Calculates the amount of a component is going to be traded and whether the component is being bought or sold.
      * If currentUnit and targetUnit are the same, function will revert.
      *
@@ -868,32 +865,51 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Gets unit and notional amount values for current position and target. These are necessary
-     * to calculate the trade size and direction for regular trades and the `sendQuantity` for
-     * remainingWEth trades.
+     * Check if all targets are met.
      *
-     * @param _setToken                 Instance of the SetToken to rebalance
-     * @param _component                IERC20 component to calculate notional amounts for
-     * @param _totalSupply              SetToken total supply
+     * @param _setToken             Instance of the SetToken to be rebalanced
      *
-     * @return uint256              Current default position real unit of component
-     * @return uint256              Normalized unit of the trade target
-     * @return uint256              Current notional amount: total notional amount of SetToken default position
-     * @return uint256              Target notional amount: Total SetToken supply * targetUnit
+     * @return bool                 True if all component's target units have been met, otherwise false
      */
-    function _getUnitsAndNotionalAmounts(ISetToken _setToken, IERC20 _component, uint256 _totalSupply)
-        internal
-        view
-        returns (uint256, uint256, uint256, uint256)
-    {
-        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
-        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
+    function _allTargetsMet(ISetToken _setToken) internal view returns (bool) {
+        address[] memory rebalanceComponents = rebalanceInfo[_setToken].rebalanceComponents;
 
+        for (uint256 i = 0; i < rebalanceComponents.length; i++) {
+            if (_targetUnmet(_setToken, rebalanceComponents[i])) { return false; }
+        }
+        return true;
+    }
+
+    /**
+     * Determine if passed address is allowed to call trade for the SetToken. If anyoneTrade set to true anyone can call otherwise
+     * needs to be approved.
+     *
+     * @param _setToken             Instance of SetToken to be rebalanced
+     * @param  _trader              Address of the trader who called contract function
+     *
+     * @return bool                 True if trader is an approved trader for the SetToken
+     */
+    function _isAllowedTrader(ISetToken _setToken, address _trader) internal view returns (bool) {
+        TradePermissionInfo storage permissions = permissionInfo[_setToken];
+        return permissions.anyoneTrade || permissions.tradeAllowList[_trader];
+    }
+
+    /**
+     * Checks if sell conditions are met. The component cannot be WETH and its normalized target
+     * unit must be less than its default position real unit
+     *
+     * @param _setToken                         Instance of the SetToken to be rebalanced
+     * @param _component                        Component evaluated for sale
+     *
+     * @return bool                             True if sell allowed, false otherwise
+     */
+    function _canSell(ISetToken _setToken, address _component) internal view returns(bool) {
         return (
-            currentUnit,
-            targetUnit,
-            _totalSupply.getDefaultTotalNotional(currentUnit),
-            _totalSupply.preciseMulCeil(targetUnit)
+            _component != address(weth) &&
+            (
+                _getNormalizedTargetUnit(_setToken, IERC20(_component)) <
+                _getDefaultPositionRealUnit(_setToken,IERC20(_component))
+            )
         );
     }
 
@@ -914,49 +930,61 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Check if all targets are met.
-     *
-     * @param _setToken             Instance of the SetToken to be rebalanced
-     *
-     * @return bool                 True if all component's target units have been met, otherwise false
-     */
-    function _allTargetsMet(ISetToken _setToken) internal view returns (bool) {
-        address[] memory rebalanceComponents = rebalanceInfo[_setToken].rebalanceComponents;
-
-        for (uint256 i = 0; i < rebalanceComponents.length; i++) {
-            if (_targetUnmet(_setToken, rebalanceComponents[i])) { return false; }
-        }
-        return true;
-    }
-
-    /**
-     * Calculates and returns the normalized target unit value.
-     *
-     * @param _setToken             Instance of the SetToken to be rebalanced
-     * @param _component            IERC20 component whose normalized target unit is required
-     *
-     * @return uint256                          Normalized target unit of the component
-     */
-    function _getNormalizedTargetUnit(ISetToken _setToken, IERC20 _component) internal view returns(uint256) {
-        // (targetUnit * current position multiplier) / position multiplier when rebalance started
-        return executionInfo[_setToken][_component]
-            .targetUnit
-            .mul(_setToken.positionMultiplier().toUint256())
-            .div(rebalanceInfo[_setToken].positionMultiplier);
-    }
-
-    /**
-     * Gets exchange adapter address for a component after checking that it exists in the
-     * IntegrationRegistry. This method is called during a trade and must validate the adapter
-     * because its state may have changed since it was set in a separate transaction.
+     * Determines if a target is met. Due to small rounding errors converting between virtual and
+     * real unit on SetToken we allow for a 1 wei buffer when checking if target is met. In order to
+     * avoid subtraction overflow errors targetUnits of zero check for an exact amount. WETH is not
+     * checked as it is allowed to float around its target.
      *
      * @param _setToken                         Instance of the SetToken to be rebalanced
-     * @param _component                        IERC20 component whose exchange adapter is fetched
+     * @param _component                        Component whose target is evaluated
      *
-     * @return IExchangeAdapter                 Adapter address
+     * @return bool                             True if component's target units are met, false otherwise
      */
-    function _getExchangeAdapter(ISetToken _setToken, IERC20 _component) internal view returns(IIndexExchangeAdapter) {
-        return IIndexExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
+    function _targetUnmet(ISetToken _setToken, address _component) internal view returns(bool) {
+        if (_component == address(weth)) return false;
+
+        uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(_component));
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, IERC20(_component));
+
+        return (normalizedTargetUnit > 0)
+            ? !(normalizedTargetUnit.approximatelyEquals(currentUnit, 1))
+            : normalizedTargetUnit != currentUnit;
+    }
+
+    /**
+     * Validate component position unit has not exceeded it's target unit. This is used during tradeRemainingWETH() to make sure
+     * the amount of component bought does not exceed the targetUnit.
+     *
+     * @param _setToken         Instance of the SetToken
+     * @param _component        IERC20 component whose position units are to be validated
+     */
+    function _validateComponentPositionUnit(ISetToken _setToken, IERC20 _component) internal view {
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
+        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
+        require(currentUnit <= targetUnit, "Can not exceed target unit");
+    }
+
+    /**
+     * Validate that component is a valid component and enough time has elapsed since component's last trade. Traders
+     * cannot explicitly trade WETH, it may only implicitly be traded by being the quote asset for other component trades.
+     *
+     * @param _setToken         Instance of the SetToken
+     * @param _component        IERC20 component to be validated
+     */
+    function _validateTradeParameters(ISetToken _setToken, IERC20 _component) internal view virtual {
+        require(address(_component) != address(weth), "Can not explicitly trade WETH");
+        require(
+            rebalanceInfo[_setToken].rebalanceComponents.contains(address(_component)),
+            "Component not part of rebalance"
+        );
+
+        TradeExecutionParams memory componentInfo = executionInfo[_setToken][_component];
+        require(
+            componentInfo.lastTradeTimestamp.add(componentInfo.coolOffPeriod) <= block.timestamp,
+            "Component cool off in progress"
+        );
+
+        require(!_setToken.hasExternalPosition(address(_component)), "External positions not allowed");
     }
 
     /**
@@ -995,19 +1023,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Validate component position unit has not exceeded it's target unit. This is used during tradeRemainingWETH() to make sure
-     * the amount of component bought does not exceed the targetUnit.
-     *
-     * @param _setToken         Instance of the SetToken
-     * @param _component        IERC20 component whose position units are to be validated
-     */
-    function _validateComponentPositionUnit(ISetToken _setToken, IERC20 _component) internal view {
-        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
-        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
-        require(currentUnit <= targetUnit, "Can not exceed target unit");
-    }
-
-    /**
      * Get the SetToken's default position as uint256
      *
      * @param _setToken         Instance of the SetToken
@@ -1020,77 +1035,63 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Determine if passed address is allowed to call trade for the SetToken. If anyoneTrade set to true anyone can call otherwise
-     * needs to be approved.
+     * Gets exchange adapter address for a component after checking that it exists in the
+     * IntegrationRegistry. This method is called during a trade and must validate the adapter
+     * because its state may have changed since it was set in a separate transaction.
      *
-     * @param _setToken             Instance of SetToken to be rebalanced
-     * @param  _trader              Address of the trader who called contract function
+     * @param _setToken                         Instance of the SetToken to be rebalanced
+     * @param _component                        IERC20 component whose exchange adapter is fetched
      *
-     * @return bool                 True if trader is an approved trader for the SetToken
+     * @return IExchangeAdapter                 Adapter address
      */
-    function _isAllowedTrader(ISetToken _setToken, address _trader) internal view returns (bool) {
-        TradePermissionInfo storage permissions = permissionInfo[_setToken];
-        return permissions.anyoneTrade || permissions.tradeAllowList[_trader];
+    function _getExchangeAdapter(ISetToken _setToken, IERC20 _component) internal view returns(IIndexExchangeAdapter) {
+        return IIndexExchangeAdapter(getAndValidateAdapter(executionInfo[_setToken][_component].exchangeName));
     }
 
     /**
-     * Checks if sell conditions are met. The component cannot be WETH and its normalized target
-     * unit must be less than its default position real unit
+     * Calculates and returns the normalized target unit value.
      *
-     * @param _setToken                         Instance of the SetToken to be rebalanced
-     * @param _component                        Component evaluated for sale
+     * @param _setToken             Instance of the SetToken to be rebalanced
+     * @param _component            IERC20 component whose normalized target unit is required
      *
-     * @return bool                             True if sell allowed, false otherwise
+     * @return uint256                          Normalized target unit of the component
      */
-    function _canSell(ISetToken _setToken, address _component) internal view returns(bool) {
+    function _getNormalizedTargetUnit(ISetToken _setToken, IERC20 _component) internal view returns(uint256) {
+        // (targetUnit * current position multiplier) / position multiplier when rebalance started
+        return executionInfo[_setToken][_component]
+            .targetUnit
+            .mul(_setToken.positionMultiplier().toUint256())
+            .div(rebalanceInfo[_setToken].positionMultiplier);
+    }
+
+    /**
+     * Gets unit and notional amount values for current position and target. These are necessary
+     * to calculate the trade size and direction for regular trades and the `sendQuantity` for
+     * remainingWEth trades.
+     *
+     * @param _setToken                 Instance of the SetToken to rebalance
+     * @param _component                IERC20 component to calculate notional amounts for
+     * @param _totalSupply              SetToken total supply
+     *
+     * @return uint256              Current default position real unit of component
+     * @return uint256              Normalized unit of the trade target
+     * @return uint256              Current notional amount: total notional amount of SetToken default position
+     * @return uint256              Target notional amount: Total SetToken supply * targetUnit
+     */
+    function _getUnitsAndNotionalAmounts(ISetToken _setToken, IERC20 _component, uint256 _totalSupply)
+        internal
+        view
+        returns (uint256, uint256, uint256, uint256)
+    {
+        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, _component);
+        uint256 targetUnit = _getNormalizedTargetUnit(_setToken, _component);
+
         return (
-            _component != address(weth) &&
-            (
-                _getNormalizedTargetUnit(_setToken, IERC20(_component)) <
-                _getDefaultPositionRealUnit(_setToken,IERC20(_component))
-            )
+            currentUnit,
+            targetUnit,
+            _totalSupply.getDefaultTotalNotional(currentUnit),
+            _totalSupply.preciseMulCeil(targetUnit)
         );
-    }
-
-    /**
-     * Determines if a target is met. Due to small rounding errors converting between virtual and
-     * real unit on SetToken we allow for a 1 wei buffer when checking if target is met. In order to
-     * avoid subtraction overflow errors targetUnits of zero check for an exact amount. WETH is not
-     * checked as it is allowed to float around its target.
-     *
-     * @param _setToken                         Instance of the SetToken to be rebalanced
-     * @param _component                        Component whose target is evaluated
-     *
-     * @return bool                             True if component's target units are met, false otherwise
-     */
-    function _targetUnmet(ISetToken _setToken, address _component) internal view returns(bool) {
-        if (_component == address(weth)) return false;
-
-        uint256 normalizedTargetUnit = _getNormalizedTargetUnit(_setToken, IERC20(_component));
-        uint256 currentUnit = _getDefaultPositionRealUnit(_setToken, IERC20(_component));
-
-        return (normalizedTargetUnit > 0)
-            ? !(normalizedTargetUnit.approximatelyEquals(currentUnit, 1))
-            : normalizedTargetUnit != currentUnit;
-    }
-
-    /**
-     * Adds or removes newly permissioned trader to/from permissionsInfo traderHistory. It's
-     * necessary to verify that traderHistory contains the address because AddressArrayUtils will
-     * throw when attempting to remove a non-element and it's possible someone can set a new
-     * trader's status to false.
-     *
-     * @param _setToken                         Instance of the SetToken
-     * @param _trader                           Trader whose permission is being set
-     * @param _status                           Boolean permission being set
-
-     */
-    function _updateTradersHistory(ISetToken _setToken, address _trader, bool _status) internal {
-        if (_status && !permissionInfo[_setToken].tradersHistory.contains(_trader)) {
-            permissionInfo[_setToken].tradersHistory.push(_trader);
-        } else if(!_status && permissionInfo[_setToken].tradersHistory.contains(_trader)) {
-            permissionInfo[_setToken].tradersHistory.removeStorage(_trader);
-        }
     }
 
     /* ============== Modifier Helpers ===============
