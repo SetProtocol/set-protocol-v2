@@ -106,7 +106,6 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
     /* ============ Events ============ */
 
-    event TargetUnitsUpdated(ISetToken indexed _setToken, address indexed _component, uint256 _newUnit, uint256 _positionMultiplier);
     event TradeMaximumUpdated(ISetToken indexed _setToken, address indexed _component, uint256 _newMaximum);
     event AssetExchangeUpdated(ISetToken indexed _setToken, address indexed _component, string _newExchangeName);
     event CoolOffPeriodUpdated(ISetToken indexed _setToken, address indexed _component, uint256 _newCoolOffPeriod);
@@ -128,7 +127,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 _protocolFee
     );
 
-    event RebalanceStarted(ISetToken indexed _setToken);
+    event RebalanceStarted(
+        ISetToken indexed _setToken,
+        address[] aggregateComponents,
+        uint256[] aggregateTargetUnits,
+        uint256 indexed positionMultiplier
+    );
 
     /* ============ Constants ============ */
 
@@ -197,13 +201,12 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         for (uint256 i = 0; i < aggregateComponents.length; i++) {
             require(!_setToken.hasExternalPosition(aggregateComponents[i]), "External positions not allowed");
             executionInfo[_setToken][IERC20(aggregateComponents[i])].targetUnit = aggregateTargetUnits[i];
-            emit TargetUnitsUpdated(_setToken, aggregateComponents[i], aggregateTargetUnits[i], _positionMultiplier);
         }
 
         rebalanceInfo[_setToken].rebalanceComponents = aggregateComponents;
         rebalanceInfo[_setToken].positionMultiplier = _positionMultiplier;
 
-        emit RebalanceStarted(_setToken);
+        emit RebalanceStarted(_setToken, aggregateComponents, aggregateTargetUnits, _positionMultiplier);
     }
 
     /**

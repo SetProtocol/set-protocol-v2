@@ -357,8 +357,16 @@ describe("GeneralIndexModule", () => {
       });
 
       it("emits the correct RebalanceStarted event", async () => {
+        const currentComponents = await subjectSetToken.getComponents();
+        const expectedAggregateComponents = [...currentComponents, ...subjectNewComponents];
+        const expectedAggregateTargetUnits = [...subjectOldTargetUnits, ...subjectNewTargetUnits];
+        const expectedPositionMultiplier = await subjectSetToken.positionMultiplier();
+
         await expect(subject()).to.emit(indexModule, "RebalanceStarted").withArgs(
-          subjectSetToken.address
+          subjectSetToken.address,
+          expectedAggregateComponents,
+          expectedAggregateTargetUnits,
+          expectedPositionMultiplier
         );
       });
 
