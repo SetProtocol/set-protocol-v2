@@ -2,16 +2,12 @@ version: 2
 
 jobs:
   checkout_and_compile:
-    docker:
-      - image: circleci/node:10.16.0
-        environment:
-          NODE_OPTIONS: --max_old_space_size=8192
+    machine:
+      image: ubuntu-2004:202010-01
     resource_class: large
     working_directory: ~/set-protocol-v2
     steps:
       - checkout
-      - setup_remote_docker:
-          docker_layer_caching: false
       - restore_cache:
           key: module-cache-{{ checksum "yarn.lock" }}
       - run:
@@ -33,19 +29,39 @@ jobs:
             - ~/set-protocol-v2
 
   test_ovm:
-    docker:
-      - image: circleci/node:10.16.0
+    machine:
+      image: ubuntu-2004:202010-01
+      docker_layer_caching: true
     working_directory: ~/set-protocol-v2
     steps:
-      - setup_remote_docker:
-          docker_layer_caching: false
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Set Up Environment Variables
           command: cp .env.default .env
+      - run:
+          name: Clone eth-optimism/optimism
+          command: git clone https://github.com/ethereum-optimism/optimism.git
+      - run:
+          name: Build Optimism client
+          command: |
+            cd optimism
+            git checkout dee74ef54b38750085a8cc2dfbcb67dc80d2a10f
+            cd ops
+            ./scripts/build-ci.sh
+      - run:
+          name: Launch Optimism client
+          command: |
+            cd optimism && cd ops
+            docker-compose up -d && ./scripts/wait-for-sequencer.sh
+            wget --retry-connrefused --waitretry=1 --read-timeout=120 --timeout=120 -t 100 http://localhost:8545
+      - run:
+          name: Compile ovm
+          command: yarn compile:ovm
+      - run:
+          name: Test
+          command: yarn test:ovm:fast test/protocol/core.spec.ts
 
-      # TODO....
 
 workflows:
   version: 2

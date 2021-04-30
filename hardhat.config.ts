@@ -58,8 +58,8 @@ const config: HardhatUserConfig = {
       accounts: { mnemonic: defaultMnemonic },
       // L2 test account balances not automatically initiated with an ETH balance
       gasPrice: 0,
-      gas: 8000000,
-      blockGasLimit: 8000000,
+      gas: 8999999,
+      blockGasLimit: 8999999,
       // @ts-ignore
       ovm: true,
     }
@@ -70,6 +70,7 @@ const config: HardhatUserConfig = {
   },
   mocha: {
     grep: "@ovm",
+    timeout: 150000
   },
   paths: {
     artifacts: OVM ? "./artifacts-ovm" : "./artifacts",

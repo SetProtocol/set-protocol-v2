@@ -14,17 +14,34 @@
 
 To use console.log during Solidity development, follow the [guides](https://hardhat.org/guides/hardhat-console.html).
 
+To install and run the Optimism client:
+
+```
+// Builds and launches L1, L2, misc services
+// Takes 15 to 20 min
+
+git clone git@github.com:ethereum-optimism/optimism.git
+cd optimism
+yarn install
+yarn build
+cd ops
+docker-compose build
+docker-compose up
+```
+
 ## Available Functionality
 
-### Run Hardhat EVM
-
-`yarn chain`
+### Run Optimism OVM
+```
+cd optimism/ops
+docker-compose up
+```
 
 ### Build Contracts
 
-`yarn compile`
+`yarn compile:ovm`
 
-To speed up compilation, install solc 0.6.10 natively with the following command.
+To speed up compilation, install solc 0.6.12 natively with the following command.
 ```
 brew install https://raw.githubusercontent.com/ethereum/homebrew-ethereum/06d13a8499801dc3ea4f19b2d24ed2eeb3072ebb/solidity.rb
 ```
@@ -35,9 +52,7 @@ brew install https://raw.githubusercontent.com/ethereum/homebrew-ethereum/06d13a
 
 ### Run Contract Tests
 
-`yarn test` to run compiled contracts 
-
-OR `yarn test:clean` if contracts have been typings need to be updated
+`yarn test:ovm` to run compiled contracts
 
 ### Run Coverage Report for Tests
 

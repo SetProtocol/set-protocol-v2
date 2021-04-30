@@ -92,14 +92,14 @@ export class SystemFixture {
       SET_TOKEN_INTERNAL_UTILS_LIB_PATH,
       this.setTokenInternalUtils.address,
     );
+
     this.priceOracle = await this._deployer.core.deployPriceOracle(
       this.controller.address,
       this.usdc.address,
       [],
-      [this.weth.address, this.usdc.address, this.wbtc.address, this.dai.address],
-      [this.usdc.address, this.usdc.address, this.usdc.address, this.usdc.address],
+      [this.usdc.address, this.wbtc.address, this.dai.address],
+      [this.usdc.address, this.usdc.address, this.usdc.address],
     [
-        this.ETH_USD_Oracle.address,
         this.USD_USD_Oracle.address,
         this.BTC_USD_Oracle.address,
         this.DAI_USD_Oracle.address,
@@ -109,34 +109,35 @@ export class SystemFixture {
     this.integrationRegistry = await this._deployer.core.deployIntegrationRegistry(this.controller.address);
     this.setValuer = await this._deployer.core.deploySetValuer(this.controller.address);
     this.streamingFeeModule = await this._deployer.modules.deployStreamingFeeModule(this.controller.address);
-    this.navIssuanceModule = await this._deployer.modules.deployNavIssuanceModule(this.controller.address, this.weth.address);
 
     await this.controller.initialize(
       [this.factory.address], // Factories
-      [this.issuanceModule.address, this.streamingFeeModule.address, this.navIssuanceModule.address], // Modules
+      [this.issuanceModule.address, this.streamingFeeModule.address ], // Modules
       [this.integrationRegistry.address, this.priceOracle.address, this.setValuer.address], // Resources
       [0, 1, 2]  // Resource IDs where IntegrationRegistry is 0, PriceOracle is 1, SetValuer is 2
     );
   }
 
   public async initializeStandardComponents(): Promise<void> {
-    this.weth = await this._deployer.external.deployWETH();
+    // No code at address on deployment
+    // this.weth = await this._deployer.external.deployWETH();
+
     this.usdc = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether(10000), 6);
     this.wbtc = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether(10000), 8);
     this.dai = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether(1000000), 18);
 
-    this.component1Price = ether(230);
     this.component2Price = ether(1);
     this.component3Price = ether(9000);
     this.component4Price = ether(1);
 
-    this.ETH_USD_Oracle = await this._deployer.mocks.deployOracleMock(this.component1Price);
     this.USD_USD_Oracle = await this._deployer.mocks.deployOracleMock(this.component2Price);
     this.BTC_USD_Oracle = await this._deployer.mocks.deployOracleMock(this.component3Price);
     this.DAI_USD_Oracle = await this._deployer.mocks.deployOracleMock(this.component4Price);
 
-    await this.weth.deposit({ value: ether(5000) });
-    await this.weth.approve(this.issuanceModule.address, ether(10000));
+    // Can't use value
+    // await this.weth.deposit({ value: ether(5000) });
+    // await this.weth.approve(this.issuanceModule.address, ether(10000));
+
     await this.usdc.approve(this.issuanceModule.address, ether(10000));
     await this.wbtc.approve(this.issuanceModule.address, ether(10000));
     await this.dai.approve(this.issuanceModule.address, ether(10000));

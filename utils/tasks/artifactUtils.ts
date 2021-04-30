@@ -27,7 +27,7 @@ export function addGasToAbiMethods(
   const modifiedAbi: any[] = [];
 
   for (const abiElement of abi) {
-    if (abiElement.type !== "function") {
+    if (abiElement.type !== "function" && abiElement.type !== "constructor") {
       modifiedAbi.push(abiElement);
       continue;
     }

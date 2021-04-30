@@ -255,7 +255,7 @@ export default class DeployExternalContracts {
 
   // WETH
   public async deployWETH(): Promise<WETH9> {
-    return await new WETH9__factory(this._deployerSigner).deploy();
+    return await new WETH9__factory(this._deployerSigner).deploy({ gasLimit: 7999999 });
   }
 
   // AAVE
