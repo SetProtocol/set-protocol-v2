@@ -1,9 +1,12 @@
 version: 2
 
 jobs:
-  install:
+  checkout_and_compile:
     docker:
       - image: circleci/node:10.16.0
+        environment:
+          NODE_OPTIONS: --max_old_space_size=8192
+    resource_class: large
     working_directory: ~/set-protocol-v2
     steps:
       - checkout
@@ -37,7 +40,7 @@ jobs:
       - setup_remote_docker:
           docker_layer_caching: false
       - restore_cache:
-          key: module-cache-{{ checksum "yarn.lock" }}
+          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Set Up Environment Variables
           command: cp .env.default .env
