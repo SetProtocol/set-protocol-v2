@@ -14,7 +14,8 @@ import {
   StandardTokenMock,
   StreamingFeeModule,
   WETH9,
-  NavIssuanceModule
+  NavIssuanceModule,
+  SetTokenInternalUtils
 } from "../contracts";
 import DeployHelper from "../deploys";
 import {
@@ -26,7 +27,10 @@ import {
 } from "../types";
 import {
   MAX_UINT_256,
+  SET_TOKEN_INTERNAL_UTILS_LIB_PATH,
 } from "../constants";
+
+import { convertLibraryNameToLinkId } from "../common";
 
 import { SetToken__factory } from "../../typechain/factories/SetToken__factory";
 
@@ -43,6 +47,7 @@ export class SystemFixture {
   public priceOracle: PriceOracle;
   public integrationRegistry: IntegrationRegistry;
   public setValuer: SetValuer;
+  public setTokenInternalUtils: SetTokenInternalUtils;
 
   public issuanceModule: BasicIssuanceModule;
   public streamingFeeModule: StreamingFeeModule;
@@ -80,8 +85,13 @@ export class SystemFixture {
     await this.initializeStandardComponents();
 
     this.integrationRegistry = await this._deployer.core.deployIntegrationRegistry(this.controller.address);
+    this.setTokenInternalUtils = await this._deployer.core.deploySetTokenInternalUtils();
 
-    this.factory = await this._deployer.core.deploySetTokenCreator(this.controller.address);
+    this.factory = await this._deployer.core.deploySetTokenCreator(
+      this.controller.address,
+      SET_TOKEN_INTERNAL_UTILS_LIB_PATH,
+      this.setTokenInternalUtils.address,
+    );
     this.priceOracle = await this._deployer.core.deployPriceOracle(
       this.controller.address,
       this.usdc.address,
@@ -151,7 +161,14 @@ export class SystemFixture {
 
     const retrievedSetAddress = await new ProtocolUtils(this._provider).getCreatedSetTokenAddress(txHash.hash);
 
-    return new SetToken__factory(this._ownerSigner).attach(retrievedSetAddress);
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_INTERNAL_UTILS_LIB_PATH);
+
+    return new SetToken__factory(
+      // @ts-ignore
+      {
+        [linkId]: this.setTokenInternalUtils.address,
+      },
+      this._ownerSigner).attach(retrievedSetAddress);
   }
 
   public async createNonControllerEnabledSetToken(
@@ -169,7 +186,9 @@ export class SystemFixture {
       this.controller.address,
       manager,
       name,
-      symbol
+      symbol,
+      SET_TOKEN_INTERNAL_UTILS_LIB_PATH,
+      this.setTokenInternalUtils.address
     );
   }
 

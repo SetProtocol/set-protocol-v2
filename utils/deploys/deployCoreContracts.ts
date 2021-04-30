@@ -7,7 +7,8 @@ import {
   PriceOracle,
   SetToken,
   SetTokenCreator,
-  SetValuer
+  SetValuer,
+  SetTokenInternalUtils
 } from "./../contracts";
 
 import { Address } from "./../types";
@@ -18,6 +19,9 @@ import { PriceOracle__factory } from "../../typechain/factories/PriceOracle__fac
 import { SetToken__factory } from "../../typechain/factories/SetToken__factory";
 import { SetTokenCreator__factory } from "../../typechain/factories/SetTokenCreator__factory";
 import { SetValuer__factory } from "../../typechain/factories/SetValuer__factory";
+import { SetTokenInternalUtils__factory } from "../../typechain/factories/SetTokenInternalUtils__factory";
+
+import { convertLibraryNameToLinkId } from "../common";
 
 export default class DeployCoreContracts {
   private _deployerSigner: Signer;
@@ -34,12 +38,39 @@ export default class DeployCoreContracts {
     return await new Controller__factory(this._deployerSigner).attach(controllerAddress);
   }
 
-  public async deploySetTokenCreator(controller: Address): Promise<SetTokenCreator> {
-    return await new SetTokenCreator__factory(this._deployerSigner).deploy(controller);
+  public async deploySetTokenInternalUtils(): Promise<SetTokenInternalUtils> {
+    return await new SetTokenInternalUtils__factory(this._deployerSigner).deploy();
   }
 
-  public async getSetTokenCreator(setTokenCreatorAddress: Address): Promise<SetTokenCreator> {
-    return await new SetTokenCreator__factory(this._deployerSigner).attach(setTokenCreatorAddress);
+  public async deploySetTokenCreator(
+    controller: Address,
+    libraryName: string,
+    libraryAddress: Address
+  ): Promise<SetTokenCreator> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+    return await new SetTokenCreator__factory(
+      // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy(controller);
+  }
+
+  public async getSetTokenCreator(
+    setTokenCreatorAddress: Address,
+    libraryName: string,
+    libraryAddress: Address
+  ): Promise<SetTokenCreator> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+
+    return await new SetTokenCreator__factory(
+      // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).attach(setTokenCreatorAddress);
   }
 
   public async deploySetToken(
@@ -50,8 +81,18 @@ export default class DeployCoreContracts {
     _manager: Address,
     _name: string,
     _symbol: string,
+    _libraryName: string,
+    _libraryAddress: Address,
   ): Promise<SetToken> {
-    return await new SetToken__factory(this._deployerSigner).deploy(
+    const linkId = convertLibraryNameToLinkId(_libraryName);
+
+    return await new SetToken__factory(
+      // @ts-ignore
+      {
+        [linkId]: _libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy(
       _components,
       _units,
       _modules,
@@ -62,8 +103,20 @@ export default class DeployCoreContracts {
     );
   }
 
-  public async getSetToken(setTokenAddress: Address): Promise<SetToken> {
-    return await new SetToken__factory(this._deployerSigner).attach(setTokenAddress);
+  public async getSetToken(
+    setTokenAddress: Address,
+    libraryName: string,
+    libraryAddress: Address
+  ): Promise<SetToken> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+
+    return await new SetToken__factory(
+      // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).attach(setTokenAddress);
   }
 
   public async deployPriceOracle(

@@ -62,6 +62,7 @@ export { ProtocolViewer } from "../../typechain/ProtocolViewer";
 export { ResourceIdentifierMock } from "../../typechain/ResourceIdentifierMock";
 export { SetToken } from "../../typechain/SetToken";
 export { SetTokenCreator } from "../../typechain/SetTokenCreator";
+export { SetTokenInternalUtils } from "../../typechain/SetTokenInternalUtils";
 export { SetValuer } from "../../typechain/SetValuer";
 export { SingleIndexModule } from "../../typechain/SingleIndexModule";
 export { SnapshotGovernanceAdapter } from "../../typechain/SnapshotGovernanceAdapter";
