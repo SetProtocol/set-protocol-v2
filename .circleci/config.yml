@@ -47,8 +47,11 @@ jobs:
           command: |
             cd optimism
             git checkout dee74ef54b38750085a8cc2dfbcb67dc80d2a10f
+            yarn
+            yarn build
             cd ops
-            ./scripts/build-ci.sh
+            docker-compose pull
+            docker-compose build
       - run:
           name: Launch Optimism client
           command: |
