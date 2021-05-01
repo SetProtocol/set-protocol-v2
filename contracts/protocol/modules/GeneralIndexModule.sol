@@ -618,6 +618,51 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     /* ============ Internal Functions ============ */
 
     /**
+     * A rebalance is a multi-step process in which current Set components are sold for a
+     * bridge asset (WETH) before buying target components in the correct amount to achieve
+     * the desired balance between elements in the set.
+     *
+     *        Step 1        |       Step 2
+     * -------------------------------------------
+     * Component --> WETH   |   WETH --> Component
+     * -------------------------------------------
+     *
+     * The syntax we use frames this as trading from a "fixed" amount of one component to a
+     * "fixed" amount of another via a "floating limit" which is *either* the maximum size of
+     * the trade we want to make (trades may be tranched to avoid moving markets) OR the minimum
+     * amount of tokens we expect to receive. The different meanings of the floating limit map to
+     * the trade sequence as below:
+     *
+     * Step 1: Component --> WETH
+     * ----------------------------------------------------------
+     *                     | Fixed |     Floating limit         |
+     * ----------------------------------------------------------
+     * send  (Component)   |  Yes  |                            |
+     * recieve (WETH)      |       |   Maximum trade size       |
+     * ----------------------------------------------------------
+     *
+     * Step 2: WETH --> Component
+     * ----------------------------------------------------------
+     *                     | Fixed  |    Floating limit         |
+     * ----------------------------------------------------------
+     * send  (WETH)        |   NO   |                           |
+     * recieve (Component) |        |  Min amount to receive    |
+     * ----------------------------------------------------------
+     *
+     * Additionally, there is an edge case where price volatility during a rebalance
+     * results in remaindered WETH which needs to be allocated proportionately. In this case
+     * the values are as below:
+     *
+     * Edge case: Remaing WETH --> Component
+     * ----------------------------------------------------------
+     *                     | Fixed  |    Floating limit         |
+     * ----------------------------------------------------------
+     * send  (WETH)        |  YES   |                           |
+     * recieve (Component) |        |  Min amount to receive    |
+     * ----------------------------------------------------------
+    */
+
+    /**
      * Create and return TradeInfo struct. This function reverts if the target has already been met.
      * If this is a trade from component into WETH, sell the total fixed component quantity
      * and expect to receive an ETH amount the user has specified (or more). If it's a trade from
