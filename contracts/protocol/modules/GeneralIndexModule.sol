@@ -635,30 +635,30 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      *
      * Step 1: Component --> WETH
      * ----------------------------------------------------------
-     *                     | Fixed |     Floating limit         |
+     *                     | Fixed  |     Floating limit        |
      * ----------------------------------------------------------
-     * send  (Component)   |  Yes  |                            |
-     * recieve (WETH)      |       |   Maximum trade size       |
+     * send  (Component)   |  YES   |                           |
+     * recieve (WETH)      |        |   Min WETH to receive     |
      * ----------------------------------------------------------
      *
      * Step 2: WETH --> Component
      * ----------------------------------------------------------
-     *                     | Fixed  |    Floating limit         |
+     *                     |  Fixed  |    Floating limit        |
      * ----------------------------------------------------------
-     * send  (WETH)        |   NO   |                           |
-     * recieve (Component) |        |  Min amount to receive    |
+     * send  (WETH)        |   NO    |  Max WETH to send        |
+     * recieve (Component) |   YES   |                          |
      * ----------------------------------------------------------
      *
      * Additionally, there is an edge case where price volatility during a rebalance
-     * results in remaindered WETH which needs to be allocated proportionately. In this case
+     * results in remaining WETH which needs to be allocated proportionately. In this case
      * the values are as below:
      *
-     * Edge case: Remaing WETH --> Component
+     * Edge case: Remaining WETH --> Component
      * ----------------------------------------------------------
      *                     | Fixed  |    Floating limit         |
      * ----------------------------------------------------------
      * send  (WETH)        |  YES   |                           |
-     * recieve (Component) |        |  Min amount to receive    |
+     * recieve (Component) |        | Min component to receive  |
      * ----------------------------------------------------------
     */
 
