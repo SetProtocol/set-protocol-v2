@@ -26,6 +26,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { SetTokenDataUtils } from "./SetTokenDataUtils.sol";
 
 
 /**
@@ -43,6 +44,7 @@ library Position {
     using SafeCast for int256;
     using SignedSafeMath for int256;
     using PreciseUnitMath for uint256;
+    using SetTokenDataUtils for ISetToken;
 
     /* ============ Helper ============ */
 

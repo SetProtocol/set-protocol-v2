@@ -34,6 +34,7 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { IWETH } from "../../interfaces/external/IWETH.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { Position } from "../lib/Position.sol";
+import { SetTokenDataUtils } from "../lib/SetTokenDataUtils.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
 
@@ -371,7 +372,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
     {
         require(address(index) == address(0), "Module already in use");
 
-        ISetToken.Position[] memory positions = _index.getPositions();
+        ISetToken.Position[] memory positions = SetTokenDataUtils.getPositions(address(index));
 
         for (uint256 i = 0; i < positions.length; i++) {
             ISetToken.Position memory position = positions[i];

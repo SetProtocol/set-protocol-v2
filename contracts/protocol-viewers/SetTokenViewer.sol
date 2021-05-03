@@ -23,6 +23,7 @@ pragma experimental "ABIEncoderV2";
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
+import { SetTokenDataUtils } from "../protocol/lib/SetTokenDataUtils.sol";
 
 
 /**
@@ -100,7 +101,7 @@ contract SetTokenViewer {
                 manager: setToken.manager(),
                 modules: setToken.getModules(),
                 moduleStatuses: moduleStates[i],
-                positions: setToken.getPositions(),
+                positions: SetTokenDataUtils.getPositions(address(setToken)),
                 totalSupply: setToken.totalSupply()
             });
         }

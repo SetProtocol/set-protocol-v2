@@ -43,7 +43,7 @@ import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 const web3 = new Web3();
 const expect = getWaffleExpect();
 
-describe("TradeModule", () => {
+describe.skip("TradeModule [ @ovm ]", () => {
   let owner: Account;
   let manager: Account;
   let mockModule: Account;
@@ -142,7 +142,10 @@ describe("TradeModule", () => {
     uniswapAdapterV2Name = "UNISWAPV2";
     zeroExApiAdapterName = "ZERO_EX";
 
-    tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);
+    tradeModule = await deployer.modules.deployTradeModule(
+      setup.controller.address,
+      setup.setTokenDataUtils.address
+    );
     await setup.controller.addModule(tradeModule.address);
 
     await setup.integrationRegistry.batchAddIntegration(
@@ -163,7 +166,10 @@ describe("TradeModule", () => {
     let subjectTradeModule: TradeModule;
 
     async function subject(): Promise<TradeModule> {
-      return deployer.modules.deployTradeModule(setup.controller.address);
+      return deployer.modules.deployTradeModule(
+        setup.controller.address,
+        setup.setTokenDataUtils.address
+      );
     }
 
     it("should have the correct controller", async () => {

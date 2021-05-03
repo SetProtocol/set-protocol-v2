@@ -42,7 +42,10 @@ describe("IssuanceModule", () => {
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    issuanceModule = await deployer.modules.deployIssuanceModule(setup.controller.address);
+    issuanceModule = await deployer.modules.deployIssuanceModule(
+      setup.controller.address,
+      setup.setTokenDataUtils.address
+    );
     moduleIssuanceHook = await deployer.mocks.deployModuleIssuanceHookMock();
     await setup.controller.addModule(issuanceModule.address);
     await setup.controller.addModule(moduleIssuanceHook.address);

@@ -32,6 +32,7 @@ import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../../protocol/lib/ModuleBase.sol";
 import { Position } from "../../../protocol/lib/Position.sol";
+import { SetTokenDataUtils } from "../../../protocol/lib/SetTokenDataUtils.sol";
 
 
 // Mock for modules that handle debt positions. Used for testing DebtIssuanceModule
@@ -42,6 +43,7 @@ contract DebtModuleMock is ModuleBase {
     using SignedSafeMath for int256;
     using Position for ISetToken;
     using Invoke for ISetToken;
+    using SetTokenDataUtils for ISetToken;
 
     address public module;
     bool public moduleIssueHookCalled;

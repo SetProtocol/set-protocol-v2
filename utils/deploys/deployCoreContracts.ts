@@ -8,7 +8,8 @@ import {
   SetToken,
   SetTokenCreator,
   SetValuer,
-  SetTokenInternalUtils
+  SetTokenInternalUtils,
+  SetTokenDataUtils
 } from "./../contracts";
 
 import { Address } from "./../types";
@@ -20,8 +21,10 @@ import { SetToken__factory } from "../../typechain/factories/SetToken__factory";
 import { SetTokenCreator__factory } from "../../typechain/factories/SetTokenCreator__factory";
 import { SetValuer__factory } from "../../typechain/factories/SetValuer__factory";
 import { SetTokenInternalUtils__factory } from "../../typechain/factories/SetTokenInternalUtils__factory";
+import { SetTokenDataUtils__factory } from "../../typechain/factories/SetTokenDataUtils__factory";
 
 import { convertLibraryNameToLinkId } from "../common";
+import { SET_TOKEN_DATA_UTILS_LIB_PATH, SET_TOKEN_INTERNAL_UTILS_LIB_PATH } from "../constants";
 
 export default class DeployCoreContracts {
   private _deployerSigner: Signer;
@@ -42,16 +45,19 @@ export default class DeployCoreContracts {
     return await new SetTokenInternalUtils__factory(this._deployerSigner).deploy();
   }
 
+  public async deploySetTokenDataUtils(): Promise<SetTokenDataUtils> {
+    return await new SetTokenDataUtils__factory(this._deployerSigner).deploy();
+  }
+
   public async deploySetTokenCreator(
     controller: Address,
-    libraryName: string,
-    libraryAddress: Address
+    setTokenInternalUtilsLib: Address
   ): Promise<SetTokenCreator> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_INTERNAL_UTILS_LIB_PATH);
     return await new SetTokenCreator__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [linkId]: setTokenInternalUtilsLib,
       },
       this._deployerSigner
     ).deploy(controller);
@@ -59,15 +65,14 @@ export default class DeployCoreContracts {
 
   public async getSetTokenCreator(
     setTokenCreatorAddress: Address,
-    libraryName: string,
-    libraryAddress: Address
+    setTokenInternalUtilsLib: Address
   ): Promise<SetTokenCreator> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_INTERNAL_UTILS_LIB_PATH);
 
     return await new SetTokenCreator__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [linkId]: setTokenInternalUtilsLib,
       },
       this._deployerSigner
     ).attach(setTokenCreatorAddress);
@@ -81,15 +86,14 @@ export default class DeployCoreContracts {
     _manager: Address,
     _name: string,
     _symbol: string,
-    _libraryName: string,
-    _libraryAddress: Address,
+    _setTokenInternalUtilsLib: Address,
   ): Promise<SetToken> {
-    const linkId = convertLibraryNameToLinkId(_libraryName);
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_INTERNAL_UTILS_LIB_PATH);
 
     return await new SetToken__factory(
       // @ts-ignore
       {
-        [linkId]: _libraryAddress,
+        [linkId]: _setTokenInternalUtilsLib,
       },
       this._deployerSigner
     ).deploy(
@@ -149,7 +153,18 @@ export default class DeployCoreContracts {
     return await new IntegrationRegistry__factory(this._deployerSigner).attach(integrationRegistryAddress);
   }
 
-  public async deploySetValuer(controller: Address): Promise<SetValuer> {
-    return await new SetValuer__factory(this._deployerSigner).deploy(controller);
+  public async deploySetValuer(
+    controller: Address,
+    setTokenDataUtilsLib: Address
+    ): Promise<SetValuer> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+
+    return await new SetValuer__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner
+    ).deploy(controller);
   }
 }

@@ -27,6 +27,7 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { SetTokenDataUtils } from "../lib/SetTokenDataUtils.sol";
 
 /**
  * @title BasicIssuanceModule
@@ -39,6 +40,7 @@ contract BasicIssuanceModule is ModuleBase, ReentrancyGuard {
     using Invoke for ISetToken;
     using Position for ISetToken.Position;
     using Position for ISetToken;
+    using SetTokenDataUtils for ISetToken;
     using PreciseUnitMath for uint256;
     using SafeMath for uint256;
     using SafeCast for int256;

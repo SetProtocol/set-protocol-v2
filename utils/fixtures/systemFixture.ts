@@ -15,7 +15,8 @@ import {
   StreamingFeeModule,
   WETH9,
   NavIssuanceModule,
-  SetTokenInternalUtils
+  SetTokenInternalUtils,
+  SetTokenDataUtils
 } from "../contracts";
 import DeployHelper from "../deploys";
 import {
@@ -48,6 +49,7 @@ export class SystemFixture {
   public integrationRegistry: IntegrationRegistry;
   public setValuer: SetValuer;
   public setTokenInternalUtils: SetTokenInternalUtils;
+  public setTokenDataUtils: SetTokenDataUtils;
 
   public issuanceModule: BasicIssuanceModule;
   public streamingFeeModule: StreamingFeeModule;
@@ -80,7 +82,13 @@ export class SystemFixture {
     [, , , this.feeRecipient] = await this._provider.listAccounts();
 
     this.controller = await this._deployer.core.deployController(this.feeRecipient);
-    this.issuanceModule = await this._deployer.modules.deployBasicIssuanceModule(this.controller.address);
+
+    this.setTokenDataUtils = await this._deployer.core.deploySetTokenDataUtils();
+
+    this.issuanceModule = await this._deployer.modules.deployBasicIssuanceModule(
+      this.controller.address,
+      this.setTokenDataUtils.address
+    );
 
     await this.initializeStandardComponents();
 
@@ -89,7 +97,6 @@ export class SystemFixture {
 
     this.factory = await this._deployer.core.deploySetTokenCreator(
       this.controller.address,
-      SET_TOKEN_INTERNAL_UTILS_LIB_PATH,
       this.setTokenInternalUtils.address,
     );
 
@@ -107,8 +114,14 @@ export class SystemFixture {
     );
 
     this.integrationRegistry = await this._deployer.core.deployIntegrationRegistry(this.controller.address);
-    this.setValuer = await this._deployer.core.deploySetValuer(this.controller.address);
-    this.streamingFeeModule = await this._deployer.modules.deployStreamingFeeModule(this.controller.address);
+    this.setValuer = await this._deployer.core.deploySetValuer(
+      this.controller.address,
+      this.setTokenDataUtils.address
+    );
+    this.streamingFeeModule = await this._deployer.modules.deployStreamingFeeModule(
+      this.controller.address,
+      this.setTokenDataUtils.address
+    );
 
     await this.controller.initialize(
       [this.factory.address], // Factories
@@ -157,11 +170,10 @@ export class SystemFixture {
       modules,
       manager,
       name,
-      symbol,
+      symbol
     );
 
     const retrievedSetAddress = await new ProtocolUtils(this._provider).getCreatedSetTokenAddress(txHash.hash);
-
     const linkId = convertLibraryNameToLinkId(SET_TOKEN_INTERNAL_UTILS_LIB_PATH);
 
     return new SetToken__factory(
@@ -188,7 +200,6 @@ export class SystemFixture {
       manager,
       name,
       symbol,
-      SET_TOKEN_INTERNAL_UTILS_LIB_PATH,
       this.setTokenInternalUtils.address
     );
   }

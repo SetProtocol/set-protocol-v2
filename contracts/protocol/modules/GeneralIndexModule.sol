@@ -37,6 +37,8 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
+import { SetTokenDataUtils } from "../lib/SetTokenDataUtils.sol";
+
 
 
 /**
@@ -510,7 +512,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
-        ISetToken.Position[] memory positions = _setToken.getPositions();
+        ISetToken.Position[] memory positions = SetTokenDataUtils.getPositions(address(_setToken));
 
         for (uint256 i = 0; i < positions.length; i++) {
             ISetToken.Position memory position = positions[i];

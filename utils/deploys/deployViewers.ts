@@ -13,6 +13,7 @@ export default class DeployViewers {
   }
 
   public async deployProtocolViewer(): Promise<ProtocolViewer> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new ProtocolViewer__factory(this._deployerSigner).deploy();
   }
 }

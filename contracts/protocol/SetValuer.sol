@@ -29,6 +29,7 @@ import { IPriceOracle } from "../interfaces/IPriceOracle.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
 import { Position } from "./lib/Position.sol";
 import { ResourceIdentifier } from "./lib/ResourceIdentifier.sol";
+import { SetTokenDataUtils } from "./lib/SetTokenDataUtils.sol";
 
 
 /**
@@ -91,7 +92,7 @@ contract SetValuer {
             // Get component price from price oracle. If price does not exist, revert.
             uint256 componentPrice = priceOracle.getPrice(component, masterQuoteAsset);
 
-            int256 aggregateUnits = _setToken.getTotalComponentRealUnits(component);
+            int256 aggregateUnits = SetTokenDataUtils.getTotalComponentRealUnits(address(_setToken), component);
 
             // Normalize each position unit to preciseUnits 1e18 and cast to signed int
             uint256 unitDecimals = ERC20(component).decimals();

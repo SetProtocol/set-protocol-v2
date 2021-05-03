@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { SetToken, SetValuer } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  ether,
+  bitcoin,
   usdc,
   preciseDiv,
   preciseMul,
@@ -12,7 +12,6 @@ import {
   getSystemFixture,
   getWaffleExpect,
   getAccounts,
-  addSnapshotBeforeRestoreAfterEach,
 } from "@utils/test/index";
 
 import { Address } from "@utils/types";
@@ -22,7 +21,7 @@ import { ADDRESS_ZERO } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
-describe("SetValuer", () => {
+describe("SetValuer [ @ovm ]", () => {
   let owner: Account, moduleOne: Account;
   let setToken: SetToken;
   let deployer: DeployHelper;
@@ -42,11 +41,11 @@ describe("SetValuer", () => {
 
     await setup.controller.addModule(moduleOne.address);
 
-    components = [setup.usdc.address, setup.weth.address];
-    // 100 USDC at $1 and 1 WETH at $230
-    units = [usdc(100), ether(1)];
-    // Base units of USDC and WETH
-    baseUnits = [usdc(1), ether(1)];
+    components = [setup.usdc.address, setup.wbtc.address];
+    // 100 USDC at $1 and 1 WBTC at $230
+    units = [usdc(100), bitcoin(1)];
+    // Base units of USDC and WBTC
+    baseUnits = [usdc(1), bitcoin(1)];
 
     modules = [moduleOne.address];
 
@@ -56,8 +55,6 @@ describe("SetValuer", () => {
     await setToken.initializeModule();
   });
 
-  addSnapshotBeforeRestoreAfterEach();
-
   describe("#constructor", async () => {
     let subjectController: Address;
 
@@ -66,7 +63,7 @@ describe("SetValuer", () => {
     });
 
     async function subject(): Promise<SetValuer> {
-      return deployer.core.deploySetValuer(subjectController);
+      return deployer.core.deploySetValuer(subjectController, setup.setTokenDataUtils.address);
     }
 
     it("should have the correct controller address", async () => {
@@ -103,14 +100,14 @@ describe("SetValuer", () => {
       const expectedValuation = preciseMul(
         normalizedUnitOne, setup.component2Price
       ).add(preciseMul(
-        normalizedUnitTwo, setup.component1Price
+        normalizedUnitTwo, setup.component3Price
       ));
       expect(setTokenValuation).to.eq(expectedValuation);
     });
 
     describe("when the quote asset is not the master quote asset", async () => {
       beforeEach(async () => {
-        subjectQuoteAsset = setup.weth.address;
+        subjectQuoteAsset = setup.wbtc.address;
       });
 
       it("should calculate correct SetToken valuation", async () => {
@@ -119,12 +116,12 @@ describe("SetValuer", () => {
         const normalizedUnitOne = preciseDiv(units[0], baseUnits[0]);
         const normalizedUnitTwo = preciseDiv(units[1], baseUnits[1]);
 
-        const quoteToMasterQuote = await setup.ETH_USD_Oracle.read();
+        const quoteToMasterQuote = await setup.BTC_USD_Oracle.read();
 
         const masterQuoteValuation = preciseMul(
           normalizedUnitOne, setup.component2Price
         ).add(preciseMul(
-          normalizedUnitTwo, setup.component1Price
+          normalizedUnitTwo, setup.component3Price
         ));
         const expectedValuation = preciseDiv(masterQuoteValuation, quoteToMasterQuote);
 
@@ -136,7 +133,7 @@ describe("SetValuer", () => {
       let externalUnits: BigNumber;
 
       beforeEach(async () => {
-        externalUnits = ether(100);
+        externalUnits = bitcoin(100);
         setToken = setToken.connect(moduleOne.wallet);
         await setToken.addExternalPositionModule(setup.usdc.address, ADDRESS_ZERO);
         await setToken.editExternalPositionUnit(setup.usdc.address, ADDRESS_ZERO, externalUnits);
@@ -148,7 +145,7 @@ describe("SetValuer", () => {
         const expectedValuation = preciseMul(
           preciseDiv(units[0].add(externalUnits), baseUnits[0]), setup.component4Price
         ).add(preciseMul(
-          preciseDiv(units[1], baseUnits[1]), setup.component1Price
+          preciseDiv(units[1], baseUnits[1]), setup.component3Price
         ));
         expect(setTokenValuation).to.eq(expectedValuation);
       });
@@ -170,7 +167,7 @@ describe("SetValuer", () => {
         const expectedValuation = preciseMul(
           preciseDiv(units[0].add(externalUnits), baseUnits[0]), setup.component4Price
         ).add(preciseMul(
-          preciseDiv(units[1], baseUnits[1]), setup.component1Price
+          preciseDiv(units[1], baseUnits[1]), setup.component3Price
         ));
         expect(setTokenValuation).to.eq(expectedValuation);
       });
@@ -181,7 +178,7 @@ describe("SetValuer", () => {
 
       beforeEach(async () => {
         // Edit external DAI units to be greatly negative
-        externalUnits = ether(-500);
+        externalUnits = bitcoin(-500);
         setToken = setToken.connect(moduleOne.wallet);
         await setToken.addExternalPositionModule(setup.usdc.address, ADDRESS_ZERO);
         await setToken.editExternalPositionUnit(setup.usdc.address, ADDRESS_ZERO, externalUnits);

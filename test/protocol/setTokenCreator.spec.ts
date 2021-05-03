@@ -4,13 +4,12 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, ZERO, ONE } from "@utils/constants";
-import { Controller, SetTokenCreator, StandardTokenMock } from "@utils/contracts";
+import { Controller, SetTokenCreator, StandardTokenMock, SetTokenInternalUtils } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
 } from "@utils/index";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getProtocolUtils,
   getRandomAddress,
@@ -20,7 +19,7 @@ import {
 const expect = getWaffleExpect();
 const protocolUtils = getProtocolUtils();
 
-describe("SetTokenCreator", () => {
+describe("SetTokenCreator [ @ovm ]", () => {
   let owner: Account;
   let manager: Account;
   let controllerAddress: Account;
@@ -37,18 +36,20 @@ describe("SetTokenCreator", () => {
     deployer = new DeployHelper(owner.wallet);
   });
 
-  addSnapshotBeforeRestoreAfterEach();
-
   describe("constructor", async () => {
     let subjectControllerAddress: Address;
+    let setTokenInternalUtils: SetTokenInternalUtils;
 
     beforeEach(async () => {
       subjectControllerAddress = controllerAddress.address;
     });
 
     async function subject(): Promise<SetTokenCreator> {
+      setTokenInternalUtils = await deployer.core.deploySetTokenInternalUtils();
+
       return await deployer.core.deploySetTokenCreator(
-        subjectControllerAddress
+        subjectControllerAddress,
+        setTokenInternalUtils.address,
       );
     }
 
@@ -62,11 +63,17 @@ describe("SetTokenCreator", () => {
 
   context("when there is a SetTokenCreator", async () => {
     let controller: Controller;
+    let setTokenInternalUtils: SetTokenInternalUtils;
     let setTokenCreator: SetTokenCreator;
 
     beforeEach(async () => {
       controller = await deployer.core.deployController(owner.address);
-      setTokenCreator = await deployer.core.deploySetTokenCreator(controller.address);
+      setTokenInternalUtils = await deployer.core.deploySetTokenInternalUtils();
+
+      setTokenCreator = await deployer.core.deploySetTokenCreator(
+        controller.address,
+        setTokenInternalUtils.address,
+      );
 
       await controller.initialize([setTokenCreator.address], [], [], []);
     });
@@ -155,7 +162,7 @@ describe("SetTokenCreator", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Components must not have a duplicate");
+          await expect(subject()).to.be.revertedWith("Duplicate component");
         });
       });
 
@@ -165,7 +172,7 @@ describe("SetTokenCreator", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Component and unit lengths must be the same");
+          await expect(subject()).to.be.revertedWith("Comp. & unit lengths not equal");
         });
       });
 
@@ -207,7 +214,7 @@ describe("SetTokenCreator", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Component must not be null address");
+          await expect(subject()).to.be.revertedWith("Component is null address");
         });
       });
 

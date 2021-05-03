@@ -16,7 +16,7 @@ import {
 
 const expect = getWaffleExpect();
 
-describe("Controller", () => {
+describe("Controller [ @ovm ]", () => {
   let owner: Account;
   let feeRecipient: Account;
   let mockBasicIssuanceModule: Account;

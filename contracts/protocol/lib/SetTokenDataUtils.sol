@@ -62,13 +62,14 @@ library SetTokenDataUtils {
 
     /* ============ Public Getter Functions ============ */
 
-    function getComponents(ISetToken _setToken) external view returns(address[] memory) {
-        return _setToken.components();
-    }
-
     function getDefaultPositionRealUnit(ISetToken _setToken, address _component) public view returns(int256) {
         int256 virtualUnit = _setToken.getDefaultPositionVirtualUnit(_component);
         return _convertVirtualToRealUnit(_setToken, virtualUnit);
+    }
+
+    function getDefaultPositionRealUnit(address _setToken, address _component) public view returns(int256) {
+        int256 virtualUnit = ISetToken(_setToken).getDefaultPositionVirtualUnit(_component);
+        return _convertVirtualToRealUnit(ISetToken(_setToken), virtualUnit);
     }
 
     function getExternalPositionRealUnit(
@@ -81,32 +82,42 @@ library SetTokenDataUtils {
         returns(int256)
     {
 
-        int256 virtualUnit = _setToken.getComponentExternalPosition(_component, _positionModule).virtualUnit;
-        return _convertVirtualToRealUnit(_setToken, virtualUnit);
+        int256 virtualUnit = ISetToken(_setToken).getComponentExternalPosition(_component, _positionModule).virtualUnit;
+        return _convertVirtualToRealUnit(ISetToken(_setToken), virtualUnit);
     }
 
-    function getModules(ISetToken _setToken) public view returns (address[] memory) {
-        return _setToken.modules();
+    function getExternalPositionRealUnit(
+        address _setToken,
+        address _component,
+        address _positionModule
+    )
+        public
+        view
+        returns(int256)
+    {
+
+        int256 virtualUnit = ISetToken(_setToken).getComponentExternalPosition(_component, _positionModule).virtualUnit;
+        return _convertVirtualToRealUnit(ISetToken(_setToken), virtualUnit);
     }
 
     /**
      * Returns the total Real Units for a given component, summing the default and public position units.
      */
     function getTotalComponentRealUnits(
-        ISetToken _setToken,
+        address _setToken,
         address _component
     )
         public
         view
         returns(int256)
     {
-        int256 totalUnits = getDefaultPositionRealUnit(_setToken, _component);
+        int256 totalUnits = getDefaultPositionRealUnit(ISetToken(_setToken), _component);
 
-        address[] memory externalModules = _setToken.getExternalPositionModules(_component);
+        address[] memory externalModules = ISetToken(_setToken).getExternalPositionModules(_component);
         for (uint256 i = 0; i < externalModules.length; i++) {
             // We will perform the summation no matter what, as an external position virtual unit can be negative
             totalUnits = totalUnits.add(
-                getExternalPositionRealUnit(_setToken, _component, externalModules[i])
+                getExternalPositionRealUnit(ISetToken(_setToken), _component, externalModules[i])
             );
         }
 
@@ -120,6 +131,10 @@ library SetTokenDataUtils {
         return _setToken.moduleStates(_module) == ISetToken.ModuleState.INITIALIZED;
     }
 
+    function isInitializedModule(address _setToken, address _module) external view returns (bool) {
+        return ISetToken(_setToken).moduleStates(_module) == ISetToken.ModuleState.INITIALIZED;
+    }
+
     /**
      * Returns whether the module is in a pending state
      */
@@ -128,7 +143,7 @@ library SetTokenDataUtils {
     }
 
     function isComponent(ISetToken _setToken, address _component) public view returns(bool) {
-        return _setToken.components().contains(_component);
+        return _setToken.getComponents().contains(_component);
     }
 
     function isExternalPositionModule(
@@ -148,21 +163,22 @@ library SetTokenDataUtils {
      * is considered a Default Position, and each externalPositionModule will generate a unique position.
      * Virtual units are converted to real units. This function is typically used off-chain for data presentation purposes.
      */
-    function getPositions(ISetToken _setToken) public view returns (ISetToken.Position[] memory) {
+    function getPositions(address _setToken) public view returns (ISetToken.Position[] memory) {
         ISetToken.Position[] memory positions = new ISetToken.Position[](
-            _getPositionCount(_setToken)
+            _getPositionCount(ISetToken(_setToken))
         );
         uint256 positionCount = 0;
+        address[] memory components = ISetToken(_setToken).getComponents();
 
-        for (uint256 i = 0; i < _setToken.components().length; i++) {
-            address component = _setToken.components()[i];
+        for (uint256 i = 0; i < components.length; i++) {
+            address component = components[i];
 
             // A default position exists if the default virtual unit is > 0
-            if (_setToken.getDefaultPositionVirtualUnit(component) > 0) {
+            if (ISetToken(_setToken).getDefaultPositionVirtualUnit(component) > 0) {
                 positions[positionCount] = ISetToken.Position({
                     component: component,
                     module: address(0),
-                    unit: getDefaultPositionRealUnit(_setToken, component),
+                    unit: getDefaultPositionRealUnit(ISetToken(_setToken), component),
                     positionState: DEFAULT,
                     data: ""
                 });
@@ -170,16 +186,16 @@ library SetTokenDataUtils {
                 positionCount++;
             }
 
-            address[] memory externalModules = _setToken.getExternalPositionModules(component);
+            address[] memory externalModules = ISetToken(_setToken).getExternalPositionModules(component);
             for (uint256 j = 0; j < externalModules.length; j++) {
                 address currentModule = externalModules[j];
 
                 positions[positionCount] = ISetToken.Position({
                     component: component,
                     module: currentModule,
-                    unit: getExternalPositionRealUnit(_setToken, component, currentModule),
+                    unit: getExternalPositionRealUnit(ISetToken(_setToken), component, currentModule),
                     positionState: EXTERNAL,
-                    data: _setToken.getExternalPositionData(component, currentModule)
+                    data: ISetToken(_setToken).getExternalPositionData(component, currentModule)
                 });
 
                 positionCount++;
@@ -203,7 +219,7 @@ library SetTokenDataUtils {
      */
     function _getPositionCount(ISetToken _setToken) internal view returns (uint256) {
         uint256 positionCount;
-        address[] memory components = _setToken.components();
+        address[] memory components = _setToken.getComponents();
 
         for (uint256 i = 0; i < components.length; i++) {
             address component = components[i];

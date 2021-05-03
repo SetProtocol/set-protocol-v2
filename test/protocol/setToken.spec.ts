@@ -12,9 +12,16 @@ import {
   EMPTY_BYTES,
   MODULE_STATE,
   POSITION_STATE,
-  PRECISE_UNIT
+  PRECISE_UNIT,
 } from "@utils/constants";
-import { Controller, SetToken, StandardTokenMock, ModuleBaseMock } from "@utils/contracts";
+import {
+  Controller,
+  SetToken,
+  StandardTokenMock,
+  ModuleBaseMock,
+  SetTokenInternalUtils,
+  SetTokenDataUtils
+} from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -22,9 +29,8 @@ import {
   divDown,
 } from "@utils/index";
 import {
-  cacheBeforeEach,
   getAccounts,
-  getEthBalance,
+  getWethBalance,
   getRandomAccount,
   getRandomAddress,
   getWaffleExpect,
@@ -33,7 +39,7 @@ import {
 const web3 = new Web3();
 const expect = getWaffleExpect();
 
-describe("SetToken", () => {
+describe("SetToken [ @ovm ]", () => {
   let owner: Account;
   let manager: Account;
   let mockBasicIssuanceModule: Account;
@@ -42,8 +48,10 @@ describe("SetToken", () => {
   let pendingModule: Account;
   let testAccount: Account;
   let deployer: DeployHelper;
+  let setTokenInternalUtils: SetTokenInternalUtils;
+  let setTokenDataUtils: SetTokenDataUtils;
 
-  cacheBeforeEach(async () => {
+  beforeEach(async () => {
     [
       owner,
       manager,
@@ -52,6 +60,9 @@ describe("SetToken", () => {
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
+
+    setTokenInternalUtils = await deployer.core.deploySetTokenInternalUtils();
+    setTokenDataUtils = await deployer.core.deploySetTokenDataUtils();
   });
 
   describe("constructor", async () => {
@@ -93,7 +104,8 @@ describe("SetToken", () => {
         subjectControllerAddress,
         subjectManagerAddress,
         subjectName,
-        subjectSymbol
+        subjectSymbol,
+        setTokenInternalUtils.address
       );
     }
 
@@ -117,8 +129,12 @@ describe("SetToken", () => {
 
       const firstComponent = await setToken.components(0);
       const secondComponent = await setToken.components(1);
-      const firstComponentVirtualUnit = await setToken.getDefaultPositionRealUnit(firstComponent);
-      const secondComponentVirtualUnit = await setToken.getDefaultPositionRealUnit(secondComponent);
+
+      const firstComponentVirtualUnit =
+        await setTokenDataUtils["getDefaultPositionRealUnit(address,address)"](setToken.address, firstComponent);
+      const secondComponentVirtualUnit =
+        await setTokenDataUtils["getDefaultPositionRealUnit(address,address)"](setToken.address, secondComponent);
+
       const firstComponentExternalModules = await setToken.getExternalPositionModules(firstComponent);
       const secondComponentExternalModules = await setToken.getExternalPositionModules(secondComponent);
 
@@ -197,6 +213,7 @@ describe("SetToken", () => {
         manager.address,
         name,
         symbol,
+        setTokenInternalUtils.address
       );
 
       setToken = setToken.connect(mockBasicIssuanceModule.wallet);
@@ -241,14 +258,20 @@ describe("SetToken", () => {
         );
       }
 
-      it("should set the SetTokens approval balance to the spender", async () => {
+      // Skipped tests check the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
+      // On the evm this reverts with: "function call to a non-contract account"
+      it("should set the SetTokens approval balance to the spender", async function() {
+        if (process.env.HARDHAT_EVM === "true") this.skip();
+
         await subject();
 
         const allowance = await firstComponent.allowance(setToken.address, testSpender);
         expect(allowance).to.eq(testQuantity);
       });
 
-      it("should emit the Invoked event", async () => {
+      it("should emit the Invoked event", async function() {
+        if (process.env.HARDHAT_EVM === "true") this.skip();
+
         // Success return value
         const expectedReturnValue = "0x0000000000000000000000000000000000000000000000000000000000000001";
 
@@ -267,7 +290,11 @@ describe("SetToken", () => {
           subjectCaller = mockLockedModule;
         });
 
-        it("should set the SetTokens approval balance to the spender", async () => {
+        // Skipped tests check the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
+        // On the evm this reverts with: "function call to a non-contract account"
+        it("should set the SetTokens approval balance to the spender", async function() {
+          if (process.env.HARDHAT_EVM === "true") this.skip();
+
           await subject();
 
           const allowance = await firstComponent.allowance(setToken.address, testSpender);
@@ -287,7 +314,8 @@ describe("SetToken", () => {
             controller.address,
             manager.address,
             name,
-            symbol
+            symbol,
+            setTokenInternalUtils.address
           );
 
           transferBalance = ether(2);
@@ -298,12 +326,16 @@ describe("SetToken", () => {
           subjectValue = transferBalance;
         });
 
-        it("should properly receive and send ETH", async () => {
-          const startingTokenBalance = await getEthBalance(subjectTargetAddress);
+        // Skipped tests check the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
+        // On the evm this reverts with: "function call to a non-contract account"
+        it("should properly receive and send ETH", async function() {
+          if (process.env.HARDHAT_EVM === "true") this.skip();
+
+          const startingTokenBalance = await getWethBalance(owner.wallet, subjectTargetAddress);
 
           await subject();
 
-          const endingTokenBalance = await getEthBalance(subjectTargetAddress);
+          const endingTokenBalance = await getWethBalance(owner.wallet, subjectTargetAddress);
           const expectedEndingTokenBalance = startingTokenBalance.add(subjectValue);
           expect(endingTokenBalance).to.eq(expectedEndingTokenBalance);
         });
@@ -327,7 +359,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("When locked, only the locker can call");
+          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
         });
       });
 
@@ -431,7 +463,8 @@ describe("SetToken", () => {
       it("should properly edit the default position unit", async () => {
         await subject();
 
-        const retrievedUnit = await setToken.getDefaultPositionRealUnit(subjectComponent);
+        const retrievedUnit =
+          await setTokenDataUtils["getDefaultPositionRealUnit(address,address)"](setToken.address, subjectComponent);
         expect(retrievedUnit).to.eq(subjectNewUnit);
       });
 
@@ -450,7 +483,8 @@ describe("SetToken", () => {
         it("should properly edit the default position unit", async () => {
           await subject();
 
-          const retrievedUnit = await setToken.getDefaultPositionRealUnit(subjectComponent);
+          const retrievedUnit =
+            await setTokenDataUtils["getDefaultPositionRealUnit(address,address)"](setToken.address, subjectComponent);
           expect(retrievedUnit).to.eq(subjectNewUnit);
         });
       });
@@ -499,7 +533,8 @@ describe("SetToken", () => {
         expect(retrievedExternalModules.length).to.eq(prevModules.length + 1);
       });
 
-      it("should emit the PositionModuleAdded event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the PositionModuleAdded event", async () => {
         await expect(subject()).to.emit(setToken, "PositionModuleAdded").withArgs(subjectComponent, subjectExternalModule);
       });
 
@@ -547,13 +582,18 @@ describe("SetToken", () => {
       it("should zero out the data in externalPositions", async () => {
         await subject();
 
-        const retrievedRealUnit = await setToken.getExternalPositionRealUnit(subjectComponent, subjectExternalModule);
+        const retrievedRealUnit = await setTokenDataUtils["getExternalPositionRealUnit(address,address,address)"](
+          setToken.address,
+          subjectComponent,
+          subjectExternalModule
+        );
         const retrievedData = await setToken.getExternalPositionData(subjectComponent, subjectExternalModule);
         expect(retrievedRealUnit).to.eq(ZERO);
         expect(retrievedData).to.eq(EMPTY_BYTES);
       });
 
-      it("should emit the PositionModuleRemoved event", async () => {
+      // Event commmented out to reduce contract size
+      it.skip("should emit the PositionModuleRemoved event", async () => {
         await expect(subject()).to.emit(setToken, "PositionModuleRemoved").withArgs(subjectComponent, subjectExternalModule);
       });
 
@@ -590,11 +630,17 @@ describe("SetToken", () => {
       it("should properly edit the external position unit", async () => {
         await subject();
 
-        const retrievedUnit = await setToken.getExternalPositionRealUnit(subjectComponent, subjectModule);
+        const retrievedUnit = await setTokenDataUtils["getExternalPositionRealUnit(address,address,address)"](
+          setToken.address,
+          subjectComponent,
+          subjectModule
+        );
+
         expect(retrievedUnit).to.eq(subjectNewUnit);
       });
 
-      it("should emit the ExternalPositionUnitEdited event", async () => {
+      // Event commented out of solidity source for size
+      it.skip("should emit the ExternalPositionUnitEdited event", async () => {
         await expect(subject()).to.emit(setToken, "ExternalPositionUnitEdited").withArgs(
           subjectComponent,
           subjectModule,
@@ -617,7 +663,11 @@ describe("SetToken", () => {
           const expectedStoredVirtualUnit = divDown(subjectNewUnit.mul(PRECISE_UNIT), hugePositionMultiplier);
           const expectedExternalRealUnit = divDown(expectedStoredVirtualUnit.mul(hugePositionMultiplier), PRECISE_UNIT);
 
-          const retrievedUnit = await setToken.getExternalPositionRealUnit(subjectComponent, subjectModule);
+          const retrievedUnit = await setTokenDataUtils["getExternalPositionRealUnit(address,address,address)"](
+            setToken.address,
+            subjectComponent,
+            subjectModule
+          );
           expect(retrievedUnit).to.eq(expectedExternalRealUnit);
         });
       });
@@ -630,7 +680,12 @@ describe("SetToken", () => {
         it("should properly edit the default position unit", async () => {
           await subject();
 
-          const retrievedUnit = await setToken.getExternalPositionRealUnit(subjectComponent, subjectModule);
+          const retrievedUnit = await setTokenDataUtils["getExternalPositionRealUnit(address,address,address)"](
+            setToken.address,
+            subjectComponent,
+            subjectModule
+          );
+
           expect(retrievedUnit).to.eq(subjectNewUnit);
         });
       });
@@ -680,7 +735,8 @@ describe("SetToken", () => {
         expect(data).to.eq(subjectData);
       });
 
-      it("should emit the ExternalPositionDataEdited event", async () => {
+      // Event commented out of solidity source for size
+      it.skip("should emit the ExternalPositionDataEdited event", async () => {
         await expect(subject()).to.emit(setToken, "ExternalPositionDataEdited").withArgs(
           subjectComponent,
           subjectModule,
@@ -715,7 +771,10 @@ describe("SetToken", () => {
       it("should update the real position units", async () => {
         await subject();
 
-        const firstPositionRealUnits = await setToken.getDefaultPositionRealUnit(firstComponent.address);
+        const firstPositionRealUnits = await setTokenDataUtils["getDefaultPositionRealUnit(address,address)"](
+          setToken.address,
+          firstComponent.address
+        );
         const expectedRealUnit = preciseMul(firstComponentUnits, ether(2));
         expect(firstPositionRealUnits).to.eq(expectedRealUnit);
       });
@@ -767,7 +826,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("When locked, only the locker can call");
+          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
         });
       });
 
@@ -940,7 +999,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("When locked, only the locker can call");
+          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
         });
       });
 
@@ -1009,7 +1068,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("When locked, only the locker can call");
+          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
         });
       });
 
@@ -1080,7 +1139,11 @@ describe("SetToken", () => {
       let subjectModule: Address;
 
       beforeEach(async () => {
-        moduleMock = await deployer.mocks.deployModuleBaseMock(controller.address);
+
+        moduleMock = await deployer.mocks.deployModuleBaseMock(
+          controller.address,
+          setTokenDataUtils.address
+        );
         await controller.addModule(moduleMock.address);
 
         setToken = setToken.connect(manager.wallet);
@@ -1172,7 +1235,10 @@ describe("SetToken", () => {
       let subjectModule: Address;
 
       beforeEach(async () => {
-        moduleMock = await deployer.mocks.deployModuleBaseMock(controller.address);
+        moduleMock = await deployer.mocks.deployModuleBaseMock(
+          controller.address,
+          setTokenDataUtils.address
+        );
         await controller.addModule(moduleMock.address);
 
         setToken = setToken.connect(manager.wallet);
@@ -1194,7 +1260,8 @@ describe("SetToken", () => {
         expect(moduleState).to.eq(MODULE_STATE["NONE"]);
       });
 
-      it("should emit the PendingModuleRemoved event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the PendingModuleRemoved event", async () => {
         await expect(subject()).to.emit(setToken, "PendingModuleRemoved").withArgs(subjectModule);
       });
 
@@ -1353,7 +1420,10 @@ describe("SetToken", () => {
       });
 
       async function subject(): Promise<BigNumber> {
-        return await setToken.getDefaultPositionRealUnit(subjectComponent);
+        return await setTokenDataUtils["getDefaultPositionRealUnit(address,address)"](
+          setToken.address,
+          subjectComponent
+        );
       }
 
       it("should return the correct components", async () => {
@@ -1388,7 +1458,11 @@ describe("SetToken", () => {
       });
 
       async function subject(): Promise<BigNumber> {
-        return await setToken.getExternalPositionRealUnit(subjectComponent, subjectModule);
+        return await setTokenDataUtils["getExternalPositionRealUnit(address,address,address)"](
+          setToken.address,
+          subjectComponent,
+          subjectModule
+        );
       }
 
       it("should return the correct components", async () => {
@@ -1480,7 +1554,7 @@ describe("SetToken", () => {
       });
 
       async function subject(): Promise<Position[]> {
-        return await subjectSetToken.getPositions();
+        return await setTokenDataUtils.getPositions(subjectSetToken.address);
       }
 
       it("should return the correct Positions", async () => {
@@ -1601,7 +1675,7 @@ describe("SetToken", () => {
       });
 
       async function subject(): Promise<BigNumber> {
-        return await setToken.getTotalComponentRealUnits(subjectComponent);
+        return await setTokenDataUtils.getTotalComponentRealUnits(setToken.address, subjectComponent);
       }
 
       it("should return the correct value", async () => {
@@ -1620,7 +1694,7 @@ describe("SetToken", () => {
       });
 
       async function subject(): Promise<boolean> {
-        return await setToken.isInitializedModule(subjectModule);
+        return await setTokenDataUtils["isInitializedModule(address,address)"](setToken.address, subjectModule);
       }
 
       it("should return the correct state", async () => {
@@ -1662,7 +1736,7 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("When locked, only the locker can call");
+          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
         });
       });
     }

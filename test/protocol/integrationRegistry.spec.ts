@@ -9,7 +9,6 @@ import {
   hashAdapterName
 } from "@utils/index";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   getWaffleExpect,
   getAccounts,
   getRandomAccount,
@@ -18,7 +17,7 @@ import {
 const expect = getWaffleExpect();
 
 
-describe("IntegrationRegistry", () => {
+describe("IntegrationRegistry [ @ovm ]", () => {
   let owner: Account;
   let mockFirstAdapter: Account;
   let mockSecondAdapter: Account;
@@ -56,8 +55,6 @@ describe("IntegrationRegistry", () => {
 
     integrationRegistry = await deployer.core.deployIntegrationRegistry(controller.address);
   });
-
-  addSnapshotBeforeRestoreAfterEach();
 
   describe("#addIntegration", async () => {
     let subjectModule: Address;

@@ -20,6 +20,7 @@ import {
   WrapModule
 } from "../contracts";
 import { Address } from "../types";
+import { SET_TOKEN_DATA_UTILS_LIB_PATH } from "../constants";
 
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
@@ -45,63 +46,138 @@ export default class DeployModules {
     this._deployerSigner = deployerSigner;
   }
 
-  public async deployBasicIssuanceModule(controller: Address): Promise<BasicIssuanceModule> {
-    return await new BasicIssuanceModule__factory(this._deployerSigner).deploy(controller);
+  public async deployBasicIssuanceModule(
+    controller: Address,
+    setTokenDataUtilsLib: Address
+  ): Promise<BasicIssuanceModule> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+
+    return await new BasicIssuanceModule__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner
+    ).deploy(controller);
   }
 
-  public async deployIssuanceModule(controller: Address): Promise<IssuanceModule> {
-    return await new IssuanceModule__factory(this._deployerSigner).deploy(controller);
+  public async deployIssuanceModule(
+    controller: Address,
+    setTokenDataUtilsLib: Address
+  ): Promise<IssuanceModule> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+
+    return await new IssuanceModule__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner
+    ).deploy(controller);
   }
 
   public async deployDebtIssuanceModule(controller: Address): Promise<DebtIssuanceModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new DebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployAmmModule(controller: Address): Promise<AmmModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new AmmModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async getBasicIssuanceModule(basicIssuanceModule: Address): Promise <BasicIssuanceModule> {
-    return await new BasicIssuanceModule__factory(this._deployerSigner).attach(basicIssuanceModule);
+  public async getBasicIssuanceModule(
+    basicIssuanceModule: Address,
+    setTokenDataUtilsLib: Address
+  ): Promise <BasicIssuanceModule> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+
+    return await new BasicIssuanceModule__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner
+    ).attach(basicIssuanceModule);
   }
 
-  public async deployStreamingFeeModule(controller: Address): Promise<StreamingFeeModule> {
-    return await new StreamingFeeModule__factory(this._deployerSigner).deploy(controller);
+  public async deployStreamingFeeModule(
+    controller: Address,
+    setTokenDataUtilsLib: Address
+  ): Promise<StreamingFeeModule> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+
+    return await new StreamingFeeModule__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner,
+    ).deploy(controller);
   }
 
-  public async getStreamingFeeModule(streamingFeeModule: Address): Promise <StreamingFeeModule> {
-    return await new StreamingFeeModule__factory(this._deployerSigner).attach(streamingFeeModule);
+  public async getStreamingFeeModule(
+    streamingFeeModule: Address,
+    setTokenDataUtilsLib: Address
+  ): Promise <StreamingFeeModule> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+
+    return await new StreamingFeeModule__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner
+    ).attach(streamingFeeModule);
   }
 
   public async deployAirdropModule(controller: Address): Promise<AirdropModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new AirdropModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployNavIssuanceModule(controller: Address, weth: Address): Promise<NavIssuanceModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new NavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
-  public async deployTradeModule(controller: Address): Promise<TradeModule> {
-    return await new TradeModule__factory(this._deployerSigner).deploy(controller);
+  public async deployTradeModule(
+    controller: Address,
+    setTokenDataUtilsLib: Address
+  ): Promise<TradeModule> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+
+    return await new TradeModule__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner
+    ).deploy(controller);
   }
 
   public async deployWrapModule(controller: Address, weth: Address): Promise<WrapModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new WrapModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
   public async deployClaimModule(controller: Address): Promise<ClaimModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new ClaimModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployStakingModule(controller: Address): Promise<StakingModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new StakingModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployCustomOracleNavIssuanceModule(controller: Address, weth: Address): Promise<CustomOracleNavIssuanceModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new CustomOracleNavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
   public async getNavIssuanceModule(navIssuanceModule: Address): Promise <NavIssuanceModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new NavIssuanceModule__factory(this._deployerSigner).attach(navIssuanceModule);
   }
 
@@ -112,6 +188,7 @@ export default class DeployModules {
     sushiswapRouter: Address,
     balancerProxy: Address
   ): Promise<SingleIndexModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new SingleIndexModule__factory(this._deployerSigner).deploy(
       controller,
       weth,
@@ -125,6 +202,7 @@ export default class DeployModules {
     controller: Address,
     weth: Address
   ): Promise<GeneralIndexModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new GeneralIndexModule__factory(this._deployerSigner).deploy(
       controller,
       weth
@@ -132,6 +210,7 @@ export default class DeployModules {
   }
 
   public async deployGovernanceModule(controller: Address): Promise<GovernanceModule> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new GovernanceModule__factory(this._deployerSigner).deploy(controller);
   }
 

@@ -58,15 +58,15 @@ contract SetToken is ERC20 {
     event ModuleRemoved(address indexed _module);
     event ModuleInitialized(address indexed _module);
     event ManagerEdited(address _newManager, address _oldManager);
-    event PendingModuleRemoved(address indexed _module);
+    // event PendingModuleRemoved(address indexed _module);
     event PositionMultiplierEdited(int256 _newMultiplier);
     event ComponentAdded(address indexed _component);
     event ComponentRemoved(address indexed _component);
     event DefaultPositionUnitEdited(address indexed _component, int256 _realUnit);
-    event ExternalPositionUnitEdited(address indexed _component, address indexed _positionModule, int256 _realUnit);
-    event ExternalPositionDataEdited(address indexed _component, address indexed _positionModule, bytes _data);
-    event PositionModuleAdded(address indexed _component, address indexed _positionModule);
-    event PositionModuleRemoved(address indexed _component, address indexed _positionModule);
+    // event ExternalPositionUnitEdited(address indexed _component, address indexed _positionModule, int256 _realUnit);
+    // event ExternalPositionDataEdited(address indexed _component, address indexed _positionModule, bytes _data);
+    // event PositionModuleAdded(address indexed _component, address indexed _positionModule);
+    // event PositionModuleRemoved(address indexed _component, address indexed _positionModule);
 
     /* ============ Modifiers ============ */
 
@@ -242,7 +242,7 @@ contract SetToken is ERC20 {
 
         componentPositions[_component].externalPositionModules.push(_positionModule);
 
-        emit  PositionModuleAdded(_component, _positionModule);
+        // emit  PositionModuleAdded(_component, _positionModule);
     }
 
     /**
@@ -261,7 +261,7 @@ contract SetToken is ERC20 {
 
         delete componentPositions[_component].externalPositions[_positionModule];
 
-        emit  PositionModuleRemoved(_component, _positionModule);
+        // emit  PositionModuleRemoved(_component, _positionModule);
     }
 
     /**
@@ -281,7 +281,7 @@ contract SetToken is ERC20 {
 
         componentPositions[_component].externalPositions[_positionModule].virtualUnit = virtualUnit;
 
-        emit  ExternalPositionUnitEdited(_component, _positionModule, _realUnit);
+        // emit  ExternalPositionUnitEdited(_component, _positionModule, _realUnit);
     }
 
     /**
@@ -298,7 +298,7 @@ contract SetToken is ERC20 {
     {
         componentPositions[_component].externalPositions[_positionModule].data = _data;
 
-        emit  ExternalPositionDataEdited(_component, _positionModule, _data);
+        // emit  ExternalPositionDataEdited(_component, _positionModule, _data);
     }
 
     /**
@@ -386,7 +386,7 @@ contract SetToken is ERC20 {
 
         moduleStates[_module] = ISetToken.ModuleState.NONE;
 
-        emit  PendingModuleRemoved(_module);
+        // emit  PendingModuleRemoved(_module);
     }
 
     /**
@@ -419,6 +419,13 @@ contract SetToken is ERC20 {
     receive() external payable {} // solium-disable-line quotes
 
     /* ============ Public Getter Functions ============ */
+    function getComponents() external view returns (address[] memory) {
+        return components;
+    }
+
+    function getModules() external view returns (address[] memory){
+        return modules;
+    }
 
     function getDefaultPositionVirtualUnit(address _component) public view returns (int256) {
         return componentPositions[_component].virtualUnit;

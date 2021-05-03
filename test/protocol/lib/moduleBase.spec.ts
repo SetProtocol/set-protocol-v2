@@ -421,7 +421,8 @@ describe("ModuleBase", () => {
             setup.controller.address,
             owner.address,
             "SET",
-            "SET"
+            "SET",
+            setup.setTokenInternalUtils.address
           );
           subjectSetTokenAddress = nonEnabledSetToken.address;
         });
@@ -489,7 +490,8 @@ describe("ModuleBase", () => {
             setup.controller.address,
             owner.address,
             "SET",
-            "SET"
+            "SET",
+            setup.setTokenInternalUtils.address
           );
           subjectSetTokenAddress = nonEnabledSetToken.address;
         });
@@ -608,7 +610,8 @@ describe("ModuleBase", () => {
             setup.controller.address,
             owner.address,
             "SET",
-            "SET"
+            "SET",
+            setup.setTokenInternalUtils.address
           );
           subjectSetTokenAddress = nonEnabledSetToken.address;
         });
@@ -661,7 +664,8 @@ describe("ModuleBase", () => {
             setup.controller.address,
             owner.address,
             "SET",
-            "SET"
+            "SET",
+            setup.setTokenInternalUtils.address
           );
           subjectSetTokenAddress = nonEnabledSetToken.address;
         });

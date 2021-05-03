@@ -15,7 +15,6 @@ import {
   preciseMul,
 } from "@utils/index";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAddress,
   getRandomAccount,
@@ -29,7 +28,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("StreamingFeeModule", () => {
+describe("StreamingFeeModule [ @ovm ]", () => {
   let owner: Account;
   let feeRecipient: Account;
   let deployer: DeployHelper;
@@ -48,14 +47,18 @@ describe("StreamingFeeModule", () => {
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    issuanceModule = await deployer.modules.deployBasicIssuanceModule(setup.controller.address);
+    issuanceModule = await deployer.modules.deployBasicIssuanceModule(
+      setup.controller.address,
+      setup.setTokenDataUtils.address
+    );
     await setup.controller.addModule(issuanceModule.address);
 
-    streamingFeeModule = await deployer.modules.deployStreamingFeeModule(setup.controller.address);
+    streamingFeeModule = await deployer.modules.deployStreamingFeeModule(
+      setup.controller.address,
+      setup.setTokenDataUtils.address
+    );
     await setup.controller.addModule(streamingFeeModule.address);
   });
-
-  addSnapshotBeforeRestoreAfterEach();
 
   describe("#initialize", async () => {
     let setToken: SetToken;
@@ -69,7 +72,7 @@ describe("StreamingFeeModule", () => {
 
     beforeEach(async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address],
+        [setup.dai.address],
         [ether(1)],
         [streamingFeeModule.address]
       );
@@ -95,7 +98,10 @@ describe("StreamingFeeModule", () => {
 
     it("should enable the Module on the SetToken", async () => {
       await subject();
-      const isModuleEnabled = await setToken.isInitializedModule(streamingFeeModule.address);
+      const isModuleEnabled = await setup.setTokenDataUtils["isInitializedModule(address,address)"](
+        subjectSetToken,
+        streamingFeeModule.address
+      );
       expect(isModuleEnabled).to.eq(true);
     });
 
@@ -144,7 +150,7 @@ describe("StreamingFeeModule", () => {
     describe("when the SetToken is not enabled on the controller", async () => {
       beforeEach(async () => {
         const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
+          [setup.dai.address],
           [ether(1)],
           [streamingFeeModule.address]
         );
@@ -195,7 +201,7 @@ describe("StreamingFeeModule", () => {
 
     beforeEach(async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address],
+        [setup.dai.address],
         [ether(1)],
         [streamingFeeModule.address]
       );
@@ -247,7 +253,7 @@ describe("StreamingFeeModule", () => {
 
     beforeEach(async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address],
+        [setup.dai.address],
         [ether(1)],
         [streamingFeeModule.address]
       );
@@ -280,7 +286,9 @@ describe("StreamingFeeModule", () => {
     });
   });
 
-  describe("#accrueFee", async () => {
+  // #accrueFee checks the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
+  // On the evm this reverts with: "function call to a non-contract account"
+  describe.skip("#accrueFee", async () => {
     let setToken: SetToken;
     let settings: StreamingFeeState;
     let isInitialized: boolean;
@@ -301,7 +309,7 @@ describe("StreamingFeeModule", () => {
 
     beforeEach(async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address],
+        [setup.dai.address],
         [ether(.01)],
         [issuanceModule.address, streamingFeeModule.address]
       );
@@ -311,7 +319,7 @@ describe("StreamingFeeModule", () => {
       }
 
       await issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
-      await setup.weth.approve(issuanceModule.address, ether(1));
+      await setup.dai.approve(issuanceModule.address, ether(1));
       await issuanceModule.connect(owner.wallet).issue(setToken.address, ether(1), owner.address);
 
       protocolFee = ether(.15);
@@ -573,7 +581,7 @@ describe("StreamingFeeModule", () => {
     describe("when SetToken is not valid", async () => {
       beforeEach(async () => {
         const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
+          [setup.dai.address],
           [ether(1)],
           [streamingFeeModule.address]
         );
@@ -587,7 +595,9 @@ describe("StreamingFeeModule", () => {
     });
   });
 
-  describe("#updateStreamingFee", async () => {
+  // #updateStreamingFee checks the ETH balance of the caller and this is aliased to a WETH precompile
+  // on the OVM. On the evm this reverts with: "function call to a non-contract account"
+  describe.skip("#updateStreamingFee", async function() {
     let setToken: SetToken;
     let settings: StreamingFeeState;
     let isInitialized: boolean;
@@ -613,7 +623,7 @@ describe("StreamingFeeModule", () => {
 
     beforeEach(async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address],
+        [setup.dai.address],
         [ether(.01)],
         [issuanceModule.address, streamingFeeModule.address]
       );
@@ -623,7 +633,7 @@ describe("StreamingFeeModule", () => {
       }
       await issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
 
-      await setup.weth.approve(issuanceModule.address, ether(1));
+      await setup.dai.approve(issuanceModule.address, ether(1));
       await issuanceModule.issue(setToken.address, ether(1), owner.address);
 
       subjectSetToken = setToken.address;
@@ -694,7 +704,7 @@ describe("StreamingFeeModule", () => {
     describe("when SetToken is not valid", async () => {
       beforeEach(async () => {
         const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
+          [setup.dai.address],
           [ether(1)],
           [streamingFeeModule.address]
         );
@@ -763,7 +773,7 @@ describe("StreamingFeeModule", () => {
 
     beforeEach(async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address],
+        [setup.dai.address],
         [ether(.01)],
         [issuanceModule.address, streamingFeeModule.address]
       );
@@ -834,7 +844,7 @@ describe("StreamingFeeModule", () => {
     describe("when SetToken is not valid", async () => {
       beforeEach(async () => {
         const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
+          [setup.dai.address],
           [ether(1)],
           [streamingFeeModule.address]
         );

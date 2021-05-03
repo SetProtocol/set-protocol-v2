@@ -32,6 +32,7 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { SetTokenDataUtils } from "../lib/SetTokenDataUtils.sol";
 
 /**
  * @title TradeModule

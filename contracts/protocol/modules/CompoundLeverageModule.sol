@@ -26,6 +26,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { Compound } from "../integration/lib/Compound.sol";
+import { SetTokenDataUtils } from "../lib/SetTokenDataUtils.sol";
 import { ICErc20 } from "../../interfaces/external/ICErc20.sol";
 import { IComptroller } from "../../interfaces/external/IComptroller.sol";
 import { IController } from "../../interfaces/IController.sol";
@@ -48,6 +49,7 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  */
 contract CompoundLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     using Compound for ISetToken;
+    using SetTokenDataUtils for ISetToken;
 
     /* ============ Structs ============ */
 

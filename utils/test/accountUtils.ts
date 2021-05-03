@@ -3,6 +3,8 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "../types";
 import { Account } from "./types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
+import { IERC20__factory } from "../../typechain/factories/IERC20__factory";
+import { OPTIMISM_WETH_ADDRESS } from "../constants";
 
 const provider = ethers.provider;
 
@@ -24,6 +26,11 @@ export const getAccounts = async (): Promise<Account[]> => {
 export const getRandomAccount = async (): Promise<Account> => {
   const accounts = await getAccounts();
   return accounts[accounts.length - 1];
+};
+
+export const getWethBalance = async (signer: SignerWithAddress, account: Address): Promise<BigNumber> => {
+  const weth = await IERC20__factory.connect(OPTIMISM_WETH_ADDRESS, signer);
+  return await weth.balanceOf(account);
 };
 
 export const getEthBalance = async (account: Address): Promise<BigNumber> => {

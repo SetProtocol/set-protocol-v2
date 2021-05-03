@@ -30,5 +30,6 @@ export const ONE_YEAR_IN_SECONDS = BigNumber.from(31557600);
 
 export const PRECISE_UNIT = constants.WeiPerEther;
 export const ETH_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+export const OPTIMISM_WETH_ADDRESS = "0x4200000000000000000000000000000000000006";
 export const SET_TOKEN_INTERNAL_UTILS_LIB_PATH = "contracts/protocol/lib/SetTokenInternalUtils.sol:SetTokenInternalUtils";
 export const SET_TOKEN_DATA_UTILS_LIB_PATH = "contracts/protocol/lib/SetTokenDataUtils.sol:SetTokenDataUtils";

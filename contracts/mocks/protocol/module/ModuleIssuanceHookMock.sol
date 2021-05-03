@@ -27,10 +27,12 @@ import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol
 import { Invoke } from "../../../protocol/lib/Invoke.sol";
 import { Position } from "../../../protocol/lib/Position.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
+import { SetTokenDataUtils } from "../../../protocol/lib/SetTokenDataUtils.sol";
 
 contract ModuleIssuanceHookMock is IModuleIssuanceHook {
     using Invoke for ISetToken;
     using Position for ISetToken;
+    using SetTokenDataUtils for ISetToken;
     using SafeCast for int256;
     using PreciseUnitMath for uint256;
 

@@ -69,7 +69,7 @@ library SetTokenInternalUtils {
     function _getPositionsAbsMinimumVirtualUnit(ISetToken _setToken) internal view returns(int256) {
         // Additional assignment happens in the loop below
         uint256 minimumUnit = uint256(-1);
-        address[] memory components = _setToken.components();
+        address[] memory components = _setToken.getComponents();
 
         for (uint256 i = 0; i < components.length; i++) {
             address component = components[i];

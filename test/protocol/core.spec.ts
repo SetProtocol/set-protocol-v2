@@ -42,12 +42,13 @@ describe("Optimism L2 Core [ @ovm ]", () => {
     modules = [moduleOne.address];
 
     setToken = await setup.createSetToken(components, units, modules);
-
     setToken = setToken.connect(moduleOne.wallet);
     await setToken.initializeModule();
   });
 
-  it("should be connected to optimism client", async () => {
+  it("should be connected to optimism client", async function() {
+    if (process.env.HARDHAT_EVM === "true") this.skip();
+
     const network = await ethers.provider.getNetwork();
     expect(network.chainId).to.equal(420);
   });

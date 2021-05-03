@@ -29,6 +29,7 @@ import { Invoke } from "./Invoke.sol";
 import { Position } from "./Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { ResourceIdentifier } from "./ResourceIdentifier.sol";
+import { SetTokenDataUtils } from "./SetTokenDataUtils.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
@@ -47,6 +48,7 @@ abstract contract ModuleBase is IModule {
     using AddressArrayUtils for address[];
     using Invoke for ISetToken;
     using Position for ISetToken;
+    using SetTokenDataUtils for ISetToken;
     using PreciseUnitMath for uint256;
     using ResourceIdentifier for IController;
     using SafeCast for int256;

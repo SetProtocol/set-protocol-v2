@@ -11,7 +11,6 @@ import {
   ether,
 } from "@utils/index";
 import {
-  addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAccount,
   getWaffleExpect
@@ -24,7 +23,7 @@ const inverse = (number: BigNumber): BigNumber => {
 };
 
 
-describe("PriceOracle", () => {
+describe("PriceOracle [ @ovm ]", () => {
   let wallet: Account;
 
   let ethusdcOracle: OracleMock;
@@ -47,8 +46,6 @@ describe("PriceOracle", () => {
   let oracleAdapter: OracleAdapterMock;
   let masterOracle: PriceOracle;
   let deployer: DeployHelper;
-
-  addSnapshotBeforeRestoreAfterEach();
 
   beforeEach(async () => {
     // Using this syntax for sol-coverage to work

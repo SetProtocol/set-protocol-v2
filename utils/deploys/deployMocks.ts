@@ -45,6 +45,7 @@ import {
 } from "../contracts";
 
 import { convertLibraryNameToLinkId, ether } from "../common";
+import { SET_TOKEN_DATA_UTILS_LIB_PATH } from "../constants";
 
 import { AaveLendingPoolCoreMock__factory } from "../../typechain/factories/AaveLendingPoolCoreMock__factory";
 import { AaveLendingPoolMock__factory } from "../../typechain/factories/AaveLendingPoolMock__factory";
@@ -106,6 +107,7 @@ export default class DeployMocks {
   }
 
   public async deployModuleIssuanceHookMock(): Promise<ModuleIssuanceHookMock> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new ModuleIssuanceHookMock__factory(this._deployerSigner).deploy();
   }
 
@@ -129,8 +131,18 @@ export default class DeployMocks {
     return await new KyberNetworkProxyMock__factory(this._deployerSigner).deploy(mockWethAddress);
   }
 
-  public async deployModuleBaseMock(controllerAddress: Address): Promise<ModuleBaseMock> {
-    return await new ModuleBaseMock__factory(this._deployerSigner).deploy(controllerAddress);
+  public async deployModuleBaseMock(
+    controllerAddress: Address,
+    setTokenDataUtilsLib: Address
+  ): Promise<ModuleBaseMock> {
+    const linkId = convertLibraryNameToLinkId(SET_TOKEN_DATA_UTILS_LIB_PATH);
+    return await new ModuleBaseMock__factory(
+      // @ts-ignore
+      {
+        [linkId]: setTokenDataUtilsLib,
+      },
+      this._deployerSigner
+    ).deploy(controllerAddress);
   }
 
   public async deployGodModeMock(controllerAddress: Address): Promise<GodModeMock> {
@@ -138,6 +150,7 @@ export default class DeployMocks {
   }
 
   public async deployDebtModuleMock(controllerAddress: Address, moduleAddress: Address): Promise<DebtModuleMock> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new DebtModuleMock__factory(this._deployerSigner).deploy(controllerAddress, moduleAddress);
   }
 
@@ -190,6 +203,7 @@ export default class DeployMocks {
   }
 
   public async deployPositionMock(): Promise<PositionMock> {
+    // @ts-ignore  (Now requires SetTokenDataUtils lib but not used)
     return await new PositionMock__factory(this._deployerSigner).deploy();
   }
 
