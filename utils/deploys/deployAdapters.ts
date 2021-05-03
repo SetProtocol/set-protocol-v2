@@ -7,6 +7,7 @@ import {
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
   KyberExchangeAdapter,
+  KyberMigrationWrapAdapter,
   OneInchExchangeAdapter,
   AaveMigrationWrapAdapter,
   AaveWrapAdapter,
@@ -31,6 +32,7 @@ import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factori
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
+import { KyberMigrationWrapAdapter__factory } from "../../typechain/factories/KyberMigrationWrapAdapter__factory";
 import { OneInchExchangeAdapter__factory } from "../../typechain/factories/OneInchExchangeAdapter__factory";
 import { ZeroExApiAdapter__factory } from "../../typechain/factories/ZeroExApiAdapter__factory";
 import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/AaveMigrationWrapAdapter__factory";
@@ -99,6 +101,14 @@ export default class DeployAdapters {
     aaveToken: Address
   ): Promise<AaveMigrationWrapAdapter> {
     return await new AaveMigrationWrapAdapter__factory(this._deployerSigner).deploy(aaveMigrationProxy, lendToken, aaveToken);
+  }
+
+  public async deployKyberMigrationWrapAdapter(
+    kncLegacyToKncMigrationProxy: Address,
+    kncLegacyToken: Address,
+    kncToken: Address
+  ): Promise<KyberMigrationWrapAdapter> {
+    return await new KyberMigrationWrapAdapter__factory(this._deployerSigner).deploy(kncLegacyToKncMigrationProxy, kncLegacyToken, kncToken);
   }
 
   public async deployAaveWrapAdapter(aaveLendingPool: Address): Promise<AaveWrapAdapter> {
