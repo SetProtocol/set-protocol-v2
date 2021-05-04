@@ -29,11 +29,12 @@ import {
   divDown,
 } from "@utils/index";
 import {
-  getAccounts,
+  getOptimismAccounts,
   getWethBalance,
   getRandomAccount,
   getRandomAddress,
   getWaffleExpect,
+  transferWeth
 } from "@utils/test/index";
 
 const web3 = new Web3();
@@ -57,7 +58,7 @@ describe("SetToken [ @ovm ]", () => {
       manager,
       mockBasicIssuanceModule,
       mockLockedModule,
-    ] = await getAccounts();
+    ] = await getOptimismAccounts();
 
     deployer = new DeployHelper(owner.wallet);
 
@@ -187,7 +188,7 @@ describe("SetToken [ @ovm ]", () => {
         unaddedModule,
         pendingModule,
         testAccount,
-      ] = await getAccounts();
+      ] = await getOptimismAccounts();
 
       deployer = new DeployHelper(owner.wallet);
 
@@ -319,7 +320,8 @@ describe("SetToken [ @ovm ]", () => {
           );
 
           transferBalance = ether(2);
-          await manager.wallet.sendTransaction({ to: setToken.address, value: transferBalance });
+
+          await transferWeth(manager.wallet, setToken.address, transferBalance);
 
           subjectCallData = EMPTY_BYTES;
           subjectTargetAddress = setTokenReceivingETH.address;

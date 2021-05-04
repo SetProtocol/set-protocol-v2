@@ -22,6 +22,24 @@ export const getAccounts = async (): Promise<Account[]> => {
   return accounts;
 };
 
+export const getOptimismAccounts = async (): Promise<Account[]> => {
+  const accounts: Account[] = [];
+
+  const wallets = await getWallets();
+  for (let i = 0; i < wallets.length; i++) {
+    // Account #1 is empty on L2 because unfunded on L1.
+    // It's the sequencer's wallet
+    if (i === 1) continue;
+
+    accounts.push({
+      wallet: wallets[i],
+      address: await wallets[i].getAddress(),
+    });
+  }
+
+  return accounts;
+};
+
 // Use the last wallet to ensure it has Ether
 export const getRandomAccount = async (): Promise<Account> => {
   const accounts = await getAccounts();
@@ -31,6 +49,11 @@ export const getRandomAccount = async (): Promise<Account> => {
 export const getWethBalance = async (signer: SignerWithAddress, account: Address): Promise<BigNumber> => {
   const weth = await IERC20__factory.connect(OPTIMISM_WETH_ADDRESS, signer);
   return await weth.balanceOf(account);
+};
+
+export const transferWeth = async (from: SignerWithAddress, to: Address, amount: BigNumber) => {
+  const weth = await IERC20__factory.connect(OPTIMISM_WETH_ADDRESS, from);
+  return await weth.transfer(to, amount, { gasLimit: 8000000});
 };
 
 export const getEthBalance = async (account: Address): Promise<BigNumber> => {

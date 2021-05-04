@@ -65,7 +65,9 @@ jobs:
               http://localhost:8545
       - run:
           name: Test
-          command: yarn test:ovm:fast test/protocol/core.spec.ts
+          command: |
+            yarn ovm:fundl2EthAccounts
+            yarn test:ovm:fast test/protocol/core.spec.ts
 
 
 workflows:

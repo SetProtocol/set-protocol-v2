@@ -19,8 +19,11 @@ export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provi
 
 export {
   getAccounts,
+  getOptimismAccounts,
   getEthBalance,
+  getWethBalance,
   getRandomAccount,
+  transferWeth
 } from "./accountUtils";
 export {
   addSnapshotBeforeRestoreAfterEach,

@@ -25,7 +25,7 @@ const config: HardhatUserConfig = {
     deployer: 0,
   },
   ovm: {
-    solcVersion: "0.6.12"
+    solcVersion: "0.6.12",
   },
   networks: {
     hardhat: {
@@ -54,7 +54,7 @@ const config: HardhatUserConfig = {
       accounts: [`0x${process.env.PRODUCTION_MAINNET_DEPLOY_PRIVATE_KEY}`],
     },
     optimism: {
-      url: 'http://127.0.0.1:8545',
+      url: "http://127.0.0.1:8545",
       accounts: { mnemonic: defaultMnemonic },
       // L2 test account balances not automatically initiated with an ETH balance
       gasPrice: 0,
@@ -62,7 +62,7 @@ const config: HardhatUserConfig = {
       blockGasLimit: 8999999,
       // @ts-ignore
       ovm: true,
-    }
+    },
   },
   typechain: {
     outDir: "typechain",
@@ -70,7 +70,7 @@ const config: HardhatUserConfig = {
   },
   mocha: {
     grep: "@ovm",
-    timeout: 150000
+    timeout: 150000,
   },
   paths: {
     artifacts: OVM ? "./artifacts-ovm" : "./artifacts",

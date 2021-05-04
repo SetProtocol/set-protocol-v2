@@ -30,6 +30,7 @@
     "lint": "yarn run lint-sol && yarn run lint-ts",
     "lint-sol": "solhint 'contracts/**/*.sol'",
     "lint-ts": "tslint -c tslint.json -p tsconfig.json --fix",
+    "ovm:fundl2EthAccounts": "hardhat set:optimism:depositEth",
     "patch-hardhat-typechain": "node scripts/patch-hardhat-typechain.js",
     "patch-ovm-compiler": "node scripts/patch-ovm-compiler.js",
     "precommit": "lint-staged",
@@ -55,6 +56,7 @@
   "license": "MIT",
   "homepage": "https://github.com/SetProtocol",
   "devDependencies": {
+    "@eth-optimism/contracts": "^0.2.8",
     "@eth-optimism/plugins": "1.0.0-alpha.3",
     "@ethersproject/bignumber": "^5.0.12",
     "@ethersproject/providers": "^5.0.17",
@@ -73,6 +75,7 @@
     "chai": "^4.2.0",
     "coveralls": "^3.0.1",
     "dotenv": "^8.2.0",
+    "envalid": "^7.1.0",
     "ethereum-waffle": "^3.2.1",
     "ethers": "^5.0.24",
     "hardhat": "^2.0.6",
