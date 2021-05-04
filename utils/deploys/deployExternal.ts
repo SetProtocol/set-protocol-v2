@@ -131,6 +131,9 @@ import {
 import { Registry__factory } from "../../typechain/factories/Registry__factory";
 import { Vault__factory } from "../../typechain/factories/Vault__factory";
 
+import { KyberNetworkTokenV2 } from "../../typechain/KyberNetworkTokenV2";
+import { KyberNetworkTokenV2__factory } from "../../typechain/factories/KyberNetworkTokenV2__factory";
+
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -540,4 +543,8 @@ export default class DeployExternalContracts {
     return await new Registry__factory(this._deployerSigner).deploy();
   }
 
+  // KYBER
+  public async deployKyberNetworkTokenV2(): Promise<KyberNetworkTokenV2> {
+    return await new KyberNetworkTokenV2__factory(this._deployerSigner).deploy();
+  }
 }

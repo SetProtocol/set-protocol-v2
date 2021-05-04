@@ -3,7 +3,8 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { KyberMigrationWrapAdapter } from "@utils/contracts";
+import { ZERO } from "@utils/constants";
+import { KyberMigrationWrapAdapter, KyberNetworkTokenV2 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -20,60 +21,51 @@ const expect = getWaffleExpect();
 describe("KyberMigrationWrapAdapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
+  let kyberNetworkTokenV2: KyberNetworkTokenV2;
   let kyberMigrationWrapAdapter: KyberMigrationWrapAdapter;
 
-  let kncLegacyToKncMigrationProxy: Account;
+  let minter: Account;
   let kncLegacyToken: Account;
-  let kncToken: Account;
   let mockOtherUnderlyingToken: Account;
   let mockOtherWrappedToken: Account;
 
   before(async () => {
     [
       owner,
-      kncLegacyToKncMigrationProxy,
+      minter,
       kncLegacyToken,
-      kncToken,
       mockOtherUnderlyingToken,
       mockOtherWrappedToken,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
 
+    kyberNetworkTokenV2 = await deployer.external.deployKyberNetworkTokenV2();
+    await kyberNetworkTokenV2.initialize(kncLegacyToken.address, minter.address);
+
     kyberMigrationWrapAdapter = await deployer.adapters.deployKyberMigrationWrapAdapter(
-        kncLegacyToKncMigrationProxy.address,
-        kncLegacyToken.address,
-        kncToken.address
+      kncLegacyToken.address,
+      kyberNetworkTokenV2.address
     );
   });
 
   addSnapshotBeforeRestoreAfterEach();
 
   describe("#constructor", async () => {
-    let subjectKncLegacyToKncMigrationProxy: Address;
     let subjectKncLegacyToken: Address;
     let subjectKncToken: Address;
 
     beforeEach(async () => {
-      subjectKncLegacyToKncMigrationProxy = kncLegacyToKncMigrationProxy.address;
       subjectKncLegacyToken = kncLegacyToken.address;
-      subjectKncToken = kncToken.address;
+      subjectKncToken = kyberNetworkTokenV2.address;
     });
 
     async function subject(): Promise<any> {
       return deployer.adapters.deployKyberMigrationWrapAdapter(
-        subjectKncLegacyToKncMigrationProxy,
         subjectKncLegacyToken,
         subjectKncToken
       );
     }
-
-    it("should have the correct migration proxy address", async () => {
-      const deployKyberMigrationWrapAdapter = await subject();
-
-      const expectedKncLegacyToKncMigrationProxy = await deployKyberMigrationWrapAdapter.kncLegacyToKncMigrationProxy();
-      expect(expectedKncLegacyToKncMigrationProxy).to.eq(subjectKncLegacyToKncMigrationProxy);
-    });
 
     it("should have the correct KNC Legacy token address", async () => {
       const deployKyberMigrationWrapAdapter = await subject();
@@ -94,14 +86,14 @@ describe("KyberMigrationWrapAdapter", () => {
     async function subject(): Promise<any> {
       return kyberMigrationWrapAdapter.getSpenderAddress(
         kncLegacyToken.address,
-        kncToken.address,
+        kyberNetworkTokenV2.address
       );
     }
 
     it("should return the correct spender address", async () => {
       const spender = await subject();
 
-      expect(spender).to.eq(kncLegacyToKncMigrationProxy.address);
+      expect(spender).to.eq(kyberNetworkTokenV2.address);
     });
   });
 
@@ -112,7 +104,7 @@ describe("KyberMigrationWrapAdapter", () => {
 
     beforeEach(async () => {
       subjectUnderlyingToken = kncLegacyToken.address;
-      subjectWrappedToken = kncToken.address;
+      subjectWrappedToken = kyberNetworkTokenV2.address;
       subjectUnderlyingUnits = ether(2);
     });
 
@@ -120,15 +112,15 @@ describe("KyberMigrationWrapAdapter", () => {
       return kyberMigrationWrapAdapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectUnderlyingUnits);
     }
 
-    // it("should return correct data for valid pair", async () => {
-    //   const [targetAddress, ethValue, callData] = await subject();
+    it("should return correct data for valid pair", async () => {
+      const [targetAddress, ethValue, callData] = await subject();
 
-    //   const expectedCallData = kncLegacyToKncWrapAdapter.interface.encodeFunctionData("mintWithOldKnc", [subjectUnderlyingUnits]);
+      const expectedCallData = kyberNetworkTokenV2.interface.encodeFunctionData("mintWithOldKnc", [subjectUnderlyingUnits]);
 
-    //   expect(targetAddress).to.eq(kncLegacyToKncMigrationProxy.address);
-    //   expect(ethValue).to.eq(ZERO);
-    //   expect(callData).to.eq(expectedCallData);
-    // });
+      expect(targetAddress).to.eq(kyberNetworkTokenV2.address);
+      expect(ethValue).to.eq(ZERO);
+      expect(callData).to.eq(expectedCallData);
+    });
 
     describe("when underlying asset is not KNC Legacy token", () => {
       beforeEach(async () => {

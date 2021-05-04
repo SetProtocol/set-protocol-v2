@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -22,19 +22,14 @@ pragma solidity 0.6.10;
  * @title KyberMigrationAdapter
  * @author Set Protocol
  *
- * Wrap adapter for one time token migration that returns data for wrapping KNC Legacy into KNC
+ * Wrap adapter for one time token migration that returns data for wrapping KNC Legacy into KNC.
+ * Note: KNC can not be unwrapped into KNC Legacy, because migration can not be reversed.
  */
 contract KyberMigrationWrapAdapter {
 
     /* ============ State Variables ============ */
 
-    // Address of KNC migration contract proxy
-    address public immutable kncLegacyToKncMigrationProxy;
-
-    // Address of KNC Legacy token
     address public immutable kncLegacyToken;
-
-    // Address of KNC token
     address public immutable kncToken;
 
     /* ============ Constructor ============ */
@@ -42,18 +37,15 @@ contract KyberMigrationWrapAdapter {
     /**
      * Set state variables
      *
-     * @param _kncLegacyToKncMigrationProxy     Address of KNC migration contract proxy
      * @param _kncLegacyToken                   Address of KNC Legacy token
      * @param _kncToken                         Address of KNC token
      */
     constructor(
-        address _kncLegacyToKncMigrationProxy,
         address _kncLegacyToken,
         address _kncToken
     )
         public
     {
-        kncLegacyToKncMigrationProxy = _kncLegacyToKncMigrationProxy;
         kncLegacyToken = _kncLegacyToken;
         kncToken = _kncToken;
     }
@@ -86,16 +78,11 @@ contract KyberMigrationWrapAdapter {
         // mintWithOldKnc(uint256 amount)
         bytes memory callData = abi.encodeWithSignature("mintWithOldKnc(uint256)", _underlyingUnits);
 
-        return (kncLegacyToKncMigrationProxy, 0, callData);
+        return (kncToken, 0, callData);
     }
 
     /**
-     * Generates the calldata to unwrap a wrapped asset into its underlying. Note: Migration cannot be reversed. This function
-     * will revert.
-     *
-     * @return address              Target contract address
-     * @return uint256              Total quantity of wrapped token units to unwrap. This will always be 0 for unwrapping
-     * @return bytes                Unwrap calldata
+     * This function will revert, since migration cannot be reversed.
      */
     function getUnwrapCallData(
         address /* _underlyingToken */,
@@ -103,7 +90,7 @@ contract KyberMigrationWrapAdapter {
         uint256 /* _wrappedTokenUnits */
     )
         external
-        view
+        pure
         returns (address, uint256, bytes memory)
     {
         revert("KNC migration cannot be reversed");
@@ -115,6 +102,6 @@ contract KyberMigrationWrapAdapter {
      * @return address        Address of the contract to approve tokens to
      */
     function getSpenderAddress(address /* _underlyingToken */, address /* _wrappedToken */) external view returns(address) {
-        return kncLegacyToKncMigrationProxy;
+        return kncToken;
     }
 }

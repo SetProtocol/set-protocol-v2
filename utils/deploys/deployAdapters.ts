@@ -104,11 +104,10 @@ export default class DeployAdapters {
   }
 
   public async deployKyberMigrationWrapAdapter(
-    kncLegacyToKncMigrationProxy: Address,
     kncLegacyToken: Address,
     kncToken: Address
   ): Promise<KyberMigrationWrapAdapter> {
-    return await new KyberMigrationWrapAdapter__factory(this._deployerSigner).deploy(kncLegacyToKncMigrationProxy, kncLegacyToken, kncToken);
+    return await new KyberMigrationWrapAdapter__factory(this._deployerSigner).deploy(kncLegacyToken, kncToken);
   }
 
   public async deployAaveWrapAdapter(aaveLendingPool: Address): Promise<AaveWrapAdapter> {
