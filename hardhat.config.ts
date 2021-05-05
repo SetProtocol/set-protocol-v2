@@ -21,7 +21,6 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      hardfork: "istanbul",
       accounts: getHardhatPrivateKeys(),
     },
     localhost: {
