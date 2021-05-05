@@ -151,12 +151,13 @@ describe("SushiSwap TradeModule Integration [ @forked-mainnet ]", () => {
         subjectAdapterName = uniswapAdapterV2Name;
 
         const tradePath = [subjectSourceToken, subjectDestinationToken];
-        const shouldSwapForExactToken = false;
 
+        const shouldSwapExactTokenForToken = true;
         subjectData = await uniswapExchangeAdapterV2.getUniswapExchangeData(
           tradePath,
-          shouldSwapForExactToken
+          shouldSwapExactTokenForToken
         );
+
         subjectCaller = manager;
       });
 
