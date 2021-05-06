@@ -125,6 +125,11 @@ import { ExchangeProxy__factory } from "../../typechain/factories/ExchangeProxy_
 import { DelegateRegistry__factory } from "../../typechain/factories/DelegateRegistry__factory";
 
 import {
+  TokenSwap
+} from "../contracts/index";
+import { TokenSwap__factory } from "../../typechain/factories/TokenSwap__factory";
+
+import {
   Vault,
   Registry
 } from "../contracts/yearn";
@@ -525,6 +530,11 @@ export default class DeployExternalContracts {
 
   public async deployDelegateRegistry(): Promise<DelegateRegistry> {
     return await new DelegateRegistry__factory(this._deployerSigner).deploy();
+  }
+
+  // AXIE-INFINITY
+  public async deployTokenSwap(oldToken: Address, newToken: Address): Promise<TokenSwap> {
+    return await new TokenSwap__factory(this._deployerSigner).deploy(oldToken, newToken);
   }
 
   // YEARN

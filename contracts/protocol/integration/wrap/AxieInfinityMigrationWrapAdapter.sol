@@ -62,7 +62,6 @@ contract AxieInfinityMigrationWrapAdapter {
      *
      * @param _underlyingToken      Address of the component to be wrapped
      * @param _wrappedToken         Address of the wrapped component
-     * @param _underlyingUnits      Total quantity of underlying units to wrap
      *
      * @return address              Target contract address
      * @return uint256              Total quantity of underlying units (if underlying is ETH)
