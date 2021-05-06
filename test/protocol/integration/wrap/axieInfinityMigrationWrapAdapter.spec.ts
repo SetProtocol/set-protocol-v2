@@ -4,7 +4,8 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
-import { AxieInfinityMigrationWrapAdapter, TokenSwap } from "@utils/contracts";
+import { TokenSwap } from "@utils/contracts/axieInfinity";
+import { AxieInfinityMigrationWrapAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -52,42 +53,48 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
 
   describe("#constructor", async () => {
     let subjectTokenSwap: Address;
-    let subjectoldAxsToken: Address;
-    let subjectnewAxsToken: Address;
+    let subjectOldAxsToken: Address;
+    let subjectNewAxsToken: Address;
 
     beforeEach(async () => {
       subjectTokenSwap = tokenSwap.address;
-      subjectoldAxsToken = oldAxsToken.address;
-      subjectnewAxsToken = newAxsToken.address;
+      subjectOldAxsToken = oldAxsToken.address;
+      subjectNewAxsToken = newAxsToken.address;
     });
 
     async function subject(): Promise<any> {
       return deployer.adapters.deployAxieInfinityMigrationWrapAdapter(
         subjectTokenSwap,
-        subjectoldAxsToken,
-        subjectnewAxsToken
+        subjectOldAxsToken,
+        subjectNewAxsToken
       );
     }
 
     it("should have the correct tokenSwap address", async () => {
       const deployedAxieMigrationWrapAdapter = await subject();
 
-      const actualTokenSwap = await deployedAxieMigrationWrapAdapter.tokenSwap();
-      expect(actualTokenSwap).to.eq(subjectTokenSwap);
+      const tokenSwap = await deployedAxieMigrationWrapAdapter.tokenSwap();
+      const expectedTokenSwap = subjectTokenSwap;
+
+      expect(tokenSwap).to.eq(expectedTokenSwap);
     });
 
     it("should have the correct old AXS token address", async () => {
       const deployedAxieMigrationWrapAdapter = await subject();
 
-      const actualOldAxsToken = await deployedAxieMigrationWrapAdapter.oldToken();
-      expect(actualOldAxsToken).to.eq(subjectoldAxsToken);
+      const oldAxsToken = await deployedAxieMigrationWrapAdapter.oldToken();
+      const expectedOldAxsToken = subjectOldAxsToken;
+
+      expect(oldAxsToken).to.eq(expectedOldAxsToken);
     });
 
     it("should have the correct new AXS token address", async () => {
         const deployedAxieMigrationWrapAdapter = await subject();
 
-        const actualNewAxsToken = await deployedAxieMigrationWrapAdapter.newToken();
-        expect(actualNewAxsToken).to.eq(subjectnewAxsToken);
+        const newAxsToken = await deployedAxieMigrationWrapAdapter.newToken();
+        const expectedNewAxsToken = subjectNewAxsToken;
+
+        expect(newAxsToken).to.eq(expectedNewAxsToken);
       });
   });
 

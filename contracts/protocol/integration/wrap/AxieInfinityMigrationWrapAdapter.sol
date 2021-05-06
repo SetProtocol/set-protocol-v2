@@ -22,8 +22,8 @@ pragma solidity 0.6.10;
  * @title AxieInfinityMigrationWrapAdapter
  * @author Set Protocol
  *
- * Wrap adapter for one time token migration that returns data for wrapping old AXS into new AXS.
- * Note: New AXS can not be unwrapped into old AXS, because migration can not be reversed.
+ * Wrap adapter for one time token migration that returns data for wrapping old AXS token into new AXS token.
+ * Note: New AXS token can not be unwrapped into old AXS token, because migration can not be reversed.
  */
 contract AxieInfinityMigrationWrapAdapter {
 
