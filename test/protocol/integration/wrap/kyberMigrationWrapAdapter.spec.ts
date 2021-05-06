@@ -4,7 +4,8 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
-import { KyberMigrationWrapAdapter, KyberNetworkTokenV2 } from "@utils/contracts";
+import { KyberMigrationWrapAdapter } from "@utils/contracts";
+import { KyberNetworkTokenV2 } from "@utils/contracts/kyber";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -70,15 +71,19 @@ describe("KyberMigrationWrapAdapter", () => {
     it("should have the correct KNC Legacy token address", async () => {
       const deployKyberMigrationWrapAdapter = await subject();
 
-      const expectedKncLegacyToken = await deployKyberMigrationWrapAdapter.kncLegacyToken();
-      expect(expectedKncLegacyToken).to.eq(subjectKncLegacyToken);
+      const kncLegacyToken = await deployKyberMigrationWrapAdapter.kncLegacyToken();
+      const expectedKncLegacyToken = subjectKncLegacyToken;
+
+      expect(kncLegacyToken).to.eq(expectedKncLegacyToken);
     });
 
     it("should have the correct KNC token address", async () => {
         const deployKyberMigrationWrapAdapter = await subject();
 
-        const expectedKncToken = await deployKyberMigrationWrapAdapter.kncToken();
-        expect(expectedKncToken).to.eq(subjectKncToken);
+        const kncToken = await deployKyberMigrationWrapAdapter.kncToken();
+        const expectedKncToken = subjectKncToken;
+
+        expect(kncToken).to.eq(expectedKncToken);
     });
   });
 
