@@ -20,6 +20,7 @@ pragma solidity 0.6.10;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "hardhat/console.sol";
 
 interface ITokenSwap {
     function swapToken() external;    
@@ -78,7 +79,7 @@ contract AxieInfinityMigrationWrapAdapter {
     function swapToken(uint256 _amount) external {
         IERC20(oldToken).safeTransferFrom(msg.sender, address(this), _amount);
         ITokenSwap(tokenSwap).swapToken();
-        IERC20(oldToken).safeTransfer(msg.sender, _amount);
+        IERC20(newToken).safeTransfer(msg.sender, _amount);
     }
 
 

@@ -4,6 +4,8 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
+import { ContractTransaction } from "ethers";
+import { TokenSwap } from "@utils/contracts/axieInfinity";
 import { AxieInfinityMigrationWrapAdapter, StandardTokenMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -12,6 +14,7 @@ import {
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
+  getRandomAccount,
   getWaffleExpect
 } from "@utils/test/index";
 
@@ -20,12 +23,12 @@ const expect = getWaffleExpect();
 describe("AxieInfinityMigrationWrapAdapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
-  let tokenSwap: Account;
+  let tokenSwap: TokenSwap;
   let axieMigrationWrapAdapter: AxieInfinityMigrationWrapAdapter;
 
   let mockOtherUnderlyingToken: Account;
   let mockOtherWrappedToken: Account;
-  let newAxsToken: Account;
+  let newAxsToken: StandardTokenMock;
   let oldAxsToken: StandardTokenMock;
 
   before(async () => {
@@ -33,13 +36,17 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
       owner,
       mockOtherUnderlyingToken,
       mockOtherWrappedToken,
-      newAxsToken,
-      tokenSwap,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
 
     oldAxsToken = await deployer.mocks.deployTokenMock(owner.address);
+    newAxsToken = await deployer.mocks.deployTokenMock(owner.address);
+
+    tokenSwap = await deployer.external.deployTokenSwap(oldAxsToken.address, newAxsToken.address);
+
+    // transfer new AXS tokens to TokenSwap contract
+    await newAxsToken.connect(owner.wallet).transfer(tokenSwap.address, ether(100000));
 
     axieMigrationWrapAdapter = await deployer.adapters.deployAxieInfinityMigrationWrapAdapter(
       tokenSwap.address,
@@ -95,6 +102,46 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
 
         expect(newAxsToken).to.eq(expectedNewAxsToken);
       });
+  });
+
+  describe("#swapToken", async () => {
+    let subjectCaller: Account;
+    let subjectAmount: BigNumber;
+
+    beforeEach(async () => {
+      const randomAccount = await getRandomAccount();
+      await oldAxsToken.connect(owner.wallet).transfer(randomAccount.address, ether(1000));
+
+      // Note: subjectCaller's oldAxsToken balance is higher than the subjectAmount.
+      // This represents the scenario when balance of oldAxsToken held in Set is greter than
+      // `setTokenTotalSupply.preciseMul(oldAxsPositionUnit)`, due to presence of some extra wei
+      // in the SetToken, accumulated due to rounding errors
+      subjectCaller = randomAccount;
+      subjectAmount = ether(100);
+    });
+
+    async function subject(): Promise<ContractTransaction> {
+      return axieMigrationWrapAdapter.connect(subjectCaller.wallet).swapToken(
+        subjectAmount
+      );
+    }
+
+    it("Should swap old AXS tokens for new AXS tokens", async () => {
+      const beforeOldAxsBalance = await oldAxsToken.balanceOf(subjectCaller.address);
+      const beforeNewAxsBalance = await newAxsToken.balanceOf(subjectCaller.address);
+
+      await oldAxsToken.connect(subjectCaller.wallet).approve(axieMigrationWrapAdapter.address, subjectAmount);
+      await subject();
+
+      const afterOldAxsBalance = await oldAxsToken.balanceOf(subjectCaller.address);
+      const afterNewAxsBalance = await newAxsToken.balanceOf(subjectCaller.address);
+
+      const expectedAfterOldAxsBalance = beforeOldAxsBalance.sub(subjectAmount);
+      const expectedAfterNewAxsBalance = beforeNewAxsBalance.add(subjectAmount);
+
+      expect(afterOldAxsBalance).to.eq(expectedAfterOldAxsBalance);
+      expect(afterNewAxsBalance).to.eq(expectedAfterNewAxsBalance);
+    });
   });
 
   describe("#getSpenderAddress", async () => {
