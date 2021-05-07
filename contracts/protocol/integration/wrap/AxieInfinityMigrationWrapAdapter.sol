@@ -18,6 +18,13 @@
 
 pragma solidity 0.6.10;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+
+interface ITokenSwap {
+    function swapToken() external;    
+}
+
 /**
  * @title AxieInfinityMigrationWrapAdapter
  * @author Set Protocol
@@ -27,9 +34,11 @@ pragma solidity 0.6.10;
  */
 contract AxieInfinityMigrationWrapAdapter {
 
+    using SafeERC20 for IERC20;
+
     /* ============ State Variables ============ */
 
-    // Address of contract which swaps old AXS tokens for new AXS tokens
+    // Address of TokenSwap contract which swaps old AXS tokens for new AXS tokens
     address public immutable tokenSwap;
     address public immutable oldToken;
     address public immutable newToken;
@@ -53,7 +62,25 @@ contract AxieInfinityMigrationWrapAdapter {
         tokenSwap = _tokenSwap;
         oldToken = _oldToken;
         newToken = _newToken;
+        
+        IERC20(_oldToken).safeApprove(_tokenSwap, uint256(-1));
     }
+
+    /* ============ External Functions ============ */
+
+    /**
+     * Pulls specified amount of old AXS tokens from the `msg.sender` and swaps them for new AXS tokens 
+     * for a 1:1 ratio via the Axie TokenSwap contract. Transfers the received amount of new AXS tokens
+     * back to the `msg.sender`
+     *
+     * @param _amount           Total amount of old AXS tokens to be swapped for new AXS tokens
+     */
+    function swapToken(uint256 _amount) external {
+        IERC20(oldToken).safeTransferFrom(msg.sender, address(this), _amount);
+        ITokenSwap(tokenSwap).swapToken();
+        IERC20(oldToken).safeTransfer(msg.sender, _amount);
+    }
+
 
     /* ============ External Getter Functions ============ */
 
@@ -62,6 +89,7 @@ contract AxieInfinityMigrationWrapAdapter {
      *
      * @param _underlyingToken      Address of the component to be wrapped
      * @param _wrappedToken         Address of the wrapped component
+     * @param _underlyingUnits      Total quantity of underlying units to wrap
      *
      * @return address              Target contract address
      * @return uint256              Total quantity of underlying units (if underlying is ETH)
@@ -70,7 +98,7 @@ contract AxieInfinityMigrationWrapAdapter {
     function getWrapCallData(
         address _underlyingToken,
         address _wrappedToken,
-        uint256 /* _underlyingUnits */
+        uint256 _underlyingUnits
     )
         external
         view
@@ -80,9 +108,9 @@ contract AxieInfinityMigrationWrapAdapter {
         require(_wrappedToken == newToken, "Must be new AXS token");
 
         // swapToken()
-        bytes memory callData = abi.encodeWithSignature("swapToken()");
+        bytes memory callData = abi.encodeWithSignature("swapToken(uint256)", [_underlyingUnits]);
 
-        return (tokenSwap, 0, callData);
+        return (address(this), 0, callData);
     }
 
     /**
@@ -106,6 +134,6 @@ contract AxieInfinityMigrationWrapAdapter {
      * @return address        Address of the contract to approve tokens to
      */
     function getSpenderAddress(address /* _underlyingToken */, address /* _wrappedToken */) external view returns(address) {
-        return tokenSwap;
+        return address(this);
     }
 }

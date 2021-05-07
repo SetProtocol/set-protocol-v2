@@ -4,8 +4,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
-import { TokenSwap } from "@utils/contracts/axieInfinity";
-import { AxieInfinityMigrationWrapAdapter } from "@utils/contracts";
+import { AxieInfinityMigrationWrapAdapter, StandardTokenMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -21,13 +20,13 @@ const expect = getWaffleExpect();
 describe("AxieInfinityMigrationWrapAdapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
-  let tokenSwap: TokenSwap;
+  let tokenSwap: Account;
   let axieMigrationWrapAdapter: AxieInfinityMigrationWrapAdapter;
 
   let mockOtherUnderlyingToken: Account;
   let mockOtherWrappedToken: Account;
   let newAxsToken: Account;
-  let oldAxsToken: Account;
+  let oldAxsToken: StandardTokenMock;
 
   before(async () => {
     [
@@ -35,12 +34,12 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
       mockOtherUnderlyingToken,
       mockOtherWrappedToken,
       newAxsToken,
-      oldAxsToken,
+      tokenSwap,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
 
-    tokenSwap = await deployer.external.deployTokenSwap(oldAxsToken.address, newAxsToken.address);
+    oldAxsToken = await deployer.mocks.deployTokenMock(owner.address);
 
     axieMigrationWrapAdapter = await deployer.adapters.deployAxieInfinityMigrationWrapAdapter(
       tokenSwap.address,
@@ -108,8 +107,9 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
 
     it("should return the correct spender address", async () => {
       const spender = await subject();
+      const expectedSpender = axieMigrationWrapAdapter.address;
 
-      expect(spender).to.eq(tokenSwap.address);
+      expect(spender).to.eq(expectedSpender);
     });
   });
 
@@ -121,7 +121,7 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
     beforeEach(async () => {
       subjectUnderlyingToken = oldAxsToken.address;
       subjectWrappedToken = newAxsToken.address;
-      subjectUnderlyingUnits = ZERO;
+      subjectUnderlyingUnits = ether(2);
     });
 
     async function subject(): Promise<any> {
@@ -131,9 +131,10 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
     it("should return correct data for valid pair", async () => {
       const [targetAddress, ethValue, callData] = await subject();
 
-      const expectedCallData = tokenSwap.interface.encodeFunctionData("swapToken");
+      const expectedCallData = axieMigrationWrapAdapter.interface.encodeFunctionData("swapToken", [subjectUnderlyingUnits]);
+      const expectedTargetAddress = axieMigrationWrapAdapter.address;
 
-      expect(targetAddress).to.eq(tokenSwap.address);
+      expect(targetAddress).to.eq(expectedTargetAddress);
       expect(ethValue).to.eq(ZERO);
       expect(callData).to.eq(expectedCallData);
     });
