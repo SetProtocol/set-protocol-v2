@@ -1,6 +1,6 @@
 pragma solidity 0.6.10;
 
-import "../../../../contracts/interfaces/external/IUniswapV2Pair.sol";
+import "../../../../../contracts/interfaces/external/IUniswapV2Pair.sol";
 
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
