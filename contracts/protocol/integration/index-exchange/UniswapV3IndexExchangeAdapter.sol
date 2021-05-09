@@ -20,8 +20,8 @@ pragma solidity >=0.7.5;
 pragma abicoder v2;
 
 import { ISwapRouter } from  "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import { BytesLib } from "@uniswap/v3-periphery/contracts/libraries/BytesLib.sol";
 
-import { BytesLib } from "../../../lib/BytesLib.sol";
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
 
 /**
@@ -51,7 +51,7 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      *
      * @param _router       Address of Uniswap V3 SwapRouter contract
      */
-    constructor(address _router) public {
+    constructor(address _router) {
         router = _router;
     }
 
@@ -125,7 +125,6 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      * @return bytes                   Encoded data used for trading on Uniswap
      */
     function getUniswapEncodedPath(address _sourceToken, uint24 _fees, address _destinationToken) external pure returns (bytes memory) {
-        bytes memory path = abi.encodePacked(_sourceToken, _fees, _destinationToken);
-        return path;
+        return abi.encodePacked(_sourceToken, _fees, _destinationToken);
     }
 } 

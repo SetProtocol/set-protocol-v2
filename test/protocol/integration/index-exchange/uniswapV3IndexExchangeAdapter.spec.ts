@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { utils } from "ethers";
+import { hexlify, hexZeroPad } from "ethers/lib/utils";
 import { BigNumber } from "@ethersproject/bignumber";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -87,6 +87,37 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     });
   });
 
+
+  // describe("getUniswapEncodedPath", async () => {
+  //   let subjectFees: BigNumber;
+  //   let subjectSourceToken: Address;
+  //   let subjectDestinationToken: Address;
+
+  //   beforeEach(async () => {
+  //     subjectFees = BigNumber.from(10000);    // 1% pool fees
+  //     subjectSourceToken = setup.wbtc.address;
+  //     subjectDestinationToken = setup.dai.address;
+  //   });
+
+  //   async function subject(): Promise<any> {
+  //     return await uniswapV3ExchangeAdapter.getUniswapEncodedPath(
+  //       subjectSourceToken,
+  //       subjectFees,
+  //       subjectDestinationToken
+  //     );
+  //   }
+
+  //   it("should return the correct data", async () => {
+  //     const uniswapData = await subject();
+  //     const expectedData = defaultAbiCoder.encode(
+  //       ["address", "uint24", "address"],
+  //       [subjectSourceToken, subjectFees, subjectDestinationToken]
+  //     );
+
+  //     expect(uniswapData).to.eq(expectedData);
+  //   });
+  // });
+
   describe("getTradeCalldata", async () => {
     let sourceToken: Address;
     let destinationToken: Address;
@@ -103,7 +134,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     let subjectData: Bytes;
 
     function constructFeesData(_poolFeesPercentage: BigNumber): Bytes {
-      return utils.hexZeroPad(utils.hexlify(_poolFeesPercentage), 3);
+      return hexZeroPad(hexlify(_poolFeesPercentage), 3);
     }
 
     beforeEach(async () => {
