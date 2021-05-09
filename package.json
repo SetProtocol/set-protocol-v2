@@ -85,6 +85,7 @@
     "web3": "^1.2.9"
   },
   "dependencies": {
+    "@uniswap/v3-periphery": "^1.0.0",
     "fs-extra": "^5.0.0",
     "module-alias": "^2.2.2",
     "replace-in-file": "^6.1.0",
