@@ -104,7 +104,7 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
       });
   });
 
-  describe("#swapToken", async () => {
+  describe("#swapTokenUsingAdapter", async () => {
     let subjectCaller: Account;
     let subjectAmount: BigNumber;
 
@@ -121,7 +121,7 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return axieMigrationWrapAdapter.connect(subjectCaller.wallet).swapToken(
+      return axieMigrationWrapAdapter.connect(subjectCaller.wallet).swapTokenUsingAdapter(
         subjectAmount
       );
     }
@@ -163,22 +163,22 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
   describe("#getWrapCallData", async () => {
     let subjectUnderlyingToken: Address;
     let subjectWrappedToken: Address;
-    let subjectUnderlyingUnits: BigNumber;
+    let subjectNotionalUnderlying: BigNumber;
 
     beforeEach(async () => {
       subjectUnderlyingToken = oldAxsToken.address;
       subjectWrappedToken = newAxsToken.address;
-      subjectUnderlyingUnits = ether(2);
+      subjectNotionalUnderlying = ether(2);
     });
 
     async function subject(): Promise<any> {
-      return axieMigrationWrapAdapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectUnderlyingUnits);
+      return axieMigrationWrapAdapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectNotionalUnderlying);
     }
 
     it("should return correct data for valid pair", async () => {
       const [targetAddress, ethValue, callData] = await subject();
 
-      const expectedCallData = axieMigrationWrapAdapter.interface.encodeFunctionData("swapToken", [subjectUnderlyingUnits]);
+      const expectedCallData = axieMigrationWrapAdapter.interface.encodeFunctionData("swapTokenUsingAdapter", [subjectNotionalUnderlying]);
       const expectedTargetAddress = axieMigrationWrapAdapter.address;
 
       expect(targetAddress).to.eq(expectedTargetAddress);
@@ -210,16 +210,16 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
   describe("#getUnwrapCallData", async () => {
     let subjectUnderlyingToken: Address;
     let subjectWrappedToken: Address;
-    let subjectWrappedTokenUnits: BigNumber;
+    let subjectNotionalUnderlying: BigNumber;
 
     beforeEach(async () => {
       subjectUnderlyingToken = mockOtherUnderlyingToken.address;
       subjectWrappedToken = mockOtherWrappedToken.address;
-      subjectWrappedTokenUnits = ether(2);
+      subjectNotionalUnderlying = ether(2);
     });
 
     async function subject(): Promise<any> {
-      return axieMigrationWrapAdapter.getUnwrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectWrappedTokenUnits);
+      return axieMigrationWrapAdapter.getUnwrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectNotionalUnderlying);
     }
 
     it("should revert", async () => {

@@ -29,7 +29,42 @@ interface ITokenSwap {
  * @title AxieInfinityMigrationWrapAdapter
  * @author Set Protocol
  *
- * Wrap adapter for one time token migration that returns data for wrapping old AXS token into new AXS token.
+ * Wrap adapter for one time migration to new AXS tokens. This adapter contract acts as a middleman in the token migration process.
+ * 
+ * Steps involved in the migration are:
+ *
+ * 1. Wrap Module calls `getSpenderAddress()` on this adapter, which returns this contract's address as 
+ *      the address to which the tokens are to be approved.
+ *
+ * 2. Wrap Module calls `_setToken.invokeApprove()`, with 
+ *    -------------------------------------------------------------------
+ *   |       Parameter         |            Value                        |
+ *   |-------------------------|-----------------------------------------|
+ *   |   underlyingToken       |   Old AXS token address                 |
+ *   |   spender               |   This contract address                 |
+ *   |   notionalUnderlying    |   Quantity of underlying to be migrated | 
+ *    -------------------------------------------------------------------
+ *
+ * 3. Wrap Module calls `getWrapCallData()` on this adapter, which returns encoded calldata for this contract's 
+ *      `swapTokenUsingAdapter(uint256)` with `amount` equals to `notionalUnderlying` value.
+
+ * 4. Wrap Module calls `_setToken.invoke()`, with 
+ *    ----------------------------------------------------------------
+ *   |       Parameter         |            Value                     |
+ *   |-------------------------|--------------------------------------|
+ *   |   callData              |     Returned from getWrapCallData()  |
+ *   |   callTarget            |     This contract address            |
+ *    ----------------------------------------------------------------
+ *
+ * 5. SetToken transfers a `notionalUnderlying` amount of old AXS tokens to this contract.
+ *
+ * 6. This contract calls `swapToken()` on the Axie Infinity TokenSwap contract.
+ *
+ * 7. The TokenSwap contract, pulls the entire old AXS token balance from this contract and 
+ *      returns the new AXS tokens with an amount ratio of 1:1.
+ *
+ * 8. This contract transfers the received new AXS tokens to the SetToken. Thus completing the migration.
+ * 
  * Note: New AXS token can not be unwrapped into old AXS token, because migration can not be reversed.
  */
 contract AxieInfinityMigrationWrapAdapter {
@@ -75,7 +110,7 @@ contract AxieInfinityMigrationWrapAdapter {
      *
      * @param _amount           Total amount of old AXS tokens to be swapped for new AXS tokens
      */
-    function swapToken(uint256 _amount) external {
+    function swapTokenUsingAdapter(uint256 _amount) external {
         IERC20(oldToken).safeTransferFrom(msg.sender, address(this), _amount);
         ITokenSwap(tokenSwap).swapToken();
         IERC20(newToken).safeTransfer(msg.sender, _amount);
@@ -87,18 +122,18 @@ contract AxieInfinityMigrationWrapAdapter {
     /**
      * Generates the calldata to migrate old AXS to new AXS.
      *
-     * @param _underlyingToken      Address of the component to be wrapped
-     * @param _wrappedToken         Address of the wrapped component
-     * @param _underlyingUnits      Total quantity of underlying units to wrap
+     * @param _underlyingToken          Address of the component to be wrapped
+     * @param _wrappedToken             Address of the wrapped component
+     * @param _notionalUnderlying       Total quantity of underlying tokens to wrap
      *
-     * @return address              Target contract address
-     * @return uint256              Total quantity of underlying units (if underlying is ETH)
-     * @return bytes                Wrap calldata
+     * @return address                  Target contract address
+     * @return uint256                  Total quantity of underlying units (if underlying is ETH)
+     * @return bytes                    Wrap calldata
      */
     function getWrapCallData(
         address _underlyingToken,
         address _wrappedToken,
-        uint256 _underlyingUnits
+        uint256 _notionalUnderlying
     )
         external
         view
@@ -107,9 +142,10 @@ contract AxieInfinityMigrationWrapAdapter {
         require(_underlyingToken == oldToken, "Must be old AXS token");
         require(_wrappedToken == newToken, "Must be new AXS token");
 
-        // swapToken()
-        bytes memory callData = abi.encodeWithSignature("swapToken(uint256)", [_underlyingUnits]);
+        // swapTokenUsingAdapter(uint256)
+        bytes memory callData = abi.encodeWithSignature("swapTokenUsingAdapter(uint256)", [_notionalUnderlying]);
 
+        // Note: The target address is this contract
         return (address(this), 0, callData);
     }
 
@@ -119,7 +155,7 @@ contract AxieInfinityMigrationWrapAdapter {
     function getUnwrapCallData(
         address /* _underlyingToken */,
         address /* _wrappedToken */,
-        uint256 /* _wrappedTokenUnits */
+        uint256 /* _notionalUnderlying */
     )
         external
         pure
@@ -130,6 +166,7 @@ contract AxieInfinityMigrationWrapAdapter {
 
     /**
      * Returns the address to approve source tokens for wrapping.
+     * Note: The returned address is of this contract, as this adapter acts as a middleman in the migration process.
      *
      * @return address        Address of the contract to approve tokens to
      */
