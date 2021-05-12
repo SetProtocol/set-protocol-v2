@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { hexlify, hexZeroPad } from "ethers/lib/utils";
+import { hexlify, solidityPack, hexZeroPad } from "ethers/lib/utils";
 import { BigNumber } from "@ethersproject/bignumber";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -112,14 +112,14 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     }
 
     it("should return the correct data", async () => {
-      const uniswapData = await subject();
+      const tradePathData = await subject();
 
-      const encodePackedData = subjectSourceToken
-        + constructFeesData(subjectFees).replace("0x", "")
-        + subjectDestinationToken.replace("0x", "");
-      const expectedData = encodePackedData.toLowerCase();
+      const expectedTradePathData = solidityPack(
+        ["address", "uint24", "address"],
+        [subjectSourceToken, subjectFees, subjectDestinationToken]
+      );
 
-      expect(uniswapData).to.eq(expectedData);
+      expect(tradePathData).to.eq(expectedTradePathData);
     });
   });
 
