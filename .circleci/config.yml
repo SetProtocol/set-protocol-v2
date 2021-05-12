@@ -44,6 +44,10 @@ jobs:
           command: |
             git clone https://github.com/ethereum-optimism/optimism.git
       - run:
+          name: Docker ghcr.io login
+          command: |
+            docker login ghcr.io -u $DOCKER_USER -p $DOCKER_PASSWORD
+      - run:
           name: Install Optimism client
           command: |
             cd optimism
@@ -54,7 +58,9 @@ jobs:
       - run:
           name: Launch Optimism client
           command: |
-            cd optimism && cd ops
+            cd optimism
+            git checkout dee74ef54b38750085a8cc2dfbcb67dc80d2a10f
+            cd ops
             docker-compose up -d && ./scripts/wait-for-sequencer.sh
             wget \
               --retry-connrefused \

@@ -5,14 +5,14 @@ version: "3"
 services:
   # base service builder
   builder:
-    image: cgewecke/optimism-builder
+    image: ghcr.io/setprotocol/optimism-builder:1.0.0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.monorepo
 
   # this is a helper service used because there's no official hardhat image
   l1_chain:
-    image: cgewecke/optimism-hardhat
+    image: ghcr.io/setprotocol/optimism-hardhat:1.0.0
     build:
       context: ./docker/hardhat
       dockerfile: Dockerfile
@@ -21,7 +21,7 @@ services:
       - ${L1_CHAIN_PORT:-9545}:8545
 
   deployer:
-    image: cgewecke/optimism-deployer
+    image: ghcr.io/setprotocol/optimism-deployer:1.0.0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.deployer
@@ -40,7 +40,7 @@ services:
       - ${DEPLOYER_PORT:-8080}:8081
 
   dtl:
-    image: cgewecke/optimism-data-transport-layer
+    image: ghcr.io/setprotocol/optimism-data-transport-layer:1.0.0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.data-transport-layer
@@ -61,7 +61,7 @@ services:
       - ${DTL_PORT:-7878}:7878
 
   l2geth:
-    image: cgewecke/l2geth
+    image: ghcr.io/setprotocol/optimism-l2geth:1.0.0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.geth
@@ -83,7 +83,7 @@ services:
       - ${L2GETH_WS_PORT:-8546}:8546
 
   relayer:
-    image: cgewecke/optimism-message-relayer
+    image: ghcr.io/setprotocol/optimism-message-relayer:1.0.0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.message-relayer
@@ -99,7 +99,7 @@ services:
         GET_LOGS_INTERVAL: 500
 
   batch_submitter:
-    image: cgewecke/optimism-batch-submitter
+    image: ghcr.io/setprotocol/optimism-batch-submitter:1.0.0
     build:
       context: ..
       dockerfile: ./ops/docker/Dockerfile.batch-submitter
