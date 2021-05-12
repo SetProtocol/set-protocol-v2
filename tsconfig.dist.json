@@ -1,5 +1,10 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // This option skips node_modules typechecking
+    // @eth-optimism/core-utils has an `implicit any` tsc err. that breaks build in CI
+    "skipLibCheck": true
+  },
   "exclude": [
     "test/**/*.ts"
   ]
