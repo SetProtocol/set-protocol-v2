@@ -58,11 +58,18 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Return calldata for trading with Uniswap V3 SwapRouter. Trade paths are created from input and output tokens, _isSendTokenFixed indicates whether
-     * a fixed amount of token should be sold or an unfixed amount.
+     * Return calldata for trading with Uniswap V3 SwapRouter. Trade paths are created from _sourceToken, 
+     * _destinationToken and pool fees (which is encoded in _data). 
      *
-     * Note: When _isSendTokenFixed is false, _sourceQuantity is defined as the max token quantity you are willing to trade, and
-     * _destinationQuantity is the exact quantity of token you are receiving.
+     * ---------------------------------------------------------------------------------------------------------------
+     *   _isSendTokenFixed   |     Parameter             |       Amount                                              |
+     * ---------------------------------------------------------------------------------------------------------------
+     *      True             |   _sourceQuantity         |   Fixed amount of _sourceToken to trade                   |        
+     *                       |   _destinationQuantity    |   Minimum amount of _destinationToken willing to receive  |
+     * ---------------------------------------------------------------------------------------------------------------
+     *      False            |   _sourceQuantity         |   Maximum amount of _sourceToken to trade                 |        
+     *                       |   _destinationQuantity    |   Fixed amount of _destinationToken want to receive       |
+     * ---------------------------------------------------------------------------------------------------------------
      *
      * @param _sourceToken              Address of source token to be sold
      * @param _destinationToken         Address of destination token to buy
@@ -107,7 +114,7 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
     }
 
     /**
-     * Returns the address to approve source tokens to for trading. This is the Uniswap router address
+     * Returns the address to approve source tokens to for trading. This is the Uniswap V3 router address.
      *
      * @return address             Address of the contract to approve tokens to
      */
@@ -116,7 +123,7 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
     }
 
     /**
-     * Helper that returns the encoded data of trade path.
+     * Helper that returns the encoded data of Uniswap V3 trade path.
      *
      * @param _sourceToken             Address of source token to be sold
      * @param _fees                    Fees of the Uniswap V3 pool to be used, expressed in hundredths of a bip
@@ -124,7 +131,7 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      *
      * @return bytes                   Encoded data used for trading on Uniswap
      */
-    function getUniswapEncodedPath(address _sourceToken, uint24 _fees, address _destinationToken) external pure returns (bytes memory) {
+    function getEncodedTradePath(address _sourceToken, uint24 _fees, address _destinationToken) external pure returns (bytes memory) {
         return abi.encodePacked(_sourceToken, _fees, _destinationToken);
     }
 } 

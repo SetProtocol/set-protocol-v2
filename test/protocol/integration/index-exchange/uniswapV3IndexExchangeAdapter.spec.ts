@@ -34,6 +34,10 @@ describe("UniswapV3IndexExchangeAdapter", () => {
   let factory: UniswapV3Factory;
   let uniswapV3ExchangeAdapter: UniswapV3IndexExchangeAdapter;
 
+  function constructFeesData(_poolFeesPercentage: BigNumber): Bytes {
+    return hexZeroPad(hexlify(_poolFeesPercentage), 3);
+  }
+
   before(async () => {
     [
       owner,
@@ -88,35 +92,36 @@ describe("UniswapV3IndexExchangeAdapter", () => {
   });
 
 
-  // describe("getUniswapEncodedPath", async () => {
-  //   let subjectFees: BigNumber;
-  //   let subjectSourceToken: Address;
-  //   let subjectDestinationToken: Address;
+  describe("getEncodedTradePath", async () => {
+    let subjectFees: BigNumber;
+    let subjectSourceToken: Address;
+    let subjectDestinationToken: Address;
 
-  //   beforeEach(async () => {
-  //     subjectFees = BigNumber.from(10000);    // 1% pool fees
-  //     subjectSourceToken = setup.wbtc.address;
-  //     subjectDestinationToken = setup.dai.address;
-  //   });
+    beforeEach(async () => {
+      subjectFees = BigNumber.from(10000);    // 1% pool fees
+      subjectSourceToken = setup.wbtc.address;
+      subjectDestinationToken = setup.dai.address;
+    });
 
-  //   async function subject(): Promise<any> {
-  //     return await uniswapV3ExchangeAdapter.getUniswapEncodedPath(
-  //       subjectSourceToken,
-  //       subjectFees,
-  //       subjectDestinationToken
-  //     );
-  //   }
+    async function subject(): Promise<any> {
+      return await uniswapV3ExchangeAdapter.getEncodedTradePath(
+        subjectSourceToken,
+        subjectFees,
+        subjectDestinationToken
+      );
+    }
 
-  //   it("should return the correct data", async () => {
-  //     const uniswapData = await subject();
-  //     const expectedData = defaultAbiCoder.encode(
-  //       ["address", "uint24", "address"],
-  //       [subjectSourceToken, subjectFees, subjectDestinationToken]
-  //     );
+    it("should return the correct data", async () => {
+      const uniswapData = await subject();
 
-  //     expect(uniswapData).to.eq(expectedData);
-  //   });
-  // });
+      const encodePackedData = subjectSourceToken
+        + constructFeesData(subjectFees).replace("0x", "")
+        + subjectDestinationToken.replace("0x", "");
+      const expectedData = encodePackedData.toLowerCase();
+
+      expect(uniswapData).to.eq(expectedData);
+    });
+  });
 
   describe("getTradeCalldata", async () => {
     let sourceToken: Address;
@@ -132,10 +137,6 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     let subjectSourceQuantity: BigNumber;
     let subjectDestinationQuantity: BigNumber;
     let subjectData: Bytes;
-
-    function constructFeesData(_poolFeesPercentage: BigNumber): Bytes {
-      return hexZeroPad(hexlify(_poolFeesPercentage), 3);
-    }
 
     beforeEach(async () => {
       sourceToken = setup.wbtc.address;            // WBTC Address
@@ -170,7 +171,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
         const [tragetAddress, ethValue, callData] = await subject();
 
         const callTimestamp = await getLastBlockTimestamp();
-        const path: Bytes = await uniswapV3ExchangeAdapter.getUniswapEncodedPath(
+        const path: Bytes = await uniswapV3ExchangeAdapter.getEncodedTradePath(
           sourceToken,
           poolFeesPercentage,
           destinationToken
@@ -199,7 +200,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
         const [tragetAddress, ethValue, callData] = await subject();
 
         const callTimestamp = await getLastBlockTimestamp();
-        const path: Bytes = await uniswapV3ExchangeAdapter.getUniswapEncodedPath(
+        const path: Bytes = await uniswapV3ExchangeAdapter.getEncodedTradePath(
           sourceToken,
           poolFeesPercentage,
           destinationToken
