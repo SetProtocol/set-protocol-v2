@@ -53,6 +53,20 @@ library Address {
     }
 
     /**
+     * In lieu of call{value: value}(arg), transfer WETH
+     *
+     * @param {Address} _recipient      WETH tranfer recipient
+     * @param {uint256} _amount         amount
+     * @return {bool}                   success
+     */
+    function WETHTransfer(address _recipient, uint256 _amount) internal returns (bool){
+        return IERC20(0x4200000000000000000000000000000000000006).transfer(
+            _recipient,
+            _amount
+        );
+    }
+
+    /**
      * @dev Replacement for Solidity's `transfer`: sends `amount` wei to
      * `recipient`, forwarding all available gas and reverting on errors.
      *
@@ -133,12 +147,16 @@ library Address {
     function functionCallWithValue(address target, bytes memory data, uint256 value, string memory errorMessage) internal returns (bytes memory) {
         // >>>> OPTIMISM:START_CHANGE
         require(WETHBalance(address(this)) >= value, "Address: insufficient balance for call");
-        // <<<< OPTIMISM:END_CHANGE
         require(isContract(target), "Address: call to non-contract");
 
+        if (value > 0){
+            bool success = WETHTransfer(target, value);
+            _verifyCallResult(success, "", "Address: WETH transfer failed");
+        }
         // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.call{ value: value }(data);
+        (bool success, bytes memory returndata) = target.call(data);
         return _verifyCallResult(success, returndata, errorMessage);
+        // >>>> OPTIMISM:END_CHANGE
     }
 
     /**
