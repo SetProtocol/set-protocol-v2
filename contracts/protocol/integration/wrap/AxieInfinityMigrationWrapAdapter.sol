@@ -37,33 +37,30 @@ interface ITokenSwap {
  *      the address to which the tokens are to be approved.
  *
  * 2. Wrap Module calls `_setToken.invokeApprove()`, with 
- *    -------------------------------------------------------------------
- *   |       Parameter         |            Value                        |
- *   |-------------------------|-----------------------------------------|
- *   |   underlyingToken       |   Old AXS token address                 |
- *   |   spender               |   This contract address                 |
- *   |   notionalUnderlying    |   Quantity of underlying to be migrated | 
- *    -------------------------------------------------------------------
+ * --------------------------------------------------------------------
+ *         Parameter        |            Value                        |
+ * -------------------------|-----------------------------------------|
+ *    underlyingToken       |   Old AXS token address                 |
+ *    spender               |   This contract address                 |
+ *    notionalUnderlying    |   Quantity of underlying to be migrated | 
+ * --------------------------------------------------------------------
  *
  * 3. Wrap Module calls `getWrapCallData()` on this adapter, which returns encoded calldata for this contract's 
  *      `swapTokenUsingAdapter(uint256)` with `amount` equals to `notionalUnderlying` value.
 
  * 4. Wrap Module calls `_setToken.invoke()`, with 
- *    ----------------------------------------------------------------
- *   |       Parameter         |            Value                     |
- *   |-------------------------|--------------------------------------|
- *   |   callData              |     Returned from getWrapCallData()  |
- *   |   callTarget            |     This contract address            |
- *    ----------------------------------------------------------------
+ * -----------------------------------------------------------------
+ *        Parameter         |            Value                     |
+ * -------------------------|--------------------------------------|
+ *    callData              |     Returned from getWrapCallData()  |
+ *    callTarget            |     This contract address            |
+ * -----------------------------------------------------------------
+ *  which transfers a `notionalUnderlying` amount of old AXS tokens from the SetToken to this contract.
  *
- * 5. SetToken transfers a `notionalUnderlying` amount of old AXS tokens to this contract.
+ * 5. This contract calls `swapToken()` on the Axie Infinity TokenSwap contract, which then pulls the entire 
+ *      old AXS token balance from this contract and returns the new AXS tokens with an amount ratio of 1:1.
  *
- * 6. This contract calls `swapToken()` on the Axie Infinity TokenSwap contract.
- *
- * 7. The TokenSwap contract, pulls the entire old AXS token balance from this contract and 
- *      returns the new AXS tokens with an amount ratio of 1:1.
- *
- * 8. This contract transfers the received new AXS tokens to the SetToken. Thus completing the migration.
+ * 6. This contract transfers the received new AXS tokens to the SetToken. Thus completing the migration.
  * 
  * Note: New AXS token can not be unwrapped into old AXS token, because migration can not be reversed.
  */
@@ -105,8 +102,8 @@ contract AxieInfinityMigrationWrapAdapter {
 
     /**
      * Pulls specified amount of old AXS tokens from the `msg.sender` and swaps them for new AXS tokens 
-     * for a 1:1 ratio via the Axie TokenSwap contract. Transfers the received amount of new AXS tokens
-     * back to the `msg.sender`
+     * for a 1:1 ratio via the Axie Infinity TokenSwap contract. Transfers the received amount of new AXS 
+     * tokens back to the `msg.sender`
      *
      * @param _amount           Total amount of old AXS tokens to be swapped for new AXS tokens
      */
