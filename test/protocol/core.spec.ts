@@ -47,9 +47,7 @@ describe("Optimism L2 Core [ @ovm ]", () => {
     await setToken.initializeModule();
   });
 
-  it("should be connected to optimism client", async function() {
-    if (process.env.HARDHAT_EVM === "true") this.skip();
-
+  it("should be connected to optimism client [ @hardhat-evm-skip ]", async function() {
     const network = await ethers.provider.getNetwork();
     expect(network.chainId).to.equal(420);
   });

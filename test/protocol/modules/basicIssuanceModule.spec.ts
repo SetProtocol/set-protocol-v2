@@ -151,7 +151,7 @@ describe("BasicIssuanceModule [ @ovm ]", () => {
 
   // #issue checks the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
   // On the evm this reverts with: "function call to a non-contract account"
-  describe.skip("#issue", async () => {
+  describe("#issue [ @hardhat-evm-skip ]", async () => {
     let setToken: SetToken;
 
     let subjectSetToken: Address;

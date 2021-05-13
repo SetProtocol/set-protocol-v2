@@ -43,7 +43,7 @@ import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 const web3 = new Web3();
 const expect = getWaffleExpect();
 
-describe.skip("TradeModule [ @ovm ]", () => {
+describe("TradeModule [ @ovm ] [ @hardhat-evm-skip ]", () => {
   let owner: Account;
   let manager: Account;
   let mockModule: Account;

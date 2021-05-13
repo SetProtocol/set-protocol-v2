@@ -27,6 +27,26 @@ jobs:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - ~/set-protocol-v2
+  test:
+    docker:
+      - image: circleci/node:10.16.0
+    working_directory: ~/set-protocol-v2
+    steps:
+      - restore_cache:
+          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: Set Up Environment Variables
+          command: cp .env.default .env
+      - run:
+          name: Re-compile for HardhatEVM
+          command: yarn compile
+      - run:
+          name: Test RPC
+          command: yarn chain
+          background: true
+      - run:
+          name: Hardhat Test
+          command: yarn test:fast
 
   test_ovm:
     machine:
@@ -81,6 +101,9 @@ workflows:
   build-and-test:
     jobs:
       - checkout_and_compile
+      - test:
+          requires:
+            - checkout_and_compile
       - test_ovm:
           requires:
             - checkout_and_compile

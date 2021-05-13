@@ -13,6 +13,12 @@ import "./tasks";
 
 const defaultMnemonic = "test test test test test test test test test test test junk";
 const OVM = process.env.OVM === "true";
+const HARDHAT_EVM = process.env.HARDHAT_EVM === "true";
+
+// Runs subset of OVM tests minus those marked as necessary for HardhatEVM to skip
+// Some tests rely on ETH/WETH balance specific logic that only works on the OVM
+// client because WETH precompile address is hardcoded into the contracts
+const hardhatEVMTestSelection = /(?!.*@ovm.*@hardhat-evm-skip)@ovm.*/
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -56,7 +62,6 @@ const config: HardhatUserConfig = {
     optimism: {
       url: "http://127.0.0.1:8545",
       accounts: { mnemonic: defaultMnemonic },
-      // L2 test account balances not automatically initiated with an ETH balance
       gasPrice: 0,
       gas: 8999999,
       blockGasLimit: 8999999,
@@ -69,7 +74,7 @@ const config: HardhatUserConfig = {
     target: "ethers-v5",
   },
   mocha: {
-    grep: "@ovm",
+    grep: HARDHAT_EVM ? hardhatEVMTestSelection : "@ovm",
     timeout: 150000,
   },
   paths: {

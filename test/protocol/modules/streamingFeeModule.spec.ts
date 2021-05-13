@@ -288,7 +288,7 @@ describe("StreamingFeeModule [ @ovm ]", () => {
 
   // #accrueFee checks the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
   // On the evm this reverts with: "function call to a non-contract account"
-  describe.skip("#accrueFee", async () => {
+  describe("#accrueFee [ @hardhat-evm-skip ]", async () => {
     let setToken: SetToken;
     let settings: StreamingFeeState;
     let isInitialized: boolean;
@@ -597,7 +597,7 @@ describe("StreamingFeeModule [ @ovm ]", () => {
 
   // #updateStreamingFee checks the ETH balance of the caller and this is aliased to a WETH precompile
   // on the OVM. On the evm this reverts with: "function call to a non-contract account"
-  describe.skip("#updateStreamingFee", async function() {
+  describe("#updateStreamingFee [ @hardhat-evm-skip ]", async function() {
     let setToken: SetToken;
     let settings: StreamingFeeState;
     let isInitialized: boolean;

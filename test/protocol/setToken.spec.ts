@@ -261,18 +261,14 @@ describe("SetToken [ @ovm ]", () => {
 
       // Skipped tests check the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
       // On the evm this reverts with: "function call to a non-contract account"
-      it("should set the SetTokens approval balance to the spender", async function() {
-        if (process.env.HARDHAT_EVM === "true") this.skip();
-
+      it("should set the SetTokens approval balance to the spender [ @hardhat-evm-skip ]", async function() {
         await subject();
 
         const allowance = await firstComponent.allowance(setToken.address, testSpender);
         expect(allowance).to.eq(testQuantity);
       });
 
-      it("should emit the Invoked event", async function() {
-        if (process.env.HARDHAT_EVM === "true") this.skip();
-
+      it("should emit the Invoked event [ @hardhat-evm-skip ]", async function() {
         // Success return value
         const expectedReturnValue = "0x0000000000000000000000000000000000000000000000000000000000000001";
 
@@ -293,9 +289,7 @@ describe("SetToken [ @ovm ]", () => {
 
         // Skipped tests check the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
         // On the evm this reverts with: "function call to a non-contract account"
-        it("should set the SetTokens approval balance to the spender", async function() {
-          if (process.env.HARDHAT_EVM === "true") this.skip();
-
+        it("should set the SetTokens approval balance to the spender [ @hardhat-evm-skip ]", async function() {
           await subject();
 
           const allowance = await firstComponent.allowance(setToken.address, testSpender);
@@ -330,9 +324,7 @@ describe("SetToken [ @ovm ]", () => {
 
         // Skipped tests check the ETH balance of the caller and this is aliased to a WETH precompile on the OVM
         // On the evm this reverts with: "function call to a non-contract account"
-        it("should properly receive and send ETH", async function() {
-          if (process.env.HARDHAT_EVM === "true") this.skip();
-
+        it("should properly receive and send ETH [ @hardhat-evm-skip ]", async function() {
           const startingTokenBalance = await getWethBalance(owner.wallet, subjectTargetAddress);
 
           await subject();
