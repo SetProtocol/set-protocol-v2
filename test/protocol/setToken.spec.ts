@@ -34,7 +34,9 @@ import {
   getRandomAccount,
   getRandomAddress,
   getWaffleExpect,
-  transferWeth
+  transferWeth,
+  assertRevertOVM,
+  provider
 } from "@utils/test/index";
 
 const web3 = new Web3();
@@ -341,7 +343,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only the module can call");
+          await assertRevertOVM(subject(), "Only the module can call", provider);
         });
       });
 
@@ -353,7 +355,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
+          await assertRevertOVM(subject(), "Locked: only locker can call", provider);
         });
       });
 
@@ -397,7 +399,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must not be component");
+          await assertRevertOVM(subject(), "Must not be component", provider);
         });
       });
 
@@ -493,7 +495,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Virtual unit conversion invalid");
+          await assertRevertOVM(subject(), "Virtual unit conversion invalid", provider);
         });
       });
 
@@ -540,7 +542,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module already added");
+          await assertRevertOVM(subject(), "Module already added", provider);
         });
       });
 
@@ -693,7 +695,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Virtual unit conversion invalid");
+          await assertRevertOVM(subject(), "Virtual unit conversion invalid", provider);
         });
       });
 
@@ -783,7 +785,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("New multiplier too small");
+          await assertRevertOVM(subject(), "New multiplier too small", provider);
         });
       });
 
@@ -798,7 +800,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("New multiplier too small");
+          await assertRevertOVM(subject(), "New multiplier too small", provider);
         });
       });
 
@@ -808,7 +810,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only the module can call");
+          await assertRevertOVM(subject(), "Only the module can call", provider);
         });
       });
 
@@ -820,7 +822,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
+          await assertRevertOVM(subject(), "Locked: only locker can call", provider);
         });
       });
 
@@ -857,7 +859,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only the module can call");
+          await assertRevertOVM(subject(), "Only the module can call", provider);
         });
       });
 
@@ -868,7 +870,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must not be locked");
+          await assertRevertOVM(subject(), "Must not be locked", provider);
         });
       });
 
@@ -908,7 +910,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only the module can call");
+          await assertRevertOVM(subject(), "Only the module can call", provider);
         });
       });
 
@@ -919,7 +921,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be locker");
+          await assertRevertOVM(subject(), "Must be locker", provider);
         });
       });
 
@@ -929,7 +931,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be locked");
+          await assertRevertOVM(subject(), "Must be locked", provider);
         });
       });
 
@@ -981,7 +983,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only the module can call");
+          await assertRevertOVM(subject(), "Only the module can call", provider);
         });
       });
 
@@ -993,7 +995,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
+          await assertRevertOVM(subject(), "Locked: only locker can call", provider);
         });
       });
 
@@ -1050,7 +1052,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only the module can call");
+          await assertRevertOVM(subject(), "Only the module can call", provider);
         });
       });
 
@@ -1062,7 +1064,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
+          await assertRevertOVM(subject(), "Locked: only locker can call", provider);
         });
       });
 
@@ -1103,7 +1105,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only manager can call");
+          await assertRevertOVM(subject(), "Only manager can call", provider);
         });
       });
 
@@ -1113,7 +1115,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module must not be added");
+          await assertRevertOVM(subject(), "Module must not be added", provider);
         });
       });
 
@@ -1123,7 +1125,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be enabled on Controller");
+          await assertRevertOVM(subject(), "Must be enabled on Controller", provider);
         });
       });
     });
@@ -1186,7 +1188,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only manager can call");
+          await assertRevertOVM(subject(), "Only manager can call", provider);
         });
       });
 
@@ -1198,7 +1200,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module must be added");
+          await assertRevertOVM(subject(), "Module must be added", provider);
         });
       });
 
@@ -1210,7 +1212,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module must be added");
+          await assertRevertOVM(subject(), "Module must be added", provider);
         });
       });
 
@@ -1220,7 +1222,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only when unlocked");
+          await assertRevertOVM(subject(), "Only when unlocked", provider);
         });
       });
     });
@@ -1267,7 +1269,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only manager can call");
+          await assertRevertOVM(subject(), "Only manager can call", provider);
         });
       });
 
@@ -1277,7 +1279,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module must be pending");
+          await assertRevertOVM(subject(), "Module must be pending", provider);
         });
       });
 
@@ -1287,7 +1289,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only when unlocked");
+          await assertRevertOVM(subject(), "Only when unlocked", provider);
         });
       });
     });
@@ -1323,7 +1325,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only manager can call");
+          await assertRevertOVM(subject(), "Only manager can call", provider);
         });
       });
 
@@ -1333,7 +1335,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only when unlocked");
+          await assertRevertOVM(subject(), "Only when unlocked", provider);
         });
       });
     });
@@ -1381,7 +1383,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module must be pending");
+          await assertRevertOVM(subject(), "Module must be pending", provider);
         });
       });
 
@@ -1391,7 +1393,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module must be pending");
+          await assertRevertOVM(subject(), "Module must be pending", provider);
         });
       });
 
@@ -1402,7 +1404,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only when unlocked");
+          await assertRevertOVM(subject(), "Only when unlocked", provider);
         });
       });
     });
@@ -1710,7 +1712,7 @@ describe("SetToken [ @ovm ]", () => {
 
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+          await assertRevertOVM(subject(), "Module must be enabled on controller", provider);
         });
       });
     }
@@ -1722,7 +1724,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Only the module can call");
+          await assertRevertOVM(subject(), "Only the module can call", provider);
         });
       });
     }
@@ -1734,7 +1736,7 @@ describe("SetToken [ @ovm ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Locked: only locker can call");
+          await assertRevertOVM(subject(), "Locked: only locker can call", provider);
         });
       });
     }

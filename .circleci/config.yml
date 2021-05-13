@@ -39,7 +39,7 @@ jobs:
           command: cp .env.default .env
       - run:
           name: Re-compile for HardhatEVM
-          command: yarn compile
+          command: yarn compile --force
       - run:
           name: Test RPC
           command: yarn chain
@@ -94,7 +94,7 @@ jobs:
           command: |
             yarn ovm:fundl2EthAccounts
             yarn test:ovm:fast test/protocol/core.spec.ts
-
+            yarn test:ovm:fast test/protocol/setToken.spec.ts
 
 workflows:
   version: 2

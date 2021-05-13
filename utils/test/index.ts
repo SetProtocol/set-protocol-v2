@@ -6,7 +6,7 @@ import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixt
 import { Blockchain, ProtocolUtils } from "../common";
 
 // Hardhat-Provider Aware Exports
-const provider = ethers.provider;
+export const provider = ethers.provider;
 export const getSystemFixture = (ownerAddress: Address) => new SystemFixture(provider, ownerAddress);
 export const getProtocolUtils = () => new ProtocolUtils(provider);
 export const getBlockchainUtils = () => new Blockchain(provider);
@@ -38,3 +38,6 @@ export {
 export {
   getRandomAddress
 } from "../common";
+export {
+  assertRevertOVM
+} from "./ovmRevertUtils";

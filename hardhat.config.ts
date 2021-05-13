@@ -18,7 +18,7 @@ const HARDHAT_EVM = process.env.HARDHAT_EVM === "true";
 // Runs subset of OVM tests minus those marked as necessary for HardhatEVM to skip
 // Some tests rely on ETH/WETH balance specific logic that only works on the OVM
 // client because WETH precompile address is hardcoded into the contracts
-const hardhatEVMTestSelection = /(?!.*@ovm.*@hardhat-evm-skip)@ovm.*/
+const hardhatEVMTestSelection = /(?!.*@ovm.*@hardhat-evm-skip)@ovm.*/;
 
 const config: HardhatUserConfig = {
   solidity: {
