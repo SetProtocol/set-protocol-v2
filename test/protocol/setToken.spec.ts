@@ -394,7 +394,8 @@ describe("SetToken [ @ovm ]", () => {
         expect(components.length).to.eq(prevComponents.length + 1);
       });
 
-      it("should emit the ComponentAdded event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the ComponentAdded event", async () => {
         await expect(subject()).to.emit(setToken, "ComponentAdded").withArgs(subjectComponent);
       });
 
@@ -434,7 +435,8 @@ describe("SetToken [ @ovm ]", () => {
         expect(components.length).to.eq(prevComponents.length - 1);
       });
 
-      it("should emit the ComponentRemoved event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the ComponentRemoved event", async () => {
         await expect(subject()).to.emit(setToken, "ComponentRemoved").withArgs(subjectComponent);
       });
 
@@ -641,8 +643,7 @@ describe("SetToken [ @ovm ]", () => {
         expect(retrievedUnit).to.eq(subjectNewUnit);
       });
 
-      // Event commented out of solidity source for size
-      it.skip("should emit the ExternalPositionUnitEdited event", async () => {
+      it("should emit the ExternalPositionUnitEdited event", async () => {
         await expect(subject()).to.emit(setToken, "ExternalPositionUnitEdited").withArgs(
           subjectComponent,
           subjectModule,
@@ -737,8 +738,7 @@ describe("SetToken [ @ovm ]", () => {
         expect(data).to.eq(subjectData);
       });
 
-      // Event commented out of solidity source for size
-      it.skip("should emit the ExternalPositionDataEdited event", async () => {
+      it("should emit the ExternalPositionDataEdited event", async () => {
         await expect(subject()).to.emit(setToken, "ExternalPositionDataEdited").withArgs(
           subjectComponent,
           subjectModule,
@@ -1099,7 +1099,8 @@ describe("SetToken [ @ovm ]", () => {
         expect(moduleState).to.eq(MODULE_STATE["PENDING"]);
       });
 
-      it("should emit the ModuleAdded event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the ModuleAdded event", async () => {
         await expect(subject()).to.emit(setToken, "ModuleAdded").withArgs(subjectModule);
       });
 
@@ -1182,7 +1183,8 @@ describe("SetToken [ @ovm ]", () => {
         expect(modules).to.not.contain(subjectModule);
       });
 
-      it("should emit the ModuleRemoved event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the ModuleRemoved event", async () => {
         await expect(subject()).to.emit(setToken, "ModuleRemoved").withArgs(subjectModule);
       });
 
@@ -1318,7 +1320,8 @@ describe("SetToken [ @ovm ]", () => {
         expect(managerAddress).to.eq(subjectManager);
       });
 
-      it("should emit the ManagerEdited event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the ManagerEdited event", async () => {
         await expect(subject()).to.emit(setToken, "ManagerEdited").withArgs(subjectManager, manager.address);
       });
 
@@ -1375,7 +1378,8 @@ describe("SetToken [ @ovm ]", () => {
         expect(moduleState).to.eq(MODULE_STATE["INITIALIZED"]);
       });
 
-      it("should emit the ModuleInitialized event", async () => {
+      // Event commented out to reduce contract size
+      it.skip("should emit the ModuleInitialized event", async () => {
         await expect(subject()).to.emit(setToken, "ModuleInitialized").withArgs(subjectModule);
       });
 

@@ -42,6 +42,7 @@ describe("Optimism L2 Core [ @ovm ]", () => {
     modules = [moduleOne.address];
 
     setToken = await setup.createSetToken(components, units, modules);
+
     setToken = setToken.connect(moduleOne.wallet);
     await setToken.initializeModule();
   });

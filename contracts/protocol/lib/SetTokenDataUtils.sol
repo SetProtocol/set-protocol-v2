@@ -62,7 +62,7 @@ library SetTokenDataUtils {
 
     /* ============ Public Getter Functions ============ */
 
-    function getDefaultPositionRealUnit(ISetToken _setToken, address _component) public view returns(int256) {
+    function getDefaultPositionRealUnit(ISetToken _setToken, address _component) external view returns(int256) {
         int256 virtualUnit = _setToken.getDefaultPositionVirtualUnit(_component);
         return _convertVirtualToRealUnit(_setToken, virtualUnit);
     }
@@ -77,12 +77,12 @@ library SetTokenDataUtils {
         address _component,
         address _positionModule
     )
-        public
+        external
         view
         returns(int256)
     {
 
-        int256 virtualUnit = ISetToken(_setToken).getComponentExternalPosition(_component, _positionModule).virtualUnit;
+        int256 virtualUnit = _setToken.getComponentExternalPosition(_component, _positionModule).virtualUnit;
         return _convertVirtualToRealUnit(ISetToken(_setToken), virtualUnit);
     }
 
@@ -107,17 +107,17 @@ library SetTokenDataUtils {
         address _setToken,
         address _component
     )
-        public
+        external
         view
         returns(int256)
     {
-        int256 totalUnits = getDefaultPositionRealUnit(ISetToken(_setToken), _component);
+        int256 totalUnits = getDefaultPositionRealUnit(_setToken, _component);
 
         address[] memory externalModules = ISetToken(_setToken).getExternalPositionModules(_component);
         for (uint256 i = 0; i < externalModules.length; i++) {
             // We will perform the summation no matter what, as an external position virtual unit can be negative
             totalUnits = totalUnits.add(
-                getExternalPositionRealUnit(ISetToken(_setToken), _component, externalModules[i])
+                getExternalPositionRealUnit(_setToken, _component, externalModules[i])
             );
         }
 
@@ -142,7 +142,7 @@ library SetTokenDataUtils {
         return _setToken.moduleStates(_module) == ISetToken.ModuleState.PENDING;
     }
 
-    function isComponent(ISetToken _setToken, address _component) public view returns(bool) {
+    function isComponent(ISetToken _setToken, address _component) external view returns(bool) {
         return _setToken.getComponents().contains(_component);
     }
 
@@ -151,7 +151,7 @@ library SetTokenDataUtils {
         address _component,
         address _module
     )
-        public
+        external
         view
         returns(bool)
     {
@@ -163,7 +163,7 @@ library SetTokenDataUtils {
      * is considered a Default Position, and each externalPositionModule will generate a unique position.
      * Virtual units are converted to real units. This function is typically used off-chain for data presentation purposes.
      */
-    function getPositions(address _setToken) public view returns (ISetToken.Position[] memory) {
+    function getPositions(address _setToken) external view returns (ISetToken.Position[] memory) {
         ISetToken.Position[] memory positions = new ISetToken.Position[](
             _getPositionCount(ISetToken(_setToken))
         );
@@ -178,7 +178,7 @@ library SetTokenDataUtils {
                 positions[positionCount] = ISetToken.Position({
                     component: component,
                     module: address(0),
-                    unit: getDefaultPositionRealUnit(ISetToken(_setToken), component),
+                    unit: getDefaultPositionRealUnit(_setToken, component),
                     positionState: DEFAULT,
                     data: ""
                 });
@@ -193,7 +193,7 @@ library SetTokenDataUtils {
                 positions[positionCount] = ISetToken.Position({
                     component: component,
                     module: currentModule,
-                    unit: getExternalPositionRealUnit(ISetToken(_setToken), component, currentModule),
+                    unit: getExternalPositionRealUnit(_setToken, component, currentModule),
                     positionState: EXTERNAL,
                     data: ISetToken(_setToken).getExternalPositionData(component, currentModule)
                 });

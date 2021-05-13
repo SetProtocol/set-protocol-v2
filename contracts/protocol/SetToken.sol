@@ -54,17 +54,17 @@ contract SetToken is ERC20 {
     // Removing events leaves us w/ a .7kb margin
 
     event Invoked(address indexed _target, uint indexed _value, bytes _data, bytes _returnValue);
-    event ModuleAdded(address indexed _module);
-    event ModuleRemoved(address indexed _module);
-    event ModuleInitialized(address indexed _module);
-    event ManagerEdited(address _newManager, address _oldManager);
+    // event ModuleAdded(address indexed _module);
+    // event ModuleRemoved(address indexed _module);
+    // event ModuleInitialized(address indexed _module);
+    // event ManagerEdited(address _newManager, address _oldManager);
     // event PendingModuleRemoved(address indexed _module);
     event PositionMultiplierEdited(int256 _newMultiplier);
-    event ComponentAdded(address indexed _component);
-    event ComponentRemoved(address indexed _component);
+    // event ComponentAdded(address indexed _component);
+    // event ComponentRemoved(address indexed _component);
     event DefaultPositionUnitEdited(address indexed _component, int256 _realUnit);
-    // event ExternalPositionUnitEdited(address indexed _component, address indexed _positionModule, int256 _realUnit);
-    // event ExternalPositionDataEdited(address indexed _component, address indexed _positionModule, bytes _data);
+    event ExternalPositionUnitEdited(address indexed _component, address indexed _positionModule, int256 _realUnit);
+    event ExternalPositionDataEdited(address indexed _component, address indexed _positionModule, bytes _data);
     // event PositionModuleAdded(address indexed _component, address indexed _positionModule);
     // event PositionModuleRemoved(address indexed _component, address indexed _positionModule);
 
@@ -210,7 +210,7 @@ contract SetToken is ERC20 {
 
         components.push(_component);
 
-        emit  ComponentAdded(_component);
+        // emit  ComponentAdded(_component);
     }
 
     /**
@@ -219,7 +219,7 @@ contract SetToken is ERC20 {
     function removeComponent(address _component) external onlyModule whenLockedOnlyLocker {
         components.removeStorage(_component);
 
-        emit  ComponentRemoved(_component);
+        // emit  ComponentRemoved(_component);
     }
 
     /**
@@ -281,7 +281,7 @@ contract SetToken is ERC20 {
 
         componentPositions[_component].externalPositions[_positionModule].virtualUnit = virtualUnit;
 
-        // emit  ExternalPositionUnitEdited(_component, _positionModule, _realUnit);
+        emit  ExternalPositionUnitEdited(_component, _positionModule, _realUnit);
     }
 
     /**
@@ -298,7 +298,7 @@ contract SetToken is ERC20 {
     {
         componentPositions[_component].externalPositions[_positionModule].data = _data;
 
-        // emit  ExternalPositionDataEdited(_component, _positionModule, _data);
+        emit  ExternalPositionDataEdited(_component, _positionModule, _data);
     }
 
     /**
@@ -357,7 +357,7 @@ contract SetToken is ERC20 {
 
         moduleStates[_module] = ISetToken.ModuleState.PENDING;
 
-        emit  ModuleAdded(_module);
+        // emit  ModuleAdded(_module);
     }
 
     /**
@@ -374,7 +374,7 @@ contract SetToken is ERC20 {
 
         modules.removeStorage(_module);
 
-        emit  ModuleRemoved(_module);
+        // emit  ModuleRemoved(_module);
     }
 
     /**
@@ -401,7 +401,7 @@ contract SetToken is ERC20 {
         moduleStates[msg.sender] = ISetToken.ModuleState.INITIALIZED;
         modules.push(msg.sender);
 
-        emit  ModuleInitialized(msg.sender);
+        // emit  ModuleInitialized(msg.sender);
     }
 
     /**
@@ -410,10 +410,10 @@ contract SetToken is ERC20 {
      */
     function setManager(address _manager) external onlyManager {
         require(!isLocked, "Only when unlocked");
-        address oldManager = manager;
+        // address oldManager = manager;
         manager = _manager;
 
-        emit  ManagerEdited(_manager, oldManager);
+        // emit  ManagerEdited(_manager, oldManager);
     }
 
     receive() external payable {} // solium-disable-line quotes
