@@ -32,7 +32,7 @@
     "lint-ts": "tslint -c tslint.json -p tsconfig.json --fix",
     "ovm:fundl2EthAccounts": "hardhat set:optimism:depositEth",
     "ovm:install": "./scripts/ovm_install.sh",
-    "ovm:install:ci": "./scripts/ovm_install_ci.sh",
+    "ovm:run:ci": "./scripts/ovm_run_ci.sh",
     "ovm:run": "./scripts/ovm_run.sh",
     "patch-hardhat-typechain": "node scripts/patch-hardhat-typechain.js",
     "patch-ovm-compiler": "node scripts/patch-ovm-compiler.js",

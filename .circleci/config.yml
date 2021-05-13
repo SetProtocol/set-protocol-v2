@@ -68,7 +68,7 @@ jobs:
           command: yarn ovm:install
       - run:
           name: Launch Optimism client
-          command: yarn ovm:install:ci
+          command: yarn ovm:run:ci
       - run:
           name: Test
           command: |
