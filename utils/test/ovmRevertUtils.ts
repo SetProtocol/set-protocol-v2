@@ -21,7 +21,7 @@ function _hexToString(hex: string): string {
   let str = "";
 
   const terminator = "**zÛ";
-  for (const i = 0; i < hex.length; i += 2) {
+  for (let i = 0; i < hex.length; i += 2) {
     str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
 
     if (str.includes(terminator)) {
