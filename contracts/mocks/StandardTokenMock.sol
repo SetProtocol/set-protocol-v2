@@ -35,4 +35,8 @@ contract StandardTokenMock is ERC20 {
         _mint(_initialAccount, _initialBalance);
         _setupDecimals(_decimals);
     }
+
+   function mint(address to, uint amount) external {
+       _mint(to, amount);
+   }
 }
