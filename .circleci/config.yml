@@ -60,35 +60,15 @@ jobs:
           name: Set Up Environment Variables
           command: cp .env.default .env
       - run:
-          name: Clone eth-optimism/optimism
-          command: |
-            git clone https://github.com/ethereum-optimism/optimism.git
-      - run:
           name: Docker ghcr.io login
           command: |
             docker login ghcr.io -u $DOCKER_USER -p $DOCKER_PASSWORD
       - run:
           name: Install Optimism client
-          command: |
-            cd optimism
-            git checkout dee74ef54b38750085a8cc2dfbcb67dc80d2a10f
-            cp ../scripts/optimism/docker-compose.yml ./ops/docker-compose.yml
-            cd ops
-            docker-compose pull
+          command: yarn ovm:install
       - run:
           name: Launch Optimism client
-          command: |
-            cd optimism
-            git checkout dee74ef54b38750085a8cc2dfbcb67dc80d2a10f
-            cd ops
-            docker-compose up -d && ./scripts/wait-for-sequencer.sh
-            wget \
-              --retry-connrefused \
-              --waitretry=1 \
-              --read-timeout=120 \
-              --timeout=120 \
-              -t 100 \
-              http://localhost:8545
+          command: yarn ovm:install:ci
       - run:
           name: Test
           command: |

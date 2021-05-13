@@ -10,23 +10,26 @@
 ## Contracts
 [Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Hardhat](https://hardhat.org/) as a development environment for compiling, testing, and deploying our contracts.
 
-## Development
+## Optimism
 
-To use console.log during Solidity development, follow the [guides](https://hardhat.org/guides/hardhat-console.html).
-
-To install and run the Optimism client:
+**Install the Optimism client**
 
 ```
-// Builds and launches L1, L2, misc services
-// Takes 15 to 20 min
+yarn ovm:install
+```
 
-git clone git@github.com:ethereum-optimism/optimism.git
-cd optimism
-yarn install
-yarn build
-cd ops
-docker-compose build
-docker-compose up
+**Run**
+
+This command spins up several services and takes a couple minutes to get going. It's ready
+when the log output shows `l2geth_1` blocks mining.
+```
+# In a separate terminal (use ctrl-c to stop)
+yarn ovm:run
+```
+
+**Fund L2 accounts from L1 via bridge**
+```
+yarn ovm:fundl2EthAccounts
 ```
 
 ## Available Functionality

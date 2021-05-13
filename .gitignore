@@ -4,6 +4,7 @@
 /build
 /cache
 /cache-ovm
+/optimism
 /dist
 /etherscan
 /flatten
