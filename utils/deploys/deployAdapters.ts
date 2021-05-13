@@ -22,7 +22,8 @@ import {
   ZeroExApiAdapter,
   SnapshotGovernanceAdapter,
   SynthetixExchangeAdapter,
-  CompoundBravoGovernanceAdapter
+  CompoundBravoGovernanceAdapter,
+  CompClaimAdapter,
 } from "../contracts";
 import { convertLibraryNameToLinkId } from "../common";
 import { Address, Bytes } from "./../types";
@@ -49,6 +50,7 @@ import { UniswapV2IndexExchangeAdapter__factory } from "../../typechain/factorie
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
+import { CompClaimAdapter__factory } from "../../typechain";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -133,6 +135,10 @@ export default class DeployAdapters {
       },
       this._deployerSigner
     ).deploy();
+  }
+
+  public async deployCompClaimAdapter(comptrollerAddress: Address): Promise<CompClaimAdapter> {
+    return await new CompClaimAdapter__factory(this._deployerSigner).deploy(comptrollerAddress);
   }
 
   public async deployYearnWrapAdapter(): Promise<YearnWrapAdapter> {

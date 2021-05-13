@@ -22,10 +22,11 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ICErc20 } from "../../interfaces/external/ICErc20.sol";
 
 contract ComptrollerMock {
-    address comp;
-    uint256 compAmount;
-    address setToken;
+    address public comp;
+    uint256 public compAmount;
+    address public setToken;
     ICErc20[] public allMarkets;
+    mapping(address => uint) public compAccrued;
 
     constructor(address _comp, uint256 _compAmount, address _collateralCToken) public {
         comp = _comp;
@@ -53,9 +54,13 @@ contract ComptrollerMock {
     }
 
     function claimComp(address _holder) public {
-        require(ERC20(comp).transfer(setToken, compAmount), "ERC20 transfer failed");
+        require(ERC20(comp).transfer(_holder, compAccrued[_holder]), "ERC20 transfer failed");
 
         // Used to silence compiler warnings
         _holder;
+    }
+
+    function setCompAccrued(address _holder, uint _compAmount) external {
+        compAccrued[_holder] = _compAmount;
     }
 }
