@@ -676,6 +676,25 @@ describe("ZeroExApiAdapter", () => {
         expect(value).to.deep.eq(ZERO);
         expect(_data).to.deep.eq(data);
       });
+      it("multiple hops: validates data", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
+          encodePath([sourceToken, otherToken, destToken]),
+          sourceQuantity,
+          minDestinationQuantity,
+          destination,
+        ]);
+        const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        expect(target).to.eq(zeroExMock.address);
+        expect(value).to.deep.eq(ZERO);
+        expect(_data).to.deep.eq(data);
+      });
     });
   });
 });

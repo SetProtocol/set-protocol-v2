@@ -159,16 +159,12 @@ contract ZeroExApiAdapter {
                 inputTokenAmount = fillData.sellAmount;
             } else if (selector == 0x6af479b2) {
                 // sellTokenForTokenToUniswapV3()
-                {
-                    bytes memory encodedPath;
-                    (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
-                        abi.decode(_data[4:], (bytes, uint256, uint256, address));
-                    require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "Uniswap token path too short");
-                }
-                // TODO(kimpers): Need to decode the path here
+                bytes memory encodedPath;
+                (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
+                    abi.decode(_data[4:], (bytes, uint256, uint256, address));
                 supportsRecipient = true;
-                inputToken = _sourceToken;
-                outputToken = _destinationToken;
+
+                (inputToken, outputToken) = _decodePoolInfoFromPath(encodedPath);
             }
             else {
                 revert("Unsupported 0xAPI function selector");
@@ -187,5 +183,25 @@ contract ZeroExApiAdapter {
             inputToken == ETH_ADDRESS ? inputTokenAmount : 0,
             _data
         );
+    }
+
+    // Return the first input token, output token, and fee of an encoded uniswap path.
+    function _decodePoolInfoFromPath(bytes memory encodedPath)
+        private
+        pure
+        returns (
+            address inputToken,
+            address outputToken
+        )
+    {
+        require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "Uniswap token path too shor too shortt");
+        assembly {
+            let p := add(encodedPath, 32)
+            inputToken := shr(96, mload(p))
+            p := add(p, 20)
+            // account for fee
+            p := add(p, 3)
+            outputToken := shr(96, mload(p))
+        }
     }
 }
