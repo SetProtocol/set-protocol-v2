@@ -48,6 +48,7 @@
   "license": "MIT",
   "homepage": "https://github.com/SetProtocol",
   "devDependencies": {
+    "@0x/utils": "^6.4.3",
     "@ethersproject/bignumber": "^5.0.12",
     "@ethersproject/providers": "^5.0.17",
     "@nomiclabs/hardhat-ethers": "^2.0.1",

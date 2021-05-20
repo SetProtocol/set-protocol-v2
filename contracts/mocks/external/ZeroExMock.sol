@@ -142,6 +142,42 @@ contract ZeroExMock {
         _transferTokens();
     }
 
+    function sellEthForTokenToUniswapV3(
+        bytes memory /* encodedPath */,
+        uint256 /* minBuyAmount */,
+        address /* recipient */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function sellTokenForEthToUniswapV3(
+        bytes memory /* encodedPath */,
+        uint256 /* sellAmount */,
+        uint256 /* minBuyAmount */,
+        address payable /* recipient */
+    )
+        external
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function sellTokenForTokenToUniswapV3(
+        bytes memory /* encodedPath */,
+        uint256 /* sellAmount */,
+        uint256 /* minBuyAmount */,
+        address /* recipient */
+    )
+        external
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
     function _transferTokens()
         private
     {

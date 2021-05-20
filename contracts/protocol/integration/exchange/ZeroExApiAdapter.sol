@@ -52,16 +52,21 @@ contract ZeroExApiAdapter {
         bytes data;
     }
 
+
     /* ============ State Variables ============ */
 
     // ETH pseudo-token address used by 0x API.
     address private constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    // Minimum byte size of a single hop Uniswap V3 encoded path
+    uint256 private constant UNISWAP_V3_SINGLE_HOP_PATH_SIZE = 20 + 3 + 20;
 
     // Address of the deployed ZeroEx contract.
     address public immutable zeroExAddress;
 
     // Returns the address to approve source tokens to for trading. This is the TokenTaker address
     address public immutable getSpender;
+
 
     /* ============ constructor ============ */
 
@@ -152,7 +157,20 @@ contract ZeroExApiAdapter {
                 inputToken = fillData.tokens[0];
                 outputToken = fillData.tokens[fillData.tokens.length - 1];
                 inputTokenAmount = fillData.sellAmount;
-            } else {
+            } else if (selector == 0x6af479b2) {
+                // sellTokenForTokenToUniswapV3()
+                {
+                    bytes memory encodedPath;
+                    (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
+                        abi.decode(_data[4:], (bytes, uint256, uint256, address));
+                    require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "Uniswap token path too short");
+                }
+                // TODO(kimpers): Need to decode the path here
+                supportsRecipient = true;
+                inputToken = _sourceToken;
+                outputToken = _destinationToken;
+            }
+            else {
                 revert("Unsupported 0xAPI function selector");
             }
         }
