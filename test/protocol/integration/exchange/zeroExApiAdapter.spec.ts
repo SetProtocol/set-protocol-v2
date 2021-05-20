@@ -6,6 +6,7 @@ import { ZeroExApiAdapter, ZeroExMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import { addSnapshotBeforeRestoreAfterEach, getAccounts, getWaffleExpect } from "@utils/test/index";
 import { hexUtils } from "@0x/utils";
+import { take } from "lodash";
 
 const expect = getWaffleExpect();
 
@@ -14,6 +15,7 @@ describe("ZeroExApiAdapter", () => {
   const sourceToken = "0x6cf5f1d59fddae3a688210953a512b6aee6ea643";
   const destToken = "0x5e5d0bea9d4a15db2d0837aff0435faba166190d";
   const otherToken = "0xae9902bb655de1a67f334d8661b3ae6a96723d5b";
+  const extraHopToken = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
   const destination = "0x89b3515cad4f23c1deacea79fc12445cc21bd0e1";
   const otherDestination = "0xdeb100c55cccfd6e39753f78c8b0c3bcbef86157";
   const sourceQuantity = ONE;
@@ -656,45 +658,31 @@ describe("ZeroExApiAdapter", () => {
     }
 
     describe("sellTokenForTokenToUniswapV3", () => {
-      it("validates data", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
-          encodePath([sourceToken, destToken]),
-          sourceQuantity,
-          minDestinationQuantity,
-          destination,
-        ]);
-        console.log(data);
-        const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
-          sourceToken,
-          destToken,
-          destination,
-          sourceQuantity,
-          minDestinationQuantity,
-          data,
-        );
-        expect(target).to.eq(zeroExMock.address);
-        expect(value).to.deep.eq(ZERO);
-        expect(_data).to.deep.eq(data);
-      });
-      it("multiple hops: validates data", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
-          encodePath([sourceToken, otherToken, destToken]),
-          sourceQuantity,
-          minDestinationQuantity,
-          destination,
-        ]);
-        const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
-          sourceToken,
-          destToken,
-          destination,
-          sourceQuantity,
-          minDestinationQuantity,
-          data,
-        );
-        expect(target).to.eq(zeroExMock.address);
-        expect(value).to.deep.eq(ZERO);
-        expect(_data).to.deep.eq(data);
-      });
+      const additionalHops = [otherToken, extraHopToken];
+      for (let i = 0; i <= additionalHops.length; i++) {
+        const hops = take(additionalHops, i);
+        it(`validates data for ${i + 1} hops`, async () => {
+          const path = [sourceToken, ...hops, destToken];
+
+          const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
+            encodePath(path),
+            sourceQuantity,
+            minDestinationQuantity,
+            destination,
+          ]);
+          const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
+            sourceToken,
+            destToken,
+            destination,
+            sourceQuantity,
+            minDestinationQuantity,
+            data,
+          );
+          expect(target).to.eq(zeroExMock.address);
+          expect(value).to.deep.eq(ZERO);
+          expect(_data).to.deep.eq(data);
+        });
+      }
     });
   });
 });
