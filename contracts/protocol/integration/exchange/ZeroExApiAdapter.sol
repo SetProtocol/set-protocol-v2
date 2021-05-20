@@ -52,7 +52,6 @@ contract ZeroExApiAdapter {
         bytes data;
     }
 
-
     /* ============ State Variables ============ */
 
     // ETH pseudo-token address used by 0x API.
@@ -60,13 +59,13 @@ contract ZeroExApiAdapter {
 
     // Minimum byte size of a single hop Uniswap V3 encoded path
     uint256 private constant UNISWAP_V3_SINGLE_HOP_PATH_SIZE = 20 + 3 + 20;
+    uint256 private constant UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE = 20 + 3;
 
     // Address of the deployed ZeroEx contract.
     address public immutable zeroExAddress;
 
     // Returns the address to approve source tokens to for trading. This is the TokenTaker address
     address public immutable getSpender;
-
 
     /* ============ constructor ============ */
 
@@ -164,7 +163,17 @@ contract ZeroExApiAdapter {
                     abi.decode(_data[4:], (bytes, uint256, uint256, address));
                 supportsRecipient = true;
 
-                (inputToken, outputToken) = _decodePoolInfoFromPath(encodedPath);
+                uint256 numHops = (encodedPath.length - 20)/UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
+                require(numHops > 0, "At least 1 hop");
+
+                if (numHops == 1) {
+                    (inputToken, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
+
+                } else {
+                    uint256 lastPoolOffset = (numHops - 1) * UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
+                    (inputToken,) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
+                    (, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, lastPoolOffset);
+                }
             }
             else {
                 revert("Unsupported 0xAPI function selector");
@@ -186,7 +195,7 @@ contract ZeroExApiAdapter {
     }
 
     // Return the first input token, output token, and fee of an encoded uniswap path.
-    function _decodePoolInfoFromPath(bytes memory encodedPath)
+    function _decodePoolInfoFromPathWithOffset(bytes memory encodedPath, uint256 offset)
         private
         pure
         returns (
@@ -197,6 +206,7 @@ contract ZeroExApiAdapter {
         require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "Uniswap token path too shor too shortt");
         assembly {
             let p := add(encodedPath, 32)
+            p := add(p, offset)
             inputToken := shr(96, mload(p))
             p := add(p, 20)
             // account for fee
