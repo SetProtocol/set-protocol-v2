@@ -162,19 +162,7 @@ contract ZeroExApiAdapter {
                 (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
                     abi.decode(_data[4:], (bytes, uint256, uint256, address));
                 supportsRecipient = true;
-
-                require(encodedPath.length > 20, "UniswapV3 token path too short");
-                uint256 numHops = (encodedPath.length - 20)/UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
-                require(numHops > 0, "UniswapV3 token path too short");
-
-                if (numHops == 1) {
-                    (inputToken, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
-
-                } else {
-                    uint256 lastPoolOffset = (numHops - 1) * UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
-                    (inputToken,) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
-                    (, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, lastPoolOffset);
-                }
+                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
             }
             else {
                 revert("Unsupported 0xAPI function selector");
@@ -195,7 +183,30 @@ contract ZeroExApiAdapter {
         );
     }
 
-    // Return the first input token, output token, and fee of an encoded uniswap path.
+    // Decode input and output tokens from arbitrary length encoded Uniswap V3 path
+    function _decodeTokensFromUniswapV3EncodedPath(bytes memory encodedPath)
+        private
+        pure
+        returns (
+            address inputToken,
+            address outputToken
+        )
+    {
+        require(encodedPath.length > 20, "UniswapV3 token path too short");
+        uint256 numHops = (encodedPath.length - 20)/UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
+        require(numHops > 0, "UniswapV3 token path too short");
+
+        if (numHops == 1) {
+            (inputToken, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
+
+        } else {
+            uint256 lastPoolOffset = (numHops - 1) * UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
+            (inputToken,) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
+            (, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, lastPoolOffset);
+        }
+    }
+
+    // Return the input and output token at a specified offset in the encoded Uniswap V3 path
     function _decodePoolInfoFromPathWithOffset(bytes memory encodedPath, uint256 offset)
         private
         pure
