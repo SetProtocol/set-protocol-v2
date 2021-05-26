@@ -163,8 +163,9 @@ contract ZeroExApiAdapter {
                     abi.decode(_data[4:], (bytes, uint256, uint256, address));
                 supportsRecipient = true;
 
+                require(encodedPath.length > 20, "UniswapV3 token path too short");
                 uint256 numHops = (encodedPath.length - 20)/UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
-                require(numHops > 0, "At least 1 hop");
+                require(numHops > 0, "UniswapV3 token path too short");
 
                 if (numHops == 1) {
                     (inputToken, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
