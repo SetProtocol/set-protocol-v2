@@ -57,8 +57,9 @@ contract ZeroExApiAdapter {
     // ETH pseudo-token address used by 0x API.
     address private constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    // Minimum byte size of a single hop Uniswap V3 encoded path
+    // Minimum byte size of a single hop Uniswap V3 encoded path (token address + fee + token adress)
     uint256 private constant UNISWAP_V3_SINGLE_HOP_PATH_SIZE = 20 + 3 + 20;
+    // Byte size of one hop in the Uniswap V3 encoded path (token address + fee)
     uint256 private constant UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE = 20 + 3;
 
     // Address of the deployed ZeroEx contract.
@@ -163,8 +164,23 @@ contract ZeroExApiAdapter {
                     abi.decode(_data[4:], (bytes, uint256, uint256, address));
                 supportsRecipient = true;
                 (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-            }
-            else {
+            } else if (selector == 0x803ba26d) {
+                // sellTokenForEthToUniswapV3()
+                bytes memory encodedPath;
+                (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
+                    abi.decode(_data[4:], (bytes, uint256, uint256, address));
+                supportsRecipient = true;
+                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
+            } else if (selector == 0x3598d8ab) {
+                // sellEthForTokenToUniswapV3()
+                // TODO(kimpers): is this correct?
+                inputTokenAmount = 0;
+                bytes memory encodedPath;
+                (encodedPath, minOutputTokenAmount, recipient) =
+                    abi.decode(_data[4:], (bytes,  uint256, address));
+                supportsRecipient = true;
+                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
+            } else {
                 revert("Unsupported 0xAPI function selector");
             }
         }
@@ -215,7 +231,7 @@ contract ZeroExApiAdapter {
             address outputToken
         )
     {
-        require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "Uniswap token path too shor too shortt");
+        require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "UniswapV3 token path too short");
         assembly {
             let p := add(encodedPath, 32)
             p := add(p, offset)
