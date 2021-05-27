@@ -955,23 +955,6 @@ describe("ZeroExApiAdapter", () => {
         });
       }
 
-      it("rejects non ETH input token", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
-          encodePath([otherToken, destToken]),
-          minDestinationQuantity,
-          destination,
-        ]);
-        const tx = zeroExApiAdapter.getTradeCalldata(
-          ETH_ADDRESS,
-          destToken,
-          destination,
-          sourceQuantity,
-          minDestinationQuantity,
-          data,
-        );
-        await expect(tx).to.be.revertedWith("sellEthForToken requires ETH input token");
-      });
-
       it("rejects wrong input token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
           encodePath([ETH_ADDRESS, destToken]),

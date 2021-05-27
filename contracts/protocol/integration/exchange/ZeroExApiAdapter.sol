@@ -181,9 +181,7 @@ contract ZeroExApiAdapter {
                 (encodedPath, minOutputTokenAmount, recipient) =
                     abi.decode(_data[4:], (bytes,  uint256, address));
                 supportsRecipient = true;
-                address _decodedInputToken;
-                (_decodedInputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-                require(_decodedInputToken == ETH_ADDRESS, "sellEthForToken requires ETH input token");
+                (, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
                 inputToken = ETH_ADDRESS;
             } else {
                 revert("Unsupported 0xAPI function selector");
