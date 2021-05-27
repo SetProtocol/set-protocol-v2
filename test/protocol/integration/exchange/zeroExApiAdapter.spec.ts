@@ -950,8 +950,7 @@ describe("ZeroExApiAdapter", () => {
             data,
           );
           expect(target).to.eq(zeroExMock.address);
-          // TODO(kimpers): is value 0 correct here?
-          expect(value).to.deep.eq(ZERO);
+          expect(value).to.deep.eq(sourceQuantity);
           expect(_data).to.deep.eq(data);
         });
       }
