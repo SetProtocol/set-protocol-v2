@@ -57,10 +57,13 @@ contract ZeroExApiAdapter {
     // ETH pseudo-token address used by 0x API.
     address private constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
+    // Byte size of Uniswap V3 encoded path addresses and pool fees
+    uint256 private constant UNISWAP_V3_PATH_ADDRESS_SIZE = 20;
+    uint256 private constant UNISWAP_V3_PATH_FEE_SIZE = 3;
     // Minimum byte size of a single hop Uniswap V3 encoded path (token address + fee + token adress)
-    uint256 private constant UNISWAP_V3_SINGLE_HOP_PATH_SIZE = 20 + 3 + 20;
+    uint256 private constant UNISWAP_V3_SINGLE_HOP_PATH_SIZE = UNISWAP_V3_PATH_ADDRESS_SIZE + UNISWAP_V3_PATH_FEE_SIZE + UNISWAP_V3_PATH_ADDRESS_SIZE;
     // Byte size of one hop in the Uniswap V3 encoded path (token address + fee)
-    uint256 private constant UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE = 20 + 3;
+    uint256 private constant UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE = UNISWAP_V3_PATH_ADDRESS_SIZE + UNISWAP_V3_PATH_FEE_SIZE;
 
     // Address of the deployed ZeroEx contract.
     address public immutable zeroExAddress;
@@ -201,7 +204,7 @@ contract ZeroExApiAdapter {
         );
     }
 
-    // Decode input and output tokens from arbitrary length encoded Uniswap V3 path
+    // Decode input and output tokens from an arbitrary length encoded Uniswap V3 path
     function _decodeTokensFromUniswapV3EncodedPath(bytes memory encodedPath)
         private
         pure
@@ -211,35 +214,15 @@ contract ZeroExApiAdapter {
         )
     {
         require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "UniswapV3 token path too short");
-        uint256 numHops = (encodedPath.length - 20)/UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
 
-        if (numHops == 1) {
-            (inputToken, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
-
-        } else {
-            uint256 lastPoolOffset = (numHops - 1) * UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
-            (inputToken,) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
-            (, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, lastPoolOffset);
-        }
-    }
-
-    // Return the input and output token at a specified offset in the encoded Uniswap V3 path
-    function _decodePoolInfoFromPathWithOffset(bytes memory encodedPath, uint256 offset)
-        private
-        pure
-        returns (
-            address inputToken,
-            address outputToken
-        )
-    {
-        require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "UniswapV3 token path too short");
+        // UniswapV3 paths are packed encoded as (address(token0), uint24(fee), address(token1), [...])
+        // We want the first and last token.
+        uint256 numHops = (encodedPath.length - UNISWAP_V3_PATH_ADDRESS_SIZE)/UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
+        uint256 lastTokenOffset = numHops * UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
         assembly {
             let p := add(encodedPath, 32)
-            p := add(p, offset)
             inputToken := shr(96, mload(p))
-            p := add(p, 20)
-            // account for fee
-            p := add(p, 3)
+            p := add(p, lastTokenOffset)
             outputToken := shr(96, mload(p))
         }
     }
