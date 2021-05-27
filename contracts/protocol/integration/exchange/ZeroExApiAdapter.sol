@@ -173,13 +173,13 @@ contract ZeroExApiAdapter {
                 (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
             } else if (selector == 0x3598d8ab) {
                 // sellEthForTokenToUniswapV3()
-                // TODO(kimpers): is this correct?
-                inputTokenAmount = 0;
+                inputTokenAmount = _sourceQuantity;
                 bytes memory encodedPath;
                 (encodedPath, minOutputTokenAmount, recipient) =
                     abi.decode(_data[4:], (bytes,  uint256, address));
                 supportsRecipient = true;
-                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
+                inputToken = ETH_ADDRESS;
+                (, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
             } else {
                 revert("Unsupported 0xAPI function selector");
             }
@@ -208,9 +208,8 @@ contract ZeroExApiAdapter {
             address outputToken
         )
     {
-        require(encodedPath.length > 20, "UniswapV3 token path too short");
+        require(encodedPath.length >= UNISWAP_V3_SINGLE_HOP_PATH_SIZE, "UniswapV3 token path too short");
         uint256 numHops = (encodedPath.length - 20)/UNISWAP_V3_SINGLE_HOP_OFFSET_SIZE;
-        require(numHops > 0, "UniswapV3 token path too short");
 
         if (numHops == 1) {
             (inputToken, outputToken) = _decodePoolInfoFromPathWithOffset(encodedPath, 0);
