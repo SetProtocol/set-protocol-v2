@@ -945,7 +945,7 @@ describe("ZeroExApiAdapter", () => {
             ETH_ADDRESS,
             destToken,
             destination,
-            ZERO,
+            sourceQuantity,
             minDestinationQuantity,
             data,
           );
@@ -955,7 +955,7 @@ describe("ZeroExApiAdapter", () => {
         });
       }
 
-      it("rejects wrong input token", async () => {
+      it("rejects non ETH input token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
           encodePath([otherToken, destToken]),
           minDestinationQuantity,
@@ -965,7 +965,24 @@ describe("ZeroExApiAdapter", () => {
           ETH_ADDRESS,
           destToken,
           destination,
-          ZERO,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("sellEthForToken requires ETH input token");
+      });
+
+      it("rejects wrong input token", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
+          encodePath([ETH_ADDRESS, destToken]),
+          minDestinationQuantity,
+          destination,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          otherToken,
+          destToken,
+          destination,
+          sourceQuantity,
           minDestinationQuantity,
           data,
         );
@@ -982,7 +999,7 @@ describe("ZeroExApiAdapter", () => {
           ETH_ADDRESS,
           destToken,
           destination,
-          ZERO,
+          sourceQuantity,
           minDestinationQuantity,
           data,
         );
@@ -999,7 +1016,7 @@ describe("ZeroExApiAdapter", () => {
           ETH_ADDRESS,
           destToken,
           destination,
-          ZERO,
+          sourceQuantity,
           minDestinationQuantity,
           data,
         );
@@ -1016,7 +1033,7 @@ describe("ZeroExApiAdapter", () => {
           ETH_ADDRESS,
           destToken,
           destination,
-          ZERO,
+          sourceQuantity,
           minDestinationQuantity,
           data,
         );
@@ -1033,7 +1050,7 @@ describe("ZeroExApiAdapter", () => {
           ETH_ADDRESS,
           destToken,
           destination,
-          ZERO,
+          sourceQuantity,
           minDestinationQuantity,
           data,
         );
