@@ -10,11 +10,12 @@ import { take } from "lodash";
 
 const expect = getWaffleExpect();
 
-describe("ZeroExApiAdapter", () => {
+describe.only("ZeroExApiAdapter", () => {
   let owner: Account;
   const sourceToken = "0x6cf5f1d59fddae3a688210953a512b6aee6ea643";
   const destToken = "0x5e5d0bea9d4a15db2d0837aff0435faba166190d";
   const otherToken = "0xae9902bb655de1a67f334d8661b3ae6a96723d5b";
+  const wethToken = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
   const extraHopToken = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
   const destination = "0x89b3515cad4f23c1deacea79fc12445cc21bd0e1";
   const otherDestination = "0xdeb100c55cccfd6e39753f78c8b0c3bcbef86157";
@@ -33,7 +34,7 @@ describe("ZeroExApiAdapter", () => {
 
     // Mock OneInch exchange that allows for only fixed exchange amounts
     zeroExMock = await deployer.mocks.deployZeroExMock(ADDRESS_ZERO, ADDRESS_ZERO, ZERO, ZERO);
-    zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExMock.address);
+    zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExMock.address, wethToken);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -303,6 +304,26 @@ describe("ZeroExApiAdapter", () => {
         expect(target).to.eq(zeroExMock.address);
         expect(value).to.deep.eq(ZERO);
         expect(_data).to.deep.eq(data);
+      });
+
+      it("permits any destination address when recipient is null", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("sellToLiquidityProvider", [
+          sourceToken,
+          destToken,
+          ADDRESS_ZERO,
+          ADDRESS_ZERO,
+          sourceQuantity,
+          minDestinationQuantity,
+          EMPTY_BYTES,
+        ]);
+        await zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
       });
 
       it("rejects wrong input token", async () => {
@@ -659,6 +680,7 @@ describe("ZeroExApiAdapter", () => {
 
     describe("sellTokenForTokenToUniswapV3", () => {
       const additionalHops = [otherToken, extraHopToken];
+
       for (let i = 0; i <= additionalHops.length; i++) {
         const hops = take(additionalHops, i);
         it(`validates data for ${i + 1} hops`, async () => {
@@ -683,6 +705,25 @@ describe("ZeroExApiAdapter", () => {
           expect(_data).to.deep.eq(data);
         });
       }
+
+      it("permits any destination address when recipient is null", async () => {
+          const path = [sourceToken, destToken];
+
+          const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
+            encodePath(path),
+            sourceQuantity,
+            minDestinationQuantity,
+            ADDRESS_ZERO,
+          ]);
+          await zeroExApiAdapter.getTradeCalldata(
+            sourceToken,
+            destToken,
+            destination,
+            sourceQuantity,
+            minDestinationQuantity,
+            data,
+          );
+      });
 
       it("rejects wrong input token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
@@ -779,12 +820,12 @@ describe("ZeroExApiAdapter", () => {
           encodePath([sourceToken, destToken]),
           sourceQuantity,
           minDestinationQuantity,
-          ADDRESS_ZERO,
+          destination,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           sourceToken,
           destToken,
-          destination,
+          otherDestination,
           sourceQuantity,
           minDestinationQuantity,
           data,
@@ -798,7 +839,7 @@ describe("ZeroExApiAdapter", () => {
       for (let i = 0; i <= additionalHops.length; i++) {
         const hops = take(additionalHops, i);
         it(`validates data for ${i + 1} hops`, async () => {
-          const path = [sourceToken, ...hops, ETH_ADDRESS];
+          const path = [sourceToken, ...hops, wethToken];
 
           const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
             encodePath(path),
@@ -820,9 +861,28 @@ describe("ZeroExApiAdapter", () => {
         });
       }
 
+      it("permits any destination address when recipient is null", async () => {
+          const path = [sourceToken, wethToken];
+
+          const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
+            encodePath(path),
+            sourceQuantity,
+            minDestinationQuantity,
+            ADDRESS_ZERO,
+          ]);
+          await zeroExApiAdapter.getTradeCalldata(
+            sourceToken,
+            ETH_ADDRESS,
+            destination,
+            sourceQuantity,
+            minDestinationQuantity,
+            data,
+          );
+      });
+
       it("rejects wrong input token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
-          encodePath([otherToken, ETH_ADDRESS]),
+          encodePath([otherToken, wethToken]),
           sourceQuantity,
           minDestinationQuantity,
           destination,
@@ -840,6 +900,24 @@ describe("ZeroExApiAdapter", () => {
 
       it("rejects wrong output token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
+          encodePath([sourceToken, wethToken]),
+          sourceQuantity,
+          minDestinationQuantity,
+          destination,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          otherToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Mismatched output token");
+      });
+
+      it("rejects non-WETH output token in encoded path", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
           encodePath([sourceToken, otherToken]),
           sourceQuantity,
           minDestinationQuantity,
@@ -853,12 +931,12 @@ describe("ZeroExApiAdapter", () => {
           minDestinationQuantity,
           data,
         );
-        await expect(tx).to.be.revertedWith("Mismatched output token");
+        await expect(tx).to.be.revertedWith("Last token must be WETH");
       });
 
       it("rejects wrong input token quantity", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
-          encodePath([sourceToken, ETH_ADDRESS]),
+          encodePath([sourceToken, wethToken]),
           otherQuantity,
           minDestinationQuantity,
           destination,
@@ -876,7 +954,7 @@ describe("ZeroExApiAdapter", () => {
 
       it("rejects wrong output token quantity", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
-          encodePath([sourceToken, ETH_ADDRESS]),
+          encodePath([sourceToken, wethToken]),
           sourceQuantity,
           otherQuantity,
           destination,
@@ -912,15 +990,15 @@ describe("ZeroExApiAdapter", () => {
 
       it("rejects wrong destination", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellTokenForEthToUniswapV3", [
-          encodePath([sourceToken, ETH_ADDRESS]),
+          encodePath([sourceToken, wethToken]),
           sourceQuantity,
           minDestinationQuantity,
-          ADDRESS_ZERO,
+          destination,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           sourceToken,
           ETH_ADDRESS,
-          destination,
+          otherDestination,
           sourceQuantity,
           minDestinationQuantity,
           data,
@@ -934,7 +1012,7 @@ describe("ZeroExApiAdapter", () => {
       for (let i = 0; i <= additionalHops.length; i++) {
         const hops = take(additionalHops, i);
         it(`validates data for ${i + 1} hops`, async () => {
-          const path = [ETH_ADDRESS, ...hops, destToken];
+          const path = [wethToken, ...hops, destToken];
 
           const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
             encodePath(path),
@@ -955,9 +1033,44 @@ describe("ZeroExApiAdapter", () => {
         });
       }
 
+      it("permits any destination address when recipient is null", async () => {
+          const path = [wethToken, destToken];
+
+          const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
+            encodePath(path),
+            minDestinationQuantity,
+            ADDRESS_ZERO,
+          ]);
+          await zeroExApiAdapter.getTradeCalldata(
+            ETH_ADDRESS,
+            destToken,
+            destination,
+            sourceQuantity,
+            minDestinationQuantity,
+            data,
+          );
+      });
+
+      it("rejects non-WETH input token in encoded path", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
+          encodePath([otherToken, destToken]),
+          minDestinationQuantity,
+          destination,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          ETH_ADDRESS,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("First token must be WETH");
+      });
+
       it("rejects wrong input token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
-          encodePath([ETH_ADDRESS, destToken]),
+          encodePath([wethToken, destToken]),
           minDestinationQuantity,
           destination,
         ]);
@@ -974,7 +1087,7 @@ describe("ZeroExApiAdapter", () => {
 
       it("rejects wrong output token", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
-          encodePath([ETH_ADDRESS, otherToken]),
+          encodePath([wethToken, otherToken]),
           minDestinationQuantity,
           destination,
         ]);
@@ -991,7 +1104,7 @@ describe("ZeroExApiAdapter", () => {
 
       it("rejects wrong output token quantity", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
-          encodePath([ETH_ADDRESS, destToken]),
+          encodePath([wethToken, destToken]),
           otherQuantity,
           destination,
         ]);
@@ -1008,7 +1121,7 @@ describe("ZeroExApiAdapter", () => {
 
       it("rejects invalid uniswap path", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
-          encodePath([ETH_ADDRESS]),
+          encodePath([wethToken]),
           minDestinationQuantity,
           destination,
         ]);
@@ -1025,14 +1138,14 @@ describe("ZeroExApiAdapter", () => {
 
       it("rejects wrong destination", async () => {
         const data = zeroExMock.interface.encodeFunctionData("sellEthForTokenToUniswapV3", [
-          encodePath([ETH_ADDRESS, destToken]),
+          encodePath([wethToken, destToken]),
           minDestinationQuantity,
-          ADDRESS_ZERO,
+          destination,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           ETH_ADDRESS,
           destToken,
-          destination,
+          otherDestination,
           sourceQuantity,
           minDestinationQuantity,
           data,
