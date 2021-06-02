@@ -141,6 +141,13 @@ import {
 } from "../contracts/index";
 import { TokenSwap__factory } from "../../typechain/factories/TokenSwap__factory";
 
+import {
+  SwapRouter,
+  UniswapV3Factory
+} from "../contracts/uniswapV3";
+import { UniswapV3Factory__factory } from "../../typechain/factories/UniswapV3Factory__factory";
+import { SwapRouter__factory } from "../../typechain/factories/SwapRouter__factory";
+
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -558,5 +565,14 @@ export default class DeployExternalContracts {
   // AXIE-INFINITY
   public async deployTokenSwap(oldToken: Address, newToken: Address): Promise<TokenSwap> {
     return await new TokenSwap__factory(this._deployerSigner).deploy(oldToken, newToken);
+  }
+
+  // Uniswap V3
+  public async deployUniswapV3Factory(): Promise<UniswapV3Factory> {
+    return await new UniswapV3Factory__factory(this._deployerSigner).deploy();
+  }
+
+  public async deploySwapRouter(factory: Address, weth: Address): Promise<SwapRouter> {
+    return await new SwapRouter__factory(this._deployerSigner).deploy(factory, weth);
   }
 }

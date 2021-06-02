@@ -4,6 +4,7 @@ import { Address } from "../types";
 
 import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixture, UniswapFixture, YearnFixture } from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
+import { UniswapV3Fixture } from "@utils/fixtures/uniswapV3Fixture";
 
 // Hardhat-Provider Aware Exports
 const provider = ethers.provider;
@@ -16,6 +17,7 @@ export const getCurveFixture = (ownerAddress: Address) => new CurveFixture(provi
 export const getCompoundFixture = (ownerAddress: Address) => new CompoundFixture(provider, ownerAddress);
 export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(provider, ownerAddress);
 export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
+export const getUniswapV3Fixture = (ownerAddress: Address) => new UniswapV3Fixture(provider, ownerAddress);
 
 export {
   getAccounts,
