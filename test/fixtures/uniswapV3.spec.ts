@@ -1,6 +1,11 @@
 import "module-alias/register";
 
 import { Account } from "@utils/test/types";
+import { BigNumber, BigNumberish } from "ethers";
+import { StandardTokenMock } from "@typechain/StandardTokenMock";
+import { parseEther } from "ethers/lib/utils";
+import { SystemFixture, UniswapV3Fixture } from "@utils/fixtures";
+
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
@@ -8,12 +13,9 @@ import {
   getUniswapV3Fixture,
   getWaffleExpect,
 } from "@utils/test/index";
-import { SystemFixture, UniswapV3Fixture } from "@utils/fixtures";
+
 import { UniswapV3Pool } from "../../typechain/UniswapV3Pool";
-import { BigNumber, BigNumberish } from "ethers";
-import { StandardTokenMock } from "@typechain/StandardTokenMock";
-import { parseEther } from "ethers/lib/utils";
-import { WETH9 } from "@typechain/WETH9";
+import { WETH9 } from "../../typechain/WETH9";
 
 const expect = getWaffleExpect();
 
