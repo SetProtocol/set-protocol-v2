@@ -4,13 +4,17 @@ import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { BigNumber, BigNumberish, Signer } from "ethers";
 import { Address } from "../types";
 import { Account } from "../test/types";
-import { UniswapV3Factory } from "../../typechain/UniswapV3Factory";
-import { SwapRouter } from "../../typechain/SwapRouter";
-import { NonfungiblePositionManager } from "../../typechain/NonfungiblePositionManager";
-import { UniswapV3Pool } from "../../typechain/UniswapV3Pool";
+
+import {
+  UniswapV3Factory,
+  SwapRouter,
+  NonfungiblePositionManager,
+  UniswapV3Pool,
+  Quoter,
+  NFTDescriptor
+} from "../contracts/uniswapV3";
+
 import { UniswapV3Pool__factory } from "../../typechain/factories/UniswapV3Pool__factory";
-import { Quoter } from "../../typechain/Quoter";
-import { NFTDescriptor } from "../../typechain/NFTDescriptor";
 
 export class UniswapV3Fixture {
 
