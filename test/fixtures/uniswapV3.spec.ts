@@ -90,6 +90,5 @@ describe("UniswapV3Fixture", () => {
       const slot0 = await pool.slot0();
       expect(slot0.sqrtPriceX96).to.eq(subjectSqrtPriceX96);
     });
-
   });
 });

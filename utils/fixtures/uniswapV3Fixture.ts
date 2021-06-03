@@ -39,15 +39,15 @@ export class UniswapV3Fixture {
   }
 
   public async createNewPair(_token0: Address, _token1: Address, _fee: BigNumberish, _sqrtPriceX96: BigNumberish): Promise<UniswapV3Pool> {
-    if (BigNumber.from(_token0).gt(BigNumber.from(_token1))) {
-      const tmp  = _token0;
-      _token0 = _token1;
-      _token1 = tmp;
-    }
+    [ _token0, _token1 ] = this.getTokenOrder(_token0, _token1);
 
     await this.nftPositionManager.createAndInitializePoolIfNecessary(_token0, _token1, _fee, _sqrtPriceX96);
     const poolAddress = await this.factory.getPool(_token0, _token1, 3000);
 
     return UniswapV3Pool__factory.connect(poolAddress, this._ownerSigner);
+  }
+
+  public getTokenOrder(_token0: Address, _token1: Address): [Address, Address] {
+    return _token0.toLowerCase() < _token1.toLowerCase() ? [_token0, _token1] : [_token1, _token0];
   }
 }
