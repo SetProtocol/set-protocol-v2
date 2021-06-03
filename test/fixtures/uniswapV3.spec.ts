@@ -12,6 +12,8 @@ import { SystemFixture, UniswapV3Fixture } from "@utils/fixtures";
 import { UniswapV3Pool } from "../../typechain/UniswapV3Pool";
 import { BigNumber, BigNumberish } from "ethers";
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
+import { parseEther } from "ethers/lib/utils";
+import { WETH9 } from "@typechain/WETH9";
 
 const expect = getWaffleExpect();
 
@@ -89,6 +91,48 @@ describe("UniswapV3Fixture", () => {
 
       const slot0 = await pool.slot0();
       expect(slot0.sqrtPriceX96).to.eq(subjectSqrtPriceX96);
+    });
+  });
+
+  describe("#addLiquidityWide", async () => {
+
+    let subjectTokenOne: StandardTokenMock;
+    let subjectTokenTwo: StandardTokenMock | WETH9;
+    let subjectFee: number;
+    let subjectAmountOne: BigNumber;
+    let subjectAmountTwo: BigNumber;
+
+    async function subject(): Promise<void> {
+      await uniswapV3Fixture.addLiquidityWide(
+        subjectTokenOne.address,
+        subjectTokenTwo.address,
+        subjectFee,
+        subjectAmountOne,
+        subjectAmountTwo,
+        owner.address
+      );
+    }
+
+    beforeEach(async () => {
+      await uniswapV3Fixture.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
+
+      subjectTokenOne = setup.dai;
+      subjectTokenTwo = setup.weth;
+      subjectFee = 3000;
+      subjectAmountOne = parseEther("3000");
+      subjectAmountTwo = parseEther("1");
+
+      await subjectTokenOne.approve(uniswapV3Fixture.nftPositionManager.address, subjectAmountOne);
+      await subjectTokenTwo.approve(uniswapV3Fixture.nftPositionManager.address, subjectAmountTwo);
+    });
+
+    it("should add liquidity into the pool", async () => {
+      await subject();
+
+      const pool = await uniswapV3Fixture.getPool(subjectTokenOne.address, subjectTokenTwo.address, subjectFee);
+
+      expect(await subjectTokenOne.balanceOf(pool.address)).to.be.gt(0);
+      expect(await subjectTokenTwo.balanceOf(pool.address)).to.be.gt(0);
     });
   });
 });

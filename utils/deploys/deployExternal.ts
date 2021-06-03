@@ -1,6 +1,6 @@
 import { Signer } from "ethers";
 import { BigNumberish, BigNumber } from "@ethersproject/bignumber";
-import { ether, getRandomAddress } from "../common";
+import { ether } from "../common";
 
 import {
   CompoundPriceOracleMock,
@@ -146,12 +146,14 @@ import {
   SwapRouter,
   UniswapV3Factory,
   NonfungiblePositionManager,
-  Quoter
+  Quoter,
+  NFTDescriptor
 } from "../contracts/uniswapV3";
 import { UniswapV3Factory__factory } from "../../typechain/factories/UniswapV3Factory__factory";
 import { SwapRouter__factory } from "../../typechain/factories/SwapRouter__factory";
 import { NonfungiblePositionManager__factory } from "../../typechain/factories/NonfungiblePositionManager__factory";
 import { Quoter__factory } from "../../typechain/factories/Quoter__factory";
+import { NFTDescriptor__factory } from "../../typechain/factories/NFTDescriptor__factory";
 
 
 export default class DeployExternalContracts {
@@ -581,11 +583,15 @@ export default class DeployExternalContracts {
     return await new SwapRouter__factory(this._deployerSigner).deploy(factory, weth);
   }
 
-  public async deployNftPositionManager(factory: Address, weth: Address): Promise<NonfungiblePositionManager> {
-    return await new NonfungiblePositionManager__factory(this._deployerSigner).deploy(factory, weth, await getRandomAddress());
+  public async deployNftPositionManager(factory: Address, weth: Address, nftDesc: Address): Promise<NonfungiblePositionManager> {
+    return await new NonfungiblePositionManager__factory(this._deployerSigner).deploy(factory, weth, nftDesc);
   }
 
   public async deployQuoter(factory: Address, weth: Address): Promise<Quoter> {
     return await new Quoter__factory(this._deployerSigner).deploy(factory, weth);
+  }
+
+  public async deployNFTDescriptor(): Promise<NFTDescriptor> {
+    return await new NFTDescriptor__factory(this._deployerSigner).deploy();
   }
 }
