@@ -1,4 +1,5 @@
 import DeployHelper from "@utils/deploys";
+import { MAX_UINT_256 } from "@utils/constants";
 import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { BigNumber, BigNumberish, Signer } from "ethers";
 import { Address } from "../types";
@@ -9,7 +10,6 @@ import { NonfungiblePositionManager } from "../../typechain/NonfungiblePositionM
 import { UniswapV3Pool } from "../../typechain/UniswapV3Pool";
 import { UniswapV3Pool__factory } from "../../typechain/factories/UniswapV3Pool__factory";
 import { Quoter } from "../../typechain/Quoter";
-import { MAX_UINT_256 } from "@utils/constants";
 import { NFTDescriptor } from "../../typechain/NFTDescriptor";
 
 export class UniswapV3Fixture {
@@ -60,9 +60,7 @@ export class UniswapV3Fixture {
   ): Promise<void> {
 
     if (_token0.toLowerCase() > _token1.toLowerCase()) {
-      const tmp = _amount0;
-      _amount0 = _amount1;
-      _amount1 =  tmp;
+      [ _amount0, _amount1 ] = [ _amount1, _amount0 ];
     }
 
     [ _token0, _token1 ] = this.getTokenOrder(_token0, _token1);
