@@ -8,6 +8,7 @@ import { SwapRouter } from "../../typechain/SwapRouter";
 import { NonfungiblePositionManager } from "../../typechain/NonfungiblePositionManager";
 import { UniswapV3Pool } from "../../typechain/UniswapV3Pool";
 import { UniswapV3Pool__factory } from "../../typechain/factories/UniswapV3Pool__factory";
+import { Quoter } from "../../typechain/Quoter";
 
 export class UniswapV3Fixture {
 
@@ -17,6 +18,7 @@ export class UniswapV3Fixture {
   public factory: UniswapV3Factory;
   public swapRouter: SwapRouter;
   public nftPositionManager: NonfungiblePositionManager;
+  public quoter: Quoter;
 
   public wethDaiPool: UniswapV3Pool;
   public wethWbtcPool: UniswapV3Pool;
@@ -30,6 +32,7 @@ export class UniswapV3Fixture {
     this.factory = await this._deployer.external.deployUniswapV3Factory();
     this.swapRouter = await this._deployer.external.deploySwapRouter(this.factory.address, _weth);
     this.nftPositionManager = await this._deployer.external.deployNftPositionManager(this.factory.address, _weth);
+    this.quoter = await this._deployer.external.deployQuoter(this.factory.address, _weth);
 
     this.wethDaiPool = await this.createNewPair(_weth, _dai, 3000, BigNumber.from("1490848768284521510823413542"));
     this.wethWbtcPool = await this.createNewPair(_weth, _wbtc, 3000, BigNumber.from("29401863719336700257425437085560862"));

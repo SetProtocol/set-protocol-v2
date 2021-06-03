@@ -56,6 +56,12 @@ describe("UniswapV3Fixture", () => {
 
       expect(await uniswapV3Fixture.nftPositionManager.WETH9()).to.eq(setup.weth.address);
     });
+
+    it("should deploy a quoter with the correct WETH address", async () => {
+      await subject();
+
+      expect(await uniswapV3Fixture.quoter.WETH9()).to.eq(setup.weth.address);
+    });
   });
 
   describe("#createPool", async () => {
