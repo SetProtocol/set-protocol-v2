@@ -50,7 +50,7 @@ contract UniswapV3ExchangeAdapter {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Return calldata for Uniswap V2 Router02
+     * Return calldata for Uniswap V3 SwapRouter
      *
      * @param  _sourceToken              Address of source token to be sold
      * @param  _destinationToken         Address of destination token to buy
