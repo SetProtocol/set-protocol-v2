@@ -81,7 +81,9 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      * @param _sourceQuantity           Fixed/Max amount of source token to sell
      * @param _destinationQuantity      Min/Fixed amount of destination token to buy
      * @param _data                     Arbitrary bytes containing fees value, expressed in hundredths of a bip, 
-     *                                  used to determine the pool to trade among similar asset pools on Uniswap V3
+     *                                  used to determine the pool to trade among similar asset pools on Uniswap V3.
+     *                                  Note: SetToken manager must set the appropriate pool fees via `setExchangeData` in GeneralIndexModule 
+     *                                  for each component that needs to be traded on UniswapV3
      *
      * @return address                  Target contract address
      * @return uint256                  Call value
