@@ -46,4 +46,8 @@ interface IComptroller {
     function getAllMarkets() external view returns (ICErc20[] memory);
 
     function claimComp(address holder) external;
+
+    function compAccrued(address holder) external view returns (uint);
+
+    function getCompAddress() external view returns (address);
 }

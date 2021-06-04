@@ -3,6 +3,7 @@ import { Signer } from "ethers";
 import {
   AaveGovernanceAdapter,
   AaveGovernanceV2Adapter,
+  AxieInfinityMigrationWrapAdapter,
   BalancerV1IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
@@ -22,13 +23,15 @@ import {
   ZeroExApiAdapter,
   SnapshotGovernanceAdapter,
   SynthetixExchangeAdapter,
-  CompoundBravoGovernanceAdapter
+  CompoundBravoGovernanceAdapter,
+  CompClaimAdapter,
 } from "../contracts";
 import { convertLibraryNameToLinkId } from "../common";
 import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
+import { AxieInfinityMigrationWrapAdapter__factory } from "../../typechain/factories/AxieInfinityMigrationWrapAdapter__factory";
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
@@ -49,6 +52,7 @@ import { UniswapV3IndexExchangeAdapter__factory } from "../../typechain/factorie
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
+import { CompClaimAdapter__factory } from "../../typechain";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -116,6 +120,14 @@ export default class DeployAdapters {
     return await new AaveWrapAdapter__factory(this._deployerSigner).deploy(aaveLendingPool);
   }
 
+  public async deployAxieInfinityMigrationWrapAdapter(
+    tokenSwap: Address,
+    oldToken: Address,
+    newToken: Address
+  ): Promise<AxieInfinityMigrationWrapAdapter> {
+    return await new AxieInfinityMigrationWrapAdapter__factory(this._deployerSigner).deploy(tokenSwap, oldToken, newToken);
+  }
+
   public async deployCompoundWrapAdapter(libraryName: string, libraryAddress: Address): Promise<CompoundWrapAdapter> {
     const linkId = convertLibraryNameToLinkId(libraryName);
     return await new CompoundWrapAdapter__factory(
@@ -125,6 +137,10 @@ export default class DeployAdapters {
       },
       this._deployerSigner
     ).deploy();
+  }
+
+  public async deployCompClaimAdapter(comptrollerAddress: Address): Promise<CompClaimAdapter> {
+    return await new CompClaimAdapter__factory(this._deployerSigner).deploy(comptrollerAddress);
   }
 
   public async deployYearnWrapAdapter(): Promise<YearnWrapAdapter> {

@@ -1,6 +1,6 @@
 {
   "name": "@setprotocol/set-protocol-v2",
-  "version": "0.0.36",
+  "version": "0.0.37",
   "description": "",
   "main": "dist",
   "types": "dist/types",
@@ -15,10 +15,13 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "yarn compile && yarn patch-hardhat-typechain && yarn typechain && yarn fix-typechain && yarn transpile-dist",
+    "build": "yarn compile && yarn build:typechain",
+    "build:npm": "yarn compile:npm && yarn build:typechain",
+    "build:typechain": "yarn patch-hardhat-typechain && yarn typechain && yarn fix-typechain && yarn transpile-dist",
     "chain": "npx hardhat node --no-deploy",
-    "clean": "rm -f coverage.json; rm -rf .coverage_cache; rm -rf .coverage_contracts; rm -rf cache; rm -rf coverage; rm -rf typechain; rm -rf artifacts",
+    "clean": "rm -rf coverage.json .coverage_cache .coverage_contracts cache coverage typechain artifacts dist",
     "compile": "npx hardhat compile",
+    "compile:npm": "SKIP_ABI_GAS_MODS=true npx hardhat compile",
     "coverage": "yarn clean && yarn build && yarn cov:command",
     "cov:command": "COVERAGE=true node --max-old-space-size=4096 ./node_modules/.bin/hardhat coverage",
     "etherscan:verify": "hardhat --network kovan etherscan-verify --solc-input --license 'None'",
@@ -30,7 +33,7 @@
     "patch-hardhat-typechain": "node scripts/patch-hardhat-typechain.js",
     "precommit": "lint-staged",
     "prepare": "yarn build",
-    "prepack": "if [[ \"$(basename \"$PWD\")\" == \"set-protocol-v2-contracts\" ]]; then echo \"CANNOT PUBLISH FROM THIS REPO\"; exit 1; fi;",
+    "prepublishOnly": "yarn clean && yarn build:npm",
     "rename-extensions": "for f in typechain/*.d.ts; do mv -- \"$f\" \"${f%.d.ts}.ts\"; done",
     "test": "npx hardhat test --network localhost",
     "test:clean": "yarn clean && yarn build && yarn test",
@@ -48,8 +51,7 @@
   "license": "MIT",
   "homepage": "https://github.com/SetProtocol",
   "devDependencies": {
-    "@ethersproject/bignumber": "^5.0.12",
-    "@ethersproject/providers": "^5.0.17",
+    "@0x/utils": "^6.4.3",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/contracts": "^3.1.0",
@@ -66,7 +68,6 @@
     "coveralls": "^3.0.1",
     "dotenv": "^8.2.0",
     "ethereum-waffle": "^3.2.1",
-    "ethers": "^5.0.24",
     "hardhat": "2.2.1",
     "hardhat-deploy": "^0.7.0-beta.39",
     "hardhat-typechain": "^0.3.4",
@@ -86,10 +87,18 @@
   },
   "dependencies": {
     "@uniswap/v3-core": "^1.0.0",
+    "@ethersproject/bignumber": "5.0.12",
+    "@ethersproject/providers": "5.0.17",
+    "ethers": "5.0.24",
     "fs-extra": "^5.0.0",
     "module-alias": "^2.2.2",
     "replace-in-file": "^6.1.0",
     "typechain": "^4.0.1"
+  },
+  "peerDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.1",
+    "ethereum-waffle": "^3.2.1",
+    "hardhat": "^2.2.1"
   },
   "_moduleAliases": {
     "@utils": "utils",

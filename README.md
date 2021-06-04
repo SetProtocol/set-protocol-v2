@@ -35,13 +35,27 @@ brew install https://raw.githubusercontent.com/ethereum/homebrew-ethereum/06d13a
 
 ### Run Contract Tests
 
-`yarn test` to run compiled contracts 
+`yarn test` to run compiled contracts
 
 OR `yarn test:clean` if contracts have been typings need to be updated
 
 ### Run Coverage Report for Tests
 
 `yarn coverage`
+
+## Installing from `npm`
+
+We publish our contracts as well as [hardhat][22] and [typechain][23] compilation artifacts to npm.
+
+The distribution also comes with fixtures for mocking and testing SetProtocol's interactions with
+other protocols including Uniswap, Balancer, Compound (and many more.) To use these you'll need to install the peer dependencies listed in `package.json`.
+
+```
+npm install @setprotocol/set-protocol-v2
+```
+
+[22]: https://www.npmjs.com/package/hardhat
+[23]: https://www.npmjs.com/package/typechain
 
 ## Contributing
 We highly encourage participation from the community to help shape the development of Set. If you are interested in developing on top of Set Protocol or have any questions, please ping us on [Telegram](https://t.me/joinchat/Fx8D6wyprLUlM1jMVnaRdg).
