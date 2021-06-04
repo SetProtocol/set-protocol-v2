@@ -66,8 +66,8 @@ export class UniswapV3Fixture {
    * @param _token0         address of the first token
    * @param _token1         address of the second token
    * @param _fee            fee tier of either 500, 3000, or 10000
-   * @param _sqrtPriceX96   the initial price parameter equal to sqrt(priceToken0 / priceToken1) * 2^96
-   * @returns
+   * @param _sqrtPriceX96   the initial price parameter equal to sqrt(priceToken1 / priceToken0) * 2^96
+   * @returns               a new Uniswap V3 pool
    */
   public async createNewPair(_token0: Address, _token1: Address, _fee: BigNumberish, _sqrtPriceX96: BigNumberish): Promise<UniswapV3Pool> {
     [ _token0, _token1 ] = this.getTokenOrder(_token0, _token1);

@@ -3,7 +3,7 @@ import "module-alias/register";
 import { Account } from "@utils/test/types";
 import { BigNumber, BigNumberish } from "ethers";
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
-import { parseEther } from "ethers/lib/utils";
+import { parseEther, parseUnits } from "ethers/lib/utils";
 import { SystemFixture, UniswapV3Fixture } from "@utils/fixtures";
 
 import {
@@ -118,11 +118,19 @@ describe("UniswapV3Fixture", () => {
     beforeEach(async () => {
       await uniswapV3Fixture.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
 
-      subjectTokenOne = setup.dai;
-      subjectTokenTwo = setup.weth;
+      subjectTokenOne = setup.usdc;
+      subjectTokenTwo = setup.dai;
       subjectFee = 3000;
-      subjectAmountOne = parseEther("3000");
-      subjectAmountTwo = parseEther("1");
+      subjectAmountOne = parseUnits("1000", 6);
+      subjectAmountTwo = parseEther("1000");
+
+      const sqrtPrice = BigNumber.from(Math.sqrt(1e12)).mul(BigNumber.from(2).pow(96)); // 1e18 / 1e6 sqrtPrice
+      await uniswapV3Fixture.createNewPair(
+        subjectTokenOne.address,
+        subjectTokenTwo.address,
+        subjectFee,
+        sqrtPrice
+      );
 
       await subjectTokenOne.approve(uniswapV3Fixture.nftPositionManager.address, subjectAmountOne);
       await subjectTokenTwo.approve(uniswapV3Fixture.nftPositionManager.address, subjectAmountTwo);
@@ -133,8 +141,8 @@ describe("UniswapV3Fixture", () => {
 
       const pool = await uniswapV3Fixture.getPool(subjectTokenOne.address, subjectTokenTwo.address, subjectFee);
 
-      expect(await subjectTokenOne.balanceOf(pool.address)).to.be.gt(0);
-      expect(await subjectTokenTwo.balanceOf(pool.address)).to.be.gt(0);
+      expect(await subjectTokenOne.balanceOf(pool.address)).to.eq(subjectAmountOne);
+      expect(await subjectTokenTwo.balanceOf(pool.address)).to.eq(subjectAmountTwo);
     });
   });
 });
