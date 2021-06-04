@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { hexlify, solidityPack, hexZeroPad } from "ethers/lib/utils";
+import { hexlify, hexZeroPad } from "ethers/lib/utils";
 import { BigNumber } from "@ethersproject/bignumber";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -97,7 +97,6 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     let sourceQuantity: BigNumber;
     let destinationQuantity: BigNumber;
     let poolFeesPercentage: BigNumber;
-    let path: Bytes;
 
     let subjectMockSetToken: Address;
     let subjectSourceToken: Address;
@@ -113,10 +112,6 @@ describe("UniswapV3IndexExchangeAdapter", () => {
       destinationToken = setup.dai.address;        // DAI Address
       destinationQuantity = ether(50000);          // Receive at least 50k DAI
       poolFeesPercentage = BigNumber.from(3000);   // 0.3% fee
-      path = solidityPack(
-        ["address", "uint24", "address"],
-        [sourceToken, poolFeesPercentage, destinationToken]
-      );
 
       subjectSourceToken = sourceToken;
       subjectDestinationToken = destinationToken;
@@ -145,12 +140,15 @@ describe("UniswapV3IndexExchangeAdapter", () => {
 
         const callTimestamp = await getLastBlockTimestamp();
 
-        const expectedCallData = swapRouter.interface.encodeFunctionData("exactInput", [{
-          path: path,
+        const expectedCallData = swapRouter.interface.encodeFunctionData("exactInputSingle", [{
+          tokenIn: sourceToken,
+          tokenOut: destinationToken,
+          fee: poolFeesPercentage,
           recipient: subjectMockSetToken,
           deadline: callTimestamp,
           amountIn: sourceQuantity,
           amountOutMinimum: destinationQuantity,
+          sqrtPriceLimitX96: 0,
         }]);
 
         expect(tragetAddress).to.eq(swapRouter.address);
@@ -169,12 +167,15 @@ describe("UniswapV3IndexExchangeAdapter", () => {
 
         const callTimestamp = await getLastBlockTimestamp();
 
-        const expectedCallData = swapRouter.interface.encodeFunctionData("exactOutput", [{
-          path: path,
+        const expectedCallData = swapRouter.interface.encodeFunctionData("exactOutputSingle", [{
+          tokenIn: sourceToken,
+          tokenOut: destinationToken,
+          fee: poolFeesPercentage,
           recipient: subjectMockSetToken,
           deadline: callTimestamp,
           amountOut: destinationQuantity,
           amountInMaximum: sourceQuantity,
+          sqrtPriceLimitX96: 0,
         }]);
 
         expect(tragetAddress).to.eq(swapRouter.address);

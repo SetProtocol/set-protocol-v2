@@ -43,9 +43,9 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
     /* ============ Constants ============ */
 
     // Uniswap router function string for swapping exact amount of input tokens for a minimum of output tokens
-    string internal constant SWAP_EXACT_INPUT = "exactInput((bytes,address,uint256,uint256,uint256))";
+    string internal constant SWAP_EXACT_INPUT = "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))";
     // Uniswap router function string for swapping max amoutn of input tokens for an exact amount of output tokens
-    string internal constant SWAP_EXACT_OUTPUT = "exactOutput((bytes,address,uint256,uint256,uint256))";
+    string internal constant SWAP_EXACT_OUTPUT = "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))";
     
     /* ============ Constructor ============ */
 
@@ -101,16 +101,34 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
         override
         returns (address, uint256, bytes memory)
     {   
-        uint24 fees = _data.toUint24(0);
-        bytes memory path = abi.encodePacked(_sourceToken, fees, _destinationToken);
+        uint24 fee = _data.toUint24(0);
+        bytes memory path = abi.encodePacked(_sourceToken, fee, _destinationToken);
         
         bytes memory callData = _isSendTokenFixed
             ? abi.encodeWithSignature(
                 SWAP_EXACT_INPUT,
-                ISwapRouter.ExactInputParams(path, _destinationAddress, block.timestamp, _sourceQuantity, _destinationQuantity)
+                ISwapRouter.ExactInputSingleParams(
+                    _sourceToken, 
+                    _destinationToken, 
+                    fee, 
+                    _destinationAddress, 
+                    block.timestamp, 
+                    _sourceQuantity, 
+                    _destinationQuantity, 
+                    0
+                )
             ) : abi.encodeWithSignature(
                 SWAP_EXACT_OUTPUT,                
-                ISwapRouter.ExactOutputParams(path, _destinationAddress, block.timestamp, _destinationQuantity, _sourceQuantity)
+                ISwapRouter.ExactOutputSingleParams(
+                    _sourceToken, 
+                    _destinationToken, 
+                    fee, 
+                    _destinationAddress,
+                    block.timestamp,
+                    _destinationQuantity, 
+                    _sourceQuantity,
+                    0
+                )
             );
         
         return (router, 0, callData);
