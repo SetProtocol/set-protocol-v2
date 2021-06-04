@@ -91,44 +91,13 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     });
   });
 
-
-  describe("getEncodedTradePath", async () => {
-    let subjectFees: BigNumber;
-    let subjectSourceToken: Address;
-    let subjectDestinationToken: Address;
-
-    beforeEach(async () => {
-      subjectFees = BigNumber.from(10000);    // 1% pool fees
-      subjectSourceToken = setup.wbtc.address;
-      subjectDestinationToken = setup.dai.address;
-    });
-
-    async function subject(): Promise<any> {
-      return await uniswapV3ExchangeAdapter.getEncodedTradePath(
-        subjectSourceToken,
-        subjectFees,
-        subjectDestinationToken
-      );
-    }
-
-    it("should return the correct data", async () => {
-      const tradePathData = await subject();
-
-      const expectedTradePathData = solidityPack(
-        ["address", "uint24", "address"],
-        [subjectSourceToken, subjectFees, subjectDestinationToken]
-      );
-
-      expect(tradePathData).to.eq(expectedTradePathData);
-    });
-  });
-
   describe("getTradeCalldata", async () => {
     let sourceToken: Address;
     let destinationToken: Address;
     let sourceQuantity: BigNumber;
     let destinationQuantity: BigNumber;
     let poolFeesPercentage: BigNumber;
+    let path: Bytes;
 
     let subjectMockSetToken: Address;
     let subjectSourceToken: Address;
@@ -144,6 +113,10 @@ describe("UniswapV3IndexExchangeAdapter", () => {
       destinationToken = setup.dai.address;        // DAI Address
       destinationQuantity = ether(50000);          // Receive at least 50k DAI
       poolFeesPercentage = BigNumber.from(3000);   // 0.3% fee
+      path = solidityPack(
+        ["address", "uint24", "address"],
+        [sourceToken, poolFeesPercentage, destinationToken]
+      );
 
       subjectSourceToken = sourceToken;
       subjectDestinationToken = destinationToken;
@@ -171,11 +144,6 @@ describe("UniswapV3IndexExchangeAdapter", () => {
         const [tragetAddress, ethValue, callData] = await subject();
 
         const callTimestamp = await getLastBlockTimestamp();
-        const path: Bytes = await uniswapV3ExchangeAdapter.getEncodedTradePath(
-          sourceToken,
-          poolFeesPercentage,
-          destinationToken
-        );
 
         const expectedCallData = swapRouter.interface.encodeFunctionData("exactInput", [{
           path: path,
@@ -200,11 +168,6 @@ describe("UniswapV3IndexExchangeAdapter", () => {
         const [tragetAddress, ethValue, callData] = await subject();
 
         const callTimestamp = await getLastBlockTimestamp();
-        const path: Bytes = await uniswapV3ExchangeAdapter.getEncodedTradePath(
-          sourceToken,
-          poolFeesPercentage,
-          destinationToken
-        );
 
         const expectedCallData = swapRouter.interface.encodeFunctionData("exactOutput", [{
           path: path,

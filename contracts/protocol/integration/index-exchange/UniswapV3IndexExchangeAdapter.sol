@@ -16,11 +16,11 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity >=0.7.5;
-pragma abicoder v2;
+pragma solidity 0.6.10;
+pragma experimental "ABIEncoderV2";
 
-import { ISwapRouter } from  "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import { BytesLib } from "@uniswap/v3-periphery/contracts/libraries/BytesLib.sol";
+import { ISwapRouter } from  "contracts/interfaces/external/ISwapRouter.sol";
+import { BytesLib } from "contracts/lib/BytesLib.sol";
 
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
 
@@ -39,6 +39,9 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
 
     // Address of Uniswap V3 SwapRouter contract
     address public immutable router;
+
+    /* ============ Constants ============ */
+
     // Uniswap router function string for swapping exact amount of input tokens for a minimum of output tokens
     string internal constant SWAP_EXACT_INPUT = "exactInput((bytes,address,uint256,uint256,uint256))";
     // Uniswap router function string for swapping max amoutn of input tokens for an exact amount of output tokens
@@ -51,7 +54,7 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      *
      * @param _router       Address of Uniswap V3 SwapRouter contract
      */
-    constructor(address _router) {
+    constructor(address _router) public {
         router = _router;
     }
 
@@ -78,7 +81,7 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      * @param _sourceQuantity           Fixed/Max amount of source token to sell
      * @param _destinationQuantity      Min/Fixed amount of destination token to buy
      * @param _data                     Arbitrary bytes containing fees value, expressed in hundredths of a bip, 
-     *                                      used to determine the pool to trade among similar asset pools on Uniswap V3
+     *                                  used to determine the pool to trade among similar asset pools on Uniswap V3
      *
      * @return address                  Target contract address
      * @return uint256                  Call value
@@ -120,18 +123,5 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      */
     function getSpender() external view override returns (address) {
         return router;
-    }
-
-    /**
-     * Helper that returns the encoded data of Uniswap V3 trade path.
-     *
-     * @param _sourceToken             Address of source token to be sold
-     * @param _fees                    Fees of the Uniswap V3 pool to be used, expressed in hundredths of a bip
-     * @param _destinationToken        Address of destination token to buy
-     *
-     * @return bytes                   Encoded data used for trading on Uniswap
-     */
-    function getEncodedTradePath(address _sourceToken, uint24 _fees, address _destinationToken) external pure returns (bytes memory) {
-        return abi.encodePacked(_sourceToken, _fees, _destinationToken);
     }
 } 
