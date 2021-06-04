@@ -26,7 +26,7 @@ import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
 import { IController } from "../../../interfaces/IController.sol";
 import { IPriceOracle } from "../../../interfaces/IPriceOracle.sol";
 import { IUniswapV2Pair } from "../../../interfaces/external/IUniswapV2Pair.sol";
-import { UniswapV2Library } from "../../../../external/contracts/uniswap/lib/UniswapV2Library.sol";
+import { UniswapV2Library } from "../../../../external/contracts/uniswap/v2/lib/UniswapV2Library.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { ResourceIdentifier } from "../../lib/ResourceIdentifier.sol";
 
