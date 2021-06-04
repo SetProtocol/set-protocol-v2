@@ -120,8 +120,6 @@ describe("UniswapV3ExchangeAdapter", () => {
       const calldata = await subject();
       const callTimestamp = await getLastBlockTimestamp();
 
-      console.log(subjectPath);
-
       const expectedCallData = uniswapV3Fixture.swapRouter.interface.encodeFunctionData("exactInput", [{
         path: subjectPath,
         recipient: mockSetToken.address,
