@@ -179,8 +179,8 @@ export default class DeployAdapters {
     return await new UniswapV3IndexExchangeAdapter__factory(this._deployerSigner).deploy(router);
   }
 
-  public async deployZeroExApiAdapter(zeroExAddress: Address): Promise<ZeroExApiAdapter> {
-    return await new ZeroExApiAdapter__factory(this._deployerSigner).deploy(zeroExAddress);
+  public async deployZeroExApiAdapter(zeroExAddress: Address, wethAddress: Address): Promise<ZeroExApiAdapter> {
+    return await new ZeroExApiAdapter__factory(this._deployerSigner).deploy(zeroExAddress, wethAddress);
   }
 
   public async deploySnapshotGovernanceAdapter(delegateRegistry: Address): Promise<SnapshotGovernanceAdapter> {

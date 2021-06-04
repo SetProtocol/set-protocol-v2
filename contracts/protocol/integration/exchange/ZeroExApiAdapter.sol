@@ -67,14 +67,17 @@ contract ZeroExApiAdapter {
 
     // Address of the deployed ZeroEx contract.
     address public immutable zeroExAddress;
+    // Address of the WETH9 contract.
+    address public immutable wethAddress;
 
     // Returns the address to approve source tokens to for trading. This is the TokenTaker address
     address public immutable getSpender;
 
     /* ============ constructor ============ */
 
-    constructor(address _zeroExAddress) public {
+    constructor(address _zeroExAddress, address _wethAddress) public {
         zeroExAddress = _zeroExAddress;
+        wethAddress = _wethAddress;
         getSpender = _zeroExAddress;
     }
 
@@ -135,6 +138,9 @@ contract ZeroExApiAdapter {
                 (inputToken, outputToken, , recipient, inputTokenAmount, minOutputTokenAmount) =
                     abi.decode(_data[4:], (address, address, address, address, uint256, uint256));
                 supportsRecipient = true;
+                if (recipient == address(0)) {
+                    recipient = _destinationAddress;
+                }
             } else if (selector == 0xd9627aa4) {
                 // sellToUniswap()
                 address[] memory path;
@@ -166,6 +172,9 @@ contract ZeroExApiAdapter {
                 (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
                     abi.decode(_data[4:], (bytes, uint256, uint256, address));
                 supportsRecipient = true;
+                if (recipient == address(0)) {
+                    recipient = _destinationAddress;
+                }
                 (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
             } else if (selector == 0x803ba26d) {
                 // sellTokenForEthToUniswapV3()
@@ -173,7 +182,12 @@ contract ZeroExApiAdapter {
                 (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
                     abi.decode(_data[4:], (bytes, uint256, uint256, address));
                 supportsRecipient = true;
+                if (recipient == address(0)) {
+                    recipient = _destinationAddress;
+                }
                 (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
+                require(outputToken == wethAddress, "Last token must be WETH");
+                outputToken = ETH_ADDRESS;
             } else if (selector == 0x3598d8ab) {
                 // sellEthForTokenToUniswapV3()
                 inputTokenAmount = _sourceQuantity;
@@ -181,7 +195,11 @@ contract ZeroExApiAdapter {
                 (encodedPath, minOutputTokenAmount, recipient) =
                     abi.decode(_data[4:], (bytes,  uint256, address));
                 supportsRecipient = true;
-                (, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
+                if (recipient == address(0)) {
+                    recipient = _destinationAddress;
+                }
+                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
+                require(inputToken == wethAddress, "First token must be WETH");
                 inputToken = ETH_ADDRESS;
             } else {
                 revert("Unsupported 0xAPI function selector");

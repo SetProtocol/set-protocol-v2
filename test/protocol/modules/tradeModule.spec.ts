@@ -132,7 +132,7 @@ describe("TradeModule", () => {
         BigNumber.from(100000000), // 1 WBTC
         wbtcRate, // Trades for 33 WETH
     );
-    zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExMock.address);
+    zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExMock.address, setup.weth.address);
 
 
     kyberAdapterName = "KYBER";
