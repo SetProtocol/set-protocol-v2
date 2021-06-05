@@ -8,11 +8,9 @@ pragma abicoder v2;
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
-
 /// @title Router token swapping functionality
 /// @notice Functions for swapping tokens via Uniswap V3
-interface ISwapRouter is IUniswapV3SwapCallback {
+interface ISwapRouter {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
