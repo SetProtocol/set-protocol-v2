@@ -35,11 +35,6 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
 
     using BytesLib for bytes;
     
-    /* ============ State Variables ============ */
-
-    // Address of Uniswap V3 SwapRouter contract
-    address public immutable router;
-
     /* ============ Constants ============ */
 
     // Uniswap router function string for swapping exact amount of input tokens for a minimum of output tokens
@@ -47,6 +42,11 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
     // Uniswap router function string for swapping max amoutn of input tokens for an exact amount of output tokens
     string internal constant SWAP_EXACT_OUTPUT = "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))";
     
+    /* ============ State Variables ============ */
+
+    // Address of Uniswap V3 SwapRouter contract
+    address public immutable router;
+
     /* ============ Constructor ============ */
 
     /**
@@ -83,7 +83,8 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      * @param _data                     Arbitrary bytes containing fees value, expressed in hundredths of a bip, 
      *                                  used to determine the pool to trade among similar asset pools on Uniswap V3.
      *                                  Note: SetToken manager must set the appropriate pool fees via `setExchangeData` in GeneralIndexModule 
-     *                                  for each component that needs to be traded on UniswapV3
+     *                                  for each component that needs to be traded on UniswapV3. This is different from UniswapV3ExchangeAdapter, 
+     *                                  where `_data` represents UniswapV3 trade path vs just the pool fees percentage. 
      *
      * @return address                  Target contract address
      * @return uint256                  Call value
@@ -104,7 +105,6 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
         returns (address, uint256, bytes memory)
     {   
         uint24 fee = _data.toUint24(0);
-        bytes memory path = abi.encodePacked(_sourceToken, fee, _destinationToken);
         
         bytes memory callData = _isSendTokenFixed
             ? abi.encodeWithSignature(
@@ -143,5 +143,16 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      */
     function getSpender() external view override returns (address) {
         return router;
+    }
+
+    /**
+     * Helper that returns encoded fee value.
+     *
+     * @param fee                  UniswapV3 pool fee percentage, expressed in hundredths of a bip
+     *
+     * @return bytes               Encoded fee value
+     */
+    function getEncodedFeeData(uint24 fee) external view returns (bytes memory) {
+        return abi.encodePacked(fee);
     }
 } 

@@ -184,4 +184,23 @@ describe("UniswapV3IndexExchangeAdapter", () => {
       });
     });
   });
+
+  describe("getEncodedFeeData", async () => {
+    let subjectFee: BigNumber;
+
+    beforeEach(async () => {
+      subjectFee = BigNumber.from(1000);
+    });
+
+    async function subject(): Promise<any> {
+      return await uniswapV3ExchangeAdapter.getEncodedFeeData(subjectFee);
+    }
+
+    it("Should return correct bytes encoded fee data", async () => {
+      const encodedFeeData = await subject();
+
+      const expectedEncodedFeeData = constructFeesData(subjectFee);
+      expect(encodedFeeData).to.eq(expectedEncodedFeeData);
+    });
+  });
 });
