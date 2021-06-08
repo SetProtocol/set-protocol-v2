@@ -15,7 +15,8 @@ import {
   getSystemFixture,
   getWaffleExpect,
   getLastBlockTimestamp,
-  getUniswapV3Fixture
+  getUniswapV3Fixture,
+  getRandomAddress
 } from "@utils/test/index";
 
 import { SystemFixture, UniswapV3Fixture } from "@utils/fixtures";
@@ -131,6 +132,26 @@ describe("UniswapV3ExchangeAdapter", () => {
       }]);
 
       expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapV3Fixture.swapRouter.address, ZERO, expectedCallData]));
+    });
+
+    context("when source token does not match path", async () => {
+      beforeEach(async () => {
+        subjectSourceToken = await getRandomAddress();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("UniswapV3ExchangeAdapter: path mismatch");
+      });
+    });
+
+    context("when destination token does not match path", async () => {
+      beforeEach(async () => {
+        subjectDestinationToken = await getRandomAddress();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("UniswapV3ExchangeAdapter: path mismatch");
+      });
     });
   });
 

@@ -19,6 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { BytesLib } from "../../../../external/contracts/uniswap/v3/lib/BytesLib.sol";
 import { ISwapRouter } from "../../../interfaces/external/ISwapRouter.sol";
 
 
@@ -81,6 +82,12 @@ contract UniswapV3ExchangeAdapter {
         view
         returns (address, uint256, bytes memory)
     {
+
+        address sourceFromPath = _data.toAddress(0);
+        require(_sourceToken == sourceFromPath, "UniswapV3ExchangeAdapter: path mismatch");
+
+        address destinationFromPath = _data.toAddress(_data.length - 20);
+        require(_destinationToken == destinationFromPath, "UniswapV3ExchangeAdapter: path mismatch");
 
         ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams(
             _data,
