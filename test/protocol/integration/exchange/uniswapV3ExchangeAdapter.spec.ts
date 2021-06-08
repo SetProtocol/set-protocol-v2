@@ -44,9 +44,11 @@ describe("UniswapV3ExchangeAdapter", () => {
     uniswapV3Fixture = getUniswapV3Fixture(owner.address);
     await uniswapV3Fixture.initialize(
       owner,
-      setup.weth.address,
-      setup.wbtc.address,
-      setup.dai.address
+      setup.weth,
+      2500,
+      setup.wbtc,
+      35000,
+      setup.dai
     );
 
     uniswapV3ExchangeAdapter = await deployer.adapters.deployUniswapV3ExchangeAdapter(uniswapV3Fixture.swapRouter.address);
