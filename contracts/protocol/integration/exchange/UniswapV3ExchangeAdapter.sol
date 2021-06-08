@@ -21,6 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 import { ISwapRouter } from "../../../interfaces/external/ISwapRouter.sol";
 
+
 /**
  * @title UniswapV3TradeAdapter
  * @author Set Protocol
@@ -29,12 +30,17 @@ import { ISwapRouter } from "../../../interfaces/external/ISwapRouter.sol";
  */
 contract UniswapV3ExchangeAdapter {
 
+    using BytesLib for bytes;
+
+    /* ============= Constants ================= */
+
+    // signature of exactInput SwapRouter function
+    string internal constant EXACT_INPUT = "exactInput((bytes,address,uint256,uint256,uint256))";
+
     /* ============ State Variables ============ */
 
     // Address of Uniswap V3 SwapRouter contract
     address public immutable swapRouter;
-
-    string internal constant EXACT_INPUT = "exactInput((bytes,address,uint256,uint256,uint256))";
 
     /* ============ Constructor ============ */
 
@@ -57,7 +63,7 @@ contract UniswapV3ExchangeAdapter {
      * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Amount of source token to sell
      * @param  _minDestinationQuantity   Min amount of destination token to buy
-     * @param  _data                     Uniswap V3 path
+     * @param  _data                     Uniswap V3 path. Equals the output of the generateDataParam function
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
@@ -75,6 +81,7 @@ contract UniswapV3ExchangeAdapter {
         view
         returns (address, uint256, bytes memory)
     {
+
         ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams(
             _data,
             _destinationAddress,
@@ -97,17 +104,19 @@ contract UniswapV3ExchangeAdapter {
     }
 
     /**
-     * Returns the appropriate _data argument for getTradeCalldata
+     * Returns the appropriate _data argument for getTradeCalldata. Equal to the encodePacked path with the
+     * fee of each hop between it, e.g [token1, fee1, token2, fee2, token3]. Note: _fees.length == _path.length - 1
      *
      * @param _path array of addresses to use as the path for the trade
      * @param _fees array of uint24 representing the pool fee to use for each hop
      */
     function generateDataParam(address[] calldata _path, uint24[] calldata _fees) external pure returns (bytes memory) {
         bytes memory data = "";
-        for (uint256 i = 0; i < _path.length-1; i++) {
+        for (uint256 i = 0; i < _path.length - 1; i++) {
             data = abi.encodePacked(data, _path[i], _fees[i]);
         }
 
-        return abi.encodePacked(data, _path[_path.length-1]);
+        // last encode has no fee associated with it since _fees.length == _path.length - 1
+        return abi.encodePacked(data, _path[_path.length - 1]);
     }
 } 
