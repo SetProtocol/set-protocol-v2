@@ -55,15 +55,15 @@ export class UniswapV3Fixture {
    * @param _wbtc   wbtc address
    * @param _dai    dai address
    */
-  public async initialize(_owner: Account, _weth: Token, _wbtc: Token, _dai: Token): Promise<void> {
+  public async initialize(_owner: Account, _weth: Token, _wethPrice: number, _wbtc: Token, _wbtcPrice: number, _dai: Token): Promise<void> {
     this.factory = await this._deployer.external.deployUniswapV3Factory();
     this.swapRouter = await this._deployer.external.deploySwapRouter(this.factory.address, _weth.address);
     this.nftDescriptor = await this._deployer.external.deployNFTDescriptor();
     this.nftPositionManager = await this._deployer.external.deployNftPositionManager(this.factory.address, _weth.address, this.nftDescriptor.address);
     this.quoter = await this._deployer.external.deployQuoter(this.factory.address, _weth.address);
 
-    this.wethDaiPool = await this.createNewPair(_weth, _dai, 3000, 2350);
-    this.wethWbtcPool = await this.createNewPair(_weth, _wbtc, 3000, 2350 / 35000);
+    this.wethDaiPool = await this.createNewPair(_weth, _dai, 3000, _wethPrice);
+    this.wethWbtcPool = await this.createNewPair(_weth, _wbtc, 3000, _wethPrice / _wbtcPrice);
   }
 
   /**

@@ -42,7 +42,7 @@ describe("UniswapV3Fixture", () => {
   describe("#initialize", async () => {
 
     async function subject(): Promise<void> {
-      return await uniswapV3Fixture.initialize(owner, setup.weth, setup.wbtc, setup.dai);
+      return await uniswapV3Fixture.initialize(owner, setup.weth, 2350, setup.wbtc, 35000, setup.dai);
     }
 
     it("should deploy a factory with the correct owner", async () => {
@@ -78,7 +78,7 @@ describe("UniswapV3Fixture", () => {
     let subjectRatio: number;
 
     beforeEach(async () => {
-      await uniswapV3Fixture.initialize(owner, setup.weth, setup.wbtc, setup.dai);
+      await uniswapV3Fixture.initialize(owner, setup.weth, 2350, setup.wbtc, 35000, setup.dai);
 
       subjectTokenOne = setup.dai;
       subjectTokenTwo = setup.usdc;
@@ -110,7 +110,7 @@ describe("UniswapV3Fixture", () => {
     let subjectAmountTwo: BigNumber;
 
     beforeEach(async () => {
-      await uniswapV3Fixture.initialize(owner, setup.weth, setup.wbtc, setup.dai);
+      await uniswapV3Fixture.initialize(owner, setup.weth, 2350, setup.wbtc, 35000, setup.dai);
 
       subjectTokenOne = setup.dai;
       subjectTokenTwo = setup.weth;
