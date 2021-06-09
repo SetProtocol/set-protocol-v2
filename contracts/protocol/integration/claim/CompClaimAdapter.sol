@@ -20,6 +20,7 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { IComptroller } from "../../../interfaces/external/IComptroller.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
 
 /**
  * @title CompClaimAdapter
@@ -58,7 +59,7 @@ contract CompClaimAdapter {
      * @return uint256      Unused, since it claims total claimable balance
      * @return bytes        Claim calldata
      */
-    function getClaimCallData(address _setToken, address /* _rewardPool */) external view returns (address, uint256, bytes memory) {
+    function getClaimCallData(ISetToken _setToken, address /* _rewardPool */) external view returns (address, uint256, bytes memory) {
         bytes memory callData = abi.encodeWithSignature("claimComp(address)", _setToken);
 
         return (address(comptroller), 0, callData);
@@ -69,8 +70,8 @@ contract CompClaimAdapter {
      *
      * @return uint256      Claimable COMP balance
      */
-    function getRewards(address _setToken, address /* _rewardPool */) external view returns(uint256) {
-        return comptroller.compAccrued(_setToken);
+    function getRewardsAmount(ISetToken _setToken, address /* _rewardPool */) external view returns(uint256) {
+        return comptroller.compAccrued(address(_setToken));
     }
 
     /**

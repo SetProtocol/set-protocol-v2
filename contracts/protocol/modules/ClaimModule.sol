@@ -52,8 +52,13 @@ contract ClaimModule is ModuleBase {
     event RewardClaimed(
         ISetToken indexed _setToken,
         address indexed _rewardPool,
-        IClaimAdapter _adapter,
+        IClaimAdapter indexed _adapter,
         uint256 _amount
+    );
+
+    event AnyoneClaimUpdated(
+        ISetToken indexed _setToken,
+        bool _anyoneClaim
     );
 
     /* ============ Modifiers ============ */
@@ -133,10 +138,10 @@ contract ClaimModule is ModuleBase {
      *
      * @param _setToken             Address of SetToken
      */
-    function updateAnyoneClaim(ISetToken _setToken) external onlyManagerAndValidSet(_setToken) {
-        anyoneClaim[_setToken] = !anyoneClaim[_setToken];
+    function updateAnyoneClaim(ISetToken _setToken, bool _anyoneClaim) external onlyManagerAndValidSet(_setToken) {
+        anyoneClaim[_setToken] = _anyoneClaim;
+        emit AnyoneClaimUpdated(_setToken, _anyoneClaim);
     }
-
     /**
      * SET MANAGER ONLY. Adds a new claim integration for an existent rewardPool. If rewardPool doesn't have existing
      * claims then rewardPool is added to rewardPoolLiost. The claim integration is associated to an adapter that
@@ -330,8 +335,7 @@ contract ClaimModule is ModuleBase {
         returns (uint256)
     {
         IClaimAdapter adapter = _getAndValidateIntegrationAdapter(claimSettings[_setToken][_rewardPool], _integrationName);
-        uint256 rewards = adapter.getRewards(address(_setToken), _rewardPool);
-        return rewards;
+        return adapter.getRewardsAmount(_setToken, _rewardPool);
     }
 
     /* ============ Internal Functions ============ */
@@ -348,14 +352,14 @@ contract ClaimModule is ModuleBase {
         require(isRewardPool(_setToken, _rewardPool), "RewardPool not present");
         IClaimAdapter adapter = _getAndValidateIntegrationAdapter(claimSettings[_setToken][_rewardPool], _integrationName);
 
-        uint256 rewards = adapter.getRewards(address(_setToken), _rewardPool);
+        uint256 rewards = adapter.getRewardsAmount(_setToken, _rewardPool);
 
         (
             address callTarget,
             uint256 callValue,
             bytes memory callByteData
         ) = adapter.getClaimCallData(
-            address(_setToken),
+            _setToken,
             _rewardPool
         );
 
@@ -428,7 +432,7 @@ contract ClaimModule is ModuleBase {
     }
 
     /**
-     * Validates and store the adapter address used to claim rewards for the passed rewardPool. If no adapters
+     * Validates and stores the adapter address used to claim rewards for the passed rewardPool. If no adapters
      * left after removal then remove rewardPool from rewardPoolList and delete entry in claimSettings. 
      *
      * @param _setToken                 Address of SetToken

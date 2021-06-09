@@ -229,6 +229,7 @@ describe("ClaimModule", () => {
 
     let subjectSetToken: Address;
     let subjectCaller: Account;
+    let subjectAnyoneClaim: boolean;
 
     before(async () => {
       isInitialized = true;
@@ -250,18 +251,20 @@ describe("ClaimModule", () => {
     });
 
     async function subject(): Promise<any> {
-      return claimModule.connect(subjectCaller.wallet).updateAnyoneClaim(subjectSetToken);
+      return claimModule.connect(subjectCaller.wallet).updateAnyoneClaim(subjectSetToken, subjectAnyoneClaim);
     }
 
-    it("should flip the anyoneClaim indicator", async () => {
+    it("should change the anyoneClaim indicator", async () => {
       const anyoneClaimBefore = await claimModule.anyoneClaim(subjectSetToken);
       expect(anyoneClaimBefore).to.eq(true);
 
+      subjectAnyoneClaim = false;
       await subject();
 
       const anyoneClaim = await claimModule.anyoneClaim(subjectSetToken);
       expect(anyoneClaim).to.eq(false);
 
+      subjectAnyoneClaim = true;
       await subject();
 
       const anyoneClaimAfter = await claimModule.anyoneClaim(subjectSetToken);
