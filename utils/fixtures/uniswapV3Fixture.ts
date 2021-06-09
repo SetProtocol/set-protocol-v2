@@ -83,7 +83,7 @@ export class UniswapV3Fixture {
   ): Promise<UniswapV3Pool> {
 
 
-    let ratio = _ratio * (10 ** (await _token0.decimals() - await _token1.decimals()));
+    let ratio = _ratio * (10 ** (await _token1.decimals() - await _token0.decimals()));
 
     if (_token0.address.toLowerCase() > _token1.address.toLowerCase()) {
       ratio = 1 / ratio;
