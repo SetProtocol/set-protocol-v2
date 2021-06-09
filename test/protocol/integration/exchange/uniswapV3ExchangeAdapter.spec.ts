@@ -140,7 +140,7 @@ describe("UniswapV3ExchangeAdapter", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("UniswapV3ExchangeAdapter: path mismatch");
+        await expect(subject()).to.be.revertedWith("UniswapV3ExchangeAdapter: source token path mismatch");
       });
     });
 
@@ -150,7 +150,7 @@ describe("UniswapV3ExchangeAdapter", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("UniswapV3ExchangeAdapter: path mismatch");
+        await expect(subject()).to.be.revertedWith("UniswapV3ExchangeAdapter: destination token path mismatch");
       });
     });
   });

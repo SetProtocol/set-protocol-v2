@@ -84,10 +84,10 @@ contract UniswapV3ExchangeAdapter {
     {
 
         address sourceFromPath = _data.toAddress(0);
-        require(_sourceToken == sourceFromPath, "UniswapV3ExchangeAdapter: path mismatch");
+        require(_sourceToken == sourceFromPath, "UniswapV3ExchangeAdapter: source token path mismatch");
 
         address destinationFromPath = _data.toAddress(_data.length - 20);
-        require(_destinationToken == destinationFromPath, "UniswapV3ExchangeAdapter: path mismatch");
+        require(_destinationToken == destinationFromPath, "UniswapV3ExchangeAdapter: destination token path mismatch");
 
         ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams(
             _data,
