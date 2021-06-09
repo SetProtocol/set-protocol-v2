@@ -67,7 +67,7 @@ describe("CompClaimAdapter", function() {
       });
     });
 
-    describe("#getRewards", async function() {
+    describe("#getRewardsAmount", async function() {
       const rewards: BigNumber = ether(1);
 
       before(async function() {
@@ -75,7 +75,7 @@ describe("CompClaimAdapter", function() {
       });
 
       function subject(): Promise<BigNumber> {
-        return compClaimAdapter.connect(owner.wallet).getRewards(ADDRESS_ZERO, ADDRESS_ZERO);
+        return compClaimAdapter.connect(owner.wallet).getRewardsAmount(ADDRESS_ZERO, ADDRESS_ZERO);
       }
 
       it("should return rewards", async function() {
