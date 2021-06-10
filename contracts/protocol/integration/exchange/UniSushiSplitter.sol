@@ -47,10 +47,21 @@ contract UniSushiSplitter {
         uint _deadline
     )
         external
+        returns (uint256)
     {
-        require(_path.length < 4, "UniSushiSplitter: too many hops");
 
+        uint256 uniSplit = _getUniSplit(_amountIn, _path);
 
+        uint256 uniTradeSize = uniSplit.preciseMul(_amountIn);
+        uint256 sushiTradeSize = _amountIn.sub(uniTradeSize);
+
+        uint256 uniAmountOutMin = uniSplit.preciseMul(_amountOutMin);
+        uint256 sushiAmountOutMin = _amountOutMin.sub(uniAmountOutMin);
+
+        uint256 uniOutput = uniRouter.swapExactTokensForTokens(uniTradeSize, uniAmountOutMin, _path, _to, _deadline)[_path.length.sub(1)];
+        uint256 sushiOutput = sushiRouter.swapExactTokensForTokens(sushiTradeSize, sushiAmountOutMin, _path, _to, _deadline)[_path.length.sub(1)];
+
+        return uniOutput.add(sushiOutput);
     }
 
     function _getUniSplit(uint256 _amountIn, address[] calldata _path) internal view returns (uint256) {
