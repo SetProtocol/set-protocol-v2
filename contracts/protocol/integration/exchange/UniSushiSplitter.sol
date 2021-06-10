@@ -55,13 +55,13 @@ contract UniSushiSplitter {
         uint256 uniTradeSize = uniSplit.preciseMul(_amountIn);
         uint256 sushiTradeSize = _amountIn.sub(uniTradeSize);
 
-        uint256 uniAmountOutMin = uniSplit.preciseMul(_amountOutMin);
-        uint256 sushiAmountOutMin = _amountOutMin.sub(uniAmountOutMin);
+        uint256 uniOutput = uniRouter.swapExactTokensForTokens(uniTradeSize, 0, _path, _to, _deadline)[_path.length.sub(1)];
+        uint256 sushiOutput = sushiRouter.swapExactTokensForTokens(sushiTradeSize, 0, _path, _to, _deadline)[_path.length.sub(1)];
 
-        uint256 uniOutput = uniRouter.swapExactTokensForTokens(uniTradeSize, uniAmountOutMin, _path, _to, _deadline)[_path.length.sub(1)];
-        uint256 sushiOutput = sushiRouter.swapExactTokensForTokens(sushiTradeSize, sushiAmountOutMin, _path, _to, _deadline)[_path.length.sub(1)];
+        uint256 totalOutput = uniOutput.add(sushiOutput);
+        require(totalOutput > _amountOutMin, "UniSushiSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
 
-        return uniOutput.add(sushiOutput);
+        return totalOutput;
     }
 
     function _getUniSplit(uint256 _amountIn, address[] calldata _path) internal view returns (uint256) {
