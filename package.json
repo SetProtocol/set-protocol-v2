@@ -36,6 +36,8 @@
     "prepublishOnly": "yarn clean && yarn build:npm",
     "rename-extensions": "for f in typechain/*.d.ts; do mv -- \"$f\" \"${f%.d.ts}.ts\"; done",
     "test": "npx hardhat test --network localhost",
+    "test:fork": "FORK=true npx hardhat test",
+    "test:fork:fast": "NO_COMPILE=true TS_NODE_TRANSPILE_ONLY=1 FORK=true npx hardhat test --no-compile",
     "test:clean": "yarn clean && yarn build && yarn test",
     "test:fast": "NO_COMPILE=true TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost --no-compile",
     "test:fast:compile": "TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost",

@@ -15,6 +15,7 @@ import {
   DebtIssuanceMock,
   DebtModuleMock,
   ExplicitERC20Mock,
+  ForceFunderMock,
   GaugeControllerMock,
   GodModeMock,
   GovernanceAdapterMock,
@@ -45,6 +46,7 @@ import {
 } from "../contracts";
 
 import { convertLibraryNameToLinkId, ether } from "../common";
+import dependencies from "./dependencies";
 
 import { AaveLendingPoolCoreMock__factory } from "../../typechain/factories/AaveLendingPoolCoreMock__factory";
 import { AaveLendingPoolMock__factory } from "../../typechain/factories/AaveLendingPoolMock__factory";
@@ -58,6 +60,7 @@ import { CustomSetValuerMock__factory } from "../../typechain/factories/CustomSe
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
 import { ExplicitERC20Mock__factory } from "../../typechain/factories/ExplicitERC20Mock__factory";
+import { ForceFunderMock__factory } from "../../typechain/factories/ForceFunderMock__factory";
 import { GaugeControllerMock__factory } from "../../typechain/factories/GaugeControllerMock__factory";
 import { GodModeMock__factory } from "../../typechain/factories/GodModeMock__factory";
 import { GovernanceAdapterMock__factory } from "../../typechain/factories/GovernanceAdapterMock__factory";
@@ -328,11 +331,19 @@ export default class DeployMocks {
     return await new YearnStrategyMock__factory(this._deployerSigner).deploy(vault);
   }
 
+  public async deployForceFunderMock(): Promise<ForceFunderMock> {
+    return await new ForceFunderMock__factory(this._deployerSigner).deploy();
+  }
+
   /*************************************
    * Instance getters
    ************************************/
 
   public async getTokenMock(token: Address): Promise<StandardTokenMock> {
     return await new StandardTokenMock__factory(this._deployerSigner).attach(token);
+  }
+
+  public async getForkedZeroExExchange(): Promise<ZeroExMock> {
+    return await ZeroExMock__factory.connect(dependencies.ZERO_EX_EXCHANGE[1], this._deployerSigner);
   }
 }

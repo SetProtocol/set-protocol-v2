@@ -19,10 +19,14 @@ export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(p
 export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
 export const getUniswapV3Fixture = (ownerAddress: Address) => new UniswapV3Fixture(provider, ownerAddress);
 
+export { ForkedTokens } from "./types";
+
 export {
   getAccounts,
   getEthBalance,
   getRandomAccount,
+  getForkedTokens,
+  initializeForkedTokens,
 } from "./accountUtils";
 export {
   addSnapshotBeforeRestoreAfterEach,
