@@ -26,6 +26,9 @@ import { IUniswapV2Factory } from "../../../interfaces/external/IUniswapV2Factor
 import { IUniswapV2Router } from "../../../interfaces/external/IUniswapV2Router.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
+import { console } from "hardhat/console.sol";
+
+
 contract UniSushiSplitter {
 
     using SafeMath for uint256;
@@ -33,10 +36,14 @@ contract UniSushiSplitter {
 
     IUniswapV2Router public immutable uniRouter;
     IUniswapV2Router public immutable sushiRouter;
+    IUniswapV2Factory public immutable uniFactory;
+    IUniswapV2Factory public immutable sushiFactory;
 
     constructor(IUniswapV2Router _uniRouter, IUniswapV2Router _sushiRouter) public {
         uniRouter = _uniRouter;
         sushiRouter = _sushiRouter;
+        uniFactory = IUniswapV2Factory(_uniRouter.factory());
+        sushiFactory = IUniswapV2Factory(_sushiRouter.factory());
     }
 
     function swapExactTokensForTokens(
@@ -49,14 +56,25 @@ contract UniSushiSplitter {
         external
         returns (uint256)
     {
+        ERC20 inputToken = ERC20(_path[0]);
+        inputToken.transferFrom(msg.sender, address(this), _amountIn);
 
         uint256 uniSplit = _getUniSplit(_amountIn, _path);
 
         uint256 uniTradeSize = uniSplit.preciseMul(_amountIn);
         uint256 sushiTradeSize = _amountIn.sub(uniTradeSize);
 
-        uint256 uniOutput = uniRouter.swapExactTokensForTokens(uniTradeSize, 0, _path, _to, _deadline)[_path.length.sub(1)];
-        uint256 sushiOutput = sushiRouter.swapExactTokensForTokens(sushiTradeSize, 0, _path, _to, _deadline)[_path.length.sub(1)];
+        _checkApprovals(uniTradeSize, sushiTradeSize, inputToken);
+
+        uint256 uniOutput = 0;
+        uint256 sushiOutput = 0;
+
+        if (uniTradeSize > 0) {
+            uniOutput = uniRouter.swapExactTokensForTokens(uniTradeSize, 0, _path, _to, _deadline)[_path.length.sub(1)];
+        }
+        if (sushiTradeSize > 0) {
+            sushiOutput = sushiRouter.swapExactTokensForTokens(sushiTradeSize, 0, _path, _to, _deadline)[_path.length.sub(1)];
+        }
 
         uint256 totalOutput = uniOutput.add(sushiOutput);
         require(totalOutput > _amountOutMin, "UniSushiSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
@@ -65,17 +83,26 @@ contract UniSushiSplitter {
     }
 
     function _getUniSplit(uint256 _amountIn, address[] calldata _path) internal view returns (uint256) {
-        ERC20 inputToken = ERC20(_path[0]);
-        
-        uint256 fairOutputUni = uniRouter.getAmountsOut(uint256(10) ** inputToken.decimals(), _path)[_path.length.sub(1)];
-        uint256 fairOutputSushi = sushiRouter.getAmountsOut(uint256(10) ** inputToken.decimals(), _path)[_path.length.sub(1)];
+        if (_path.length == 2) {
+            
+            address uniPair = uniFactory.getPair(_path[0], _path[1]);
+            if (uniPair == address(0)) return 0;
+            uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
 
-        uint256 impactOutputUni = uniRouter.getAmountsOut(_amountIn, _path)[_path.length.sub(1)];
-        uint256 impactOutputSushi = sushiRouter.getAmountsOut(_amountIn, _path)[_path.length.sub(1)];
+            address sushiPair = sushiFactory.getPair(_path[0], _path[1]);
+            if (sushiPair == address(0)) return PreciseUnitMath.preciseUnit();
+            uint256 sushiValue = ERC20(_path[0]).balanceOf(sushiPair);
 
-        uint256 priceImpactUni = fairOutputUni.sub(impactOutputUni).preciseDiv(fairOutputUni);
-        uint256 priceImpactSushi = fairOutputSushi.sub(impactOutputSushi).preciseDiv(fairOutputSushi);
+            return uniValue.preciseDiv(uniValue.add(sushiValue));
+        }
+    }
 
-        return priceImpactUni.div(priceImpactUni.add(priceImpactSushi));
+    function _checkApprovals(uint256 _uniAmount, uint256 _sushiAmount, ERC20 token) internal {
+        if (token.allowance(address(this), address(uniRouter)) < _uniAmount) {
+            token.approve(address(uniRouter), PreciseUnitMath.MAX_UINT_256);
+        }
+        if (token.allowance(address(this), address(sushiRouter)) < _sushiAmount) {
+            token.approve(address(sushiRouter), PreciseUnitMath.MAX_UINT_256);
+        }
     }
 }
