@@ -15,6 +15,8 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { IClaimAdapter } from "../../interfaces/IClaimAdapter.sol";
 import { IController } from "../../interfaces/IController.sol";
@@ -76,11 +78,14 @@ contract ClaimModule is ModuleBase {
     // Indicates if any address can call claim or just the manager of the SetToken
     mapping(ISetToken => bool) public anyoneClaim;
 
-    // Array of rewardPool addresses to claim rewards for the SetToken
+    // Map and array of rewardPool addresses to claim rewards for the SetToken
     mapping(ISetToken => address[]) public rewardPoolList;
+    mapping(ISetToken => mapping(address => bool)) public rewardPoolStatus;
 
-    // Array of adapters associated to the rewardPool for the SetToken
+    // Map and array of adapters associated to the rewardPool for the SetToken
     mapping(ISetToken => mapping(address => address[])) public claimSettings;
+    mapping(ISetToken => mapping(address => mapping(address => bool))) public claimSettingsStatus;
+
 
     /* ============ Constructor ============ */
 
@@ -259,7 +264,20 @@ contract ClaimModule is ModuleBase {
 
         address[] memory setTokenPoolList = rewardPoolList[ISetToken(msg.sender)];
         for (uint256 i = 0; i < setTokenPoolList.length; i++) {
+
+            address[] storage adapterList = claimSettings[ISetToken(msg.sender)][setTokenPoolList[i]];
+            for (uint256 j = 0; j < adapterList.length; j++) {
+
+                address toRemove = adapterList[j];
+                claimSettingsStatus[ISetToken(msg.sender)][setTokenPoolList[i]][toRemove] = false;
+
+                delete adapterList[j];
+            }
             delete claimSettings[ISetToken(msg.sender)][setTokenPoolList[i]];
+        }
+        
+        for (uint256 i = 0; i < rewardPoolList[ISetToken(msg.sender)].length; i++) {
+            delete rewardPoolList[ISetToken(msg.sender)][i];
         }
         delete rewardPoolList[ISetToken(msg.sender)];
     }
@@ -282,7 +300,7 @@ contract ClaimModule is ModuleBase {
      * @return                      Boolean indicating if the rewardPool is in the list for claims.
      */
     function isRewardPool(ISetToken _setToken, address _rewardPool) public view returns (bool) {
-        return rewardPoolList[_setToken].contains(_rewardPool);
+        return rewardPoolStatus[_setToken][_rewardPool];
     }
 
     /**
@@ -314,7 +332,7 @@ contract ClaimModule is ModuleBase {
         returns (bool)
     {
         address adapter = getAndValidateAdapter(_integrationName);
-        return claimSettings[_setToken][_rewardPool].contains(adapter);
+        return claimSettingsStatus[_setToken][_rewardPool][adapter];
     }
 
     /**
@@ -334,7 +352,7 @@ contract ClaimModule is ModuleBase {
         view
         returns (uint256)
     {
-        IClaimAdapter adapter = _getAndValidateIntegrationAdapter(claimSettings[_setToken][_rewardPool], _integrationName);
+        IClaimAdapter adapter = _getAndValidateIntegrationAdapter(_setToken, _rewardPool, _integrationName);
         return adapter.getRewardsAmount(_setToken, _rewardPool);
     }
 
@@ -350,9 +368,10 @@ contract ClaimModule is ModuleBase {
      */
     function _claim(ISetToken _setToken, address _rewardPool, string calldata _integrationName) internal {
         require(isRewardPool(_setToken, _rewardPool), "RewardPool not present");
-        IClaimAdapter adapter = _getAndValidateIntegrationAdapter(claimSettings[_setToken][_rewardPool], _integrationName);
+        IClaimAdapter adapter = _getAndValidateIntegrationAdapter(_setToken, _rewardPool, _integrationName);
 
-        uint256 rewards = adapter.getRewardsAmount(_setToken, _rewardPool);
+        IERC20 rewardsToken = IERC20(adapter.getTokenAddress(_rewardPool));
+        uint256 initRewardsBalance = rewardsToken.balanceOf(address(_setToken));
 
         (
             address callTarget,
@@ -365,17 +384,22 @@ contract ClaimModule is ModuleBase {
 
         _setToken.invoke(callTarget, callValue, callByteData);
 
+        uint256 finalRewardsBalance = rewardsToken.balanceOf(address(_setToken));
+        uint256 rewards = finalRewardsBalance.sub(initRewardsBalance);
+
         emit RewardClaimed(_setToken, _rewardPool, adapter, rewards);
     }
 
     /**
      * Gets the adapter and validate it is associated to the list of claim integration of a rewardPool.
      *
-     * @param _rewardPoolClaimSettings           List of claim integrations associated to a rewardPool
-     * @param _integrationName                   ID of claim module integration (mapping on integration registry)
+     * @param _setToken             Address of SetToken
+     * @param _rewardsPool          Sddress of rewards pool
+     * @param _integrationName      ID of claim module integration (mapping on integration registry)
      */
     function _getAndValidateIntegrationAdapter(
-        address[] memory _rewardPoolClaimSettings,
+        ISetToken _setToken,
+        address _rewardsPool,
         string calldata _integrationName
     )
         internal
@@ -383,7 +407,7 @@ contract ClaimModule is ModuleBase {
         returns (IClaimAdapter)
     {
         address adapter = getAndValidateAdapter(_integrationName);
-        require(_rewardPoolClaimSettings.contains(adapter), "Adapter integration not present");
+        require(claimSettingsStatus[_setToken][_rewardsPool][adapter], "Adapter integration not present");
         return IClaimAdapter(adapter);
     }
 
@@ -399,11 +423,13 @@ contract ClaimModule is ModuleBase {
         address adapter = getAndValidateAdapter(_integrationName);
         address[] storage _rewardPoolClaimSettings = claimSettings[_setToken][_rewardPool];
 
-        require(!_rewardPoolClaimSettings.contains(adapter), "Integration names must be unique");
+        require(!claimSettingsStatus[_setToken][_rewardPool][adapter], "Integration names must be unique");
         _rewardPoolClaimSettings.push(adapter);
+        claimSettingsStatus[_setToken][_rewardPool][adapter] = true;
 
         if (_rewardPoolClaimSettings.length == 1) {
             rewardPoolList[_setToken].push(_rewardPool);
+            rewardPoolStatus[_setToken][_rewardPool] = true;
         }
     }
 
@@ -443,11 +469,17 @@ contract ClaimModule is ModuleBase {
         address adapter = getAndValidateAdapter(_integrationName);
         address[] memory _rewardPoolClaimSettings = claimSettings[_setToken][_rewardPool];
 
-        require(_rewardPoolClaimSettings.contains(adapter), "Integration must be added");
+        require(claimSettingsStatus[_setToken][_rewardPool][adapter], "Integration must be added");
         claimSettings[_setToken][_rewardPool] = _rewardPoolClaimSettings.remove(adapter);
+        claimSettingsStatus[_setToken][_rewardPool][adapter] = false;
 
         if (claimSettings[_setToken][_rewardPool].length == 0) {
             rewardPoolList[_setToken] = rewardPoolList[_setToken].remove(_rewardPool);
+            rewardPoolStatus[_setToken][_rewardPool] = false;
+
+            for (uint256 i = 0; i < claimSettings[_setToken][_rewardPool].length; i++) {
+                delete claimSettings[_setToken][_rewardPool][i];
+            }
             delete claimSettings[_setToken][_rewardPool];
         }
     }
