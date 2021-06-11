@@ -1,5 +1,5 @@
-import DeployHelper from "@utils/deploys";
-import { MAX_UINT_256 } from "@utils/constants";
+import DeployHelper from "../deploys";
+import { MAX_UINT_256 } from "../constants";
 import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { BigNumber, BigNumberish, Signer } from "ethers";
 import { Address } from "../types";
@@ -15,9 +15,9 @@ import {
 } from "../contracts/uniswapV3";
 
 import { UniswapV3Pool__factory } from "../../typechain/factories/UniswapV3Pool__factory";
-import { ether } from "@utils/common";
-import { StandardTokenMock } from "@typechain/StandardTokenMock";
-import { WETH9 } from "@typechain/WETH9";
+import { ether } from "../index";
+import { StandardTokenMock } from "../../typechain/StandardTokenMock";
+import { WETH9 } from "../../typechain/WETH9";
 import { parseEther } from "ethers/lib/utils";
 
 type Token = StandardTokenMock | WETH9;
