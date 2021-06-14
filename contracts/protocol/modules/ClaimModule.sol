@@ -262,6 +262,7 @@ contract ClaimModule is ModuleBase {
     function removeModule() external override {
         delete anyoneClaim[ISetToken(msg.sender)];
 
+        // explicitly delete all elements for gas refund
         address[] memory setTokenPoolList = rewardPoolList[ISetToken(msg.sender)];
         for (uint256 i = 0; i < setTokenPoolList.length; i++) {
 
@@ -430,7 +431,7 @@ contract ClaimModule is ModuleBase {
         _rewardPoolClaimSettings.push(adapter);
         claimSettingsStatus[_setToken][_rewardPool][adapter] = true;
 
-        if (_rewardPoolClaimSettings.length == 1) {
+        if (!rewardPoolStatus[_setToken][_rewardPool]) {
             rewardPoolList[_setToken].push(_rewardPool);
             rewardPoolStatus[_setToken][_rewardPool] = true;
         }
@@ -479,11 +480,6 @@ contract ClaimModule is ModuleBase {
         if (claimSettings[_setToken][_rewardPool].length == 0) {
             rewardPoolList[_setToken] = rewardPoolList[_setToken].remove(_rewardPool);
             rewardPoolStatus[_setToken][_rewardPool] = false;
-
-            for (uint256 i = 0; i < claimSettings[_setToken][_rewardPool].length; i++) {
-                delete claimSettings[_setToken][_rewardPool][i];
-            }
-            delete claimSettings[_setToken][_rewardPool];
         }
     }
 
