@@ -29,7 +29,7 @@ import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { console } from "hardhat/console.sol";
 
 
-contract UniSushiSplitter {
+contract UniswapV2LikeTradeSplitter {
 
     using SafeMath for uint256;
     using PreciseUnitMath for uint256;
@@ -46,7 +46,7 @@ contract UniSushiSplitter {
         sushiFactory = IUniswapV2Factory(_sushiRouter.factory());
     }
 
-    function swapExactTokensForTokens(
+    function tradeExactInput(
         uint _amountIn,
         uint _amountOutMin,
         address[] calldata _path,

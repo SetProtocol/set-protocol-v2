@@ -12,8 +12,8 @@ import {
 import DeployHelper from "@utils/deploys";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { Account } from "@utils/test/types";
-import { UniSushiSplitter } from "@typechain/UniSushiSplitter";
-import { UniswapV2Router02 } from "@typechain/UniswapV2Router02";
+import { UniswapV2LikeTradeSplitter } from "../../../../typechain/UniswapV2LikeTradeSplitter";
+import { UniswapV2Router02 } from "@utils/contracts";
 import { Address } from "@utils/types";
 import { ether } from "@utils/common";
 import { BigNumber, ContractTransaction } from "ethers";
@@ -21,13 +21,13 @@ import { MAX_UINT_256 } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
-describe("UniSushiSplitter", async () => {
+describe("UniswapV2LikeTradeSplitter", async () => {
 
   let owner: Account;
   let trader: Account;
   let deployer: DeployHelper;
 
-  let splitter: UniSushiSplitter;
+  let splitter: UniswapV2LikeTradeSplitter;
 
   let setup: SystemFixture;
   let uniswapSetup: UniswapFixture;
@@ -56,7 +56,7 @@ describe("UniSushiSplitter", async () => {
       setup.dai.address
     );
 
-    splitter = await deployer.adapters.deployUniSushiSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    splitter = await deployer.adapters.deployUniswapV2LikeTradeSpliter(uniswapSetup.router.address, sushiswapSetup.router.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -71,8 +71,8 @@ describe("UniSushiSplitter", async () => {
       subjectSushiswapRouter = sushiswapSetup.router;
     });
 
-    async function subject(): Promise<UniSushiSplitter> {
-      return deployer.adapters.deployUniSushiSplitter(subjectUniswapRouter.address, subjectSushiswapRouter.address);
+    async function subject(): Promise<UniswapV2LikeTradeSplitter> {
+      return deployer.adapters.deployUniswapV2LikeTradeSpliter(subjectUniswapRouter.address, subjectSushiswapRouter.address);
     }
 
     it("should set the state variables correctly", async () => {
@@ -83,7 +83,7 @@ describe("UniSushiSplitter", async () => {
     });
   });
 
-  describe("#swapExactTokensForTokens", async () => {
+  describe("#tradeExactInput", async () => {
 
     let subjectAmountIn: BigNumber;
     let subjectMinAmountOut: BigNumber;
@@ -106,7 +106,7 @@ describe("UniSushiSplitter", async () => {
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return await splitter.connect(subjectCaller.wallet).swapExactTokensForTokens(
+      return await splitter.connect(subjectCaller.wallet).tradeExactInput(
         subjectAmountIn,
         subjectMinAmountOut,
         subjectPath,
