@@ -277,6 +277,9 @@ contract ClaimModule is ModuleBase {
         }
         
         for (uint256 i = 0; i < rewardPoolList[ISetToken(msg.sender)].length; i++) {
+            address toRemove = rewardPoolList[ISetToken(msg.sender)][i];
+            rewardPoolStatus[ISetToken(msg.sender)][toRemove] = false;
+            
             delete rewardPoolList[ISetToken(msg.sender)][i];
         }
         delete rewardPoolList[ISetToken(msg.sender)];
