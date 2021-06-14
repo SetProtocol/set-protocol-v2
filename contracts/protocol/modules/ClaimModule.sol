@@ -471,14 +471,13 @@ contract ClaimModule is ModuleBase {
      */
     function _removeClaim(ISetToken _setToken, address _rewardPool, string calldata _integrationName) internal {
         address adapter = getAndValidateAdapter(_integrationName);
-        address[] memory _rewardPoolClaimSettings = claimSettings[_setToken][_rewardPool];
 
         require(claimSettingsStatus[_setToken][_rewardPool][adapter], "Integration must be added");
-        claimSettings[_setToken][_rewardPool] = _rewardPoolClaimSettings.remove(adapter);
+        claimSettings[_setToken][_rewardPool].removeStorage(adapter);
         claimSettingsStatus[_setToken][_rewardPool][adapter] = false;
 
         if (claimSettings[_setToken][_rewardPool].length == 0) {
-            rewardPoolList[_setToken] = rewardPoolList[_setToken].remove(_rewardPool);
+            rewardPoolList[_setToken].removeStorage(_rewardPool);
             rewardPoolStatus[_setToken][_rewardPool] = false;
         }
     }
