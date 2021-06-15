@@ -497,6 +497,49 @@ describe("TradeSplitter", async () => {
         });
       });
     });
+
+    context("when the path is too long", async () => {
+
+      beforeEach(() => {
+        subjectPath = [ setup.weth.address, setup.wbtc.address, setup.dai.address, setup.usdc.address ];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: incorrect path length");
+      });
+    });
+
+    context("when the output amount is below _minOutput", async () => {
+
+      beforeEach(async () => {
+        subjectMinAmountOut = ether(1000000);
+
+        await uniswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(100),
+          ether(100000),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+        await sushiswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(100),
+          ether(100000),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+      });
+    });
   });
 
   describe("#tradeExactOutput", async () => {
@@ -913,6 +956,49 @@ describe("TradeSplitter", async () => {
           expect(initUniWbtc.sub(finalUniWbtc)).to.eq(0);
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(subjectAmountOut);
         });
+      });
+    });
+
+    context("when the path is too long", async () => {
+
+      beforeEach(() => {
+        subjectPath = [ setup.weth.address, setup.wbtc.address, setup.dai.address, setup.usdc.address ];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: incorrect path length");
+      });
+    });
+
+    context("when the output amount is below _minOutput", async () => {
+
+      beforeEach(async () => {
+        subjectAmountInMax = ether(0);
+
+        await uniswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(100),
+          ether(100000),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+        await sushiswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(100),
+          ether(100000),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
       });
     });
   });
