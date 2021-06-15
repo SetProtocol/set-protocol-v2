@@ -56,10 +56,12 @@ contract UniswapV2LikeTradeSplitter {
         external
         returns (uint256)
     {
+        require(_path.length <= 3 && _path.length != 0, "UniswapV2LikeTradeSplitter: incorrect path length");
+
         ERC20 inputToken = ERC20(_path[0]);
         inputToken.transferFrom(msg.sender, address(this), _amountIn);
 
-        uint256 uniSplit = _getUniSplit(_amountIn, _path);
+        uint256 uniSplit = _getUniSplit(_path);
 
         uint256 uniTradeSize = uniSplit.preciseMul(_amountIn);
         uint256 sushiTradeSize = _amountIn.sub(uniTradeSize);
@@ -77,23 +79,43 @@ contract UniswapV2LikeTradeSplitter {
         }
 
         uint256 totalOutput = uniOutput.add(sushiOutput);
-        require(totalOutput > _amountOutMin, "UniSushiSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+        require(totalOutput > _amountOutMin, "UniswapV2LikeTradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
 
         return totalOutput;
     }
 
-    function _getUniSplit(uint256 _amountIn, address[] calldata _path) internal view returns (uint256) {
+    function _getUniSplit(address[] calldata _path) internal view returns (uint256) {
         if (_path.length == 2) {
             
             address uniPair = uniFactory.getPair(_path[0], _path[1]);
-            if (uniPair == address(0)) return 0;
             uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
 
             address sushiPair = sushiFactory.getPair(_path[0], _path[1]);
-            if (sushiPair == address(0)) return PreciseUnitMath.preciseUnit();
             uint256 sushiValue = ERC20(_path[0]).balanceOf(sushiPair);
 
             return uniValue.preciseDiv(uniValue.add(sushiValue));
+        }
+
+        if (_path.length == 3) {
+            
+            address uniPairA = uniFactory.getPair(_path[0], _path[1]);
+            address uniPairB = uniFactory.getPair(_path[1], _path[2]);
+
+            uint256 uniValueA = ERC20(_path[1]).balanceOf(uniPairA);
+            uint256 uniValueB = ERC20(_path[1]).balanceOf(uniPairB);
+
+            if(uniValueA == 0 || uniValueB == 0) return 0;
+
+            address sushiPairA = sushiFactory.getPair(_path[0], _path[1]);
+            address sushiPairB = sushiFactory.getPair(_path[1], _path[2]);
+
+            uint256 sushiValueA = ERC20(_path[1]).balanceOf(sushiPairA);
+            uint256 sushiValueB = ERC20(_path[1]).balanceOf(sushiPairB);
+
+            if(sushiValueA == 0 || sushiValueB == 0) return PreciseUnitMath.PRECISE_UNIT;
+
+            uint256 ratio = sushiValueA.add(sushiValueB).preciseMul(uniValueA).preciseMul(uniValueB).preciseDiv(uniValueA.add(uniValueB).preciseMul(sushiValueA).preciseMul(sushiValueB));
+            return ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
         }
     }
 

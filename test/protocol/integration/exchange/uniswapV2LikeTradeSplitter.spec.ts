@@ -15,7 +15,7 @@ import { Account } from "@utils/test/types";
 import { UniswapV2LikeTradeSplitter } from "../../../../typechain/UniswapV2LikeTradeSplitter";
 import { UniswapV2Router02 } from "@utils/contracts";
 import { Address } from "@utils/types";
-import { ether } from "@utils/common";
+import { bitcoin, ether } from "@utils/common";
 import { BigNumber, ContractTransaction } from "ethers";
 import { MAX_UINT_256 } from "@utils/constants";
 
@@ -159,6 +159,49 @@ describe("UniswapV2LikeTradeSplitter", async () => {
       });
     });
 
+    context("when 70% of the liquidity is in the Uniswap pool", async () => {
+      beforeEach(async () => {
+        await uniswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(70),
+          ether(70 * 2500),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+
+        await sushiswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(30),
+          ether(30 * 2500),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+      });
+
+      it("should route 70% of the trade through Uniswap", async () => {
+
+        const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+        const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+        const initUniWeth = await setup.weth.balanceOf(uniPool);
+        const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+        await subject();
+
+        const finalUniWeth = await setup.weth.balanceOf(uniPool);
+        const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+        expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn.mul(70).div(100));
+        expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn.mul(30).div(100));
+      });
+    });
+
     context("when there is only a Uniswap pool", async () => {
 
       beforeEach(async () => {
@@ -192,5 +235,191 @@ describe("UniswapV2LikeTradeSplitter", async () => {
       });
     });
 
+    context("when using two hops", async () => {
+
+      beforeEach(async () => {
+        subjectPath = [ setup.weth.address, setup.dai.address, setup.wbtc.address ];
+
+        await setup.wbtc.approve(uniswapSetup.router.address, MAX_UINT_256);
+        await setup.wbtc.approve(sushiswapSetup.router.address, MAX_UINT_256);
+      });
+
+      context("when the Uniswap and Sushiswap pools are equal in size", async () => {
+
+        beforeEach(async () => {
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(1000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(1000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await uniswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            ether(10),
+            ether(1000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await sushiswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            ether(10),
+            ether(1000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should split the trade equally between Uniswap and Sushiswap", async () => {
+          const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+          const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+          const initUniWeth = await setup.weth.balanceOf(uniPool);
+          const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          await subject();
+
+          const finalUniWeth = await setup.weth.balanceOf(uniPool);
+          const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn.div(2));
+          expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn.div(2));
+        });
+      });
+
+      context("when 70% of the liquidity is in the Uniswap pools", async () => {
+        beforeEach(async () => {
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(70),
+            ether(70 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(30),
+            ether(30 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await uniswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            bitcoin(7),
+            ether(7 * 40000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await sushiswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            bitcoin(3),
+            ether(3 * 40000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should route 70% of the trade through Uniswap", async () => {
+
+          const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+          const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+          const initUniWeth = await setup.weth.balanceOf(uniPool);
+          const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          await subject();
+
+          const finalUniWeth = await setup.weth.balanceOf(uniPool);
+          const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          // need to do a fuzzy check here since the SC math introduces only approximates the split
+          expect(finalUniWeth.sub(initUniWeth)).to.gt(subjectAmountIn.mul(69).div(100));
+          expect(finalUniWeth.sub(initUniWeth)).to.lt(subjectAmountIn.mul(71).div(100));
+          expect(finalSushiWeth.sub(initSushiWeth)).to.gt(subjectAmountIn.mul(29).div(100));
+          expect(finalSushiWeth.sub(initSushiWeth)).to.lt(subjectAmountIn.mul(31).div(100));
+        });
+      });
+
+      context("when there is only a Uniswap pool", async () => {
+
+        beforeEach(async () => {
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(100000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await uniswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            ether(10),
+            ether(1000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should route the entire trade to Uniswap", async () => {
+
+          const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+          const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+          const initUniWeth = await setup.weth.balanceOf(uniPool);
+          const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          await subject();
+
+          const finalUniWeth = await setup.weth.balanceOf(uniPool);
+          const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn);
+          expect(finalSushiWeth.sub(initSushiWeth)).to.eq(0);
+        });
+      });
+    });
   });
 });
