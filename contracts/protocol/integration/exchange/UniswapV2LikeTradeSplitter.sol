@@ -47,11 +47,11 @@ contract UniswapV2LikeTradeSplitter {
     }
 
     function tradeExactInput(
-        uint _amountIn,
-        uint _amountOutMin,
+        uint256 _amountIn,
+        uint256 _amountOutMin,
         address[] calldata _path,
         address _to,
-        uint _deadline
+        uint256 _deadline
     )
         external
         returns (uint256)
@@ -82,6 +82,53 @@ contract UniswapV2LikeTradeSplitter {
         require(totalOutput > _amountOutMin, "UniswapV2LikeTradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
 
         return totalOutput;
+    }
+
+    function tradeExactOutput(
+        uint256 _amountInMax,
+        uint256 _amountOut,
+        address[] calldata _path,
+        address _to,
+        uint256 _deadline
+    )
+        external
+        returns (uint256)
+    {
+        require(_path.length <= 3 && _path.length != 0, "UniswapV2LikeTradeSplitter: incorrect path length");
+
+        uint256 uniSplit = _getUniSplit(_path);
+
+        uint256 uniTradeSize = uniSplit.preciseMul(_amountOut);
+        uint256 sushiTradeSize = _amountOut.sub(uniTradeSize);
+
+        uint256 expectedUniInput = 0;
+        uint256 expectedSushiInput = 0;
+
+        if (uniSplit > 0) {
+            expectedUniInput = uniRouter.getAmountsIn(uniTradeSize, _path)[0];
+        }
+        if (uniSplit < PreciseUnitMath.PRECISE_UNIT) {
+            expectedSushiInput = sushiRouter.getAmountsIn(sushiTradeSize, _path)[0];
+        }
+
+        ERC20(_path[0]).transferFrom(msg.sender, address(this), expectedUniInput.add(expectedSushiInput));
+
+        _checkApprovals(expectedUniInput, expectedSushiInput, ERC20(_path[0]));
+
+        uint256 uniInput = 0;
+        uint256 sushiInput = 0;
+
+        if (uniTradeSize > 0) {
+            uniInput = uniRouter.swapTokensForExactTokens(uniTradeSize, uint256(-1), _path, _to, _deadline)[_path.length.sub(1)];
+        }
+        if (sushiTradeSize > 0) {
+            sushiInput = sushiRouter.swapTokensForExactTokens(sushiTradeSize, uint256(-1), _path, _to, _deadline)[_path.length.sub(1)];
+        }
+
+        uint256 totalInput = uniInput.add(sushiInput);
+        require(totalInput < _amountInMax, "UniswapV2LikeTradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+
+        return totalInput;
     }
 
     function _getUniSplit(address[] calldata _path) internal view returns (uint256) {
