@@ -55,7 +55,7 @@ describe("TradeSplitter", async () => {
       setup.dai.address
     );
 
-    splitter = await deployer.adapters.deployTradeSpliter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    splitter = await deployer.adapters.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -71,7 +71,7 @@ describe("TradeSplitter", async () => {
     });
 
     async function subject(): Promise<TradeSplitter> {
-      return deployer.adapters.deployTradeSpliter(subjectUniswapRouter.address, subjectSushiswapRouter.address);
+      return deployer.adapters.deployTradeSplitter(subjectUniswapRouter.address, subjectSushiswapRouter.address);
     }
 
     it("should set the state variables correctly", async () => {
