@@ -11,7 +11,7 @@ import {
 import DeployHelper from "@utils/deploys";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { Account } from "@utils/test/types";
-import { UniswapV2LikeTradeSplitter } from "../../../../typechain/UniswapV2LikeTradeSplitter";
+import { UniswapV2LikeTradeSplitter } from "@utils/contracts";
 import { UniswapV2Router02 } from "@utils/contracts";
 import { Address } from "@utils/types";
 import { bitcoin, ether } from "@utils/common";
