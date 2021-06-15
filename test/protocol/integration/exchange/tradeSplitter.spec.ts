@@ -234,6 +234,39 @@ describe("TradeSplitter", async () => {
       });
     });
 
+    context("when there is only a Sushiswap pool", async () => {
+
+      beforeEach(async () => {
+        await sushiswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(100),
+          ether(100000),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+      });
+
+      it("should route the entire trade to Sushiswap", async () => {
+
+        const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+        const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+        const initUniWeth = await setup.weth.balanceOf(uniPool);
+        const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+        await subject();
+
+        const finalUniWeth = await setup.weth.balanceOf(uniPool);
+        const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+        expect(finalUniWeth.sub(initUniWeth)).to.eq(0);
+        expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn);
+      });
+    });
+
     context("when using two hops", async () => {
 
       beforeEach(async () => {
@@ -419,6 +452,50 @@ describe("TradeSplitter", async () => {
           expect(finalSushiWeth.sub(initSushiWeth)).to.eq(0);
         });
       });
+
+      context("when there is only a Sushiswap pool", async () => {
+
+        beforeEach(async () => {
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(100000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await sushiswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            ether(10),
+            ether(1000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should route the entire trade to Sushiswap", async () => {
+
+          const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+          const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+          const initUniWeth = await setup.weth.balanceOf(uniPool);
+          const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          await subject();
+
+          const finalUniWeth = await setup.weth.balanceOf(uniPool);
+          const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          expect(finalUniWeth.sub(initUniWeth)).to.eq(0);
+          expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn);
+        });
+      });
     });
   });
 
@@ -571,6 +648,39 @@ describe("TradeSplitter", async () => {
 
         expect(initUniDai.sub(finalUniDai)).to.eq(subjectAmountOut);
         expect(initSushiDai.sub(finalSushiDai)).to.eq(0);
+      });
+    });
+
+    context("when there is only a Sushiswap pool", async () => {
+
+      beforeEach(async () => {
+        await sushiswapSetup.router.addLiquidity(
+          setup.weth.address,
+          setup.dai.address,
+          ether(100),
+          ether(100000),
+          0,
+          0,
+          owner.address,
+          MAX_UINT_256
+        );
+      });
+
+      it("should route the entire trade to Sushiswap", async () => {
+
+        const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+        const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+        const initUniDai = await setup.dai.balanceOf(uniPool);
+        const initSushiDai = await setup.dai.balanceOf(sushiPool);
+
+        await subject();
+
+        const finalUniDai = await setup.dai.balanceOf(uniPool);
+        const finalSushiDai = await setup.dai.balanceOf(sushiPool);
+
+        expect(initUniDai.sub(finalUniDai)).to.eq(0);
+        expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut);
       });
     });
 
@@ -760,6 +870,50 @@ describe("TradeSplitter", async () => {
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(0);
         });
       });
+
+      context("when there is only a Sushiswap pool", async () => {
+
+        beforeEach(async () => {
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(100000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          await sushiswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            ether(10),
+            ether(1000),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should route the entire trade to Sushiswap", async () => {
+
+          const uniPool = await uniswapSetup.factory.getPair(setup.wbtc.address, setup.dai.address);
+          const sushiPool = await sushiswapSetup.factory.getPair(setup.wbtc.address, setup.dai.address);
+
+          const initUniWbtc = await setup.wbtc.balanceOf(uniPool);
+          const initSushiWbtc = await setup.wbtc.balanceOf(sushiPool);
+
+          await subject();
+
+          const finalUniWbtc = await setup.wbtc.balanceOf(uniPool);
+          const finalSushiWbtc = await setup.wbtc.balanceOf(sushiPool);
+
+          expect(initUniWbtc.sub(finalUniWbtc)).to.eq(0);
+          expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(subjectAmountOut);
+        });
+      });
     });
   });
 
@@ -782,28 +936,6 @@ describe("TradeSplitter", async () => {
 
       await setup.weth.transfer(trader.address, ether(1000));
       await setup.weth.connect(trader.wallet).approve(splitter.address, MAX_UINT_256);
-
-      await uniswapSetup.router.addLiquidity(
-        setup.weth.address,
-        setup.dai.address,
-        ether(70),
-        ether(70 * 2500),
-        0,
-        0,
-        owner.address,
-        MAX_UINT_256
-      );
-
-      await sushiswapSetup.router.addLiquidity(
-        setup.weth.address,
-        setup.dai.address,
-        ether(30),
-        ether(30 * 2500),
-        0,
-        0,
-        owner.address,
-        MAX_UINT_256
-      );
     });
 
     async function subject(): Promise<BigNumber> {
@@ -821,21 +953,114 @@ describe("TradeSplitter", async () => {
         subjectExactInput = true;
       });
 
-      it("should return a quote that is the same as the actual trade outputs", async () => {
+      context("when 70% of the liquidity is in the Uniswap pool", async  () => {
 
-        const quote = await subject();
+        beforeEach(async () => {
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(70),
+            ether(70 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
 
-        const initTraderDai = await setup.dai.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactInput(
-          subjectAmountIn,
-          0,
-          subjectPath,
-          trader.address,
-          MAX_UINT_256
-        );
-        const finalTraderDai = await setup.dai.balanceOf(trader.address);
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(30),
+            ether(30 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
 
-        expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+        it("should return a quote that is the same as the actual trade outputs", async () => {
+
+          const quote = await subject();
+
+          const initTraderDai = await setup.dai.balanceOf(trader.address);
+          await splitter.connect(trader.wallet).tradeExactInput(
+            subjectAmountIn,
+            0,
+            subjectPath,
+            trader.address,
+            MAX_UINT_256
+          );
+          const finalTraderDai = await setup.dai.balanceOf(trader.address);
+
+          expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+        });
+      });
+
+      context("when there is only a Uniswap pool", async  () => {
+
+        beforeEach(async () => {
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(100 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should return a quote that is the same as the actual trade outputs", async () => {
+
+          const quote = await subject();
+
+          const initTraderDai = await setup.dai.balanceOf(trader.address);
+          await splitter.connect(trader.wallet).tradeExactInput(
+            subjectAmountIn,
+            0,
+            subjectPath,
+            trader.address,
+            MAX_UINT_256
+          );
+          const finalTraderDai = await setup.dai.balanceOf(trader.address);
+
+          expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+        });
+      });
+
+      context("when there is only a Sushiswap pool", async  () => {
+
+        beforeEach(async () => {
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(100 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should return a quote that is the same as the actual trade outputs", async () => {
+
+          const quote = await subject();
+
+          const initTraderDai = await setup.dai.balanceOf(trader.address);
+          await splitter.connect(trader.wallet).tradeExactInput(
+            subjectAmountIn,
+            0,
+            subjectPath,
+            trader.address,
+            MAX_UINT_256
+          );
+          const finalTraderDai = await setup.dai.balanceOf(trader.address);
+
+          expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+        });
       });
     });
 
@@ -845,21 +1070,114 @@ describe("TradeSplitter", async () => {
         subjectExactInput = false;
       });
 
-      it("should return a quote that is the same as the actual trade inputs", async () => {
+      context("when 70% of the liquidity is in the Uniswap pool", async  () => {
 
-        const quote = await subject();
+        beforeEach(async () => {
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(70),
+            ether(70 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
 
-        const initTraderWeth = await setup.weth.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactOutput(
-          MAX_UINT_256,
-          subjectAmountOut,
-          subjectPath,
-          trader.address,
-          MAX_UINT_256
-        );
-        const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(30),
+            ether(30 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
 
-        expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+        it("should return a quote that is the same as the actual trade inputs", async () => {
+
+          const quote = await subject();
+
+          const initTraderWeth = await setup.weth.balanceOf(trader.address);
+          await splitter.connect(trader.wallet).tradeExactOutput(
+            MAX_UINT_256,
+            subjectAmountOut,
+            subjectPath,
+            trader.address,
+            MAX_UINT_256
+          );
+          const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+
+          expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+        });
+      });
+
+      context("when there is only a Uniswap pool", async  () => {
+
+        beforeEach(async () => {
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(100 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should return a quote that is the same as the actual trade inputs", async () => {
+
+          const quote = await subject();
+
+          const initTraderWeth = await setup.weth.balanceOf(trader.address);
+          await splitter.connect(trader.wallet).tradeExactOutput(
+            MAX_UINT_256,
+            subjectAmountOut,
+            subjectPath,
+            trader.address,
+            MAX_UINT_256
+          );
+          const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+
+          expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+        });
+      });
+
+      context("when there is only a Sushiswap pool", async  () => {
+
+        beforeEach(async () => {
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(100),
+            ether(100 * 2500),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should return a quote that is the same as the actual trade inputs", async () => {
+
+          const quote = await subject();
+
+          const initTraderWeth = await setup.weth.balanceOf(trader.address);
+          await splitter.connect(trader.wallet).tradeExactOutput(
+            MAX_UINT_256,
+            subjectAmountOut,
+            subjectPath,
+            trader.address,
+            MAX_UINT_256
+          );
+          const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+
+          expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+        });
       });
     });
   });
