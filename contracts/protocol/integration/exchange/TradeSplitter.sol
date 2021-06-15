@@ -29,7 +29,7 @@ import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { console } from "hardhat/console.sol";
 
 
-contract UniswapV2LikeTradeSplitter {
+contract TradeSplitter {
 
     using SafeMath for uint256;
     using PreciseUnitMath for uint256;
