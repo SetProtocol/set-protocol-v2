@@ -229,7 +229,9 @@ contract TradeSplitter {
 
             if(sushiValueA == 0 || sushiValueB == 0) return PreciseUnitMath.PRECISE_UNIT;
 
-            uint256 ratio = sushiValueA.add(sushiValueB).preciseMul(uniValueA).preciseMul(uniValueB).preciseDiv(uniValueA.add(uniValueB).preciseMul(sushiValueA).preciseMul(sushiValueB));
+            uint256 ratio = sushiValueA.add(sushiValueB).preciseMul(uniValueA).preciseMul(uniValueB)
+                .preciseDiv(uniValueA.add(uniValueB).preciseMul(sushiValueA).preciseMul(sushiValueB));
+                
             return ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
         }
     }
