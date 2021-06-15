@@ -174,6 +174,29 @@ contract TradeSplitter {
         return totalInput;
     }
 
+    /* =========== External Getter Functions =========== */
+
+    /**
+     * Returns a quote with an estimated trade input or output amount
+     *
+     * @param _amountIn     input amount (ignored if _isExactInput is false)
+     * @param _amountOut    output amount (ignored if _isExactInput is true)
+     * @param _path         the trade path to use
+     * @param _isExactInput boolean representing whether to fetch an exact input or exact output trade quote
+     *
+     * @return uint256      the expected input or output amount
+     */
+    function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external  view returns (uint256) {
+
+        require(_path.length <= 3 && _path.length != 0, "UniswapV2LikeTradeSplitter: incorrect path length");
+
+        if (_isExactInput) {
+            return _getQuoteExactInput(_amountIn, _path);
+        } else {
+            return _getQuoteExactOutput(_amountOut, _path);
+        }
+    }
+
     /* ============= Internal Functions ============ */
 
     function _getUniSplit(address[] calldata _path) internal view returns (uint256) {
@@ -218,5 +241,45 @@ contract TradeSplitter {
         if (token.allowance(address(this), address(sushiRouter)) < _sushiAmount) {
             token.approve(address(sushiRouter), PreciseUnitMath.MAX_UINT_256);
         }
+    }
+
+    function _getQuoteExactInput(uint256 _amountIn, address[] calldata _path) internal view  returns (uint256) {
+
+        uint256 uniSplit = _getUniSplit(_path);
+
+        uint256 uniTradeSize = uniSplit.preciseMul(_amountIn);
+        uint256 sushiTradeSize = _amountIn.sub(uniTradeSize);
+
+        uint256 uniOutput = 0;
+        uint256 sushiOutput = 0;
+
+        if (uniTradeSize > 0) {
+            uniOutput = uniRouter.getAmountsOut(uniTradeSize, _path)[_path.length.sub(1)];
+        }
+        if (sushiTradeSize > 0) {
+            sushiOutput = sushiRouter.getAmountsOut(sushiTradeSize, _path)[_path.length.sub(1)];
+        }
+
+        return uniOutput.add(sushiOutput);
+    }
+
+    function _getQuoteExactOutput(uint256 _amountOut, address[] calldata _path) internal view returns (uint256) {
+
+        uint256 uniSplit = _getUniSplit(_path);
+
+        uint256 uniTradeSize = uniSplit.preciseMul(_amountOut);
+        uint256 sushiTradeSize = _amountOut.sub(uniTradeSize);
+
+        uint256 uniInput = 0;
+        uint256 sushiInput = 0;
+
+        if (uniSplit > 0) {
+            uniInput = uniRouter.getAmountsIn(uniTradeSize, _path)[0];
+        }
+        if (uniSplit < PreciseUnitMath.PRECISE_UNIT) {
+            sushiInput = sushiRouter.getAmountsIn(sushiTradeSize, _path)[0];
+        }
+
+        return uniInput.add(sushiInput);
     }
 }

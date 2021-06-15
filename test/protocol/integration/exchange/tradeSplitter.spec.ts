@@ -762,4 +762,105 @@ describe("TradeSplitter", async () => {
       });
     });
   });
+
+  describe("#getQuote", async () => {
+
+    let subjectAmountIn: BigNumber;
+    let subjectAmountOut: BigNumber;
+    let subjectPath: Address[];
+    let subjectExactInput: boolean;
+
+    beforeEach(async () => {
+      subjectAmountIn = ether(10);
+      subjectAmountOut = ether(1000);
+      subjectPath = [ setup.weth.address, setup.dai.address ];
+
+      await setup.weth.approve(uniswapSetup.router.address, MAX_UINT_256);
+      await setup.dai.approve(uniswapSetup.router.address, MAX_UINT_256);
+      await setup.weth.approve(sushiswapSetup.router.address, MAX_UINT_256);
+      await setup.dai.approve(sushiswapSetup.router.address, MAX_UINT_256);
+
+      await setup.weth.transfer(trader.address, ether(1000));
+      await setup.weth.connect(trader.wallet).approve(splitter.address, MAX_UINT_256);
+
+      await uniswapSetup.router.addLiquidity(
+        setup.weth.address,
+        setup.dai.address,
+        ether(70),
+        ether(70 * 2500),
+        0,
+        0,
+        owner.address,
+        MAX_UINT_256
+      );
+
+      await sushiswapSetup.router.addLiquidity(
+        setup.weth.address,
+        setup.dai.address,
+        ether(30),
+        ether(30 * 2500),
+        0,
+        0,
+        owner.address,
+        MAX_UINT_256
+      );
+    });
+
+    async function subject(): Promise<BigNumber> {
+      return await splitter.getQuote(
+        subjectAmountIn,
+        subjectAmountOut,
+        subjectPath,
+        subjectExactInput
+      );
+    }
+
+    context("when getting an exact input quote", async () => {
+
+      beforeEach(() => {
+        subjectExactInput = true;
+      });
+
+      it("should return a quote that is the same as the actual trade outputs", async () => {
+
+        const quote = await subject();
+
+        const initTraderDai = await setup.dai.balanceOf(trader.address);
+        await splitter.connect(trader.wallet).tradeExactInput(
+          subjectAmountIn,
+          0,
+          subjectPath,
+          trader.address,
+          MAX_UINT_256
+        );
+        const finalTraderDai = await setup.dai.balanceOf(trader.address);
+
+        expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+      });
+    });
+
+    context("when getting an exact output quote", async () => {
+
+      beforeEach(() => {
+        subjectExactInput = false;
+      });
+
+      it("should return a quote that is the same as the actual trade inputs", async () => {
+
+        const quote = await subject();
+
+        const initTraderWeth = await setup.weth.balanceOf(trader.address);
+        await splitter.connect(trader.wallet).tradeExactOutput(
+          MAX_UINT_256,
+          subjectAmountOut,
+          subjectPath,
+          trader.address,
+          MAX_UINT_256
+        );
+        const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+
+        expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+      });
+    });
+  });
 });
