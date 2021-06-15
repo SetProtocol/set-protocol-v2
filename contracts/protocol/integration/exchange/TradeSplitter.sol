@@ -28,17 +28,36 @@ import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 import { console } from "hardhat/console.sol";
 
-
+/**
+ * @title TradeSplitter
+ * @author Set Protocol
+ *
+ * Peripheral contract which splits trades efficiently between Uniswap and Sushiswap
+ */
 contract TradeSplitter {
 
     using SafeMath for uint256;
     using PreciseUnitMath for uint256;
 
+    /* ============ Constants ============ */
+
+    // address of the Uniswap Router contract
     IUniswapV2Router public immutable uniRouter;
+    // address of the Sushiswap Router contract
     IUniswapV2Router public immutable sushiRouter;
+    // address of the Uniswap Factory contract
     IUniswapV2Factory public immutable uniFactory;
+    // address of the Sushiswap Factory contract
     IUniswapV2Factory public immutable sushiFactory;
 
+    /* =========== Constructor =========== */
+
+    /**
+     * Sets state variables
+     *
+     * @param _uniRouter    the Uniswap router contract
+     * @param _sushiRouter  the Sushiswap router contract
+     */
     constructor(IUniswapV2Router _uniRouter, IUniswapV2Router _sushiRouter) public {
         uniRouter = _uniRouter;
         sushiRouter = _sushiRouter;
@@ -46,6 +65,19 @@ contract TradeSplitter {
         sushiFactory = IUniswapV2Factory(_sushiRouter.factory());
     }
 
+    /* ============ External Functions ============= */
+
+    /**
+     * Executes an exact input trade. Splits trade efficiently between Uniswap and Sushiswap
+     *
+     * @param _amountIn     the exact input amount
+     * @param _amountOutMin the minimum output amount that must be received
+     * @param _path         the path to use for the trade (length must be 3 or less)
+     * @param _to           the address to direct the outputs to
+     * @param _deadline     the deadline for the trade
+     * 
+     * @return uint256      the actual output amount
+     */
     function tradeExactInput(
         uint256 _amountIn,
         uint256 _amountOutMin,
@@ -84,6 +116,17 @@ contract TradeSplitter {
         return totalOutput;
     }
 
+    /**
+     * Executes an exact output trade. Splits trade efficiently between Uniswap and Sushiswap
+     *
+     * @param _amountInMax  the maximum input amount that can be spent
+     * @param _amountOut    the exact output amount
+     * @param _path         the path to use for the trade (length must be 3 or less)
+     * @param _to           the address to direct the outputs to
+     * @param _deadline     the deadline for the trade
+     * 
+     * @return uint256      the actual input amount
+     */
     function tradeExactOutput(
         uint256 _amountInMax,
         uint256 _amountOut,
@@ -130,6 +173,8 @@ contract TradeSplitter {
 
         return totalInput;
     }
+
+    /* ============= Internal Functions ============ */
 
     function _getUniSplit(address[] calldata _path) internal view returns (uint256) {
         if (_path.length == 2) {
