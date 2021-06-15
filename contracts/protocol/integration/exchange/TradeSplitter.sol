@@ -26,8 +26,6 @@ import { IUniswapV2Factory } from "../../../interfaces/external/IUniswapV2Factor
 import { IUniswapV2Router } from "../../../interfaces/external/IUniswapV2Router.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
-import { console } from "hardhat/console.sol";
-
 /**
  * @title TradeSplitter
  * @author Set Protocol
@@ -231,7 +229,7 @@ contract TradeSplitter {
 
             uint256 ratio = sushiValueA.add(sushiValueB).preciseMul(uniValueA).preciseMul(uniValueB)
                 .preciseDiv(uniValueA.add(uniValueB).preciseMul(sushiValueA).preciseMul(sushiValueB));
-                
+
             return ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
         }
     }
