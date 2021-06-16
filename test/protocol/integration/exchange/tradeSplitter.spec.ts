@@ -505,7 +505,7 @@ describe("TradeSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: incorrect path length");
+        await expect(subject()).to.be.revertedWith("TradeSplitter: incorrect path length");
       });
     });
 
@@ -537,7 +537,7 @@ describe("TradeSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+        await expect(subject()).to.be.revertedWith("TradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
       });
     });
   });
@@ -966,7 +966,7 @@ describe("TradeSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: incorrect path length");
+        await expect(subject()).to.be.revertedWith("TradeSplitter: incorrect path length");
       });
     });
 
@@ -998,7 +998,7 @@ describe("TradeSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("UniswapV2LikeTradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+        await expect(subject()).to.be.revertedWith("TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
       });
     });
   });

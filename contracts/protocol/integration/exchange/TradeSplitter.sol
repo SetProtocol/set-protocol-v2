@@ -86,7 +86,7 @@ contract TradeSplitter {
         external
         returns (uint256 totalOutput)
     {
-        require(_path.length <= 3 && _path.length != 0, "UniswapV2LikeTradeSplitter: incorrect path length");
+        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
         ERC20 inputToken = ERC20(_path[0]);
         inputToken.transferFrom(msg.sender, address(this), _amountIn);
@@ -99,7 +99,7 @@ contract TradeSplitter {
         uint256 sushiOutput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, true);
 
         totalOutput = uniOutput.add(sushiOutput);
-        require(totalOutput > _amountOutMin, "UniswapV2LikeTradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+        require(totalOutput > _amountOutMin, "TradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
     }
 
     /**
@@ -123,7 +123,7 @@ contract TradeSplitter {
         external
         returns (uint256 totalInput)
     {
-        require(_path.length <= 3 && _path.length != 0, "UniswapV2LikeTradeSplitter: incorrect path length");
+        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
         (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
 
@@ -138,7 +138,7 @@ contract TradeSplitter {
         uint256 sushiInput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, false);
 
         totalInput = uniInput.add(sushiInput);
-        require(totalInput < _amountInMax, "UniswapV2LikeTradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+        require(totalInput < _amountInMax, "TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
     }
 
     /* =========== External Getter Functions =========== */
@@ -169,7 +169,6 @@ contract TradeSplitter {
 
     function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (uint256 uniSize, uint256 sushiSize) {
         if (_path.length == 2) {
-            
             address uniPair = uniFactory.getPair(_path[0], _path[1]);
             uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
 
@@ -179,10 +178,7 @@ contract TradeSplitter {
             uint256 uniPercentage = uniValue.preciseDiv(uniValue.add(sushiValue));
             uniSize = _size.preciseMul(uniPercentage);
             sushiSize = _size.sub(uniSize);
-        }
-
-        if (_path.length == 3) {
-            
+        } else {
             address uniPairA = uniFactory.getPair(_path[0], _path[1]);
             address uniPairB = uniFactory.getPair(_path[1], _path[2]);
 
