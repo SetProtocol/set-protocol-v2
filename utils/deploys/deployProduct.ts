@@ -1,11 +1,15 @@
 import { Signer } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
 
-import { UniswapYieldHook } from "../contracts";
-import { AssetLimitHook } from "../contracts";
+import {
+  UniswapYieldHook,
+  AssetLimitHook,
+  TradeSplitter
+} from "../contracts";
 
 import { UniswapYieldHook__factory } from "../../typechain/factories/UniswapYieldHook__factory";
 import { AssetLimitHook__factory } from "../../typechain/factories/AssetLimitHook__factory";
+import { TradeSplitter__factory } from "../../typechain/factories/TradeSplitter__factory";
 import { Address } from "@utils/types";
 
 export default class DeployProduct {
@@ -31,5 +35,9 @@ export default class DeployProduct {
 
   public async getAssetLimitHook(assetLimitHookAddress: Address): Promise<AssetLimitHook> {
     return await new AssetLimitHook__factory(this._deployerSigner).attach(assetLimitHookAddress);
+  }
+
+  public async deployTradeSplitter(uniRouter: Address, sushiRouter: Address): Promise<TradeSplitter> {
+    return await new TradeSplitter__factory(this._deployerSigner).deploy(uniRouter, sushiRouter);
   }
 }

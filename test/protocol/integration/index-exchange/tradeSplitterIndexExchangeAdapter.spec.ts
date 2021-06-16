@@ -62,7 +62,7 @@ describe("TradeSplitterIndexExchangeAdapter", () => {
       setup.dai.address
     );
 
-    tradeSplitter = await deployer.adapters.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    tradeSplitter = await deployer.product.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
     tradeSplitterIndexExchangeAdapter = await deployer.adapters.deployTradeSplitterIndexExchangeAdapter(tradeSplitter.address);
   });
 

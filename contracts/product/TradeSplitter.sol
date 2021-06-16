@@ -22,9 +22,9 @@ pragma experimental "ABIEncoderV2";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import { IUniswapV2Factory } from "../../../interfaces/external/IUniswapV2Factory.sol";
-import { IUniswapV2Router } from "../../../interfaces/external/IUniswapV2Router.sol";
-import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
+import { IUniswapV2Factory } from "../interfaces/external/IUniswapV2Factory.sol";
+import { IUniswapV2Router } from "../interfaces/external/IUniswapV2Router.sol";
+import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
 
 /**
  * @title TradeSplitter

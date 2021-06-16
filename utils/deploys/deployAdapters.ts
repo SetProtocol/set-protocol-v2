@@ -19,7 +19,6 @@ import {
   UniswapV2ExchangeAdapterV2,
   UniswapV2IndexExchangeAdapter,
   UniswapV2TransferFeeExchangeAdapter,
-  TradeSplitter,
   TradeSplitterExchangeAdapter,
   TradeSplitterIndexExchangeAdapter,
   ZeroExApiAdapter,
@@ -50,7 +49,6 @@ import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/Uni
 import { UniswapV2TransferFeeExchangeAdapter__factory } from "../../typechain/factories/UniswapV2TransferFeeExchangeAdapter__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { UniswapV2IndexExchangeAdapter__factory } from "../../typechain/factories/UniswapV2IndexExchangeAdapter__factory";
-import { TradeSplitter__factory } from "../../typechain/factories/TradeSplitter__factory";
 import { TradeSplitterExchangeAdapter__factory } from "../../typechain/factories/TradeSplitterExchangeAdapter__factory";
 import { TradeSplitterIndexExchangeAdapter__factory } from "../../typechain/factories/TradeSplitterIndexExchangeAdapter__factory";
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
@@ -193,10 +191,6 @@ export default class DeployAdapters {
     return await new SynthetixExchangeAdapter__factory(this._deployerSigner).deploy(
       synthetixExchangerAddress
     );
-  }
-
-  public async deployTradeSplitter(uniRouter: Address, sushiRouter: Address): Promise<TradeSplitter> {
-    return await new TradeSplitter__factory(this._deployerSigner).deploy(uniRouter, sushiRouter);
   }
 
   public async deployTradeSplitterExchangeAdapter(tradeSplitter: Address): Promise<TradeSplitterExchangeAdapter> {
