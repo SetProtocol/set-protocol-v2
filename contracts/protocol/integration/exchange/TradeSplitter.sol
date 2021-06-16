@@ -159,15 +159,8 @@ contract TradeSplitter {
 
         (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _isExactInput ? _amountIn : _amountOut);
 
-        uint256 uniTradeResult = 0;
-        uint256 sushiTradeResult = 0;
-
-        if (uniTradeSize > 0) {
-            uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, _isExactInput);
-        }
-        if (sushiTradeSize > 0) {
-            sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, _isExactInput);
-        }
+        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, _isExactInput);
+        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, _isExactInput);
 
         return uniTradeResult.add(sushiTradeResult);
     }
