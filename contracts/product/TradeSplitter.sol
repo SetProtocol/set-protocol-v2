@@ -144,23 +144,41 @@ contract TradeSplitter {
     /* =========== External Getter Functions =========== */
 
     /**
-     * Returns a quote with an estimated trade input or output amount
+     * Returns a quote with an estimated trade output amount
      *
-     * @param _amountIn     input amount (ignored if _isExactInput is false)
-     * @param _amountOut    output amount (ignored if _isExactInput is true)
+     * @param _amountIn     input amount
      * @param _path         the trade path to use
-     * @param _isExactInput boolean representing whether to fetch an exact input or exact output trade quote
      *
-     * @return uint256      the expected input or output amount
+     * @return uint256      the expected output amount
      */
-    function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external  view returns (uint256) {
+    function getQuoteExactInput(uint256 _amountIn, address[] calldata _path) external  view returns (uint256) {
 
         require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
-        (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _isExactInput ? _amountIn : _amountOut);
+        (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountIn);
 
-        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, _isExactInput);
-        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, _isExactInput);
+        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, true);
+        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, true);
+
+        return uniTradeResult.add(sushiTradeResult);
+    }
+
+    /**
+     * Returns a quote with an estimated trade output amount
+     *
+     * @param _amountOut    output amount
+     * @param _path         the trade path to use
+     *
+     * @return uint256      the expected input amount
+     */
+    function getQuoteExactOutput(uint256 _amountOut, address[] calldata _path) external  view returns (uint256) {
+
+        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
+
+        (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
+
+        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, false);
+        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, false);
 
         return uniTradeResult.add(sushiTradeResult);
     }
