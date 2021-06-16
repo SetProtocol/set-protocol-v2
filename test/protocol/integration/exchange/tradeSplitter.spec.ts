@@ -1266,5 +1266,16 @@ describe("TradeSplitter", async () => {
         });
       });
     });
+
+    context("when the path is too long", async () => {
+
+      beforeEach(() => {
+        subjectPath = [ setup.weth.address, setup.wbtc.address, setup.dai.address, setup.usdc.address ];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("TradeSplitter: incorrect path length");
+      });
+    });
   });
 });

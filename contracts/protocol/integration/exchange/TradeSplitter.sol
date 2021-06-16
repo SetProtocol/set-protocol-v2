@@ -155,7 +155,7 @@ contract TradeSplitter {
      */
     function getQuote(uint256 _amountIn, uint256 _amountOut, address[] calldata _path, bool _isExactInput) external  view returns (uint256) {
 
-        require(_path.length <= 3 && _path.length != 0, "UniswapV2LikeTradeSplitter: incorrect path length");
+        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
         (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _isExactInput ? _amountIn : _amountOut);
 
