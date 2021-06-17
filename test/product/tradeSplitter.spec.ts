@@ -82,7 +82,7 @@ describe("TradeSplitter", async () => {
     });
   });
 
-  describe("#tradeExactInput", async () => {
+  describe("#swapExactTokensForTokens", async () => {
 
     let subjectAmountIn: BigNumber;
     let subjectMinAmountOut: BigNumber;
@@ -105,7 +105,7 @@ describe("TradeSplitter", async () => {
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return await splitter.connect(subjectCaller.wallet).tradeExactInput(
+      return await splitter.connect(subjectCaller.wallet).swapExactTokensForTokens(
         subjectAmountIn,
         subjectMinAmountOut,
         subjectPath,
@@ -542,7 +542,7 @@ describe("TradeSplitter", async () => {
     });
   });
 
-  describe("#tradeExactOutput", async () => {
+  describe("#swapTokensForExactTokens", async () => {
 
     let subjectAmountInMax: BigNumber;
     let subjectAmountOut: BigNumber;
@@ -565,9 +565,9 @@ describe("TradeSplitter", async () => {
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return await splitter.connect(subjectCaller.wallet).tradeExactOutput(
-        subjectAmountInMax,
+      return await splitter.connect(subjectCaller.wallet).swapTokensForExactTokens(
         subjectAmountOut,
+        subjectAmountInMax,
         subjectPath,
         subjectCaller.address,
         MAX_UINT_256
@@ -1059,7 +1059,7 @@ describe("TradeSplitter", async () => {
         const quote = await subject();
 
         const initTraderDai = await setup.dai.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactInput(
+        await splitter.connect(trader.wallet).swapExactTokensForTokens(
           subjectAmountIn,
           0,
           subjectPath,
@@ -1092,7 +1092,7 @@ describe("TradeSplitter", async () => {
         const quote = await subject();
 
         const initTraderDai = await setup.dai.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactInput(
+        await splitter.connect(trader.wallet).swapExactTokensForTokens(
           subjectAmountIn,
           0,
           subjectPath,
@@ -1125,7 +1125,7 @@ describe("TradeSplitter", async () => {
         const quote = await subject();
 
         const initTraderDai = await setup.dai.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactInput(
+        await splitter.connect(trader.wallet).swapExactTokensForTokens(
           subjectAmountIn,
           0,
           subjectPath,
@@ -1206,9 +1206,9 @@ describe("TradeSplitter", async () => {
         const quote = await subject();
 
         const initTraderWeth = await setup.weth.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactOutput(
-          MAX_UINT_256,
+        await splitter.connect(trader.wallet).swapTokensForExactTokens(
           subjectAmountOut,
+          MAX_UINT_256,
           subjectPath,
           trader.address,
           MAX_UINT_256
@@ -1239,9 +1239,9 @@ describe("TradeSplitter", async () => {
         const quote = await subject();
 
         const initTraderWeth = await setup.weth.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactOutput(
-          MAX_UINT_256,
+        await splitter.connect(trader.wallet).swapTokensForExactTokens(
           subjectAmountOut,
+          MAX_UINT_256,
           subjectPath,
           trader.address,
           MAX_UINT_256
@@ -1272,9 +1272,9 @@ describe("TradeSplitter", async () => {
         const quote = await subject();
 
         const initTraderWeth = await setup.weth.balanceOf(trader.address);
-        await splitter.connect(trader.wallet).tradeExactOutput(
-          MAX_UINT_256,
+        await splitter.connect(trader.wallet).swapTokensForExactTokens(
           subjectAmountOut,
+          MAX_UINT_256,
           subjectPath,
           trader.address,
           MAX_UINT_256

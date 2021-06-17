@@ -76,7 +76,7 @@ contract TradeSplitter {
      * 
      * @return totalOutput  the actual output amount
      */
-    function tradeExactInput(
+    function swapExactTokensForTokens(
         uint256 _amountIn,
         uint256 _amountOutMin,
         address[] calldata _path,
@@ -105,17 +105,17 @@ contract TradeSplitter {
     /**
      * Executes an exact output trade. Splits trade efficiently between Uniswap and Sushiswap
      *
-     * @param _amountInMax  the maximum input amount that can be spent
      * @param _amountOut    the exact output amount
+     * @param _amountInMax  the maximum input amount that can be spent
      * @param _path         the path to use for the trade (length must be 3 or less)
      * @param _to           the address to direct the outputs to
      * @param _deadline     the deadline for the trade
      * 
      * @return totalInput   the actual input amount
      */
-    function tradeExactOutput(
-        uint256 _amountInMax,
+    function swapTokensForExactTokens(
         uint256 _amountOut,
+        uint256 _amountInMax,
         address[] calldata _path,
         address _to,
         uint256 _deadline
