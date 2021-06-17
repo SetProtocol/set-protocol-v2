@@ -22,6 +22,7 @@ import {
   WETH9,
   ZeroExApiAdapter,
   ZeroExMock,
+  UniswapV3ExchangeAdapter,
 } from "@utils/contracts";
 import { ADDRESS_ZERO, EMPTY_BYTES, MAX_UINT_256, ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
@@ -35,10 +36,11 @@ import {
   getRandomAccount,
   getSystemFixture,
   getUniswapFixture,
+  getUniswapV3Fixture,
   getWaffleExpect,
 } from "@utils/test/index";
 
-import { SystemFixture, UniswapFixture } from "@utils/fixtures";
+import { SystemFixture, UniswapFixture, UniswapV3Fixture } from "@utils/fixtures";
 
 const web3 = new Web3();
 const expect = getWaffleExpect();
@@ -64,6 +66,8 @@ describe("TradeModule", () => {
   let uniswapTransferFeeAdapterName: string;
   let uniswapExchangeAdapterV2: UniswapV2ExchangeAdapterV2;
   let uniswapAdapterV2Name: string;
+  let uniswapV3ExchangeAdapter: UniswapV3ExchangeAdapter;
+  let uniswapV3AdapterName: string;
 
   let zeroExMock: ZeroExMock;
   let zeroExApiAdapter: ZeroExApiAdapter;
@@ -72,6 +76,7 @@ describe("TradeModule", () => {
   let wbtcRate: BigNumber;
   let setup: SystemFixture;
   let uniswapSetup: UniswapFixture;
+  let uniswapV3Setup: UniswapV3Fixture;
   let tradeModule: TradeModule;
 
   cacheBeforeEach(async () => {
@@ -122,9 +127,20 @@ describe("TradeModule", () => {
       setup.dai.address
     );
 
+    uniswapV3Setup = getUniswapV3Fixture(owner.address);
+    await uniswapV3Setup.initialize(
+      owner,
+      setup.weth,
+      2500,
+      setup.wbtc,
+      35000,
+      setup.dai
+    );
+
     uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapter(uniswapSetup.router.address);
     uniswapTransferFeeExchangeAdapter = await deployer.adapters.deployUniswapV2TransferFeeExchangeAdapter(uniswapSetup.router.address);
     uniswapExchangeAdapterV2 = await deployer.adapters.deployUniswapV2ExchangeAdapterV2(uniswapSetup.router.address);
+    uniswapV3ExchangeAdapter = await deployer.adapters.deployUniswapV3ExchangeAdapter(uniswapV3Setup.swapRouter.address);
 
     zeroExMock = await deployer.mocks.deployZeroExMock(
         setup.wbtc.address,
@@ -141,13 +157,30 @@ describe("TradeModule", () => {
     uniswapTransferFeeAdapterName = "UNISWAP_TRANSFER_FEE";
     uniswapAdapterV2Name = "UNISWAPV2";
     zeroExApiAdapterName = "ZERO_EX";
+    uniswapV3AdapterName = "UNISWAPV3";
 
     tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);
     await setup.controller.addModule(tradeModule.address);
 
     await setup.integrationRegistry.batchAddIntegration(
-      [tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address, tradeModule.address],
-      [kyberAdapterName, oneInchAdapterName, uniswapAdapterName, uniswapTransferFeeAdapterName, uniswapAdapterV2Name, zeroExApiAdapterName],
+      [
+        tradeModule.address,
+        tradeModule.address,
+        tradeModule.address,
+        tradeModule.address,
+        tradeModule.address,
+        tradeModule.address,
+        tradeModule.address,
+      ],
+      [
+        kyberAdapterName,
+        oneInchAdapterName,
+        uniswapAdapterName,
+        uniswapTransferFeeAdapterName,
+        uniswapAdapterV2Name,
+        zeroExApiAdapterName,
+        uniswapV3AdapterName,
+      ],
       [
         kyberExchangeAdapter.address,
         oneInchExchangeAdapter.address,
@@ -155,6 +188,7 @@ describe("TradeModule", () => {
         uniswapTransferFeeExchangeAdapter.address,
         uniswapExchangeAdapterV2.address,
         zeroExApiAdapter.address,
+        uniswapV3ExchangeAdapter.address,
       ]
     );
   });
@@ -1637,6 +1671,155 @@ describe("TradeModule", () => {
 
           it("should revert", async () => {
             await expect(subject()).to.be.revertedWith("Mismatched output token quantity");
+          });
+        });
+      });
+
+      context("when trading a Default component on Uniswap V3", async () => {
+        cacheBeforeEach(async () => {
+          await setup.weth.connect(owner.wallet).approve(uniswapV3Setup.nftPositionManager.address, ether(350));
+          await setup.wbtc.connect(owner.wallet).approve(uniswapV3Setup.nftPositionManager.address, bitcoin(25));
+
+          await uniswapV3Setup.addLiquidityWide(
+            setup.weth,
+            setup.wbtc,
+            3000,
+            ether(350),
+            bitcoin(25),
+            owner.address
+          );
+
+          tradeModule = tradeModule.connect(manager.wallet);
+          await tradeModule.initialize(setToken.address);
+
+          sourceTokenQuantity = wbtcUnits;
+
+          // Transfer sourceToken from owner to manager for issuance
+          sourceToken = sourceToken.connect(owner.wallet);
+          await sourceToken.transfer(manager.address, wbtcUnits.mul(100));
+
+          // Approve tokens to Controller and call issue
+          sourceToken = sourceToken.connect(manager.wallet);
+          await sourceToken.approve(setup.issuanceModule.address, ethers.constants.MaxUint256);
+
+          // Deploy mock issuance hook and initialize issuance module
+          setup.issuanceModule = setup.issuanceModule.connect(manager.wallet);
+          mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
+          await setup.issuanceModule.initialize(setToken.address, mockPreIssuanceHook.address);
+
+          issueQuantity = ether(1);
+          await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        });
+
+        beforeEach(async () => {
+          subjectSourceToken = sourceToken.address;
+          subjectDestinationToken = destinationToken.address;
+          subjectSourceQuantity = sourceTokenQuantity;
+          subjectSetToken = setToken.address;
+          subjectAdapterName = uniswapV3AdapterName;
+          subjectData = await uniswapV3ExchangeAdapter.generateDataParam([setup.wbtc.address, setup.weth.address], [3000]);
+          subjectMinDestinationQuantity = BigNumber.from(0);
+          subjectCaller = manager;
+        });
+
+        async function subject(): Promise<any> {
+          tradeModule = tradeModule.connect(subjectCaller.wallet);
+          return tradeModule.trade(
+            subjectSetToken,
+            subjectAdapterName,
+            subjectSourceToken,
+            subjectSourceQuantity,
+            subjectDestinationToken,
+            subjectMinDestinationQuantity,
+            subjectData
+          );
+        }
+
+        it("should transfer the correct components to the SetToken", async () => {
+          const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+          const expectedReceiveQuantity = await uniswapV3Setup.quoter.callStatic.quoteExactInputSingle(
+            subjectSourceToken,
+            subjectDestinationToken,
+            3000,
+            subjectSourceQuantity,
+            0
+          );
+
+          await subject();
+
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
+          const newDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
+          expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+        });
+
+        it("should transfer the correct components from the SetToken", async () => {
+          const oldSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+
+          await subject();
+
+          const totalSourceQuantity = issueQuantity.mul(sourceTokenQuantity).div(ether(1));
+          const expectedSourceTokenBalance = oldSourceTokenBalance.sub(totalSourceQuantity);
+          const newSourceTokenBalance = await sourceToken.balanceOf(setToken.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+        });
+
+        it("should update the positions on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+          const expectedReceiveQuantity = await uniswapV3Setup.quoter.callStatic.quoteExactInputSingle(
+            subjectSourceToken,
+            subjectDestinationToken,
+            3000,
+            subjectSourceQuantity,
+            0
+          );
+
+          await subject();
+
+          // All WBTC is sold for WETH
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+
+          expect(initialPositions.length).to.eq(1);
+          expect(currentPositions.length).to.eq(1);
+          expect(newFirstPosition.component).to.eq(destinationToken.address);
+          expect(newFirstPosition.unit).to.eq(expectedReceiveQuantity);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        describe("when path is through multiple trading pairs", async () => {
+          beforeEach(async () => {
+            await setup.weth.connect(owner.wallet).approve(uniswapV3Setup.nftPositionManager.address, ether(1000));
+            await setup.dai.connect(owner.wallet).approve(uniswapV3Setup.nftPositionManager.address, ether(1000000));
+
+            await uniswapV3Setup.addLiquidityWide(
+              setup.weth,
+              setup.dai,
+              3000,
+              ether(1000),
+              ether(1000000),
+              owner.address
+            );
+
+            subjectDestinationToken = setup.dai.address;
+
+            const tradePath = [subjectSourceToken, setup.weth.address, subjectDestinationToken];
+            const fees = [3000, 3000];
+
+            subjectData = await uniswapV3ExchangeAdapter.generateDataParam(tradePath, fees);
+          });
+
+          it("should transfer the correct components to the SetToken", async () => {
+            const oldDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
+            const expectedReceiveQuantity = await uniswapV3Setup.quoter.callStatic.quoteExactInput(
+              subjectData,
+              subjectSourceQuantity
+            );
+
+            await subject();
+
+            const expectedDestinationTokenBalance = oldDestinationTokenBalance.add(expectedReceiveQuantity);
+            const newDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
+            expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
           });
         });
       });

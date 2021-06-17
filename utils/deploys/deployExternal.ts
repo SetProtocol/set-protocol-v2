@@ -102,7 +102,7 @@ import {
   UniswapTimelock,
   UniswapV2Factory,
   UniswapV2Pair,
-  UniswapV2Router02
+  UniswapV2Router02,
 } from "../contracts/uniswap";
 
 import { StakingRewards__factory } from "../../typechain/factories/StakingRewards__factory";
@@ -517,6 +517,10 @@ export default class DeployExternalContracts {
 
   public async deployUniswapV2Router02(_factory: Address, _weth: Address): Promise<UniswapV2Router02> {
     return await new UniswapV2Router02__factory(this._deployerSigner).deploy(_factory, _weth);
+  }
+
+  public getForkedUniswapV2Router02(_mainnetRouter: Address): UniswapV2Router02 {
+    return UniswapV2Router02__factory.connect(_mainnetRouter, this._deployerSigner);
   }
 
   public async deployUniswapV2Pair(_factory: Address, _weth: Address): Promise<UniswapV2Pair> {
