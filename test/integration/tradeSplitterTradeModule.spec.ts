@@ -207,11 +207,9 @@ describe("TradeSplitterTradeModule", () => {
         it("should transfer the correct components to the SetToken", async () => {
           const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
 
-          const expectedReceiveQuantity = await tradeSplitter.getQuote(
+          const expectedReceiveQuantity = await tradeSplitter.getQuoteExactInput(
             subjectSourceQuantity,
-            0,
-            [ subjectSourceToken, subjectDestinationToken ],
-            true
+            [ subjectSourceToken, subjectDestinationToken ]
           );
 
           await subject();
@@ -234,11 +232,9 @@ describe("TradeSplitterTradeModule", () => {
 
         it("should update the positions on the SetToken correctly", async () => {
           const initialPositions = await setToken.getPositions();
-          const expectedReceiveQuantity = await tradeSplitter.getQuote(
+          const expectedReceiveQuantity = await tradeSplitter.getQuoteExactInput(
             subjectSourceQuantity,
-            0,
-            [ subjectSourceToken, subjectDestinationToken ],
-            true
+            [ subjectSourceToken, subjectDestinationToken ]
           );
 
           await subject();
@@ -293,11 +289,9 @@ describe("TradeSplitterTradeModule", () => {
 
           it("should transfer the correct components to the SetToken", async () => {
             const oldDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
-            const expectedReceiveQuantity = await tradeSplitter.getQuote(
+            const expectedReceiveQuantity = await tradeSplitter.getQuoteExactInput(
               subjectSourceQuantity,
-              0,
-              [ subjectSourceToken, setup.weth.address, subjectDestinationToken ],
-              true
+              [ subjectSourceToken, setup.weth.address, subjectDestinationToken ]
             );
 
             await subject();
