@@ -12,7 +12,7 @@ import {
   TradeModule,
   WETH9,
   TradeSplitter,
-  TradeSplitterExchangeAdapter,
+  UniswapV2ExchangeAdapter,
 } from "@utils/contracts";
 import { ADDRESS_ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
@@ -38,7 +38,7 @@ describe("TradeSplitterTradeModule", () => {
 
   let deployer: DeployHelper;
 
-  let tradeSplitterExchangeAdapter: TradeSplitterExchangeAdapter;
+  let tradeSplitterExchangeAdapter: UniswapV2ExchangeAdapter;
   let tradeSplitterAdapterName: string;
 
   let wbtcRate: BigNumber;
@@ -78,7 +78,7 @@ describe("TradeSplitterTradeModule", () => {
 
     tradeSplitter = await deployer.product.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
 
-    tradeSplitterExchangeAdapter = await deployer.adapters.deployTradeSplitterExchangeAdapter(tradeSplitter.address);
+    tradeSplitterExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapter(tradeSplitter.address);
     tradeSplitterAdapterName = "TRADESPLITTER";
 
     tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);

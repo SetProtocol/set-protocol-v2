@@ -4,7 +4,12 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, MAX_UINT_256, ZERO } from "@utils/constants";
-import { GeneralIndexModule, SetToken, TradeSplitter, TradeSplitterIndexExchangeAdapter } from "@utils/contracts";
+import {
+  GeneralIndexModule,
+  SetToken,
+  TradeSplitter,
+  UniswapV2IndexExchangeAdapter
+} from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   bitcoin,
@@ -38,7 +43,7 @@ describe("TradeSplitterGeneralIndexModule", () => {
   let index: SetToken;
   let indexModule: GeneralIndexModule;
 
-  let tradeSplitterAdapter: TradeSplitterIndexExchangeAdapter;
+  let tradeSplitterAdapter: UniswapV2IndexExchangeAdapter;
   let tradeSplitterAdapterName: string;
 
   let indexComponents: Address[];
@@ -69,7 +74,7 @@ describe("TradeSplitterGeneralIndexModule", () => {
 
 
     tradeSplitter = await deployer.product.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
-    tradeSplitterAdapter = await deployer.adapters.deployTradeSplitterIndexExchangeAdapter(tradeSplitter.address);
+    tradeSplitterAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(tradeSplitter.address);
     tradeSplitterAdapterName = "TRADESPLITTER";
 
 

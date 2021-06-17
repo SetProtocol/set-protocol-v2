@@ -19,8 +19,6 @@ import {
   UniswapV2ExchangeAdapterV2,
   UniswapV2IndexExchangeAdapter,
   UniswapV2TransferFeeExchangeAdapter,
-  TradeSplitterExchangeAdapter,
-  TradeSplitterIndexExchangeAdapter,
   UniswapV3ExchangeAdapter,
   ZeroExApiAdapter,
   SnapshotGovernanceAdapter,
@@ -50,8 +48,6 @@ import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/Uni
 import { UniswapV2TransferFeeExchangeAdapter__factory } from "../../typechain/factories/UniswapV2TransferFeeExchangeAdapter__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { UniswapV2IndexExchangeAdapter__factory } from "../../typechain/factories/UniswapV2IndexExchangeAdapter__factory";
-import { TradeSplitterExchangeAdapter__factory } from "../../typechain/factories/TradeSplitterExchangeAdapter__factory";
-import { TradeSplitterIndexExchangeAdapter__factory } from "../../typechain/factories/TradeSplitterIndexExchangeAdapter__factory";
 import { UniswapV3ExchangeAdapter__factory } from "../../typechain/factories/UniswapV3ExchangeAdapter__factory";
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
@@ -195,14 +191,6 @@ export default class DeployAdapters {
     );
   }
 
-  public async deployTradeSplitterExchangeAdapter(tradeSplitter: Address): Promise<TradeSplitterExchangeAdapter> {
-    return await new TradeSplitterExchangeAdapter__factory(this._deployerSigner).deploy(tradeSplitter);
-  }
-
-  public async deployTradeSplitterIndexExchangeAdapter(tradeSplitter: Address): Promise<TradeSplitterIndexExchangeAdapter> {
-    return await new TradeSplitterIndexExchangeAdapter__factory(this._deployerSigner).deploy(tradeSplitter);
-  }
-  
   public async deployUniswapV3ExchangeAdapter(swapRouter: Address): Promise<UniswapV3ExchangeAdapter> {
     return await new UniswapV3ExchangeAdapter__factory(this._deployerSigner).deploy(swapRouter);
   }
