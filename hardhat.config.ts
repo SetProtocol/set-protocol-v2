@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+import chalk from "chalk";
 import { HardhatUserConfig } from "hardhat/config";
 import { privateKeys } from "./utils/wallets";
 
@@ -8,6 +9,19 @@ import "hardhat-typechain";
 import "solidity-coverage";
 import "hardhat-deploy";
 import "./tasks";
+
+const forkingConfig = {
+  url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
+  blockNumber: 12198000,
+};
+
+const mochaConfig = {
+  grep: "@forked-mainnet",
+  invert: (process.env.FORK) ? false : true,
+  timeout: (process.env.FORK) ? 50000 : 20000,
+} as Mocha.MochaOptions;
+
+checkForkedProviderEnvironment();
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -21,6 +35,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
+      forking: (process.env.FORK) ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
     },
     localhost: {
@@ -54,9 +69,7 @@ const config: HardhatUserConfig = {
     outDir: "typechain",
     target: "ethers-v5",
   },
-  mocha: {
-    timeout: 100000,
-  },
+  mocha: mochaConfig,
 };
 
 function getHardhatPrivateKeys() {
@@ -67,6 +80,18 @@ function getHardhatPrivateKeys() {
       balance: ONE_MILLION_ETH,
     };
   });
+}
+
+function checkForkedProviderEnvironment() {
+  if (process.env.FORK &&
+      (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
+     ) {
+    console.log(chalk.red(
+      "You are running forked provider tests with invalid Alchemy credentials.\n" +
+      "Update your ALCHEMY_TOKEN settings in the `.env` file."
+    ));
+    process.exit(1);
+  }
 }
 
 export default config;

@@ -2,9 +2,8 @@
 import { ethers } from "hardhat";
 import { Address } from "../types";
 
-import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixture, UniswapFixture, YearnFixture } from "../fixtures";
+import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixture, UniswapFixture, YearnFixture, UniswapV3Fixture } from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
-import { UniswapV3Fixture } from "@utils/fixtures/uniswapV3Fixture";
 
 // Hardhat-Provider Aware Exports
 const provider = ethers.provider;
@@ -19,10 +18,14 @@ export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(p
 export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
 export const getUniswapV3Fixture = (ownerAddress: Address) => new UniswapV3Fixture(provider, ownerAddress);
 
+export { ForkedTokens } from "./types";
+
 export {
   getAccounts,
   getEthBalance,
   getRandomAccount,
+  getForkedTokens,
+  initializeForkedTokens,
 } from "./accountUtils";
 export {
   addSnapshotBeforeRestoreAfterEach,

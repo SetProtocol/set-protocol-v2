@@ -95,7 +95,7 @@ describe("UniswapV3Fixture", () => {
 
       const slot0 = await pool.slot0();
 
-      const expectedSqrtPrice = uniswapV3Fixture._getSqrtPriceX96(1e-12);
+      const expectedSqrtPrice = uniswapV3Fixture._getSqrtPriceX96(1e12);
 
       expect(slot0.sqrtPriceX96).to.eq(expectedSqrtPrice);
     });
