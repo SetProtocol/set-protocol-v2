@@ -7,20 +7,19 @@ import { Account } from "@utils/test/types";
 import {
   ZERO,
 } from "@utils/constants";
-import { SwapRouter, UniswapV3Factory } from "@utils/contracts/uniswap";
 import { UniswapV3IndexExchangeAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
-import { SystemFixture } from "@utils/fixtures";
-import {
-  ether,
-} from "@utils/index";
+import { ether } from "@utils/index";
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
-  getLastBlockTimestamp
+  getLastBlockTimestamp,
+  getUniswapV3Fixture
 } from "@utils/test/index";
+
+import { SystemFixture, UniswapV3Fixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
@@ -29,9 +28,8 @@ describe("UniswapV3IndexExchangeAdapter", () => {
   let mockSetToken: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
+  let uniswapV3Fixture: UniswapV3Fixture;
 
-  let swapRouter: SwapRouter;
-  let factory: UniswapV3Factory;
   let uniswapV3ExchangeAdapter: UniswapV3IndexExchangeAdapter;
 
   function constructFeesData(_poolFeesPercentage: BigNumber): Bytes {
@@ -49,10 +47,17 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    factory = await deployer.external.deployUniswapV3Factory();
-    swapRouter = await deployer.external.deploySwapRouter(factory.address, setup.weth.address);
+    uniswapV3Fixture = getUniswapV3Fixture(owner.address);
+    await uniswapV3Fixture.initialize(
+      owner,
+      setup.weth,
+      2500,
+      setup.wbtc,
+      35000,
+      setup.dai
+    );
 
-    uniswapV3ExchangeAdapter = await deployer.adapters.deployUniswapV3IndexExchangeAdapter(swapRouter.address);
+    uniswapV3ExchangeAdapter = await deployer.adapters.deployUniswapV3IndexExchangeAdapter(uniswapV3Fixture.swapRouter.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -61,7 +66,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
     let subjectRouterAddress: Address;
 
     beforeEach(async () => {
-      subjectRouterAddress = swapRouter.address;
+      subjectRouterAddress = uniswapV3Fixture.swapRouter.address;
     });
 
     async function subject(): Promise<any> {
@@ -72,7 +77,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
       const deployedUniswapV3IndexExchangeAdapter = await subject();
 
       const routerAddress = await deployedUniswapV3IndexExchangeAdapter.router();
-      const expectedRouterAddress = subjectRouterAddress;
+      const expectedRouterAddress = uniswapV3Fixture.swapRouter.address;
 
       expect(routerAddress).to.eq(expectedRouterAddress);
     });
@@ -85,7 +90,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
 
     it("should return the correct spender address", async () => {
       const spender = await subject();
-      const expectedSpender = swapRouter.address;
+      const expectedSpender = uniswapV3Fixture.swapRouter.address;
 
       expect(spender).to.eq(expectedSpender);
     });
@@ -140,7 +145,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
 
         const callTimestamp = await getLastBlockTimestamp();
 
-        const expectedCallData = swapRouter.interface.encodeFunctionData("exactInputSingle", [{
+        const expectedCallData = uniswapV3Fixture.swapRouter.interface.encodeFunctionData("exactInputSingle", [{
           tokenIn: sourceToken,
           tokenOut: destinationToken,
           fee: poolFeesPercentage,
@@ -151,7 +156,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
           sqrtPriceLimitX96: 0,
         }]);
 
-        expect(tragetAddress).to.eq(swapRouter.address);
+        expect(tragetAddress).to.eq(uniswapV3Fixture.swapRouter.address);
         expect(ethValue).to.eq(ZERO);
         expect(callData).to.eq(expectedCallData);
       });
@@ -167,7 +172,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
 
         const callTimestamp = await getLastBlockTimestamp();
 
-        const expectedCallData = swapRouter.interface.encodeFunctionData("exactOutputSingle", [{
+        const expectedCallData = uniswapV3Fixture.swapRouter.interface.encodeFunctionData("exactOutputSingle", [{
           tokenIn: sourceToken,
           tokenOut: destinationToken,
           fee: poolFeesPercentage,
@@ -178,7 +183,7 @@ describe("UniswapV3IndexExchangeAdapter", () => {
           sqrtPriceLimitX96: 0,
         }]);
 
-        expect(tragetAddress).to.eq(swapRouter.address);
+        expect(tragetAddress).to.eq(uniswapV3Fixture.swapRouter.address);
         expect(ethValue).to.eq(ZERO);
         expect(callData).to.eq(expectedCallData);
       });

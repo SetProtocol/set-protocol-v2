@@ -114,14 +114,6 @@ import { UniswapV2Pair__factory } from "../../typechain/factories/UniswapV2Pair_
 import { UniswapV2Router02__factory } from "../../typechain/factories/UniswapV2Router02__factory";
 
 import {
-  SwapRouter,
-  UniswapV3Factory
-} from "../contracts/uniswap";
-
-import { SwapRouter__factory } from "../../typechain/factories/SwapRouter__factory";
-import { UniswapV3Factory__factory } from "../../typechain/factories/UniswapV3Factory__factory";
-
-import {
   BFactory,
   BRegistry,
   ExchangeProxy
@@ -561,15 +553,6 @@ export default class DeployExternalContracts {
 
   public async deployDelegateRegistry(): Promise<DelegateRegistry> {
     return await new DelegateRegistry__factory(this._deployerSigner).deploy();
-  }
-
-  // UNISWAP V3
-  public async deployUniswapV3Factory(): Promise<UniswapV3Factory> {
-    return await new UniswapV3Factory__factory(this._deployerSigner).deploy();
-  }
-
-  public async deploySwapRouter(_factory: Address, _weth: Address): Promise<SwapRouter> {
-    return await new SwapRouter__factory(this._deployerSigner).deploy(_factory, _weth);
   }
 
   // YEARN
