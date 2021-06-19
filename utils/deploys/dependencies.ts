@@ -158,6 +158,9 @@ export default {
   ONE_INCH_EXCHANGE_ADDRESS: {
     1: "0x11111254369792b2ca5d084ab5eea397ca8fa48b",
   },
+  ZERO_EX_EXCHANGE: {
+    1: "0xDef1C0ded9bec7F1a1670819833240f027b25EfF",
+  },
   AAVE_MIGRATION_PROXY: {
     1: "0x317625234562B1526Ea2FaC4030Ea499C5291de4",
     42: "0x7c24e875D3ea8bc19cEEC6d8BcF26aA69bfFDC4C",
@@ -167,6 +170,14 @@ export default {
     42: "kovan",
     50: "test-rpc",
   },
+
+  // WHALES (for forked mainnet testing)
+
+  USDC_WHALE: "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
+  DAI_WHALE: "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503",
+  WETH_WHALE: "0x94B0A3d511b6EcDb17eBF877278Ab030acb0A878",
+  WBTC_WHALE: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+
 } as any;
 
 export const DEPENDENCY = {
