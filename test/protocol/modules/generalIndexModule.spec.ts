@@ -960,7 +960,7 @@ describe("GeneralIndexModule", () => {
 
         describe("when the component is being bought using Sushiswap", async () => {
           beforeEach(async () => {
-            await subject();  // sell DAI for ETH, next use ETH to buy WBTC on sushiswap
+            await subject();  // sell DAI for ETH on Balancer, as we would need ETH to buy WBTC on Sushiswap
 
             subjectComponent = setup.wbtc.address;
             subjectEthQuantityLimit = MAX_UINT_256;
