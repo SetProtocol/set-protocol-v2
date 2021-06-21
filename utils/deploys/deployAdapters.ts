@@ -18,6 +18,7 @@ import {
   UniswapV2ExchangeAdapter,
   UniswapV2ExchangeAdapterV2,
   UniswapV2IndexExchangeAdapter,
+  UniswapV3IndexExchangeAdapter,
   UniswapV2TransferFeeExchangeAdapter,
   UniswapV3ExchangeAdapter,
   ZeroExApiAdapter,
@@ -48,6 +49,7 @@ import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/Uni
 import { UniswapV2TransferFeeExchangeAdapter__factory } from "../../typechain/factories/UniswapV2TransferFeeExchangeAdapter__factory";
 import { UniswapV2ExchangeAdapterV2__factory } from "../../typechain/factories/UniswapV2ExchangeAdapterV2__factory";
 import { UniswapV2IndexExchangeAdapter__factory } from "../../typechain/factories/UniswapV2IndexExchangeAdapter__factory";
+import { UniswapV3IndexExchangeAdapter__factory } from "../../typechain/factories/UniswapV3IndexExchangeAdapter__factory";
 import { UniswapV3ExchangeAdapter__factory } from "../../typechain/factories/UniswapV3ExchangeAdapter__factory";
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
@@ -173,6 +175,10 @@ export default class DeployAdapters {
 
   public async getUniswapPairPriceAdapter(uniswapAdapterAddress: Address): Promise<UniswapPairPriceAdapter> {
     return await new UniswapPairPriceAdapter__factory(this._deployerSigner).attach(uniswapAdapterAddress);
+  }
+
+  public async deployUniswapV3IndexExchangeAdapter(router: Address): Promise<UniswapV3IndexExchangeAdapter> {
+    return await new UniswapV3IndexExchangeAdapter__factory(this._deployerSigner).deploy(router);
   }
 
   public async deployZeroExApiAdapter(zeroExAddress: Address, wethAddress: Address): Promise<ZeroExApiAdapter> {
