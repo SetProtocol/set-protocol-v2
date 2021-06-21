@@ -29,7 +29,7 @@ import { IDMMPool } from "external/contracts/kyber/DMM/IDMMPool.sol";
  * @title KyberV3IndexExchangeAdapter
  * @author Set Protocol
  *
- * A Uniswap Router02 exchange adapter that returns calldata for trading with GeneralIndexModule, allows encoding a trade with a fixed input quantity or
+ * A Kyber V3 DMM exchange adapter that returns calldata for trading with GeneralIndexModule, allows encoding a trade with a fixed input quantity or
  * a fixed output quantity.
  */
 contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
