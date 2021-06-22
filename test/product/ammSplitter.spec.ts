@@ -3,6 +3,7 @@ import "module-alias/register";
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
+  getRandomAccount,
   getSystemFixture,
   getUniswapFixture,
   getWaffleExpect,
@@ -14,7 +15,7 @@ import { Account } from "@utils/test/types";
 import { AMMSplitter } from "@utils/contracts";
 import { UniswapV2Router02 } from "@utils/contracts";
 import { Address } from "@utils/types";
-import { bitcoin, ether } from "@utils/common";
+import { bitcoin, ether, preciseMul } from "@utils/common";
 import { BigNumber, ContractTransaction } from "ethers";
 import { MAX_UINT_256 } from "@utils/constants";
 
@@ -88,12 +89,14 @@ describe("AMMSplitter", async () => {
     let subjectMinAmountOut: BigNumber;
     let subjectPath: Address[];
     let subjectCaller: Account;
+    let subjectTo: Account;
 
     beforeEach(async () => {
       subjectAmountIn = ether(10);
       subjectMinAmountOut = ether(0);
       subjectPath = [ setup.weth.address, setup.dai.address ];
       subjectCaller = trader;
+      subjectTo = await getRandomAccount();
 
       await setup.weth.approve(uniswapSetup.router.address, MAX_UINT_256);
       await setup.dai.approve(uniswapSetup.router.address, MAX_UINT_256);
@@ -109,7 +112,7 @@ describe("AMMSplitter", async () => {
         subjectAmountIn,
         subjectMinAmountOut,
         subjectPath,
-        subjectCaller.address,
+        subjectTo.address,
         MAX_UINT_256
       );
     }
@@ -156,6 +159,21 @@ describe("AMMSplitter", async () => {
         expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn.div(2));
         expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn.div(2));
       });
+
+      it("should return the correct output amount", async () => {
+
+        const expectedUniOutput = (await uniswapSetup.router.getAmountsOut(subjectAmountIn.div(2), subjectPath))[1];
+        const expectedSushiOutput = (await sushiswapSetup.router.getAmountsOut(subjectAmountIn.div(2), subjectPath))[1];
+        const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
+
+        const initTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        await subject();
+
+        const finalTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        expect(finalTraderDai.sub(initTraderDai)).to.eq(expectedTotalOutput);
+      });
     });
 
     context("when 70% of the liquidity is in the Uniswap pool", async () => {
@@ -199,6 +217,21 @@ describe("AMMSplitter", async () => {
         expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn.mul(70).div(100));
         expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn.mul(30).div(100));
       });
+
+      it("should return the correct output amount", async () => {
+
+        const expectedUniOutput = (await uniswapSetup.router.getAmountsOut(subjectAmountIn.mul(70).div(100), subjectPath))[1];
+        const expectedSushiOutput = (await sushiswapSetup.router.getAmountsOut(subjectAmountIn.mul(30).div(100), subjectPath))[1];
+        const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
+
+        const initTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        await subject();
+
+        const finalTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        expect(finalTraderDai.sub(initTraderDai)).to.eq(expectedTotalOutput);
+      });
     });
 
     context("when there is only a Uniswap pool", async () => {
@@ -232,6 +265,19 @@ describe("AMMSplitter", async () => {
         expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn);
         expect(finalSushiWeth.sub(initSushiWeth)).to.eq(0);
       });
+
+      it("should return the correct output amount", async () => {
+
+        const expectedTotalOutput = (await uniswapSetup.router.getAmountsOut(subjectAmountIn, subjectPath))[1];
+
+        const initTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        await subject();
+
+        const finalTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        expect(finalTraderDai.sub(initTraderDai)).to.eq(expectedTotalOutput);
+      });
     });
 
     context("when there is only a Sushiswap pool", async () => {
@@ -264,6 +310,19 @@ describe("AMMSplitter", async () => {
 
         expect(finalUniWeth.sub(initUniWeth)).to.eq(0);
         expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn);
+      });
+
+      it("should return the correct output amount", async () => {
+
+        const expectedTotalOutput = (await sushiswapSetup.router.getAmountsOut(subjectAmountIn, subjectPath))[1];
+
+        const initTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        await subject();
+
+        const finalTraderDai = await setup.dai.balanceOf(subjectTo.address);
+
+        expect(finalTraderDai.sub(initTraderDai)).to.eq(expectedTotalOutput);
       });
     });
 
@@ -339,6 +398,21 @@ describe("AMMSplitter", async () => {
           expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn.div(2));
           expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn.div(2));
         });
+
+        it("should return the correct output amount", async () => {
+
+          const expectedUniOutput = (await uniswapSetup.router.getAmountsOut(subjectAmountIn.div(2), subjectPath))[2];
+          const expectedSushiOutput = (await sushiswapSetup.router.getAmountsOut(subjectAmountIn.div(2), subjectPath))[2];
+          const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
+
+          const initTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          await subject();
+
+          const finalTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          expect(finalTraderWbtc.sub(initTraderWbtc)).to.eq(expectedTotalOutput);
+        });
       });
 
       context("when 70% of the liquidity is in the Uniswap pools", async () => {
@@ -401,11 +475,27 @@ describe("AMMSplitter", async () => {
           const finalUniWeth = await setup.weth.balanceOf(uniPool);
           const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
 
-          // need to do a fuzzy check here since the SC math introduces only approximates the split
+          // need to do a fuzzy check here since the SC math only approximates the split
           expect(finalUniWeth.sub(initUniWeth)).to.gt(subjectAmountIn.mul(69).div(100));
           expect(finalUniWeth.sub(initUniWeth)).to.lt(subjectAmountIn.mul(71).div(100));
           expect(finalSushiWeth.sub(initSushiWeth)).to.gt(subjectAmountIn.mul(29).div(100));
           expect(finalSushiWeth.sub(initSushiWeth)).to.lt(subjectAmountIn.mul(31).div(100));
+        });
+
+        it("should return the correct output amount", async () => {
+
+          const expectedUniOutput = (await uniswapSetup.router.getAmountsOut(subjectAmountIn.mul(70).div(100), subjectPath))[2];
+          const expectedSushiOutput = (await sushiswapSetup.router.getAmountsOut(subjectAmountIn.mul(30).div(100), subjectPath))[2];
+          const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
+
+          const initTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          await subject();
+
+          const finalTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          expect(finalTraderWbtc.sub(initTraderWbtc)).to.lt(preciseMul(expectedTotalOutput, ether(1.001)));
+          expect(finalTraderWbtc.sub(initTraderWbtc)).to.gt(preciseMul(expectedTotalOutput, ether(0.999)));
         });
       });
 
@@ -451,6 +541,19 @@ describe("AMMSplitter", async () => {
           expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn);
           expect(finalSushiWeth.sub(initSushiWeth)).to.eq(0);
         });
+
+        it("should return the correct output amount", async () => {
+
+          const expectedTotalOutput = (await uniswapSetup.router.getAmountsOut(subjectAmountIn, subjectPath))[2];
+
+          const initTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          await subject();
+
+          const finalTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          expect(finalTraderWbtc.sub(initTraderWbtc)).to.eq(expectedTotalOutput);
+        });
       });
 
       context("when there is only a Sushiswap pool", async () => {
@@ -494,6 +597,19 @@ describe("AMMSplitter", async () => {
 
           expect(finalUniWeth.sub(initUniWeth)).to.eq(0);
           expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn);
+        });
+
+        it("should return the correct output amount", async () => {
+
+          const expectedTotalOutput = (await sushiswapSetup.router.getAmountsOut(subjectAmountIn, subjectPath))[2];
+
+          const initTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          await subject();
+
+          const finalTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          expect(finalTraderWbtc.sub(initTraderWbtc)).to.eq(expectedTotalOutput);
         });
       });
     });
@@ -548,12 +664,14 @@ describe("AMMSplitter", async () => {
     let subjectAmountOut: BigNumber;
     let subjectPath: Address[];
     let subjectCaller: Account;
+    let subjectTo: Account;
 
     beforeEach(async () => {
       subjectAmountOut = ether(10);
       subjectAmountInMax = ether(10000000);
       subjectPath = [ setup.weth.address, setup.dai.address ];
       subjectCaller = trader;
+      subjectTo = await getRandomAccount();
 
       await setup.weth.approve(uniswapSetup.router.address, MAX_UINT_256);
       await setup.dai.approve(uniswapSetup.router.address, MAX_UINT_256);
@@ -569,7 +687,7 @@ describe("AMMSplitter", async () => {
         subjectAmountOut,
         subjectAmountInMax,
         subjectPath,
-        subjectCaller.address,
+        subjectTo.address,
         MAX_UINT_256
       );
     }
@@ -616,6 +734,21 @@ describe("AMMSplitter", async () => {
         expect(initUniDai.sub(finalUniDai)).to.eq(subjectAmountOut.div(2));
         expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut.div(2));
       });
+
+      it("should return the correct input amount", async () => {
+
+        const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
+        const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
+        const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
+
+        const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        await subject();
+
+        const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
+      });
     });
 
     context("when 70% of the liquidity is in the Uniswap pool", async () => {
@@ -659,6 +792,21 @@ describe("AMMSplitter", async () => {
         expect(initUniDai.sub(finalUniDai)).to.eq(subjectAmountOut.mul(70).div(100));
         expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut.mul(30).div(100));
       });
+
+      it("should return the correct input amount", async () => {
+
+        const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.mul(70).div(100), subjectPath))[0];
+        const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.mul(30).div(100), subjectPath))[0];
+        const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
+
+        const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        await subject();
+
+        const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
+      });
     });
 
     context("when there is only a Uniswap pool", async () => {
@@ -692,6 +840,19 @@ describe("AMMSplitter", async () => {
         expect(initUniDai.sub(finalUniDai)).to.eq(subjectAmountOut);
         expect(initSushiDai.sub(finalSushiDai)).to.eq(0);
       });
+
+      it("should return the correct input amount", async () => {
+
+        const expectedTotalInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
+
+        const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        await subject();
+
+        const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
+      });
     });
 
     context("when there is only a Sushiswap pool", async () => {
@@ -724,6 +885,19 @@ describe("AMMSplitter", async () => {
 
         expect(initUniDai.sub(finalUniDai)).to.eq(0);
         expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut);
+      });
+
+      it("should return the correct input amount", async () => {
+
+        const expectedTotalInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
+
+        const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        await subject();
+
+        const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+        expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
       });
     });
 
@@ -800,6 +974,22 @@ describe("AMMSplitter", async () => {
           expect(initUniWbtc.sub(finalUniWbtc)).to.eq(subjectAmountOut.div(2));
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(subjectAmountOut.div(2));
         });
+
+        it("should return the correct input amount", async () => {
+
+          const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
+          const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
+          const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
+
+          const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          await subject();
+
+          const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          expect(initCallerWeth.sub(finalCallerWeth)).to.lt(preciseMul(expectedTotalInput, ether(1.001)));
+          expect(initCallerWeth.sub(finalCallerWeth)).to.gt(preciseMul(expectedTotalInput, ether(0.999)));
+        });
       });
 
       context("when 70% of the liquidity is in the Uniswap pools", async () => {
@@ -862,11 +1052,27 @@ describe("AMMSplitter", async () => {
           const finalUniWbtc = await setup.wbtc.balanceOf(uniPool);
           const finalSushiWbtc = await setup.wbtc.balanceOf(sushiPool);
 
-          // need to do a fuzzy check here since the SC math introduces only approximates the split
+          // need to do a fuzzy check here since the SC math only approximates the split
           expect(initUniWbtc.sub(finalUniWbtc)).to.gt(subjectAmountOut.mul(69).div(100));
           expect(initUniWbtc.sub(finalUniWbtc)).to.lt(subjectAmountOut.mul(71).div(100));
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.gt(subjectAmountOut.mul(29).div(100));
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.lt(subjectAmountOut.mul(31).div(100));
+        });
+
+        it("should return the correct input amount", async () => {
+
+          const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.mul(70).div(100), subjectPath))[0];
+          const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.mul(30).div(100), subjectPath))[0];
+          const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
+
+          const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          await subject();
+
+          const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          expect(initCallerWeth.sub(finalCallerWeth)).to.lt(preciseMul(expectedTotalInput, ether(1.001)));
+          expect(initCallerWeth.sub(finalCallerWeth)).to.gt(preciseMul(expectedTotalInput, ether(0.999)));
         });
       });
 
@@ -912,6 +1118,19 @@ describe("AMMSplitter", async () => {
           expect(initUniWbtc.sub(finalUniWbtc)).to.eq(subjectAmountOut);
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(0);
         });
+
+        it("should return the correct input amount", async () => {
+
+          const expectedTotalInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
+
+          const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          await subject();
+
+          const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
+        });
       });
 
       context("when there is only a Sushiswap pool", async () => {
@@ -955,6 +1174,19 @@ describe("AMMSplitter", async () => {
 
           expect(initUniWbtc.sub(finalUniWbtc)).to.eq(0);
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(subjectAmountOut);
+        });
+
+        it("should return the correct input amount", async () => {
+
+          const expectedTotalInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
+
+          const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          await subject();
+
+          const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
         });
       });
     });
@@ -1205,7 +1437,7 @@ describe("AMMSplitter", async () => {
 
         const quote = await subject();
 
-        const initTraderWeth = await setup.weth.balanceOf(trader.address);
+        const initCallerWeth = await setup.weth.balanceOf(trader.address);
         await splitter.connect(trader.wallet).swapTokensForExactTokens(
           subjectAmountOut,
           MAX_UINT_256,
@@ -1213,9 +1445,9 @@ describe("AMMSplitter", async () => {
           trader.address,
           MAX_UINT_256
         );
-        const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+        const finalCallerWeth = await setup.weth.balanceOf(trader.address);
 
-        expect(quote[0]).to.eq(initTraderWeth.sub(finalTraderWeth));
+        expect(quote[0]).to.eq(initCallerWeth.sub(finalCallerWeth));
       });
     });
 
@@ -1238,7 +1470,7 @@ describe("AMMSplitter", async () => {
 
         const quote = await subject();
 
-        const initTraderWeth = await setup.weth.balanceOf(trader.address);
+        const initCallerWeth = await setup.weth.balanceOf(trader.address);
         await splitter.connect(trader.wallet).swapTokensForExactTokens(
           subjectAmountOut,
           MAX_UINT_256,
@@ -1246,9 +1478,9 @@ describe("AMMSplitter", async () => {
           trader.address,
           MAX_UINT_256
         );
-        const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+        const finalCallerWeth = await setup.weth.balanceOf(trader.address);
 
-        expect(quote[0]).to.eq(initTraderWeth.sub(finalTraderWeth));
+        expect(quote[0]).to.eq(initCallerWeth.sub(finalCallerWeth));
       });
     });
 
@@ -1271,7 +1503,7 @@ describe("AMMSplitter", async () => {
 
         const quote = await subject();
 
-        const initTraderWeth = await setup.weth.balanceOf(trader.address);
+        const initCallerWeth = await setup.weth.balanceOf(trader.address);
         await splitter.connect(trader.wallet).swapTokensForExactTokens(
           subjectAmountOut,
           MAX_UINT_256,
@@ -1279,9 +1511,9 @@ describe("AMMSplitter", async () => {
           trader.address,
           MAX_UINT_256
         );
-        const finalTraderWeth = await setup.weth.balanceOf(trader.address);
+        const finalCallerWeth = await setup.weth.balanceOf(trader.address);
 
-        expect(quote[0]).to.eq(initTraderWeth.sub(finalTraderWeth));
+        expect(quote[0]).to.eq(initCallerWeth.sub(finalCallerWeth));
       });
     });
 
