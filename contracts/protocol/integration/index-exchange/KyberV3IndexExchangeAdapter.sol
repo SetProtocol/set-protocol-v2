@@ -19,11 +19,9 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { BytesLib } from "external/contracts/uniswap/v3/lib/BytesLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
-import { BytesLib } from "external/contracts/uniswap/v3/lib/BytesLib.sol";
-import { IDMMFactory } from "external/contracts/kyber/DMM/IDMMFactory.sol";
-import { IDMMPool } from "external/contracts/kyber/DMM/IDMMPool.sol";
 
 /**
  * @title KyberV3IndexExchangeAdapter
@@ -46,7 +44,6 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
     /* ============ State Variables ============ */
 
     address public immutable dmmRouter;
-    IDMMFactory public immutable dmmFactory;
 
     /* ============ Constructor ============ */
 
@@ -54,11 +51,9 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
      * Set state variables
      *
      * @param _dmmRouter       Address of Kyber V3 DMM Router
-     * @param _dmmFactory      Addrsss of Kyber V3 DMM Factory
      */
-    constructor(address _dmmRouter, IDMMFactory _dmmFactory) public {
-        dmmRouter = _dmmRouter;
-        dmmFactory = _dmmFactory;
+    constructor(address _dmmRouter) public {
+        dmmRouter = _dmmRouter;        
     }
 
     /* ============ External Getter Functions ============ */
@@ -133,36 +128,5 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
      */
     function getSpender() external view override returns (address) {
         return dmmRouter;
-    }
-
-    /**
-     * Helper that returns the pool with highest liquidity for a given pair of tokens on the Kyber DMM exchange. 
-     *
-     * @param _tokenIn              Address of the input token
-     * @param _tokenOut             Address of the output token
-     *
-     * @return address              Address of the pool with highest liquidity among all pools consisting of 
-     *                              _tokenIn and _tokenOut on Kyber DMM exchange
-     */
-    function getPoolWithBestLiquidity(IERC20 _tokenIn, IERC20 _tokenOut) external view returns (address) {
-        address[] memory poolAddresses = dmmFactory.getPools(_tokenIn, _tokenOut);
-        address bestPool;
-        
-        uint256 highestKLast = 0;
-        uint256 bestIndex = 0;
-
-        for (uint i = 0; i < poolAddresses.length; i++) {
-            uint256 currentKLast = IDMMPool(poolAddresses[i]).kLast();
-            if (currentKLast > highestKLast) {
-                highestKLast = currentKLast;
-                bestIndex = i;
-            }
-        }
-
-        // handle case if highestKLast is 0 (i.e. no liquidity)
-        // TODO: Since this is a getter function, should I return zero address instead?
-        require(highestKLast > 0, "No Liquidity on Kyber DMM exchange");
-
-        return poolAddresses[bestIndex];
     }
 } 

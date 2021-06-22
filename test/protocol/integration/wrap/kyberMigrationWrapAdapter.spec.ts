@@ -5,7 +5,7 @@ import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
 import { KyberMigrationWrapAdapter } from "@utils/contracts";
-import { KyberNetworkTokenV2 } from "@utils/contracts/kyber";
+import { KyberNetworkTokenV2 } from "@utils/contracts/kyberV3";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
