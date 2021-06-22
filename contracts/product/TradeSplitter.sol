@@ -136,8 +136,8 @@ contract TradeSplitter {
 
         TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountOut);
 
-        uint256 expectedUniInput = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, false);
-        uint256 expectedSushiInput = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, false);
+        uint256 expectedUniInput = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, false)[0];
+        uint256 expectedSushiInput = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, false)[0];
 
         totalInput = expectedUniInput.add(expectedSushiInput);
         require(totalInput <= _amountInMax, "TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
@@ -159,18 +159,10 @@ contract TradeSplitter {
      * @param _amountIn     input amount
      * @param _path         the trade path to use
      *
-     * @return uint256      the expected output amount
+     * @return uint256[]    array of input amounts, intermiary amounts, and output amounts
      */
-    function getQuoteExactInput(uint256 _amountIn, address[] calldata _path) external  view returns (uint256) {
-
-        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
-
-        TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountIn);
-
-        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, true);
-        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, true);
-
-        return uniTradeResult.add(sushiTradeResult);
+    function getAmountsOut(uint256 _amountIn, address[] calldata _path) external  view returns (uint256[] memory) {
+        return _getAmounts(_amountIn, _path, true);
     }
 
     /**
@@ -179,21 +171,37 @@ contract TradeSplitter {
      * @param _amountOut    output amount
      * @param _path         the trade path to use
      *
-     * @return uint256      the expected input amount
+     * @return uint256[]    array of input amounts, intermediary amounts, and output amounts
      */
-    function getQuoteExactOutput(uint256 _amountOut, address[] calldata _path) external  view returns (uint256) {
-
-        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
-
-        TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountOut);
-
-        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, false);
-        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, false);
-
-        return uniTradeResult.add(sushiTradeResult);
+    function getAmountsIn(uint256 _amountOut, address[] calldata _path) external  view returns (uint256[] memory) {
+        return _getAmounts(_amountOut, _path, false);
     }
 
     /* ============= Internal Functions ============ */
+
+    /**
+     * Helper function for getting trade quotes
+     *
+     * @param _size             input or output amount depending on _isExactInput
+     * @param _path             trade path to use
+     * @param _isExactInput     whether an exact input or an exact output trade quote is needed
+     *
+     * @return amounts          array of input amounts, intermediary amounts, and output amounts
+     */
+    function _getAmounts(uint256 _size, address[] calldata _path, bool _isExactInput) internal view returns (uint256[] memory amounts) {
+
+        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
+
+        TradeInfo memory tradeInfo = _getTradeSizes(_path, _size);
+
+        uint256[] memory uniTradeResults = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, _isExactInput);
+        uint256[] memory sushiTradeResults = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, _isExactInput);
+
+        amounts = new uint256[](_path.length);
+        for (uint256 i = 0; i < amounts.length; i++) {
+            amounts[i] = uniTradeResults[i].add(sushiTradeResults[i]);
+        }
+    }
 
     /**
      * Calculates the optimal trade sizes for Uniswap and Sushiswap.
@@ -336,7 +344,7 @@ contract TradeSplitter {
      * @param _path             Path for the trade
      * @param _isExactInput     Whether to get a getAmountsIn or getAmountsOut quote
      *
-     * @return uint256          the expected input / output amount of the trade
+     * @return uint256[]        Array of input amounts, intermediary amounts, and output amounts
      */
     function _getTradeInputOrOutput(
         IUniswapV2Router _router,
@@ -346,14 +354,14 @@ contract TradeSplitter {
     )
         internal
         view
-        returns (uint256)
+        returns (uint256[] memory)
     {
-        if (_size == 0) return 0;
+        if (_size == 0) return new uint256[](_path.length);     // zero array
 
         if(_isExactInput) {
-            return _router.getAmountsOut(_size, _path)[_path.length.sub(1)];
+            return _router.getAmountsOut(_size, _path);
         } else {
-            return _router.getAmountsIn(_size, _path)[0];
+            return _router.getAmountsIn(_size, _path);
         }
     }
 }

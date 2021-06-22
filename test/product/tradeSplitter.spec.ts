@@ -1003,7 +1003,7 @@ describe("TradeSplitter", async () => {
     });
   });
 
-  describe("#getQuoteExactInput", async () => {
+  describe("#getAmountsOut", async () => {
 
     let subjectAmountIn: BigNumber;
     let subjectPath: Address[];
@@ -1021,8 +1021,8 @@ describe("TradeSplitter", async () => {
       await setup.weth.connect(trader.wallet).approve(splitter.address, MAX_UINT_256);
     });
 
-    async function subject(): Promise<BigNumber> {
-      return await splitter.getQuoteExactInput(
+    async function subject(): Promise<BigNumber[]> {
+      return await splitter.getAmountsOut(
         subjectAmountIn,
         subjectPath
       );
@@ -1068,7 +1068,7 @@ describe("TradeSplitter", async () => {
         );
         const finalTraderDai = await setup.dai.balanceOf(trader.address);
 
-        expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+        expect(quote[subjectPath.length - 1]).to.eq(finalTraderDai.sub(initTraderDai));
       });
     });
 
@@ -1101,7 +1101,7 @@ describe("TradeSplitter", async () => {
         );
         const finalTraderDai = await setup.dai.balanceOf(trader.address);
 
-        expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+        expect(quote[subjectPath.length - 1]).to.eq(finalTraderDai.sub(initTraderDai));
       });
     });
 
@@ -1134,7 +1134,7 @@ describe("TradeSplitter", async () => {
         );
         const finalTraderDai = await setup.dai.balanceOf(trader.address);
 
-        expect(quote).to.eq(finalTraderDai.sub(initTraderDai));
+        expect(quote[subjectPath.length - 1]).to.eq(finalTraderDai.sub(initTraderDai));
       });
     });
 
@@ -1150,7 +1150,7 @@ describe("TradeSplitter", async () => {
     });
   });
 
-  describe("#getQuoteExactOutput", async () => {
+  describe("#getAmountsIn", async () => {
 
     let subjectAmountOut: BigNumber;
     let subjectPath: Address[];
@@ -1168,8 +1168,8 @@ describe("TradeSplitter", async () => {
       await setup.weth.connect(trader.wallet).approve(splitter.address, MAX_UINT_256);
     });
 
-    async function subject(): Promise<BigNumber> {
-      return await splitter.getQuoteExactOutput(
+    async function subject(): Promise<BigNumber[]> {
+      return await splitter.getAmountsIn(
         subjectAmountOut,
         subjectPath
       );
@@ -1215,7 +1215,7 @@ describe("TradeSplitter", async () => {
         );
         const finalTraderWeth = await setup.weth.balanceOf(trader.address);
 
-        expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+        expect(quote[0]).to.eq(initTraderWeth.sub(finalTraderWeth));
       });
     });
 
@@ -1248,7 +1248,7 @@ describe("TradeSplitter", async () => {
         );
         const finalTraderWeth = await setup.weth.balanceOf(trader.address);
 
-        expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+        expect(quote[0]).to.eq(initTraderWeth.sub(finalTraderWeth));
       });
     });
 
@@ -1281,7 +1281,7 @@ describe("TradeSplitter", async () => {
         );
         const finalTraderWeth = await setup.weth.balanceOf(trader.address);
 
-        expect(quote).to.eq(initTraderWeth.sub(finalTraderWeth));
+        expect(quote[0]).to.eq(initTraderWeth.sub(finalTraderWeth));
       });
     });
 
