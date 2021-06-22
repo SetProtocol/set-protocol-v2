@@ -11,7 +11,7 @@ import {
 import DeployHelper from "@utils/deploys";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { Account } from "@utils/test/types";
-import { TradeSplitter } from "@utils/contracts";
+import { AMMSplitter } from "@utils/contracts";
 import { UniswapV2Router02 } from "@utils/contracts";
 import { Address } from "@utils/types";
 import { bitcoin, ether } from "@utils/common";
@@ -20,13 +20,13 @@ import { MAX_UINT_256 } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
-describe("TradeSplitter", async () => {
+describe("AMMSplitter", async () => {
 
   let owner: Account;
   let trader: Account;
   let deployer: DeployHelper;
 
-  let splitter: TradeSplitter;
+  let splitter: AMMSplitter;
 
   let setup: SystemFixture;
   let uniswapSetup: UniswapFixture;
@@ -55,7 +55,7 @@ describe("TradeSplitter", async () => {
       setup.dai.address
     );
 
-    splitter = await deployer.product.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    splitter = await deployer.product.deployAMMSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -70,8 +70,8 @@ describe("TradeSplitter", async () => {
       subjectSushiswapRouter = sushiswapSetup.router;
     });
 
-    async function subject(): Promise<TradeSplitter> {
-      return deployer.product.deployTradeSplitter(subjectUniswapRouter.address, subjectSushiswapRouter.address);
+    async function subject(): Promise<AMMSplitter> {
+      return deployer.product.deployAMMSplitter(subjectUniswapRouter.address, subjectSushiswapRouter.address);
     }
 
     it("should set the state variables correctly", async () => {

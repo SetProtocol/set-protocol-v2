@@ -11,7 +11,7 @@ import {
   StandardTokenMock,
   TradeModule,
   WETH9,
-  TradeSplitter,
+  AMMSplitter,
   UniswapV2ExchangeAdapter,
 } from "@utils/contracts";
 import { ADDRESS_ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
@@ -32,7 +32,7 @@ import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("TradeSplitterTradeModule", () => {
+describe("AMMSplitterTradeModule", () => {
   let owner: Account;
   let manager: Account;
 
@@ -45,7 +45,7 @@ describe("TradeSplitterTradeModule", () => {
   let setup: SystemFixture;
   let uniswapSetup: UniswapFixture;
   let sushiswapSetup: UniswapFixture;
-  let tradeSplitter: TradeSplitter;
+  let tradeSplitter: AMMSplitter;
   let tradeModule: TradeModule;
 
   cacheBeforeEach(async () => {
@@ -76,7 +76,7 @@ describe("TradeSplitterTradeModule", () => {
       setup.dai.address
     );
 
-    tradeSplitter = await deployer.product.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    tradeSplitter = await deployer.product.deployAMMSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
 
     tradeSplitterExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapter(tradeSplitter.address);
     tradeSplitterAdapterName = "TRADESPLITTER";
@@ -207,10 +207,10 @@ describe("TradeSplitterTradeModule", () => {
         it("should transfer the correct components to the SetToken", async () => {
           const oldDestinationTokenBalance = await destinationToken.balanceOf(setToken.address);
 
-          const expectedReceiveQuantity = await tradeSplitter.getQuoteExactInput(
+          const expectedReceiveQuantity = (await tradeSplitter.getAmountsOut(
             subjectSourceQuantity,
             [ subjectSourceToken, subjectDestinationToken ]
-          );
+          ))[1];
 
           await subject();
 
@@ -232,10 +232,10 @@ describe("TradeSplitterTradeModule", () => {
 
         it("should update the positions on the SetToken correctly", async () => {
           const initialPositions = await setToken.getPositions();
-          const expectedReceiveQuantity = await tradeSplitter.getQuoteExactInput(
+          const expectedReceiveQuantity = (await tradeSplitter.getAmountsOut(
             subjectSourceQuantity,
             [ subjectSourceToken, subjectDestinationToken ]
-          );
+          ))[1];
 
           await subject();
 
@@ -289,10 +289,10 @@ describe("TradeSplitterTradeModule", () => {
 
           it("should transfer the correct components to the SetToken", async () => {
             const oldDestinationTokenBalance = await setup.dai.balanceOf(setToken.address);
-            const expectedReceiveQuantity = await tradeSplitter.getQuoteExactInput(
+            const expectedReceiveQuantity = (await tradeSplitter.getAmountsOut(
               subjectSourceQuantity,
               [ subjectSourceToken, setup.weth.address, subjectDestinationToken ]
-            );
+            ))[2];
 
             await subject();
 

@@ -7,7 +7,7 @@ import { ADDRESS_ZERO, MAX_UINT_256, ZERO } from "@utils/constants";
 import {
   GeneralIndexModule,
   SetToken,
-  TradeSplitter,
+  AMMSplitter,
   UniswapV2IndexExchangeAdapter
 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
@@ -29,7 +29,7 @@ import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe("TradeSplitterGeneralIndexModule", () => {
+describe("AMMSplitterGeneralIndexModule", () => {
   let owner: Account;
   let trader: Account;
   let positionModule: Account;
@@ -38,7 +38,7 @@ describe("TradeSplitterGeneralIndexModule", () => {
 
   let uniswapSetup: UniswapFixture;
   let sushiswapSetup: UniswapFixture;
-  let tradeSplitter: TradeSplitter;
+  let tradeSplitter: AMMSplitter;
 
   let index: SetToken;
   let indexModule: GeneralIndexModule;
@@ -73,7 +73,7 @@ describe("TradeSplitterGeneralIndexModule", () => {
     await setup.controller.addModule(positionModule.address);
 
 
-    tradeSplitter = await deployer.product.deployTradeSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    tradeSplitter = await deployer.product.deployAMMSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
     tradeSplitterAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(tradeSplitter.address);
     tradeSplitterAdapterName = "TRADESPLITTER";
 
@@ -197,10 +197,10 @@ describe("TradeSplitterGeneralIndexModule", () => {
         beforeEach(async () => {
           initializeSubjectVariables();
 
-          expectedOut = await tradeSplitter.getQuoteExactInput(
+          expectedOut = (await tradeSplitter.getAmountsOut(
             preciseMul(ether(3999), issueAmount),
             [ setup.dai.address, setup.weth.address ]
-          );
+          ))[1];
 
           subjectEthQuantityLimit = BigNumber.from(0);
         });
@@ -262,10 +262,10 @@ describe("TradeSplitterGeneralIndexModule", () => {
               subjectEthQuantityLimit
             );
 
-            expectedOut = await tradeSplitter.getQuoteExactInput(
+            expectedOut = (await tradeSplitter.getAmountsOut(
               await setup.weth.balanceOf(subjectSetToken.address),
               [ setup.weth.address, setup.wbtc.address ]
-            );
+            ))[1];
 
             subjectComponent = setup.wbtc.address;
             subjectEthQuantityLimit = ZERO;

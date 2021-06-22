@@ -27,14 +27,14 @@ import { IUniswapV2Router } from "../interfaces/external/IUniswapV2Router.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
 
 /**
- * @title TradeSplitter
+ * @title AMMSplitter
  * @author Set Protocol
  *
  * Peripheral contract which splits trades efficiently between Uniswap V2 and Sushiswap. Works for both exact input 
  * and exact output trades. All math for calculating the optimal split is performed on-chain. This contract only supports
  * trade paths of up to two hops.
  */
-contract TradeSplitter {
+contract AMMSplitter {
 
     using SafeMath for uint256;
     using PreciseUnitMath for uint256;
