@@ -30,12 +30,21 @@ import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
  * @title TradeSplitter
  * @author Set Protocol
  *
- * Peripheral contract which splits trades efficiently between Uniswap and Sushiswap
+ * Peripheral contract which splits trades efficiently between Uniswap V2 and Sushiswap. Works for both exact input 
+ * and exact output trades. All math for calculating the optimal split is performed on-chain. This contract only supports
+ * trade paths of up to two hops.
  */
 contract TradeSplitter {
 
     using SafeMath for uint256;
     using PreciseUnitMath for uint256;
+
+    /* ============ Structs ============== */
+
+    struct TradeInfo {
+        uint256 uniSize;        // Uniswap trade size (can be either input or output depending on context)
+        uint256 sushiSize;      // Sushiswap trade sze (can be either input or output depending on context)
+    }
 
     /* ============ Constants ============ */
 
@@ -91,15 +100,15 @@ contract TradeSplitter {
         ERC20 inputToken = ERC20(_path[0]);
         inputToken.transferFrom(msg.sender, address(this), _amountIn);
         
-        (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountIn);
+        TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountIn);
 
-        _checkApprovals(uniTradeSize, sushiTradeSize, inputToken);
+        _checkApprovals(tradeInfo.uniSize, tradeInfo.sushiSize, inputToken);
 
-        uint256 uniOutput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, true);
-        uint256 sushiOutput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, true);
+        uint256 uniOutput = _executeTrade(uniRouter, tradeInfo.uniSize, _path, _to, _deadline, true);
+        uint256 sushiOutput = _executeTrade(sushiRouter, tradeInfo.sushiSize, _path, _to, _deadline, true);
 
         totalOutput = uniOutput.add(sushiOutput);
-        require(totalOutput > _amountOutMin, "TradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+        require(totalOutput >= _amountOutMin, "TradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
     }
 
     /**
@@ -125,20 +134,21 @@ contract TradeSplitter {
     {
         require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
-        (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
+        TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountOut);
 
-        uint256 expectedUniInput = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, false);
-        uint256 expectedSushiInput = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, false);
+        uint256 expectedUniInput = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, false);
+        uint256 expectedSushiInput = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, false);
 
-        ERC20(_path[0]).transferFrom(msg.sender, address(this), expectedUniInput.add(expectedSushiInput));
+        totalInput = expectedUniInput.add(expectedSushiInput);
+        require(totalInput <= _amountInMax, "TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
 
-        _checkApprovals(expectedUniInput, expectedSushiInput, ERC20(_path[0]));
+        ERC20 inputToken = ERC20(_path[0]);
+        inputToken.transferFrom(msg.sender, address(this), expectedUniInput.add(expectedSushiInput));
 
-        uint256 uniInput = _executeTrade(uniRouter, uniTradeSize, _path, _to, _deadline, false);
-        uint256 sushiInput = _executeTrade(sushiRouter, sushiTradeSize, _path, _to, _deadline, false);
+        _checkApprovals(expectedUniInput, expectedSushiInput, inputToken);
 
-        totalInput = uniInput.add(sushiInput);
-        require(totalInput < _amountInMax, "TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+        _executeTrade(uniRouter, tradeInfo.uniSize, _path, _to, _deadline, false);
+        _executeTrade(sushiRouter, tradeInfo.sushiSize, _path, _to, _deadline, false);
     }
 
     /* =========== External Getter Functions =========== */
@@ -155,10 +165,10 @@ contract TradeSplitter {
 
         require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
-        (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountIn);
+        TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountIn);
 
-        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, true);
-        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, true);
+        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, true);
+        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, true);
 
         return uniTradeResult.add(sushiTradeResult);
     }
@@ -175,27 +185,36 @@ contract TradeSplitter {
 
         require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
-        (uint256 uniTradeSize, uint256 sushiTradeSize) = _getTradeSizes(_path, _amountOut);
+        TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountOut);
 
-        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, uniTradeSize, _path, false);
-        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, sushiTradeSize, _path, false);
+        uint256 uniTradeResult = _getTradeInputOrOutput(uniRouter, tradeInfo.uniSize, _path, false);
+        uint256 sushiTradeResult = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, false);
 
         return uniTradeResult.add(sushiTradeResult);
     }
 
     /* ============= Internal Functions ============ */
 
-    function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (uint256 uniSize, uint256 sushiSize) {
+    /**
+     * Calculates the optimal trade sizes for Uniswap and Sushiswap.
+     *
+     * @param _path         the trade path that will be used
+     * @param _size         the total size of the trade
+     *
+     * @return TradeInfo    TradeInfo struct containing Uniswap and Sushiswap tarde sizes
+     */
+    function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (TradeInfo memory) {
+
+        uint256 uniPercentage;
         if (_path.length == 2) {
+
             address uniPair = uniFactory.getPair(_path[0], _path[1]);
             uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
 
             address sushiPair = sushiFactory.getPair(_path[0], _path[1]);
             uint256 sushiValue = ERC20(_path[0]).balanceOf(sushiPair);
 
-            uint256 uniPercentage = uniValue.preciseDiv(uniValue.add(sushiValue));
-            uniSize = _size.preciseMul(uniPercentage);
-            sushiSize = _size.sub(uniSize);
+            uniPercentage = uniValue.preciseDiv(uniValue.add(sushiValue));
         } else {
             address uniPairA = uniFactory.getPair(_path[0], _path[1]);
             address uniPairB = uniFactory.getPair(_path[1], _path[2]);
@@ -203,7 +222,7 @@ contract TradeSplitter {
             uint256 uniValueA = ERC20(_path[1]).balanceOf(uniPairA);
             uint256 uniValueB = ERC20(_path[1]).balanceOf(uniPairB);
 
-            if(uniValueA == 0 || uniValueB == 0) return (0, _size);
+            if(uniValueA == 0 || uniValueB == 0) return TradeInfo(0, _size);
 
             address sushiPairA = sushiFactory.getPair(_path[0], _path[1]);
             address sushiPairB = sushiFactory.getPair(_path[1], _path[2]);
@@ -211,26 +230,84 @@ contract TradeSplitter {
             uint256 sushiValueA = ERC20(_path[1]).balanceOf(sushiPairA);
             uint256 sushiValueB = ERC20(_path[1]).balanceOf(sushiPairB);
 
-            if(sushiValueA == 0 || sushiValueB == 0) return (_size, 0);
+            if(sushiValueA == 0 || sushiValueB == 0) return TradeInfo(_size, 0);
 
-            uint256 ratio = sushiValueA.add(sushiValueB).preciseMul(uniValueA).preciseMul(uniValueB)
-                .preciseDiv(uniValueA.add(uniValueB).preciseMul(sushiValueA).preciseMul(sushiValueB));
+            uint256 ratio = _calculateTwoHopRatio(uniValueA, uniValueB, sushiValueA, sushiValueB);
+            uniPercentage = ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
+        }
 
-            uint256 uniPercentage = ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
-            uniSize = _size.preciseMul(uniPercentage);
-            sushiSize = _size.sub(uniSize);
+        TradeInfo memory tradeInfo;
+        tradeInfo.uniSize = _size.preciseMul(uniPercentage);
+        tradeInfo.sushiSize = _size.sub(tradeInfo.uniSize);
+
+        return tradeInfo;
+    }
+
+    /**
+     * Calculates the optimal ratio of Uniswap trade size to Sushiswap trade size. To calculate the ratio between Uniswap
+     * and Sushiswap use: 
+     *
+     * Tu/Ts = ((Psa + Psb) * Pua * Pub) / ((Pua + Pub) * Psa * Psb)
+     *
+     * Ts  = Sushiswap trade size
+     * Tu  = Uniswap trade size
+     * Pua = Uniswap liquidity for pool A
+     * Pub = Uniswap liquidity for pool B
+     * Psa = Sushiswap liquidity for pool A
+     * Psb = Sushiswap liquidity for pool B
+     *
+     * @param _uniValueA        Size of the first Uniswap pool
+     * @param _uniValueB        Size of the second Uniswap pool
+     * @param _sushiValueA      Size of the first Sushiswap pool
+     * @param _sushiValueB      Size of the second Sushiswap pool
+     *
+     * @return uint256          the ratio of Uniswap trade size to Sushiswap trade size
+     */
+    function _calculateTwoHopRatio(
+        uint256 _uniValueA,
+        uint256 _uniValueB,
+        uint256 _sushiValueA,
+        uint256 _sushiValueB
+    ) 
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 a = _sushiValueA.add(_sushiValueB).preciseMul(_uniValueA).preciseMul(_uniValueB);
+        uint256 b = _uniValueA.add(_uniValueB).preciseMul(_sushiValueA).preciseMul(_sushiValueB);
+        return a.preciseDiv(b);
+    }
+
+    /**
+     * Checks the token approvals to the Uniswap and Sushiswap routers are sufficient. If not
+     * it bumps the allowance to MAX_UINT_256.
+     *
+     * @param _uniAmount    Uniswap input amount
+     * @param _sushiAmount  Sushiswap input amount
+     * @param _token        Token being traded
+     */
+    function _checkApprovals(uint256 _uniAmount, uint256 _sushiAmount, ERC20 _token) internal {
+        if (_token.allowance(address(this), address(uniRouter)) < _uniAmount) {
+            _token.approve(address(uniRouter), PreciseUnitMath.MAX_UINT_256);
+        }
+        if (_token.allowance(address(this), address(sushiRouter)) < _sushiAmount) {
+            _token.approve(address(sushiRouter), PreciseUnitMath.MAX_UINT_256);
         }
     }
 
-    function _checkApprovals(uint256 _uniAmount, uint256 _sushiAmount, ERC20 token) internal {
-        if (token.allowance(address(this), address(uniRouter)) < _uniAmount) {
-            token.approve(address(uniRouter), PreciseUnitMath.MAX_UINT_256);
-        }
-        if (token.allowance(address(this), address(sushiRouter)) < _sushiAmount) {
-            token.approve(address(sushiRouter), PreciseUnitMath.MAX_UINT_256);
-        }
-    }
-
+    /**
+     * Executes a trade on Uniswap or Sushiswap. If passed a trade size of 0, skip the
+     * trade.
+     *
+     * @param _router           The router to execute the trade through (either Uniswap or Sushiswap)
+     * @param _size             Input amount if _isExactInput is true, output amount if false
+     * @param _path             Path for the trade
+     * @param _to               Address to redirect trade output to
+     * @param _deadline         Timestamp that trade must execute before
+     * @param _isExactInput     Whether to perfrom an exact input or exact output swap
+     *
+     * @return uint256          the actual input / output amount of the trade
+     */
     function _executeTrade(
         IUniswapV2Router _router,
         uint256 _size,
@@ -247,10 +324,20 @@ contract TradeSplitter {
         if (_isExactInput) {
             return _router.swapExactTokensForTokens(_size, 0, _path, _to, _deadline)[_path.length.sub(1)];
         } else {
-            _router.swapTokensForExactTokens(_size, uint256(-1), _path, _to, _deadline)[_path.length.sub(1)];
+            return _router.swapTokensForExactTokens(_size, uint256(-1), _path, _to, _deadline)[_path.length.sub(1)];
         }
     }
 
+    /**
+     * Gets a trade quote on Uniswap or Sushiswap
+     *
+     * @param _router           The router to get the quote from (either Uniswap or Sushiswap)
+     * @param _size             Input amount if _isExactInput is true, output amount if false
+     * @param _path             Path for the trade
+     * @param _isExactInput     Whether to get a getAmountsIn or getAmountsOut quote
+     *
+     * @return uint256          the expected input / output amount of the trade
+     */
     function _getTradeInputOrOutput(
         IUniswapV2Router _router,
         uint256 _size,
