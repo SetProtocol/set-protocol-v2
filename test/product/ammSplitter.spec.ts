@@ -820,7 +820,7 @@ describe("AMMSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("TradeSplitter: incorrect path length");
+        await expect(subject()).to.be.revertedWith("AMMSplitter: incorrect path length");
       });
     });
 
@@ -852,7 +852,7 @@ describe("AMMSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("TradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+        await expect(subject()).to.be.revertedWith("AMMSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
       });
     });
   });
@@ -1594,7 +1594,7 @@ describe("AMMSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("TradeSplitter: incorrect path length");
+        await expect(subject()).to.be.revertedWith("AMMSplitter: incorrect path length");
       });
     });
 
@@ -1626,7 +1626,7 @@ describe("AMMSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+        await expect(subject()).to.be.revertedWith("AMMSplitter: INSUFFICIENT_INPUT_AMOUNT");
       });
     });
   });
@@ -1773,7 +1773,7 @@ describe("AMMSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("TradeSplitter: incorrect path length");
+        await expect(subject()).to.be.revertedWith("AMMSplitter: incorrect path length");
       });
     });
   });
@@ -1920,7 +1920,7 @@ describe("AMMSplitter", async () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("TradeSplitter: incorrect path length");
+        await expect(subject()).to.be.revertedWith("AMMSplitter: incorrect path length");
       });
     });
   });

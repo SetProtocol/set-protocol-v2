@@ -95,7 +95,7 @@ contract AMMSplitter {
         external
         returns (uint256 totalOutput)
     {
-        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
+        require(_path.length <= 3 && _path.length != 0, "AMMSplitter: incorrect path length");
 
         IERC20 inputToken = IERC20(_path[0]);
         inputToken.transferFrom(msg.sender, address(this), _amountIn);
@@ -108,7 +108,7 @@ contract AMMSplitter {
         uint256 sushiOutput = _executeTrade(sushiRouter, tradeInfo.sushiSize, _path, _to, _deadline, true);
 
         totalOutput = uniOutput.add(sushiOutput);
-        require(totalOutput >= _amountOutMin, "TradeSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+        require(totalOutput >= _amountOutMin, "AMMSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
     }
 
     /**
@@ -132,7 +132,7 @@ contract AMMSplitter {
         external
         returns (uint256 totalInput)
     {
-        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
+        require(_path.length <= 3 && _path.length != 0, "AMMSplitter: incorrect path length");
 
         TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountOut);
 
@@ -140,7 +140,7 @@ contract AMMSplitter {
         uint256 expectedSushiInput = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, false)[0];
 
         totalInput = expectedUniInput.add(expectedSushiInput);
-        require(totalInput <= _amountInMax, "TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
+        require(totalInput <= _amountInMax, "AMMSplitter: INSUFFICIENT_INPUT_AMOUNT");
 
         IERC20 inputToken = IERC20(_path[0]);
         inputToken.transferFrom(msg.sender, address(this), totalInput);
@@ -191,7 +191,7 @@ contract AMMSplitter {
      */
     function _getAmounts(uint256 _size, address[] calldata _path, bool _isExactInput) internal view returns (uint256[] memory amounts) {
 
-        require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
+        require(_path.length <= 3 && _path.length != 0, "AMMSplitter: incorrect path length");
 
         TradeInfo memory tradeInfo = _getTradeSizes(_path, _size);
 
