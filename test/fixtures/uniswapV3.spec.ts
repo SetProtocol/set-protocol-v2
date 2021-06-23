@@ -87,7 +87,7 @@ describe("UniswapV3Fixture", () => {
     });
 
     async function subject(): Promise<UniswapV3Pool> {
-      return uniswapV3Fixture.createNewPair(subjectTokenOne, subjectTokenTwo, subjectFee, subjectRatio);
+      return await uniswapV3Fixture.createNewPair(subjectTokenOne, subjectTokenTwo, subjectFee, subjectRatio);
     }
 
     it("should create a V3 pool with the correct initial price", async () => {
