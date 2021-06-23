@@ -43,7 +43,7 @@ describe("KyberV3IndexExchangeAdapter", () => {
     await setup.initialize();
 
     kyberSetup = getKyberV3DMMFixture(owner.address);
-    await kyberSetup.initialize(owner, setup.weth.address);
+    await kyberSetup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
 
     kyberV3ExchangeAdapter = await deployer.adapters.deployKyberV3IndexExchangeAdapter(
       kyberSetup.dmmRouter.address
