@@ -226,25 +226,25 @@ contract AMMSplitter {
         uint256 uniPercentage;
         if (_path.length == 2) {
 
-            uint256 uniValue = _getTokenBalanceInPair(uniFactory, _path[0], _path[1]);
-            uint256 sushiValue = _getTokenBalanceInPair(sushiFactory, _path[0], _path[1]);
+            uint256 uniLiqPool = _getTokenBalanceInPair(uniFactory, _path[0], _path[1]);
+            uint256 sushiLiqPool = _getTokenBalanceInPair(sushiFactory, _path[0], _path[1]);
 
-            uniPercentage = uniValue.preciseDiv(uniValue.add(sushiValue));
+            uniPercentage = uniLiqPool.preciseDiv(uniLiqPool.add(sushiLiqPool));
         } else {
 
             // always get the amount of the intermediate asset, so we have value measured in the same units for both pool A and B
-            uint256 uniValueA = _getTokenBalanceInPair(uniFactory, _path[0], _path[1]);
-            uint256 uniValueB = _getTokenBalanceInPair(uniFactory, _path[2], _path[1]);
+            uint256 uniLiqPoolA = _getTokenBalanceInPair(uniFactory, _path[0], _path[1]);
+            uint256 uniLiqPoolB = _getTokenBalanceInPair(uniFactory, _path[2], _path[1]);
 
-            if(uniValueA == 0 || uniValueB == 0) return TradeInfo(0, _size);
+            if(uniLiqPoolA == 0 || uniLiqPoolB == 0) return TradeInfo(0, _size);
 
             // always get the amount of the intermediate asset, so we have value measured in the same units for both pool A and B
-            uint256 sushiValueA = _getTokenBalanceInPair(sushiFactory, _path[0], _path[1]);
-            uint256 sushiValueB = _getTokenBalanceInPair(sushiFactory, _path[2], _path[1]);
+            uint256 sushiLiqPoolA = _getTokenBalanceInPair(sushiFactory, _path[0], _path[1]);
+            uint256 sushiLiqPoolB = _getTokenBalanceInPair(sushiFactory, _path[2], _path[1]);
 
-            if(sushiValueA == 0 || sushiValueB == 0) return TradeInfo(_size, 0);
+            if(sushiLiqPoolA == 0 || sushiLiqPoolB == 0) return TradeInfo(_size, 0);
 
-            uint256 ratio = _calculateTwoHopRatio(uniValueA, uniValueB, sushiValueA, sushiValueB);
+            uint256 ratio = _calculateTwoHopRatio(uniLiqPoolA, uniLiqPoolB, sushiLiqPoolA, sushiLiqPoolB);
             // to go from a ratio to percentage, we must calculate: ratio / (ratio + 1)
             uniPercentage = ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
         }
@@ -266,26 +266,32 @@ contract AMMSplitter {
      * Psa = Sushiswap liquidity for pool A
      * Psb = Sushiswap liquidity for pool B
      *
-     * @param _uniValueA        Size of the first Uniswap pool
-     * @param _uniValueB        Size of the second Uniswap pool
-     * @param _sushiValueA      Size of the first Sushiswap pool
-     * @param _sushiValueB      Size of the second Sushiswap pool
+     * This equation is derived using several assumptions. First, it assumes that the price impact is equal to 2T / P where T is
+     * equal to the trade size, and P is equal to the pool size. This approximation holds given that the price impact is a small percentage.
+     * The second approximation made is that when executing trades that utilize multiple hops, total price impact is the sum of the each
+     * hop's price impact (not accounting for the price impact of the prior trade). This approximation again holds true under the assumption
+     * that the total price impact is a small percentage. The full derivation of this equation can be viewed in STIP-002.
+     *
+     * @param _uniLiqPoolA        Size of the first Uniswap pool
+     * @param _uniLiqPoolB        Size of the second Uniswap pool
+     * @param _sushiLiqPoolA      Size of the first Sushiswap pool
+     * @param _sushiLiqPoolB      Size of the second Sushiswap pool
      *
      * @return uint256          the ratio of Uniswap trade size to Sushiswap trade size
      */
     function _calculateTwoHopRatio(
-        uint256 _uniValueA,
-        uint256 _uniValueB,
-        uint256 _sushiValueA,
-        uint256 _sushiValueB
+        uint256 _uniLiqPoolA,
+        uint256 _uniLiqPoolB,
+        uint256 _sushiLiqPoolA,
+        uint256 _sushiLiqPoolB
     ) 
         internal
         pure
         returns (uint256)
     {
-        uint256 a = _sushiValueA.add(_sushiValueB).preciseDiv(_uniValueA.add(_uniValueB));
-        uint256 b = _uniValueA.preciseDiv(_sushiValueA);
-        uint256 c = _uniValueB.preciseDiv(_sushiValueB);
+        uint256 a = _sushiLiqPoolA.add(_sushiLiqPoolB).preciseDiv(_uniLiqPoolA.add(_uniLiqPoolB));
+        uint256 b = _uniLiqPoolA.preciseDiv(_sushiLiqPoolA);
+        uint256 c = _uniLiqPoolB.preciseDiv(_sushiLiqPoolB);
 
         return a.preciseMul(b).preciseMul(c);
     }
@@ -300,10 +306,10 @@ contract AMMSplitter {
      */
     function _checkApprovals(uint256 _uniAmount, uint256 _sushiAmount, IERC20 _token) internal {
         if (_token.allowance(address(this), address(uniRouter)) < _uniAmount) {
-            _token.approve(address(uniRouter), 2 ** 96 - 1);
+            _token.approve(address(uniRouter), PreciseUnitMath.MAX_UINT_256);
         }
         if (_token.allowance(address(this), address(sushiRouter)) < _sushiAmount) {
-            _token.approve(address(sushiRouter), 2 ** 96 - 1);
+            _token.approve(address(sushiRouter), PreciseUnitMath.MAX_UINT_256);
         }
     }
 
@@ -311,13 +317,13 @@ contract AMMSplitter {
      * Gets the balance of a component token in a Uniswap / Sushiswap pool
      *
      * @param _factory          factory contract to use (either uniFactory or sushiFactory)
-     * @param _tokenA           first token in pair
+     * @param _pairedToken      first token in pair
      * @param _balanceToken     second token in pair, and token to get balance of
      *
      * @return uint256          balance of second token in pair
      */
-    function _getTokenBalanceInPair(IUniswapV2Factory _factory, address _tokenA, address _balanceToken) internal view returns (uint256) {
-        address uniPair = _factory.getPair(_tokenA, _balanceToken);
+    function _getTokenBalanceInPair(IUniswapV2Factory _factory, address _pairedToken, address _balanceToken) internal view returns (uint256) {
+        address uniPair = _factory.getPair(_pairedToken, _balanceToken);
         return IERC20(_balanceToken).balanceOf(uniPair);
     }
 
