@@ -19,7 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
 import { IUniswapV2Factory } from "../interfaces/external/IUniswapV2Factory.sol";
@@ -97,7 +97,7 @@ contract AMMSplitter {
     {
         require(_path.length <= 3 && _path.length != 0, "TradeSplitter: incorrect path length");
 
-        ERC20 inputToken = ERC20(_path[0]);
+        IERC20 inputToken = IERC20(_path[0]);
         inputToken.transferFrom(msg.sender, address(this), _amountIn);
         
         TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountIn);
@@ -142,11 +142,12 @@ contract AMMSplitter {
         totalInput = expectedUniInput.add(expectedSushiInput);
         require(totalInput <= _amountInMax, "TradeSplitter: INSUFFICIENT_INPUT_AMOUNT");
 
-        ERC20 inputToken = ERC20(_path[0]);
-        inputToken.transferFrom(msg.sender, address(this), expectedUniInput.add(expectedSushiInput));
+        IERC20 inputToken = IERC20(_path[0]);
+        inputToken.transferFrom(msg.sender, address(this), totalInput);
 
         _checkApprovals(expectedUniInput, expectedSushiInput, inputToken);
 
+        // total trade inputs here are guaranteed to equal totalInput calculated above
         _executeTrade(uniRouter, tradeInfo.uniSize, _path, _to, _deadline, false);
         _executeTrade(sushiRouter, tradeInfo.sushiSize, _path, _to, _deadline, false);
     }
@@ -161,19 +162,19 @@ contract AMMSplitter {
      *
      * @return uint256[]    array of input amounts, intermiary amounts, and output amounts
      */
-    function getAmountsOut(uint256 _amountIn, address[] calldata _path) external  view returns (uint256[] memory) {
+    function getAmountsOut(uint256 _amountIn, address[] calldata _path) external view returns (uint256[] memory) {
         return _getAmounts(_amountIn, _path, true);
     }
 
     /**
-     * Returns a quote with an estimated trade output amount
+     * Returns a quote with an estimated trade input amount
      *
      * @param _amountOut    output amount
      * @param _path         the trade path to use
      *
      * @return uint256[]    array of input amounts, intermediary amounts, and output amounts
      */
-    function getAmountsIn(uint256 _amountOut, address[] calldata _path) external  view returns (uint256[] memory) {
+    function getAmountsIn(uint256 _amountOut, address[] calldata _path) external view returns (uint256[] memory) {
         return _getAmounts(_amountOut, _path, false);
     }
 
@@ -204,51 +205,52 @@ contract AMMSplitter {
     }
 
     /**
-     * Calculates the optimal trade sizes for Uniswap and Sushiswap.
+     * Calculates the optimal trade sizes for Uniswap and Sushiswap. Pool vaules must be measured in the same token. For single hop trades
+     * this is the balance of the output token. For two hop trades, it is measured as the balance of the intermidiary token. The equation to
+     * calculate the ratio for two hop trades is documented under _calculateTwoHopRatio. For single hop trades, this equation is:
+     *
+     * Tu/Ts = Pu / Ps
+     *
+     * Tu = Uniswap trade size
+     * Ts = Sushiswap trade size
+     * Pu = Uniswap pool size
+     * Ps = Sushiswap pool size
      *
      * @param _path         the trade path that will be used
      * @param _size         the total size of the trade
      *
-     * @return TradeInfo    TradeInfo struct containing Uniswap and Sushiswap tarde sizes
+     * @return tradeInfo    TradeInfo struct containing Uniswap and Sushiswap tarde sizes
      */
-    function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (TradeInfo memory) {
+    function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (TradeInfo memory tradeInfo) {
 
         uint256 uniPercentage;
         if (_path.length == 2) {
 
-            address uniPair = uniFactory.getPair(_path[0], _path[1]);
-            uint256 uniValue = ERC20(_path[0]).balanceOf(uniPair);
-
-            address sushiPair = sushiFactory.getPair(_path[0], _path[1]);
-            uint256 sushiValue = ERC20(_path[0]).balanceOf(sushiPair);
+            uint256 uniValue = _getTokenBalanceInPair(uniFactory, _path[0], _path[1]);
+            uint256 sushiValue = _getTokenBalanceInPair(sushiFactory, _path[0], _path[1]);
 
             uniPercentage = uniValue.preciseDiv(uniValue.add(sushiValue));
         } else {
-            address uniPairA = uniFactory.getPair(_path[0], _path[1]);
-            address uniPairB = uniFactory.getPair(_path[1], _path[2]);
 
-            uint256 uniValueA = ERC20(_path[1]).balanceOf(uniPairA);
-            uint256 uniValueB = ERC20(_path[1]).balanceOf(uniPairB);
+            // always get the amount of the intermediate asset, so we have value measured in the same units for both pool A and B
+            uint256 uniValueA = _getTokenBalanceInPair(uniFactory, _path[0], _path[1]);
+            uint256 uniValueB = _getTokenBalanceInPair(uniFactory, _path[2], _path[1]);
 
             if(uniValueA == 0 || uniValueB == 0) return TradeInfo(0, _size);
 
-            address sushiPairA = sushiFactory.getPair(_path[0], _path[1]);
-            address sushiPairB = sushiFactory.getPair(_path[1], _path[2]);
-
-            uint256 sushiValueA = ERC20(_path[1]).balanceOf(sushiPairA);
-            uint256 sushiValueB = ERC20(_path[1]).balanceOf(sushiPairB);
+            // always get the amount of the intermediate asset, so we have value measured in the same units for both pool A and B
+            uint256 sushiValueA = _getTokenBalanceInPair(sushiFactory, _path[0], _path[1]);
+            uint256 sushiValueB = _getTokenBalanceInPair(sushiFactory, _path[2], _path[1]);
 
             if(sushiValueA == 0 || sushiValueB == 0) return TradeInfo(_size, 0);
 
             uint256 ratio = _calculateTwoHopRatio(uniValueA, uniValueB, sushiValueA, sushiValueB);
+            // to go from a ratio to percentage, we must calculate: ratio / (ratio + 1)
             uniPercentage = ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
         }
 
-        TradeInfo memory tradeInfo;
         tradeInfo.uniSize = _size.preciseMul(uniPercentage);
         tradeInfo.sushiSize = _size.sub(tradeInfo.uniSize);
-
-        return tradeInfo;
     }
 
     /**
@@ -294,13 +296,27 @@ contract AMMSplitter {
      * @param _sushiAmount  Sushiswap input amount
      * @param _token        Token being traded
      */
-    function _checkApprovals(uint256 _uniAmount, uint256 _sushiAmount, ERC20 _token) internal {
+    function _checkApprovals(uint256 _uniAmount, uint256 _sushiAmount, IERC20 _token) internal {
         if (_token.allowance(address(this), address(uniRouter)) < _uniAmount) {
-            _token.approve(address(uniRouter), PreciseUnitMath.MAX_UINT_256);
+            _token.approve(address(uniRouter), 2 ** 96 - 1);
         }
         if (_token.allowance(address(this), address(sushiRouter)) < _sushiAmount) {
-            _token.approve(address(sushiRouter), PreciseUnitMath.MAX_UINT_256);
+            _token.approve(address(sushiRouter), 2 ** 96 - 1);
         }
+    }
+
+    /**
+     * Gets the balance of a component token in a Uniswap / Sushiswap pool
+     *
+     * @param _factory          factory contract to use (either uniFactory or sushiFactory)
+     * @param _tokenA           first token in pair
+     * @param _balanceToken     second token in pair, and token to get balance of
+     *
+     * @return uint256          balance of second token in pair
+     */
+    function _getTokenBalanceInPair(IUniswapV2Factory _factory, address _tokenA, address _balanceToken) internal view returns (uint256) {
+        address uniPair = _factory.getPair(_tokenA, _balanceToken);
+        return IERC20(_balanceToken).balanceOf(uniPair);
     }
 
     /**
@@ -328,11 +344,12 @@ contract AMMSplitter {
         returns (uint256)
     {
         if (_size == 0) return 0;
-
+        
+        // maxInput or minOutput not checked here. The sum all inputs/outputs is instead checked after all trades execute
         if (_isExactInput) {
             return _router.swapExactTokensForTokens(_size, 0, _path, _to, _deadline)[_path.length.sub(1)];
         } else {
-            return _router.swapTokensForExactTokens(_size, uint256(-1), _path, _to, _deadline)[_path.length.sub(1)];
+            return _router.swapTokensForExactTokens(_size, uint256(-1), _path, _to, _deadline)[0];
         }
     }
 
