@@ -613,6 +613,116 @@ describe("AMMSplitter", async () => {
         });
       });
 
+      context("when the first pool has more liquidity on Uniswap, and the second has more liquidity on Sushiswap", async () => {
+
+        let uniLiqPoolADai: number;
+        let uniLiqPoolBDai: number;
+        let sushiLiqPoolADai: number;
+        let sushiLiqPoolBDai: number;
+
+        beforeEach(async () => {
+
+          uniLiqPoolADai = 70 * 2500;
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(70),
+            ether(uniLiqPoolADai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          sushiLiqPoolADai = 30 * 2500;
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(30),
+            ether(sushiLiqPoolADai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          uniLiqPoolBDai = 4 * 40000;
+          await uniswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            bitcoin(4),
+            ether(uniLiqPoolBDai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          sushiLiqPoolBDai = 6 * 40000;
+          await sushiswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            bitcoin(6),
+            ether(sushiLiqPoolBDai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should route the correct amounts to Uniswap and Sushiswap", async () => {
+
+          const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+          const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.dai.address);
+
+          const initUniWeth = await setup.weth.balanceOf(uniPool);
+          const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          await subject();
+
+          const finalUniWeth = await setup.weth.balanceOf(uniPool);
+          const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+          const a = ((sushiLiqPoolADai + sushiLiqPoolBDai) * uniLiqPoolADai * uniLiqPoolBDai);
+          const b = ((uniLiqPoolADai + uniLiqPoolBDai) * sushiLiqPoolADai * sushiLiqPoolBDai);
+          const uniRatio = a / b;
+          const uniSize = uniRatio / (uniRatio + 1);
+          const expectedUniTradeInput = preciseMul(subjectAmountIn, ether(uniSize));
+          const expectedSushiTradeInput = subjectAmountIn.sub(expectedUniTradeInput);
+
+          // need to do a fuzzy check since actual amount deposited into pools is slightly less than requested
+          expect(finalUniWeth.sub(initUniWeth)).to.lt(preciseMul(expectedUniTradeInput, ether(1.001)));
+          expect(finalUniWeth.sub(initUniWeth)).to.gt(preciseMul(expectedUniTradeInput, ether(0.999)));
+          expect(finalSushiWeth.sub(initSushiWeth)).to.lt(preciseMul(expectedSushiTradeInput, ether(1.001)));
+          expect(finalSushiWeth.sub(initSushiWeth)).to.gt(preciseMul(expectedSushiTradeInput, ether(0.999)));
+        });
+
+        it("should return the correct output amount", async () => {
+
+          const a = ((sushiLiqPoolADai + sushiLiqPoolBDai) * uniLiqPoolADai * uniLiqPoolBDai);
+          const b = ((uniLiqPoolADai + uniLiqPoolBDai) * sushiLiqPoolADai * sushiLiqPoolBDai);
+          const uniRatio = a / b;
+          const uniSize = uniRatio / (uniRatio + 1);
+          const expectedUniTradeInput = preciseMul(subjectAmountIn, ether(uniSize));
+          const expectedSushiTradeInput = subjectAmountIn.sub(expectedUniTradeInput);
+
+          const expectedUniOutput = (await uniswapSetup.router.getAmountsOut(expectedUniTradeInput, subjectPath))[2];
+          const expectedSushiOutput = (await sushiswapSetup.router.getAmountsOut(expectedSushiTradeInput, subjectPath))[2];
+          const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
+
+          const initTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          await subject();
+
+          const finalTraderWbtc = await setup.wbtc.balanceOf(subjectTo.address);
+
+          // need to do a fuzzy check since actual amount deposited into pools is slightly less than requested
+          expect(finalTraderWbtc.sub(initTraderWbtc)).to.lt(preciseMul(expectedTotalOutput, ether(1.001)));
+          expect(finalTraderWbtc.sub(initTraderWbtc)).to.gt(preciseMul(expectedTotalOutput, ether(0.999)));
+        });
+      });
+
       context("when a token with less than 18 decimals is the intermediary trade token", async () => {
 
         beforeEach(() => {
@@ -1276,6 +1386,115 @@ describe("AMMSplitter", async () => {
           const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
 
           expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
+        });
+      });
+
+      context("when the first pool has more liquidity on Uniswap, and the second has more liquidity on Sushiswap", async () => {
+
+        let uniLiqPoolADai: number;
+        let uniLiqPoolBDai: number;
+        let sushiLiqPoolADai: number;
+        let sushiLiqPoolBDai: number;
+
+        beforeEach(async () => {
+
+          uniLiqPoolADai = 4 * 40000;
+          await uniswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            bitcoin(4),
+            ether(uniLiqPoolADai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          sushiLiqPoolADai = 6 * 40000;
+          await sushiswapSetup.router.addLiquidity(
+            setup.wbtc.address,
+            setup.dai.address,
+            bitcoin(6),
+            ether(sushiLiqPoolADai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          uniLiqPoolBDai = 70 * 2500;
+          await uniswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(70),
+            ether(uniLiqPoolBDai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+
+          sushiLiqPoolBDai = 30 * 2500;
+          await sushiswapSetup.router.addLiquidity(
+            setup.weth.address,
+            setup.dai.address,
+            ether(30),
+            ether(sushiLiqPoolBDai),
+            0,
+            0,
+            owner.address,
+            MAX_UINT_256
+          );
+        });
+
+        it("should route the correct amounts to Uniswap and Sushiswap", async () => {
+
+          const uniPool = await uniswapSetup.factory.getPair(setup.dai.address, setup.wbtc.address);
+          const sushiPool = await sushiswapSetup.factory.getPair(setup.dai.address, setup.wbtc.address);
+
+          const initUniWbtc = await setup.wbtc.balanceOf(uniPool);
+          const initSushiWbtc = await setup.wbtc.balanceOf(sushiPool);
+
+          await subject();
+
+          const finalUniWbtc = await setup.wbtc.balanceOf(uniPool);
+          const finalSushiWbtc = await setup.wbtc.balanceOf(sushiPool);
+
+          const a = ((sushiLiqPoolADai + sushiLiqPoolBDai) * uniLiqPoolADai * uniLiqPoolBDai);
+          const b = ((uniLiqPoolADai + uniLiqPoolBDai) * sushiLiqPoolADai * sushiLiqPoolBDai);
+          const uniRatio = a / b;
+          const uniSize = uniRatio / (uniRatio + 1);
+          const expectedUniTradeOutput = preciseMul(subjectAmountOut, ether(uniSize));
+          const expectedSushiTradeOutput = subjectAmountOut.sub(expectedUniTradeOutput);
+
+          // need to do a fuzzy check since actual amount deposited into pools is slightly less than requested
+          expect(initUniWbtc.sub(finalUniWbtc)).to.lt(preciseMul(expectedUniTradeOutput, ether(1.001)));
+          expect(initUniWbtc.sub(finalUniWbtc)).to.gt(preciseMul(expectedUniTradeOutput, ether(0.999)));
+          expect(initSushiWbtc.sub(finalSushiWbtc)).to.lt(preciseMul(expectedSushiTradeOutput, ether(1.001)));
+          expect(initSushiWbtc.sub(finalSushiWbtc)).to.gt(preciseMul(expectedSushiTradeOutput, ether(0.999)));
+        });
+
+        it("should return the correct output amount", async () => {
+          const a = ((sushiLiqPoolADai + sushiLiqPoolBDai) * uniLiqPoolADai * uniLiqPoolBDai);
+          const b = ((uniLiqPoolADai + uniLiqPoolBDai) * sushiLiqPoolADai * sushiLiqPoolBDai);
+          const uniRatio = a / b;
+          const uniSize = uniRatio / (uniRatio + 1);
+          const expectedUniTradeOutput = preciseMul(subjectAmountOut, ether(uniSize));
+          const expectedSushiTradeOutput = subjectAmountOut.sub(expectedUniTradeOutput);
+
+          const expectedUniInput = (await uniswapSetup.router.getAmountsIn(expectedUniTradeOutput, subjectPath))[0];
+          const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(expectedSushiTradeOutput, subjectPath))[0];
+          const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
+
+          const initCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          await subject();
+
+          const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+          // need to do a fuzzy check since actual amount deposited into pools is slightly less than requested
+          expect(initCallerWeth.sub(finalCallerWeth)).to.lt(preciseMul(expectedTotalInput, ether(1.001)));
+          expect(initCallerWeth.sub(finalCallerWeth)).to.gt(preciseMul(expectedTotalInput, ether(0.999)));
         });
       });
 
