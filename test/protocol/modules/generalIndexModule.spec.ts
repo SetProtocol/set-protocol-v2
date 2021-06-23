@@ -11,7 +11,9 @@ import {
   GeneralIndexModule,
   SetToken,
   UniswapV2IndexExchangeAdapter,
-  UniswapV3IndexExchangeAdapter } from "@utils/contracts";
+  UniswapV3IndexExchangeAdapter,
+  KyberV3IndexExchangeAdapter
+} from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   bitcoin,
@@ -26,6 +28,7 @@ import {
   getAccounts,
   getBalancerFixture,
   getLastBlockTimestamp,
+  getKyberV3DMMFixture,
   getRandomAccount,
   getRandomAddress,
   getSystemFixture,
@@ -33,7 +36,7 @@ import {
   getUniswapV3Fixture,
   getWaffleExpect
 } from "@utils/test/index";
-import { BalancerFixture, SystemFixture, UniswapFixture, UniswapV3Fixture } from "@utils/fixtures";
+import { BalancerFixture, KyberV3DMMFixture, SystemFixture, UniswapFixture, UniswapV3Fixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
@@ -49,6 +52,7 @@ describe("GeneralIndexModule", () => {
   let sushiswapSetup: UniswapFixture;
   let balancerSetup: BalancerFixture;
   let uniswapV3Setup: UniswapV3Fixture;
+  let kyberV3Setup: KyberV3DMMFixture;
 
   let index: SetToken;
   let indexWithWeth: SetToken;
@@ -58,11 +62,13 @@ describe("GeneralIndexModule", () => {
   let sushiswapAdapterName: string;
   let uniswapAdapterName: string;
   let uniswapV3AdapterName: string;
+  let kyberV3AdapterName: string;
 
   let balancerExchangeAdapter: BalancerV1IndexExchangeAdapter;
   let sushiswapExchangeAdapter: UniswapV2IndexExchangeAdapter;
   let uniswapExchangeAdapter: UniswapV2IndexExchangeAdapter;
   let uniswapV3ExchangeAdapter: UniswapV3IndexExchangeAdapter;
+  let kyberV3ExchangeAdapter: KyberV3IndexExchangeAdapter;
 
   let indexComponents: Address[];
   let indexUnits: BigNumber[];
@@ -84,6 +90,7 @@ describe("GeneralIndexModule", () => {
     sushiswapSetup = getUniswapFixture(owner.address);
     balancerSetup = getBalancerFixture(owner.address);
     uniswapV3Setup = getUniswapV3Fixture(owner.address);
+    kyberV3Setup = getKyberV3DMMFixture(owner.address);
 
     await setup.initialize();
     await uniswapSetup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
@@ -97,6 +104,7 @@ describe("GeneralIndexModule", () => {
       9000,
       setup.dai
     );
+    await kyberV3Setup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
 
     indexModule = await deployer.modules.deployGeneralIndexModule(
       setup.controller.address,
@@ -109,21 +117,24 @@ describe("GeneralIndexModule", () => {
     sushiswapExchangeAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(sushiswapSetup.router.address);
     uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(uniswapSetup.router.address);
     uniswapV3ExchangeAdapter = await deployer.adapters.deployUniswapV3IndexExchangeAdapter(uniswapV3Setup.swapRouter.address);
+    kyberV3ExchangeAdapter = await deployer.adapters.deployKyberV3IndexExchangeAdapter(kyberV3Setup.dmmRouter.address);
 
     balancerAdapterName = "BALANCER";
     sushiswapAdapterName = "SUSHISWAP";
     uniswapAdapterName = "UNISWAP";
     uniswapV3AdapterName = "UNISWAPV3";
+    kyberV3AdapterName = "KYBERV3";
 
 
     await setup.integrationRegistry.batchAddIntegration(
-      [indexModule.address, indexModule.address, indexModule.address, indexModule.address],
-      [balancerAdapterName, sushiswapAdapterName, uniswapAdapterName, uniswapV3AdapterName],
+      [indexModule.address, indexModule.address, indexModule.address, indexModule.address, indexModule.address],
+      [balancerAdapterName, sushiswapAdapterName, uniswapAdapterName, uniswapV3AdapterName, kyberV3AdapterName],
       [
         balancerExchangeAdapter.address,
         sushiswapExchangeAdapter.address,
         uniswapExchangeAdapter.address,
         uniswapV3ExchangeAdapter.address,
+        kyberV3ExchangeAdapter.address,
       ]
     );
   });
@@ -204,14 +215,44 @@ describe("GeneralIndexModule", () => {
     );
 
     await setup.weth.connect(owner.wallet).approve(uniswapV3Setup.nftPositionManager.address, ether(100));
-    await setup.dai.connect(owner.wallet).approve(uniswapV3Setup.nftPositionManager.address, bitcoin(23000));
+    await setup.dai.connect(owner.wallet).approve(uniswapV3Setup.nftPositionManager.address, ether(23000));
     await uniswapV3Setup.addLiquidityWide(
       setup.weth,
       setup.dai,
       3000,
       ether(100),
-      bitcoin(23000),
+      ether(23000),
       owner.address
+    );
+
+    await setup.weth.connect(owner.wallet).approve(kyberV3Setup.dmmRouter.address, ether(1000));
+    await setup.wbtc.connect(owner.wallet).approve(kyberV3Setup.dmmRouter.address, bitcoin(26));
+    await kyberV3Setup.dmmRouter.connect(owner.wallet).addLiquidity(
+      setup.weth.address,
+      setup.wbtc.address,
+      kyberV3Setup.wethWbtcPool.address,
+      ether(1000),
+      bitcoin(26),
+      ether(999),
+      bitcoin(25.3),
+      [0, MAX_UINT_256],
+      owner.address,
+      MAX_UINT_256
+    );
+
+    await setup.weth.connect(owner.wallet).approve(kyberV3Setup.dmmRouter.address, ether(100));
+    await setup.dai.connect(owner.wallet).approve(kyberV3Setup.dmmRouter.address, ether(23000));
+    await kyberV3Setup.dmmRouter.connect(owner.wallet).addLiquidity(
+      setup.weth.address,
+      setup.dai.address,
+      kyberV3Setup.wethDaiPool.address,
+      ether(100),
+      ether(23000),
+      ether(99),
+      ether(22950),
+      [0, MAX_UINT_256],
+      owner.address,
+      MAX_UINT_256
     );
   });
 
@@ -309,8 +350,8 @@ describe("GeneralIndexModule", () => {
         );
       });
 
-      it("should revert", async() => {
-         await expect(subject()).to.be.revertedWith("External positions not allowed");
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("External positions not allowed");
       });
     });
   });
@@ -338,10 +379,10 @@ describe("GeneralIndexModule", () => {
       // initialize indexModule on both SetTokens
       await initSetToken(
         index,
-       [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address, sushiswapSetup.uni.address],
-       [ether(800), bitcoin(.1), ether(1000), ether(500)],
-       [uniswapAdapterName, sushiswapAdapterName, balancerAdapterName, sushiswapAdapterName],
-       [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(2), ONE_MINUTE_IN_SECONDS]
+        [uniswapSetup.uni.address, setup.wbtc.address, setup.dai.address, sushiswapSetup.uni.address],
+        [ether(800), bitcoin(.1), ether(1000), ether(500)],
+        [uniswapAdapterName, sushiswapAdapterName, balancerAdapterName, sushiswapAdapterName],
+        [ONE_MINUTE_IN_SECONDS.mul(3), ONE_MINUTE_IN_SECONDS, ONE_MINUTE_IN_SECONDS.mul(2), ONE_MINUTE_IN_SECONDS]
       );
 
       await initSetToken(
@@ -462,8 +503,8 @@ describe("GeneralIndexModule", () => {
           );
         });
 
-        it("should revert", async() => {
-           await expect(subject()).to.be.revertedWith("External positions not allowed");
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("External positions not allowed");
         });
       });
     });
@@ -1033,7 +1074,7 @@ describe("GeneralIndexModule", () => {
             });
 
             afterEach(async () => {
-              await indexModule.setExchanges(subjectSetToken.address, [setup.dai.address], [sushiswapAdapterName]);
+              await indexModule.setExchanges(subjectSetToken.address, [setup.dai.address], [balancerAdapterName]);
             });
 
             it("the position units and lastTradeTimestamp should be set as expected", async () => {
@@ -1095,6 +1136,112 @@ describe("GeneralIndexModule", () => {
                 3000,
                 amountOut,
                 0
+              );
+
+              const currentWbtcAmount = await setup.wbtc.balanceOf(subjectSetToken.address);
+              const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
+
+              const wethUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.weth.address);
+              const wbtcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
+              const totalSupply = await subjectSetToken.totalSupply();
+
+              await subject();
+
+              const lastBlockTimestamp = await getLastBlockTimestamp();
+
+              const wbtcExcess = currentWbtcAmount.sub(preciseMul(totalSupply, wbtcUnit));
+              const wethExcess = currentWethAmount.sub(preciseMul(totalSupply, wethUnit));
+
+              const expectedWethPositionUnits = preciseDiv(currentWethAmount.sub(expectedIn).sub(wethExcess), totalSupply);
+              const expectedWbtcPositionUnits = preciseDiv(currentWbtcAmount.add(amountOut).sub(wbtcExcess), totalSupply);
+
+              const wethPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.weth.address);
+              const wbtcPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.wbtc.address);
+              const lastTrade = (await indexModule.executionInfo(subjectSetToken.address, setup.wbtc.address)).lastTradeTimestamp;
+
+              expect(wbtcPositionUnits).to.eq(expectedWbtcPositionUnits);
+              expect(wethPositionUnits).to.eq(expectedWethPositionUnits);
+              expect(lastTrade).to.eq(lastBlockTimestamp);
+            });
+          });
+        });
+
+        describe("when exchange is Kyber V3 DMM", async () => {
+          describe("when component is beling sold using Kyber V3 DMM exchange", async () => {
+            beforeEach(async () => {
+              await indexModule.setExchanges(subjectSetToken.address, [setup.dai.address], [kyberV3AdapterName]);
+              await indexModule.setExchangeData(subjectSetToken.address, [setup.dai.address], [kyberV3Setup.wethDaiPool.address.toLowerCase()]);
+
+              [, expectedOut] = await kyberV3Setup.dmmRouter.getAmountsOut(
+                ether(1000),
+                [kyberV3Setup.wethDaiPool.address],
+                [setup.dai.address, setup.weth.address]
+              );
+
+              subjectEthQuantityLimit = expectedOut;
+            });
+
+            afterEach(async () => {
+              await indexModule.setExchanges(subjectSetToken.address, [setup.dai.address], [balancerAdapterName]);
+            });
+
+            it("the position units and lastTradeTimestamp should be set as expected", async () => {
+              const currentDaiAmount = await setup.dai.balanceOf(subjectSetToken.address);
+              const currentWethAmount = await setup.weth.balanceOf(subjectSetToken.address);
+              const totalSupply = await subjectSetToken.totalSupply();
+
+              await subject();
+
+              const lastBlockTimestamp = await getLastBlockTimestamp();
+
+              const expectedWethPositionUnits = preciseDiv(currentWethAmount.add(expectedOut), totalSupply);
+              const expectedDaiPositionUnits = preciseDiv(currentDaiAmount.sub(ether(1000)), totalSupply);
+
+              const wethPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.weth.address);
+              const daiPositionUnits = await subjectSetToken.getDefaultPositionRealUnit(setup.dai.address);
+
+              const lastTrade = (await indexModule.executionInfo(subjectSetToken.address, setup.dai.address)).lastTradeTimestamp;
+
+              expect(wethPositionUnits).to.eq(expectedWethPositionUnits);
+              expect(daiPositionUnits).to.eq(expectedDaiPositionUnits);
+              expect(lastTrade).to.eq(lastBlockTimestamp);
+            });
+
+            it("emits the correct TradeExecuted event", async () => {
+              await expect(subject()).to.emit(indexModule, "TradeExecuted").withArgs(
+                subjectSetToken.address,
+                setup.dai.address,
+                setup.weth.address,
+                kyberV3ExchangeAdapter.address,
+                trader.address,
+                ether(1000),
+                expectedOut,
+                ZERO
+              );
+            });
+          });
+
+          describe("when component is being bought using UniswapV3", async () => {
+            beforeEach(async () => {
+              await subject();  // sell DAI for ETH on Balancer, as we would need ETH to buy WBTC on KyberV3
+
+              await indexModule.setExchanges(subjectSetToken.address, [setup.wbtc.address], [kyberV3AdapterName]);
+              await indexModule.setExchangeData(subjectSetToken.address, [setup.wbtc.address], [kyberV3Setup.wethWbtcPool.address]);
+
+              subjectComponent = setup.wbtc.address;
+              subjectEthQuantityLimit = MAX_UINT_256;
+            });
+
+            afterEach(async () => {
+              await indexModule.setExchanges(subjectSetToken.address, [setup.wbtc.address], [sushiswapAdapterName]);
+            });
+
+            it("the position units and lastTradeTimestamp should be set as expected", async () => {
+              const amountOut = bitcoin(0.1);
+              const [expectedIn, ] = await kyberV3Setup.dmmRouter.getAmountsIn(
+                amountOut,
+                [kyberV3Setup.wethWbtcPool.address],
+                [setup.weth.address, setup.wbtc.address]
               );
 
               const currentWbtcAmount = await setup.wbtc.balanceOf(subjectSetToken.address);
@@ -1217,7 +1364,7 @@ describe("GeneralIndexModule", () => {
           });
         });
 
-        describe("when the component is weth", async() => {
+        describe("when the component is weth", async () => {
           beforeEach(async () => {
             subjectComponent = setup.weth.address;
           });
@@ -1242,8 +1389,8 @@ describe("GeneralIndexModule", () => {
             );
           });
 
-          it("should revert", async() => {
-             await expect(subject()).to.be.revertedWith("External positions not allowed");
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("External positions not allowed");
           });
         });
 
@@ -1535,15 +1682,15 @@ describe("GeneralIndexModule", () => {
         });
 
         beforeEach(async () => {
-          await setup.weth.connect(owner.wallet).approve(sushiswapSetup.router.address, ether(1000));
-          await sushiswapSetup.uni.connect(owner.wallet).approve(sushiswapSetup.router.address, ether(200000));
+          await setup.weth.connect(owner.wallet).approve(sushiswapSetup.router.address, ether(100));
+          await sushiswapSetup.uni.connect(owner.wallet).approve(sushiswapSetup.router.address, ether(20000));
           await sushiswapSetup.router.connect(owner.wallet).addLiquidity(
             setup.weth.address,
             sushiswapSetup.uni.address,
-            ether(1000),
-            ether(200000),
-            ether(800),
-            ether(100000),
+            ether(100),
+            ether(20000),
+            ether(90),
+            ether(19000),
             owner.address,
             MAX_UINT_256
           );
@@ -1752,7 +1899,7 @@ describe("GeneralIndexModule", () => {
             });
 
             describe("when the prototol fee percentage is 100", async () => {
-              beforeEach(async() => {
+              beforeEach(async () => {
                 subjectFeePercentage = ether(100);
                 await setup.controller.editFee(
                   indexModule.address,
@@ -1767,7 +1914,7 @@ describe("GeneralIndexModule", () => {
             });
 
             describe("when the prototol fee percentage is MAX_UINT_256", async () => {
-              beforeEach(async() => {
+              beforeEach(async () => {
                 subjectFeePercentage = ether(100);
                 await setup.controller.editFee(
                   indexModule.address,
@@ -1843,8 +1990,8 @@ describe("GeneralIndexModule", () => {
               );
             });
 
-            it("should revert", async() => {
-               await expect(subject()).to.be.revertedWith("External positions not allowed");
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("External positions not allowed");
             });
           });
 
@@ -2545,7 +2692,7 @@ describe("GeneralIndexModule", () => {
           expect(postConditionTrader).to.be.false;
         });
 
-        it("the tradersHistory should be updated correctly", async() => {
+        it("the tradersHistory should be updated correctly", async () => {
           const preConditionTraders = await indexModule.getAllowedTraders(subjectSetToken.address);
           expect(preConditionTraders).to.deep.equal(subjectTraders);
 

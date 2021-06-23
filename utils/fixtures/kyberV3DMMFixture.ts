@@ -25,13 +25,15 @@ export class KyberV3DMMFixture {
   public dmmRouter: DMMRouter02;
 
   public kncWethPool: DMMPool;
+  public wethDaiPool: DMMPool;
+  public wethWbtcPool: DMMPool;
 
   constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);
   }
 
-  public async initialize(_owner: Account, _weth: Address): Promise<void> {
+  public async initialize(_owner: Account, _weth: Address, _wbtc: Address, _dai: Address): Promise<void> {
     this.owner = _owner;
     this.dmmFactory = await this._deployer.external.deployDMMFactory(this.owner.address);
     this.dmmRouter = await this._deployer.external.deployDMMRouter02(this.dmmFactory.address, _weth);
@@ -39,7 +41,17 @@ export class KyberV3DMMFixture {
     this.kncWethPool = await this.createNewPool(
       _weth,
       this.knc.address,
-      BigNumber.from(19000)   // Amp factor of 1.9 (in BPS)
+      BigNumber.from(19000)   // Amp factor of 1.9 (in BPS) because correlated assets
+    );
+    this.wethDaiPool = await this.createNewPool(
+      _weth,
+      _dai,
+      BigNumber.from(10000)   // Amp factor of 1 (in BPS) because un-correlated assets
+    );
+    this.wethWbtcPool = await this.createNewPool(
+      _weth,
+      _wbtc,
+      BigNumber.from(15000)   // Amp factor of 1.5 (in BPS) because correlated assets
     );
   }
 
