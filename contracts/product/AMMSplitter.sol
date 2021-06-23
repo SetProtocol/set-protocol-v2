@@ -283,9 +283,11 @@ contract AMMSplitter {
         pure
         returns (uint256)
     {
-        uint256 a = _sushiValueA.add(_sushiValueB).preciseMul(_uniValueA).preciseMul(_uniValueB);
-        uint256 b = _uniValueA.add(_uniValueB).preciseMul(_sushiValueA).preciseMul(_sushiValueB);
-        return a.preciseDiv(b);
+        uint256 a = _sushiValueA.add(_sushiValueB).preciseDiv(_uniValueA.add(_uniValueB));
+        uint256 b = _uniValueA.preciseDiv(_sushiValueA);
+        uint256 c = _uniValueB.preciseDiv(_sushiValueB);
+
+        return a.preciseMul(b).preciseMul(c);
     }
 
     /**

@@ -612,6 +612,95 @@ describe("AMMSplitter", async () => {
           expect(finalTraderWbtc.sub(initTraderWbtc)).to.eq(expectedTotalOutput);
         });
       });
+
+      context("when a token with less than 18 decimals is the intermediary trade token", async () => {
+
+        beforeEach(() => {
+          subjectPath = [ setup.weth.address, setup.wbtc.address, setup.dai.address ];
+          subjectAmountIn = ether(2);
+          subjectMinAmountOut = ether(0);
+        });
+
+        context("when the Uniswap and Sushiswap pools are equal in size", async () => {
+
+          beforeEach(async () => {
+            await uniswapSetup.router.addLiquidity(
+              setup.weth.address,
+              setup.wbtc.address,
+              ether(100),
+              bitcoin(10),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+
+            await sushiswapSetup.router.addLiquidity(
+              setup.weth.address,
+              setup.wbtc.address,
+              ether(100),
+              bitcoin(10),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+
+            await uniswapSetup.router.addLiquidity(
+              setup.wbtc.address,
+              setup.dai.address,
+              bitcoin(10),
+              ether(1000),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+
+            await sushiswapSetup.router.addLiquidity(
+              setup.wbtc.address,
+              setup.dai.address,
+              bitcoin(10),
+              ether(1000),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+          });
+
+          it("should split the trade equally between Uniswap and Sushiswap", async () => {
+            const uniPool = await uniswapSetup.factory.getPair(setup.weth.address, setup.wbtc.address);
+            const sushiPool = await sushiswapSetup.factory.getPair(setup.weth.address, setup.wbtc.address);
+
+            const initUniWeth = await setup.weth.balanceOf(uniPool);
+            const initSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+            await subject();
+
+            const finalUniWeth = await setup.weth.balanceOf(uniPool);
+            const finalSushiWeth = await setup.weth.balanceOf(sushiPool);
+
+            expect(finalUniWeth.sub(initUniWeth)).to.eq(subjectAmountIn.div(2));
+            expect(finalSushiWeth.sub(initSushiWeth)).to.eq(subjectAmountIn.div(2));
+          });
+
+          it("should return the correct output amount", async () => {
+
+            const expectedUniOutput = (await uniswapSetup.router.getAmountsOut(subjectAmountIn.div(2), subjectPath))[2];
+            const expectedSushiOutput = (await sushiswapSetup.router.getAmountsOut(subjectAmountIn.div(2), subjectPath))[2];
+            const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
+
+            const initTraderWbtc = await setup.dai.balanceOf(subjectTo.address);
+
+            await subject();
+
+            const finalTraderWbtc = await setup.dai.balanceOf(subjectTo.address);
+
+            expect(finalTraderWbtc.sub(initTraderWbtc)).to.eq(expectedTotalOutput);
+          });
+        });
+      });
     });
 
     context("when the path is too long", async () => {
@@ -735,7 +824,7 @@ describe("AMMSplitter", async () => {
         expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut.div(2));
       });
 
-      it("should return the correct input amount", async () => {
+      it("should spend the correct input amount", async () => {
 
         const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
         const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
@@ -793,7 +882,7 @@ describe("AMMSplitter", async () => {
         expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut.mul(30).div(100));
       });
 
-      it("should return the correct input amount", async () => {
+      it("should spend the correct input amount", async () => {
 
         const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.mul(70).div(100), subjectPath))[0];
         const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.mul(30).div(100), subjectPath))[0];
@@ -841,7 +930,7 @@ describe("AMMSplitter", async () => {
         expect(initSushiDai.sub(finalSushiDai)).to.eq(0);
       });
 
-      it("should return the correct input amount", async () => {
+      it("should spend the correct input amount", async () => {
 
         const expectedTotalInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
 
@@ -887,7 +976,7 @@ describe("AMMSplitter", async () => {
         expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut);
       });
 
-      it("should return the correct input amount", async () => {
+      it("should spend the correct input amount", async () => {
 
         const expectedTotalInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
 
@@ -975,7 +1064,7 @@ describe("AMMSplitter", async () => {
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(subjectAmountOut.div(2));
         });
 
-        it("should return the correct input amount", async () => {
+        it("should spend the correct input amount", async () => {
 
           const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
           const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
@@ -1059,7 +1148,7 @@ describe("AMMSplitter", async () => {
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.lt(subjectAmountOut.mul(31).div(100));
         });
 
-        it("should return the correct input amount", async () => {
+        it("should spend the correct input amount", async () => {
 
           const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.mul(70).div(100), subjectPath))[0];
           const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.mul(30).div(100), subjectPath))[0];
@@ -1119,7 +1208,7 @@ describe("AMMSplitter", async () => {
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(0);
         });
 
-        it("should return the correct input amount", async () => {
+        it("should spend the correct input amount", async () => {
 
           const expectedTotalInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
 
@@ -1176,7 +1265,7 @@ describe("AMMSplitter", async () => {
           expect(initSushiWbtc.sub(finalSushiWbtc)).to.eq(subjectAmountOut);
         });
 
-        it("should return the correct input amount", async () => {
+        it("should spend the correct input amount", async () => {
 
           const expectedTotalInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut, subjectPath))[0];
 
@@ -1187,6 +1276,94 @@ describe("AMMSplitter", async () => {
           const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
 
           expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
+        });
+      });
+
+      context("when a token with less than 18 decimals is the intermediary trade token", async () => {
+
+        beforeEach(() => {
+          subjectPath = [ setup.weth.address, setup.wbtc.address, setup.dai.address ];
+          subjectAmountOut = ether(100);
+        });
+
+        context("when the Uniswap and Sushiswap pools are equal in size", async () => {
+
+          beforeEach(async () => {
+            await uniswapSetup.router.addLiquidity(
+              setup.weth.address,
+              setup.wbtc.address,
+              ether(100),
+              bitcoin(10),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+
+            await sushiswapSetup.router.addLiquidity(
+              setup.weth.address,
+              setup.wbtc.address,
+              ether(100),
+              bitcoin(10),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+
+            await uniswapSetup.router.addLiquidity(
+              setup.wbtc.address,
+              setup.dai.address,
+              bitcoin(10),
+              ether(1000),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+
+            await sushiswapSetup.router.addLiquidity(
+              setup.wbtc.address,
+              setup.dai.address,
+              bitcoin(10),
+              ether(1000),
+              0,
+              0,
+              owner.address,
+              MAX_UINT_256
+            );
+          });
+
+          it("should split the trade equally between Uniswap and Sushiswap", async () => {
+            const uniPool = await uniswapSetup.factory.getPair(setup.dai.address, setup.wbtc.address);
+            const sushiPool = await sushiswapSetup.factory.getPair(setup.dai.address, setup.wbtc.address);
+
+            const initUniDai = await setup.dai.balanceOf(uniPool);
+            const initSushiDai = await setup.dai.balanceOf(sushiPool);
+
+            await subject();
+
+            const finalUniDai = await setup.dai.balanceOf(uniPool);
+            const finalSushiDai = await setup.dai.balanceOf(sushiPool);
+
+            expect(initUniDai.sub(finalUniDai)).to.eq(subjectAmountOut.div(2));
+            expect(initSushiDai.sub(finalSushiDai)).to.eq(subjectAmountOut.div(2));
+          });
+
+          it("should spend the correct input amount", async () => {
+
+            const expectedUniInput = (await uniswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
+            const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(subjectAmountOut.div(2), subjectPath))[0];
+            const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
+
+            const initTraderWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+            await subject();
+
+            const finalTraderWeth = await setup.weth.balanceOf(subjectCaller.address);
+
+            expect(initTraderWeth.sub(finalTraderWeth)).to.eq(expectedTotalInput);
+          });
         });
       });
     });
