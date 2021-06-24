@@ -232,6 +232,24 @@ describe("AMMSplitter", async () => {
 
         expect(finalTraderDai.sub(initTraderDai)).to.eq(expectedTotalOutput);
       });
+
+      it("should emit a TradeExactInputExecuted event", async () => {
+        const uniTradeSize = subjectAmountIn.mul(70).div(100);
+        const sushiTradeSize = subjectAmountIn.mul(30).div(100);
+
+        const expectedUniOutput = (await uniswapSetup.router.getAmountsOut(uniTradeSize, subjectPath))[1];
+        const expectedSushiOutput = (await sushiswapSetup.router.getAmountsOut(sushiTradeSize, subjectPath))[1];
+        const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
+
+        await expect(subject()).to.emit(splitter, "TradeExactInputExecuted").withArgs(
+          subjectTo.address,
+          subjectAmountIn,
+          expectedTotalOutput,
+          subjectPath,
+          uniTradeSize,
+          sushiTradeSize
+        );
+      });
     });
 
     context("when there is only a Uniswap pool", async () => {
@@ -1005,6 +1023,24 @@ describe("AMMSplitter", async () => {
         const finalCallerWeth = await setup.weth.balanceOf(subjectCaller.address);
 
         expect(initCallerWeth.sub(finalCallerWeth)).to.eq(expectedTotalInput);
+      });
+
+      it("should emit a TradeExactOutputExecuted event", async () => {
+        const uniTradeSize = subjectAmountOut.mul(70).div(100);
+        const sushiTradeSize = subjectAmountOut.mul(30).div(100);
+
+        const expectedUniInput = (await uniswapSetup.router.getAmountsIn(uniTradeSize, subjectPath))[0];
+        const expectedSushiInput = (await sushiswapSetup.router.getAmountsIn(sushiTradeSize, subjectPath))[0];
+        const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
+
+        await expect(subject()).to.emit(splitter, "TradeExactOutputExecuted").withArgs(
+          subjectTo.address,
+          expectedTotalInput,
+          subjectAmountOut,
+          subjectPath,
+          uniTradeSize,
+          sushiTradeSize
+        );
       });
     });
 

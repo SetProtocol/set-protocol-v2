@@ -48,6 +48,26 @@ contract AMMSplitter {
         uint256 sushiSize;      // Sushiswap trade size (can be either input or output depending on context)
     }
 
+    /* ============= Events ================= */
+
+    event TradeExactInputExecuted(
+        address indexed _to,
+        uint256 _amountIn,
+        uint256 _amountOut,
+        address[] _path,
+        uint256 _uniTradeSize,
+        uint256 _sushiTradeSize
+    );
+
+    event TradeExactOutputExecuted(
+        address indexed _to,
+        uint256 _amountIn,
+        uint256 _amountOut,
+        address[] _path,
+        uint256 _uniTradeSize,
+        uint256 _sushiTradeSize
+    );
+
     /* ============ State Variables ============ */
 
     // address of the Uniswap Router contract
@@ -111,6 +131,15 @@ contract AMMSplitter {
 
         totalOutput = uniOutput.add(sushiOutput);
         require(totalOutput >= _amountOutMin, "AMMSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
+
+        emit TradeExactInputExecuted(
+            _to,
+            _amountIn,
+            totalOutput,
+            _path, 
+            tradeInfo.uniSize,
+            tradeInfo.sushiSize
+        );
     }
 
     /**
@@ -153,6 +182,15 @@ contract AMMSplitter {
         // total trade inputs here are guaranteed to equal totalInput calculated above so no check needed
         _executeTrade(uniRouter, tradeInfo.uniSize, _path, _to, _deadline, false);
         _executeTrade(sushiRouter, tradeInfo.sushiSize, _path, _to, _deadline, false);
+
+        emit TradeExactOutputExecuted(
+            _to,
+            totalInput,
+            _amountOut,
+            _path, 
+            tradeInfo.uniSize,
+            tradeInfo.sushiSize
+        );
     }
 
     /* =========== External Getter Functions =========== */
