@@ -198,6 +198,6 @@ export default class DeployAdapters {
   }
 
   public async deployUniswapV3ExchangeAdapter(swapRouter: Address): Promise<UniswapV3ExchangeAdapter> {
-      return await new UniswapV3ExchangeAdapter__factory(this._deployerSigner).deploy(swapRouter);
+    return await new UniswapV3ExchangeAdapter__factory(this._deployerSigner).deploy(swapRouter);
   }
 }
