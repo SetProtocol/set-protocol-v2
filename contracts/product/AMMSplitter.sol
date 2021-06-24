@@ -31,8 +31,10 @@ import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
  * @author Set Protocol
  *
  * Peripheral contract which splits trades efficiently between Uniswap V2 and Sushiswap. Works for both exact input 
- * and exact output trades. All math for calculating the optimal split is performed on-chain. This contract only supports
- * trade paths of up to two hops.
+ * and exact output trades. This contract adheres to the IUniswapV2Router interface, so it can work with existing contracts that
+ * expect the Uniswap router. All math for calculating the optimal split is performed on-chain. This contract only supports
+ * trade paths a max length of three because with two hops, we have a common unit (the middle token), to measure the pool sizes in.
+ * Additionally, the math to calculate the optimal split for greater than two hops becomes increasingly complex.
  */
 contract AMMSplitter {
 
@@ -43,10 +45,10 @@ contract AMMSplitter {
 
     struct TradeInfo {
         uint256 uniSize;        // Uniswap trade size (can be either input or output depending on context)
-        uint256 sushiSize;      // Sushiswap trade sze (can be either input or output depending on context)
+        uint256 sushiSize;      // Sushiswap trade size (can be either input or output depending on context)
     }
 
-    /* ============ Constants ============ */
+    /* ============ State Variables ============ */
 
     // address of the Uniswap Router contract
     IUniswapV2Router public immutable uniRouter;
@@ -79,7 +81,7 @@ contract AMMSplitter {
      *
      * @param _amountIn     the exact input amount
      * @param _amountOutMin the minimum output amount that must be received
-     * @param _path         the path to use for the trade (length must be 3 or less)
+     * @param _path         the path to use for the trade (length must be 3 or less so we can measure the pool size in units of the middle token for 2 hops)
      * @param _to           the address to direct the outputs to
      * @param _deadline     the deadline for the trade
      * 
@@ -116,7 +118,7 @@ contract AMMSplitter {
      *
      * @param _amountOut    the exact output amount
      * @param _amountInMax  the maximum input amount that can be spent
-     * @param _path         the path to use for the trade (length must be 3 or less)
+     * @param _path         the path to use for the trade (length must be 3 or less so we can measure the pool size in units of the middle token for 2 hops)
      * @param _to           the address to direct the outputs to
      * @param _deadline     the deadline for the trade
      * 
@@ -140,6 +142,7 @@ contract AMMSplitter {
         uint256 expectedSushiInput = _getTradeInputOrOutput(sushiRouter, tradeInfo.sushiSize, _path, false)[0];
 
         totalInput = expectedUniInput.add(expectedSushiInput);
+        // expected inputs are guaranteed to equal the actual inputs so we can revert early and save gas
         require(totalInput <= _amountInMax, "AMMSplitter: INSUFFICIENT_INPUT_AMOUNT");
 
         IERC20 inputToken = IERC20(_path[0]);
@@ -147,7 +150,7 @@ contract AMMSplitter {
 
         _checkApprovals(expectedUniInput, expectedSushiInput, inputToken);
 
-        // total trade inputs here are guaranteed to equal totalInput calculated above
+        // total trade inputs here are guaranteed to equal totalInput calculated above so no check needed
         _executeTrade(uniRouter, tradeInfo.uniSize, _path, _to, _deadline, false);
         _executeTrade(sushiRouter, tradeInfo.sushiSize, _path, _to, _deadline, false);
     }
@@ -236,16 +239,18 @@ contract AMMSplitter {
             uint256 uniLiqPoolA = _getTokenBalanceInPair(uniFactory, _path[0], _path[1]);
             uint256 uniLiqPoolB = _getTokenBalanceInPair(uniFactory, _path[2], _path[1]);
 
+            // returning early here saves gas and prevents division by zero errors later on
             if(uniLiqPoolA == 0 || uniLiqPoolB == 0) return TradeInfo(0, _size);
 
             // always get the amount of the intermediate asset, so we have value measured in the same units for both pool A and B
             uint256 sushiLiqPoolA = _getTokenBalanceInPair(sushiFactory, _path[0], _path[1]);
             uint256 sushiLiqPoolB = _getTokenBalanceInPair(sushiFactory, _path[2], _path[1]);
 
+            // returning early here saves gas and prevents division by zero errors later on
             if(sushiLiqPoolA == 0 || sushiLiqPoolB == 0) return TradeInfo(_size, 0);
 
             uint256 ratio = _calculateTwoHopRatio(uniLiqPoolA, uniLiqPoolB, sushiLiqPoolA, sushiLiqPoolB);
-            // to go from a ratio to percentage, we must calculate: ratio / (ratio + 1)
+            // to go from a ratio to percentage we must calculate: ratio / (ratio + 1). This percentage is measured in precise units
             uniPercentage = ratio.preciseDiv(ratio.add(PreciseUnitMath.PRECISE_UNIT));
         }
 
@@ -381,7 +386,8 @@ contract AMMSplitter {
         view
         returns (uint256[] memory)
     {
-        if (_size == 0) return new uint256[](_path.length);     // zero array
+        // if trade size is zero return an array of all zeros to prevent a revert
+        if (_size == 0) return new uint256[](_path.length);
 
         if(_isExactInput) {
             return _router.getAmountsOut(_size, _path);
