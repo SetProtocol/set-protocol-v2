@@ -12,7 +12,7 @@ import {
 import DeployHelper from "@utils/deploys";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { Account } from "@utils/test/types";
-import { AMMSplitter } from "@utils/contracts";
+import { AMMSplitter, UniswapV2Factory } from "@utils/contracts";
 import { UniswapV2Router02 } from "@utils/contracts";
 import { Address } from "@utils/types";
 import { bitcoin, ether, preciseMul } from "@utils/common";
@@ -56,7 +56,12 @@ describe("AMMSplitter", async () => {
       setup.dai.address
     );
 
-    splitter = await deployer.product.deployAMMSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    splitter = await deployer.product.deployAMMSplitter(
+      uniswapSetup.router.address,
+      sushiswapSetup.router.address,
+      uniswapSetup.factory.address,
+      sushiswapSetup.factory.address
+    );
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -65,14 +70,23 @@ describe("AMMSplitter", async () => {
 
     let subjectUniswapRouter: UniswapV2Router02;
     let subjectSushiswapRouter: UniswapV2Router02;
+    let subjectUniswapFactory: UniswapV2Factory;
+    let subjectSushiswapFactory: UniswapV2Factory;
 
     beforeEach(() => {
       subjectUniswapRouter = uniswapSetup.router;
       subjectSushiswapRouter = sushiswapSetup.router;
+      subjectUniswapFactory = uniswapSetup.factory;
+      subjectSushiswapFactory = sushiswapSetup.factory;
     });
 
     async function subject(): Promise<AMMSplitter> {
-      return deployer.product.deployAMMSplitter(subjectUniswapRouter.address, subjectSushiswapRouter.address);
+      return deployer.product.deployAMMSplitter(
+        subjectUniswapRouter.address,
+        subjectSushiswapRouter.address,
+        subjectUniswapFactory.address,
+        subjectSushiswapFactory.address
+      );
     }
 
     it("should set the state variables correctly", async () => {
@@ -80,6 +94,8 @@ describe("AMMSplitter", async () => {
 
       expect(await splitter.uniRouter()).to.eq(subjectUniswapRouter.address);
       expect(await splitter.sushiRouter()).to.eq(subjectSushiswapRouter.address);
+      expect(await splitter.uniFactory()).to.eq(subjectUniswapFactory.address);
+      expect(await splitter.sushiFactory()).to.eq(subjectSushiswapFactory.address);
     });
   });
 

@@ -86,14 +86,23 @@ contract AMMSplitter {
     /**
      * Sets state variables
      *
-     * @param _uniRouter    the Uniswap router contract
-     * @param _sushiRouter  the Sushiswap router contract
+     * @param _uniRouter        the Uniswap router contract
+     * @param _sushiRouter      the Sushiswap router contract
+     * @param _uniFactory       the Uniswap factory contract 
+     * @param _sushiFactory     the Sushiswap factory contract
      */
-    constructor(IUniswapV2Router _uniRouter, IUniswapV2Router _sushiRouter) public {
+    constructor(
+        IUniswapV2Router _uniRouter,
+        IUniswapV2Router _sushiRouter,
+        IUniswapV2Factory _uniFactory,
+        IUniswapV2Factory _sushiFactory
+    )
+        public
+    {
         uniRouter = _uniRouter;
         sushiRouter = _sushiRouter;
-        uniFactory = IUniswapV2Factory(_uniRouter.factory());
-        sushiFactory = IUniswapV2Factory(_sushiRouter.factory());
+        uniFactory = _uniFactory;
+        sushiFactory = _sushiFactory;
     }
 
     /* ============ External Functions ============= */
