@@ -73,7 +73,12 @@ describe("AMMSplitterGeneralIndexModule", () => {
     await setup.controller.addModule(positionModule.address);
 
 
-    tradeSplitter = await deployer.product.deployAMMSplitter(uniswapSetup.router.address, sushiswapSetup.router.address);
+    tradeSplitter = await deployer.product.deployAMMSplitter(
+      uniswapSetup.router.address,
+      sushiswapSetup.router.address,
+      uniswapSetup.factory.address,
+      sushiswapSetup.factory.address
+    );
     tradeSplitterAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(tradeSplitter.address);
     tradeSplitterAdapterName = "TRADESPLITTER";
 

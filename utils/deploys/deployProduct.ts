@@ -37,7 +37,12 @@ export default class DeployProduct {
     return await new AssetLimitHook__factory(this._deployerSigner).attach(assetLimitHookAddress);
   }
 
-  public async deployAMMSplitter(uniRouter: Address, sushiRouter: Address): Promise<AMMSplitter> {
-    return await new AMMSplitter__factory(this._deployerSigner).deploy(uniRouter, sushiRouter);
+  public async deployAMMSplitter(
+    uniRouter: Address,
+    sushiRouter: Address,
+    uniFactory: Address,
+    sushiFactory: Address
+  ): Promise<AMMSplitter> {
+    return await new AMMSplitter__factory(this._deployerSigner).deploy(uniRouter, sushiRouter, uniFactory, sushiFactory);
   }
 }
