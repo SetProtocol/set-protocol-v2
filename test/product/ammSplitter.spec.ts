@@ -242,10 +242,11 @@ describe("AMMSplitter", async () => {
         const expectedTotalOutput = expectedUniOutput.add(expectedSushiOutput);
 
         await expect(subject()).to.emit(splitter, "TradeExactInputExecuted").withArgs(
+          subjectPath[0],
+          subjectPath[1],
           subjectTo.address,
           subjectAmountIn,
           expectedTotalOutput,
-          subjectPath,
           uniTradeSize,
           sushiTradeSize
         );
@@ -1034,10 +1035,11 @@ describe("AMMSplitter", async () => {
         const expectedTotalInput = expectedUniInput.add(expectedSushiInput);
 
         await expect(subject()).to.emit(splitter, "TradeExactOutputExecuted").withArgs(
+          subjectPath[0],
+          subjectPath[1],
           subjectTo.address,
           expectedTotalInput,
           subjectAmountOut,
-          subjectPath,
           uniTradeSize,
           sushiTradeSize
         );

@@ -51,19 +51,21 @@ contract AMMSplitter {
     /* ============= Events ================= */
 
     event TradeExactInputExecuted(
+        address indexed _sendToken,
+        address indexed _receiveToken,
         address indexed _to,
         uint256 _amountIn,
         uint256 _amountOut,
-        address[] _path,
         uint256 _uniTradeSize,
         uint256 _sushiTradeSize
     );
 
     event TradeExactOutputExecuted(
+        address indexed _sendToken,
+        address indexed _receiveToken,
         address indexed _to,
         uint256 _amountIn,
         uint256 _amountOut,
-        address[] _path,
         uint256 _uniTradeSize,
         uint256 _sushiTradeSize
     );
@@ -133,10 +135,11 @@ contract AMMSplitter {
         require(totalOutput >= _amountOutMin, "AMMSplitter: INSUFFICIENT_OUTPUT_AMOUNT");
 
         emit TradeExactInputExecuted(
+            _path[0],
+            _path[_path.length.sub(1)],
             _to,
             _amountIn,
             totalOutput,
-            _path, 
             tradeInfo.uniSize,
             tradeInfo.sushiSize
         );
@@ -184,10 +187,11 @@ contract AMMSplitter {
         _executeTrade(sushiRouter, tradeInfo.sushiSize, _path, _to, _deadline, false);
 
         emit TradeExactOutputExecuted(
+            _path[0],
+            _path[_path.length.sub(1)],
             _to,
             totalInput,
             _amountOut,
-            _path, 
             tradeInfo.uniSize,
             tradeInfo.sushiSize
         );
