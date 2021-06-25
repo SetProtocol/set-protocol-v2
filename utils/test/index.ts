@@ -2,7 +2,17 @@
 import { ethers } from "hardhat";
 import { Address } from "../types";
 
-import { AaveFixture, BalancerFixture, CompoundFixture, CurveFixture, SystemFixture, UniswapFixture, YearnFixture, UniswapV3Fixture } from "../fixtures";
+import {
+  AaveFixture,
+  BalancerFixture,
+  CompoundFixture,
+  CurveFixture,
+  KyberV3DMMFixture,
+  SystemFixture,
+  UniswapFixture,
+  YearnFixture,
+  UniswapV3Fixture
+} from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
 
 // Hardhat-Provider Aware Exports
@@ -14,6 +24,7 @@ export const getAaveFixture = (ownerAddress: Address) => new AaveFixture(provide
 export const getBalancerFixture = (ownerAddress: Address) => new BalancerFixture(provider, ownerAddress);
 export const getCurveFixture = (ownerAddress: Address) => new CurveFixture(provider, ownerAddress);
 export const getCompoundFixture = (ownerAddress: Address) => new CompoundFixture(provider, ownerAddress);
+export const getKyberV3DMMFixture = (ownerAddress: Address) => new KyberV3DMMFixture(provider, ownerAddress);
 export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(provider, ownerAddress);
 export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
 export const getUniswapV3Fixture = (ownerAddress: Address) => new UniswapV3Fixture(provider, ownerAddress);

@@ -2,6 +2,7 @@ export { AaveFixture } from "./aaveFixture";
 export { BalancerFixture } from "./balancerFixture";
 export { CompoundFixture } from "./compoundFixture";
 export { CurveFixture } from "./curveFixture";
+export { KyberV3DMMFixture } from "./kyberV3DMMFixture";
 export { SystemFixture } from "./systemFixture";
 export { UniswapFixture } from "./uniswapFixture";
 export { UniswapV3Fixture } from "./uniswapV3Fixture";

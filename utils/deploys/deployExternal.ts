@@ -132,7 +132,15 @@ import {
 import { Registry__factory } from "../../typechain/factories/Registry__factory";
 import { Vault__factory } from "../../typechain/factories/Vault__factory";
 
-import { KyberNetworkTokenV2 } from "../contracts/kyber";
+import {
+  KyberNetworkTokenV2,
+  DMMFactory,
+  DMMPool,
+  DMMRouter02
+} from "../contracts/kyberV3";
+import { DMMFactory__factory } from "../../typechain/factories/DMMFactory__factory";
+import { DMMRouter02__factory } from "../../typechain/factories/DMMRouter02__factory";
+import { DMMPool__factory } from "../../typechain/factories/DMMPool__factory";
 import { KyberNetworkTokenV2__factory } from "../../typechain/factories/KyberNetworkTokenV2__factory";
 
 
@@ -568,9 +576,21 @@ export default class DeployExternalContracts {
     return await new Registry__factory(this._deployerSigner).deploy();
   }
 
-  // KYBER
+  // KYBER V3 DMM
   public async deployKyberNetworkTokenV2(): Promise<KyberNetworkTokenV2> {
     return await new KyberNetworkTokenV2__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployDMMFactory(_feeToSetter: string): Promise<DMMFactory> {
+    return await new DMMFactory__factory(this._deployerSigner).deploy(_feeToSetter);
+  }
+
+  public async deployDMMRouter02(_factory: Address, _weth: Address): Promise<DMMRouter02> {
+    return await new DMMRouter02__factory(this._deployerSigner).deploy(_factory, _weth);
+  }
+
+  public async deployDMMPool(): Promise<DMMPool> {
+    return await new DMMPool__factory(this._deployerSigner).deploy();
   }
 
   // AXIE-INFINITY

@@ -8,6 +8,7 @@ import {
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
   KyberExchangeAdapter,
+  KyberV3IndexExchangeAdapter,
   KyberMigrationWrapAdapter,
   OneInchExchangeAdapter,
   AaveMigrationWrapAdapter,
@@ -37,6 +38,7 @@ import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factori
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
+import { KyberV3IndexExchangeAdapter__factory } from "../../typechain/factories/KyberV3IndexExchangeAdapter__factory";
 import { KyberMigrationWrapAdapter__factory } from "../../typechain/factories/KyberMigrationWrapAdapter__factory";
 import { OneInchExchangeAdapter__factory } from "../../typechain/factories/OneInchExchangeAdapter__factory";
 import { ZeroExApiAdapter__factory } from "../../typechain/factories/ZeroExApiAdapter__factory";
@@ -133,7 +135,7 @@ export default class DeployAdapters {
   public async deployCompoundWrapAdapter(libraryName: string, libraryAddress: Address): Promise<CompoundWrapAdapter> {
     const linkId = convertLibraryNameToLinkId(libraryName);
     return await new CompoundWrapAdapter__factory(
-       // @ts-ignore
+      // @ts-ignore
       {
         [linkId]: libraryAddress,
       },
@@ -199,5 +201,9 @@ export default class DeployAdapters {
 
   public async deployUniswapV3ExchangeAdapter(swapRouter: Address): Promise<UniswapV3ExchangeAdapter> {
     return await new UniswapV3ExchangeAdapter__factory(this._deployerSigner).deploy(swapRouter);
+  }
+
+  public async deployKyberV3IndexExchangeAdapter(dmmRouter: Address, dmmFactory: Address): Promise<KyberV3IndexExchangeAdapter> {
+    return await new KyberV3IndexExchangeAdapter__factory(this._deployerSigner).deploy(dmmRouter, dmmFactory);
   }
 }
