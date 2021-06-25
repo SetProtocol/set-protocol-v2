@@ -106,7 +106,6 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
         override
         returns (address, uint256, bytes memory)
     {
-        require(dmmFactory.isPool(IERC20(_sourceToken), IERC20(_destinationToken), _data.toAddress(0)), "Invalid pool address");
         
         address[] memory path = new address[](2);
         path[0] = _sourceToken;
@@ -114,6 +113,8 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
 
         address[] memory poolsPath = new address[](1);
         poolsPath[0] = _data.toAddress(0);
+        
+        require(dmmFactory.isPool(IERC20(_sourceToken), IERC20(_destinationToken), poolsPath[0]), "Invalid pool address");
 
         bytes memory callData = abi.encodeWithSignature(
             _isSendTokenFixed ? SWAP_EXACT_TOKENS_FOR_TOKENS : SWAP_TOKENS_FOR_EXACT_TOKENS,
