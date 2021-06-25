@@ -55,6 +55,15 @@ export class KyberV3DMMFixture {
     );
   }
 
+  /**
+   * Creates new DMM pool. The token addresses are interchangeable.
+   * NOTE: There can be at most 1 unamplified pool for a token pair, ie. only 1 pool can exist with ampBps = BPS (10000).
+   * Should there already be an existing unamplified pool, attempts to create another one will fail.
+   *
+   * @param _token0     address of token 1
+   * @param _token1     address of token 2
+   * @param _ampBps     Amplification factor (in BPS)
+   */
   public async createNewPool(_tokenA: Address, _tokenB: Address, _ampBps: BigNumber): Promise<DMMPool> {
     await this.dmmFactory.createPool(_tokenA, _tokenB, _ampBps);
     const poolAddress = await this.dmmFactory.allPools((await this.dmmFactory.allPoolsLength()).sub(1));

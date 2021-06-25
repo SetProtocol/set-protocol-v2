@@ -203,7 +203,7 @@ export default class DeployAdapters {
     return await new UniswapV3ExchangeAdapter__factory(this._deployerSigner).deploy(swapRouter);
   }
 
-  public async deployKyberV3IndexExchangeAdapter(dmmRouter: Address): Promise<KyberV3IndexExchangeAdapter> {
-    return await new KyberV3IndexExchangeAdapter__factory(this._deployerSigner).deploy(dmmRouter);
+  public async deployKyberV3IndexExchangeAdapter(dmmRouter: Address, dmmFactory: Address): Promise<KyberV3IndexExchangeAdapter> {
+    return await new KyberV3IndexExchangeAdapter__factory(this._deployerSigner).deploy(dmmRouter, dmmFactory);
   }
 }

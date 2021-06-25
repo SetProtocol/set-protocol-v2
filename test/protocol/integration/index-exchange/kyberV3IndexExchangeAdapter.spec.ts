@@ -4,7 +4,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO } from "@utils/constants";
 import { KyberV3IndexExchangeAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -16,7 +16,8 @@ import {
   getSystemFixture,
   getKyberV3DMMFixture,
   getWaffleExpect,
-  getLastBlockTimestamp
+  getLastBlockTimestamp,
+  getRandomAddress
 } from "@utils/test/index";
 
 import { SystemFixture, KyberV3DMMFixture } from "@utils/fixtures";
@@ -46,7 +47,8 @@ describe("KyberV3IndexExchangeAdapter", () => {
     await kyberSetup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
 
     kyberV3ExchangeAdapter = await deployer.adapters.deployKyberV3IndexExchangeAdapter(
-      kyberSetup.dmmRouter.address
+      kyberSetup.dmmRouter.address,
+      kyberSetup.dmmFactory.address
     );
   });
 
@@ -54,13 +56,15 @@ describe("KyberV3IndexExchangeAdapter", () => {
 
   describe("constructor", async () => {
     let subjectDMMRouter: Address;
+    let subjectDMMFactory: Address;
 
     beforeEach(async () => {
       subjectDMMRouter = kyberSetup.dmmRouter.address;
+      subjectDMMFactory = kyberSetup.dmmFactory.address;
     });
 
     async function subject(): Promise<any> {
-      return await deployer.adapters.deployKyberV3IndexExchangeAdapter(subjectDMMRouter);
+      return await deployer.adapters.deployKyberV3IndexExchangeAdapter(subjectDMMRouter, subjectDMMFactory);
     }
 
     it("should have the correct router address", async () => {
@@ -70,6 +74,15 @@ describe("KyberV3IndexExchangeAdapter", () => {
       const expectedRouterAddress = kyberSetup.dmmRouter.address;
 
       expect(routerAddress).to.eq(expectedRouterAddress);
+    });
+
+    it("should have the correct factory address", async () => {
+      const deployedKyberV3IndexExchangeAdapter = await subject();
+
+      const factoryAddress = await deployedKyberV3IndexExchangeAdapter.dmmFactory();
+      const expectedFactoryAddress = kyberSetup.dmmFactory.address;
+
+      expect(factoryAddress).to.eq(expectedFactoryAddress);
     });
   });
 
@@ -162,6 +175,38 @@ describe("KyberV3IndexExchangeAdapter", () => {
           callTimestamp,
         ]);
         expect(JSON.stringify(calldata)).to.eq(JSON.stringify([kyberSetup.dmmRouter.address, ZERO, expectedCallData]));
+      });
+    });
+
+    describe("when pool address is invalid", async () => {
+      describe("when pool address is zero address", async () => {
+        beforeEach(async () => {
+          subjectData = ADDRESS_ZERO;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Invalid pool address");
+        });
+      });
+
+      describe("when pool address is random address", async () => {
+        beforeEach(async () => {
+          subjectData = (await getRandomAddress()).toLowerCase();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Invalid pool address");
+        });
+      });
+
+      describe("when pool address is for another token pair", async () => {
+        beforeEach(async () => {
+          subjectData = kyberSetup.wethDaiPool.address.toLowerCase();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Invalid pool address");
+        });
       });
     });
   });

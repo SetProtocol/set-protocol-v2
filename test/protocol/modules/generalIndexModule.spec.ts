@@ -117,7 +117,10 @@ describe("GeneralIndexModule", () => {
     sushiswapExchangeAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(sushiswapSetup.router.address);
     uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2IndexExchangeAdapter(uniswapSetup.router.address);
     uniswapV3ExchangeAdapter = await deployer.adapters.deployUniswapV3IndexExchangeAdapter(uniswapV3Setup.swapRouter.address);
-    kyberV3ExchangeAdapter = await deployer.adapters.deployKyberV3IndexExchangeAdapter(kyberV3Setup.dmmRouter.address);
+    kyberV3ExchangeAdapter = await deployer.adapters.deployKyberV3IndexExchangeAdapter(
+      kyberV3Setup.dmmRouter.address,
+      kyberV3Setup.dmmFactory.address
+    );
 
     balancerAdapterName = "BALANCER";
     sushiswapAdapterName = "SUSHISWAP";
@@ -1221,7 +1224,7 @@ describe("GeneralIndexModule", () => {
             });
           });
 
-          describe("when component is being bought using UniswapV3", async () => {
+          describe("when component is being bought using KyberV3", async () => {
             beforeEach(async () => {
               await subject();  // sell DAI for ETH on Balancer, as we would need ETH to buy WBTC on KyberV3
 

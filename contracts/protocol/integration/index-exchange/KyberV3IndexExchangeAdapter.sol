@@ -20,6 +20,7 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { BytesLib } from "external/contracts/uniswap/v3/lib/BytesLib.sol";
+import { IDMMFactory } from "../../../interfaces/external/IDMMFactory.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
 
@@ -44,6 +45,7 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
     /* ============ State Variables ============ */
 
     address public immutable dmmRouter;
+    IDMMFactory public immutable dmmFactory;
 
     /* ============ Constructor ============ */
 
@@ -51,9 +53,11 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
      * Set state variables
      *
      * @param _dmmRouter       Address of Kyber V3 DMM Router
+     * @param _dmmFactory      Address of Kyber V3 DMM Factory
      */
-    constructor(address _dmmRouter) public {
-        dmmRouter = _dmmRouter;        
+    constructor(address _dmmRouter, IDMMFactory _dmmFactory) public {
+        dmmRouter = _dmmRouter;
+        dmmFactory = _dmmFactory;        
     }
 
     /* ============ External Getter Functions ============ */
@@ -102,6 +106,8 @@ contract KyberV3IndexExchangeAdapter is IIndexExchangeAdapter {
         override
         returns (address, uint256, bytes memory)
     {
+        require(dmmFactory.isPool(IERC20(_sourceToken), IERC20(_destinationToken), _data.toAddress(0)), "Invalid pool address");
+        
         address[] memory path = new address[](2);
         path[0] = _sourceToken;
         path[1] = _destinationToken;
