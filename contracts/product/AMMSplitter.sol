@@ -108,7 +108,9 @@ contract AMMSplitter {
     /* ============ External Functions ============= */
 
     /**
-     * Executes an exact input trade. Splits trade efficiently between Uniswap and Sushiswap
+     * Executes an exact input trade split between Uniswap and Sushiswap. This function is for when one wants to trade with the optimal split between Uniswap 
+     * and Sushiswap. This function's interface matches the Uniswap V2 swapExactTokensForTokens function. Input/output tokens are inferred implicitly from
+     * the trade path with first token as input and last as output.
      *
      * @param _amountIn     the exact input amount
      * @param _amountOutMin the minimum output amount that must be received
@@ -128,7 +130,7 @@ contract AMMSplitter {
         external
         returns (uint256 totalOutput)
     {
-        require(_path.length <= 3 && _path.length != 0, "AMMSplitter: incorrect path length");
+        _checkPath(_path);
 
         IERC20 inputToken = IERC20(_path[0]);
         inputToken.transferFrom(msg.sender, address(this), _amountIn);
@@ -155,7 +157,9 @@ contract AMMSplitter {
     }
 
     /**
-     * Executes an exact output trade. Splits trade efficiently between Uniswap and Sushiswap
+     * Executes an exact output trade split between Uniswap and Sushiswap. This function is for when one wants to trade with the optimal split between Uniswap 
+     * and Sushiswap. This function's interface matches the Uniswap V2 swapTokensForExactTokens function. Input/output tokens are inferred implicitly from
+     * the trade path with first token as input and last as output.
      *
      * @param _amountOut    the exact output amount
      * @param _amountInMax  the maximum input amount that can be spent
@@ -175,7 +179,7 @@ contract AMMSplitter {
         external
         returns (uint256 totalInput)
     {
-        require(_path.length <= 3 && _path.length != 0, "AMMSplitter: incorrect path length");
+        _checkPath(_path);
 
         TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountOut);
 
@@ -214,7 +218,7 @@ contract AMMSplitter {
      * @param _amountIn     input amount
      * @param _path         the trade path to use
      *
-     * @return uint256[]    array of input amounts, intermiary amounts, and output amounts
+     * @return uint256[]    array of input amounts, intermediary amounts, and output amounts
      */
     function getAmountsOut(uint256 _amountIn, address[] calldata _path) external view returns (uint256[] memory) {
         return _getAmounts(_amountIn, _path, true);
@@ -245,7 +249,7 @@ contract AMMSplitter {
      */
     function _getAmounts(uint256 _size, address[] calldata _path, bool _isExactInput) internal view returns (uint256[] memory amounts) {
 
-        require(_path.length <= 3 && _path.length != 0, "AMMSplitter: incorrect path length");
+        _checkPath(_path);
 
         TradeInfo memory tradeInfo = _getTradeSizes(_path, _size);
 
@@ -259,8 +263,8 @@ contract AMMSplitter {
     }
 
     /**
-     * Calculates the optimal trade sizes for Uniswap and Sushiswap. Pool vaules must be measured in the same token. For single hop trades
-     * this is the balance of the output token. For two hop trades, it is measured as the balance of the intermidiary token. The equation to
+     * Calculates the optimal trade sizes for Uniswap and Sushiswap. Pool values must be measured in the same token. For single hop trades
+     * this is the balance of the output token. For two hop trades, it is measured as the balance of the intermediary token. The equation to
      * calculate the ratio for two hop trades is documented under _calculateTwoHopRatio. For single hop trades, this equation is:
      *
      * Tu/Ts = Pu / Ps
@@ -273,7 +277,7 @@ contract AMMSplitter {
      * @param _path         the trade path that will be used
      * @param _size         the total size of the trade
      *
-     * @return tradeInfo    TradeInfo struct containing Uniswap and Sushiswap tarde sizes
+     * @return tradeInfo    TradeInfo struct containing Uniswap and Sushiswap trade sizes
      */
     function _getTradeSizes(address[] calldata _path, uint256 _size) internal view returns (TradeInfo memory tradeInfo) {
 
@@ -370,6 +374,16 @@ contract AMMSplitter {
     }
 
     /**
+     * Confirms that the path length is either two or three. Reverts if it does not fall within these bounds. When paths are greater than three in 
+     * length, the calculation for the optimal split between Uniswap and Sushiswap becomes much more difficult, so it is disallowed.
+     *
+     * @param _path     trade path to check
+     */
+    function _checkPath(address[] calldata _path) internal pure {
+        require(_path.length == 2 || _path.length == 3, "AMMSplitter: incorrect path length");
+    }
+
+    /**
      * Gets the balance of a component token in a Uniswap / Sushiswap pool
      *
      * @param _factory          factory contract to use (either uniFactory or sushiFactory)
@@ -392,7 +406,7 @@ contract AMMSplitter {
      * @param _path             Path for the trade
      * @param _to               Address to redirect trade output to
      * @param _deadline         Timestamp that trade must execute before
-     * @param _isExactInput     Whether to perfrom an exact input or exact output swap
+     * @param _isExactInput     Whether to perform an exact input or exact output swap
      *
      * @return uint256          the actual input / output amount of the trade
      */
