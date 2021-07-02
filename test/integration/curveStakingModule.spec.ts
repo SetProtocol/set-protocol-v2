@@ -107,7 +107,7 @@ describe("curveStakingModule", () => {
         airdrops: [curveSetup.poolToken.address],
         airdropFee: ZERO,
         anyoneAbsorb: true,
-        feeRecipient: ADDRESS_ZERO,
+        feeRecipient: owner.address,
       });
 
       // Issue some Sets
