@@ -54,6 +54,7 @@ describe("AirdropModule", () => {
     let airdrops: Address[];
     let airdropFee: BigNumber;
     let anyoneAbsorb: boolean;
+    let airdropFeeRecipient: Address;
 
     let subjectSetToken: Address;
     let subjectAirdropSettings: AirdropSettings;
@@ -63,6 +64,7 @@ describe("AirdropModule", () => {
       airdrops = [setup.usdc.address, setup.weth.address];
       airdropFee = ether(.2);
       anyoneAbsorb = true;
+      airdropFeeRecipient = feeRecipient.address;
     });
 
     beforeEach(async () => {
@@ -75,7 +77,7 @@ describe("AirdropModule", () => {
       subjectSetToken = setToken.address;
       subjectAirdropSettings = {
         airdrops,
-        feeRecipient: feeRecipient.address,
+        feeRecipient: airdropFeeRecipient,
         airdropFee,
         anyoneAbsorb,
       } as AirdropSettings;
@@ -151,6 +153,20 @@ describe("AirdropModule", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Fee must be <= 100%.");
+      });
+    });
+
+    describe("when the fee recipient is the ZERO_ADDRESS", async () => {
+      before(async () => {
+        airdropFeeRecipient = ADDRESS_ZERO;
+      });
+
+      after(async () => {
+        airdropFeeRecipient = feeRecipient.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Zero fee address passed");
       });
     });
 
