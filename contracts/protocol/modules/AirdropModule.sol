@@ -54,7 +54,6 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     
     struct AirdropSettings {
         address[] airdrops;                     // Array of tokens manager is allowing to be absorbed
-        mapping(address => bool) isAirdrop;     // Mapping indicating if token is an allowed airdrop
         address feeRecipient;                   // Address airdrop fees are sent to
         uint256 airdropFee;                     // Percentage in preciseUnits of airdrop sent to feeRecipient (1e16 = 1%)
         bool anyoneAbsorb;                      // Boolean indicating if any address can call absorb or just the manager
@@ -64,7 +63,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
     event ComponentAbsorbed(
         ISetToken indexed _setToken,
-        address indexed _absorbedToken,
+        IERC20 indexed _absorbedToken,
         uint256 _absorbedQuantity,
         uint256 _managerFee,
         uint256 _protocolFee
@@ -73,7 +72,8 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     event AirdropComponentAdded(ISetToken indexed _setToken, IERC20 indexed _component);
     event AirdropComponentRemoved(ISetToken indexed _setToken, IERC20 indexed _component);
     event AnyoneAbsorbUpdated(ISetToken indexed _setToken, bool _anyoneAbsorb);
-    event FeeRecipientUpdated(address indexed _setToken, address _newFeeRecipient);
+    event AirdropFeeUpdated(ISetToken indexed _setToken, uint256 _newFee);
+    event FeeRecipientUpdated(ISetToken indexed _setToken, address _newFeeRecipient);
 
     /* ============ Modifiers ============ */
 
@@ -92,6 +92,8 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     /* ============ State Variables ============ */
 
     mapping(ISetToken => AirdropSettings) public airdropSettings;
+    // Mapping indicating if token is an allowed airdrop
+    mapping(ISetToken => mapping(IERC20 => bool)) public isAirdrop;
 
     /* ============ Constructor ============ */
 
@@ -140,7 +142,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     function addAirdrop(ISetToken _setToken, IERC20 _airdrop) external onlyManagerAndValidSet(_setToken) {
         require(!isAirdropToken(_setToken, _airdrop), "Token already added.");
         airdropSettings[_setToken].airdrops.push(address(_airdrop));
-        airdropSettings[_setToken].isAirdrop[address(_airdrop)] = true;
+        isAirdrop[_setToken][_airdrop] = true;
         emit AirdropComponentAdded(_setToken, _airdrop);
     }
 
@@ -153,7 +155,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     function removeAirdrop(ISetToken _setToken, IERC20 _airdrop) external onlyManagerAndValidSet(_setToken) {
         require(isAirdropToken(_setToken, _airdrop), "Token not added.");
         airdropSettings[_setToken].airdrops.removeStorage(address(_airdrop));
-        airdropSettings[_setToken].isAirdrop[address(_airdrop)] = false;
+        isAirdrop[_setToken][_airdrop] = false;
         emit AirdropComponentRemoved(_setToken, _airdrop);
     }
 
@@ -205,6 +207,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
         _batchAbsorb(_setToken, airdropSettings[_setToken].airdrops);
 
         airdropSettings[_setToken].airdropFee = _newFee;
+        emit AirdropFeeUpdated(_setToken, _newFee);
     }
 
     /**
@@ -225,9 +228,15 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     {
         require(_airdropSettings.airdropFee <= PreciseUnitMath.preciseUnit(), "Fee must be <= 100%.");
         require(_airdropSettings.feeRecipient != address(0), "Zero fee address passed");
-        require(!_airdropSettings.airdrops.hasDuplicate(), "Duplicate airdrop token passed");
+        if (_airdropSettings.airdrops.length > 0) {
+            require(!_airdropSettings.airdrops.hasDuplicate(), "Duplicate airdrop token passed");
+        }
 
         airdropSettings[_setToken] = _airdropSettings;
+
+        for (uint256 i = 0; i < _airdropSettings.airdrops.length; i++) {
+            isAirdrop[_setToken][IERC20(_airdropSettings.airdrops[i])] = true;
+        }
 
         _setToken.initializeModule();
     }
@@ -257,7 +266,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
      * @return                      Boolean indicating approval for airdrops
      */
     function isAirdropToken(ISetToken _setToken, IERC20 _token) public view returns (bool) {
-        return airdropSettings[_setToken].isAirdrop[_token];
+        return isAirdrop[_setToken][_token];
     }
 
     /* ============ Internal Functions ============ */
@@ -292,7 +301,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
             
             uint256 newUnit = _getPostAirdropUnit(_setToken, preFeeTokenBalance, totalFees);
 
-            _setToken.editDefaultPosition(_token, newUnit);
+            _setToken.editDefaultPosition(address(_token), newUnit);
 
             emit ComponentAbsorbed(_setToken, _token, amountAirdropped, managerTake, protocolTake);
         }
@@ -304,9 +313,9 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
      * @param _setToken                 Address of SetToken
      * @param _component                Address of airdropped component
      * @param _amountAirdropped         Amount of tokens airdropped to the SetToken
-     * @return                          Amount of airdropped tokens set aside for manager fees net of protocol fees
-     * @return                          Amount of airdropped tokens set aside for protocol fees (taken from manager fees)
-     * @return                          Total fees paid
+     * @return netManagerTake           Amount of airdropped tokens set aside for manager fees net of protocol fees
+     * @return protocolTake             Amount of airdropped tokens set aside for protocol fees (taken from manager fees)
+     * @return totalFees                Total fees paid
      */
     function _handleFees(
         ISetToken _setToken,
