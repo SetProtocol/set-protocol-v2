@@ -20,6 +20,7 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
 import { IUniswapV2Factory } from "../interfaces/external/IUniswapV2Factory.sol";
@@ -38,6 +39,7 @@ import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
  */
 contract AMMSplitter {
 
+    using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using PreciseUnitMath for uint256;
 
@@ -133,7 +135,7 @@ contract AMMSplitter {
         _checkPath(_path);
 
         IERC20 inputToken = IERC20(_path[0]);
-        inputToken.transferFrom(msg.sender, address(this), _amountIn);
+        inputToken.safeTransferFrom(msg.sender, address(this), _amountIn);
         
         TradeInfo memory tradeInfo = _getTradeSizes(_path, _amountIn);
 
@@ -191,7 +193,7 @@ contract AMMSplitter {
         require(totalInput <= _amountInMax, "AMMSplitter: INSUFFICIENT_INPUT_AMOUNT");
 
         IERC20 inputToken = IERC20(_path[0]);
-        inputToken.transferFrom(msg.sender, address(this), totalInput);
+        inputToken.safeTransferFrom(msg.sender, address(this), totalInput);
 
         _checkApprovals(expectedUniInput, expectedSushiInput, inputToken);
 
@@ -328,7 +330,7 @@ contract AMMSplitter {
      *
      * This equation is derived using several assumptions. First, it assumes that the price impact is equal to 2T / P where T is
      * equal to the trade size, and P is equal to the pool size. This approximation holds given that the price impact is a small percentage.
-     * The second approximation made is that when executing trades that utilize multiple hops, total price impact is the sum of the each
+     * The second approximation made is that when executing trades that utilize multiple hops, total price impact is the sum of each
      * hop's price impact (not accounting for the price impact of the prior trade). This approximation again holds true under the assumption
      * that the total price impact is a small percentage. The full derivation of this equation can be viewed in STIP-002.
      *
