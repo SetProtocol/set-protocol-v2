@@ -246,6 +246,12 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
      * Airdrops are not absorbed.
      */
     function removeModule() external override {
+        address[] memory airdrops = airdropSettings[ISetToken(msg.sender)].airdrops;
+
+        for (uint256 i =0; i < airdrops.length; i++) {
+            isAirdrop[ISetToken(msg.sender)][IERC20(airdrops[i])] = false;
+        }
+
         delete airdropSettings[ISetToken(msg.sender)];
     }
 
