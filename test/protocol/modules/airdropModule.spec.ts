@@ -981,6 +981,16 @@ describe("AirdropModule", () => {
       expect(airdropSettings.airdropFee).to.eq(ZERO);
       expect(airdropSettings.anyoneAbsorb).to.be.false;
     });
+
+    it("should reset the isAirdrop mapping", async () => {
+      await subject();
+
+      const wethIsAirdrop = await airdropModule.isAirdrop(subjectModule, setup.weth.address);
+      const usdcIsAirdrop = await airdropModule.isAirdrop(subjectModule, setup.usdc.address);
+
+      expect(wethIsAirdrop).to.be.false;
+      expect(usdcIsAirdrop).to.be.false;
+    });
   });
 
   describe("CONTEXT: Airdrop add/remove", async () => {
