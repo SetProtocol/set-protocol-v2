@@ -80,10 +80,12 @@ contract ClaimModule is ModuleBase {
 
     // Map and array of rewardPool addresses to claim rewards for the SetToken
     mapping(ISetToken => address[]) public rewardPoolList;
+    // Map from set tokens to rewards pool address to isAdded boolean. Used to check if a reward pool has been added in O(1) time
     mapping(ISetToken => mapping(address => bool)) public rewardPoolStatus;
 
     // Map and array of adapters associated to the rewardPool for the SetToken
     mapping(ISetToken => mapping(address => address[])) public claimSettings;
+    // Map from set tokens to rewards pool address to claim adapters to isAdded boolean. Used to check if an adapter has been added in O(1) time
     mapping(ISetToken => mapping(address => mapping(address => bool))) public claimSettingsStatus;
 
 
@@ -389,9 +391,8 @@ contract ClaimModule is ModuleBase {
         _setToken.invoke(callTarget, callValue, callByteData);
 
         uint256 finalRewardsBalance = rewardsToken.balanceOf(address(_setToken));
-        uint256 rewards = finalRewardsBalance.sub(initRewardsBalance);
 
-        emit RewardClaimed(_setToken, _rewardPool, adapter, rewards);
+        emit RewardClaimed(_setToken, _rewardPool, adapter, finalRewardsBalance.sub(initRewardsBalance));
     }
 
     /**
