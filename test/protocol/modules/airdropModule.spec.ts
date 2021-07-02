@@ -23,7 +23,7 @@ import { AirdropSettings } from "@utils/types";
 
 const expect = getWaffleExpect();
 
-describe.only("AirdropModule", () => {
+describe("AirdropModule", () => {
   let owner: Account;
   let feeRecipient: Account;
   let tokenHolder: Account;
