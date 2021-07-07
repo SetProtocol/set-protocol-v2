@@ -559,12 +559,12 @@ contract SetToken is ERC20 {
     function _convertRealToVirtualUnit(int256 _realUnit) internal view returns(int256) {
         int256 virtualUnit = _realUnit.conservativePreciseDiv(positionMultiplier);
 
-        // This checks ensure that the virtual unit does not return a result that has rounded down to 0
+        // This check ensures that the virtual unit does not return a result that has rounded down to 0
         if (_realUnit > 0 && virtualUnit == 0) {
             revert("Real to Virtual unit conversion invalid");
         }
 
-        // This checks ensure that when converting back to realUnits the unit won't be rounded down to 0
+        // This check ensures that when converting back to realUnits the unit won't be rounded down to 0
         if (_realUnit > 0 && _convertVirtualToRealUnit(virtualUnit) == 0) {
             revert("Virtual to Real unit conversion invalid");
         }
