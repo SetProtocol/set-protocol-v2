@@ -463,7 +463,19 @@ describe("SetToken", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Virtual unit conversion invalid");
+          await expect(subject()).to.be.revertedWith("Real to Virtual unit conversion invalid");
+        });
+      });
+
+      describe("when the conversion back to real units would round down to 0", async () => {
+        beforeEach(async () => {
+          subjectNewUnit = BigNumber.from(1);
+          const hugePositionMultiplier = ether(.99);
+          await setToken.connect(subjectCaller.wallet).editPositionMultiplier(hugePositionMultiplier);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Virtual to Real unit conversion invalid");
         });
       });
 

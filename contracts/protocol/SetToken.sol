@@ -554,14 +554,20 @@ contract SetToken is ERC20 {
     }
 
     /**
-     * Takes a real unit and divides by the position multiplier to return the virtual unit
+     * Takes a real unit and divides by the position multiplier to return the virtual unit. Negative units will
+     * be rounded away from 0 so no need to check that unit will be rounded down to 0 in conversion.
      */
     function _convertRealToVirtualUnit(int256 _realUnit) internal view returns(int256) {
         int256 virtualUnit = _realUnit.conservativePreciseDiv(positionMultiplier);
 
-        // These checks ensure that the virtual unit does not return a result that has rounded down to 0
+        // This check ensures that the virtual unit does not return a result that has rounded down to 0
         if (_realUnit > 0 && virtualUnit == 0) {
-            revert("Virtual unit conversion invalid");
+            revert("Real to Virtual unit conversion invalid");
+        }
+
+        // This check ensures that when converting back to realUnits the unit won't be rounded down to 0
+        if (_realUnit > 0 && _convertVirtualToRealUnit(virtualUnit) == 0) {
+            revert("Virtual to Real unit conversion invalid");
         }
 
         return virtualUnit;
