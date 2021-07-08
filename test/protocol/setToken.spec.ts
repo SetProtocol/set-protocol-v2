@@ -634,27 +634,6 @@ describe("SetToken", () => {
         });
       });
 
-      describe.only("when the conversion results in a virtual unit of -1", async () => {
-        let hugePositionMultiplier: BigNumber;
-
-        beforeEach(async () => {
-          subjectNewUnit = BigNumber.from(-1);
-          hugePositionMultiplier = ether(1.01);
-          await setToken.connect(subjectCaller.wallet).editPositionMultiplier(hugePositionMultiplier);
-        });
-
-        it("should return a conservative value", async () => {
-          await subject();
-
-          const expectedStoredVirtualUnit = divDown(subjectNewUnit.mul(PRECISE_UNIT), hugePositionMultiplier);
-          const expectedExternalRealUnit = divDown(expectedStoredVirtualUnit.mul(hugePositionMultiplier), PRECISE_UNIT);
-
-          const retrievedUnit = await setToken.getExternalPositionRealUnit(subjectComponent, subjectModule);
-          console.log(retrievedUnit.toString());
-          expect(retrievedUnit).to.eq(expectedExternalRealUnit);
-        });
-      });
-
       describe("when the value is 0", async () => {
         beforeEach(async () => {
           subjectNewUnit = ZERO;
