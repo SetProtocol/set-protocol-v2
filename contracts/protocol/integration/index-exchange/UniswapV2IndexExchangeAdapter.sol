@@ -27,6 +27,9 @@ import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter
  *
  * A Uniswap Router02 exchange adapter that returns calldata for trading with GeneralIndexModule, allows encoding a trade with a fixed input quantity or
  * a fixed output quantity.
+ *
+ * CHANGELOG: 7/8/2021
+ * - Update getTradeCalldata to allow for the intermediate token of the path to be passed in through the _data parameter
  */
 contract UniswapV2IndexExchangeAdapter is IIndexExchangeAdapter {
 
@@ -77,16 +80,26 @@ contract UniswapV2IndexExchangeAdapter is IIndexExchangeAdapter {
         bool _isSendTokenFixed,
         uint256 _sourceQuantity,
         uint256 _destinationQuantity,
-        bytes memory /*_data*/
+        bytes memory _data
     )
         external
         view
         override
         returns (address, uint256, bytes memory)
     {
-        address[] memory path = new address[](2);
-        path[0] = _sourceToken;
-        path[1] = _destinationToken;
+        address[] memory path;
+
+        if (_data.length == 0) {
+            path = new address[](2);
+            path[0] = _sourceToken;
+            path[1] = _destinationToken;
+        } else {
+            address intermediateToken = abi.decode(_data, (address));
+            path = new address[](3);
+            path[0] = _sourceToken;
+            path[1] = intermediateToken;
+            path[2] = _destinationToken;
+        }
 
         bytes memory callData = abi.encodeWithSignature(
             _isSendTokenFixed ? SWAP_EXACT_TOKENS_FOR_TOKENS : SWAP_TOKENS_FOR_EXACT_TOKENS,
