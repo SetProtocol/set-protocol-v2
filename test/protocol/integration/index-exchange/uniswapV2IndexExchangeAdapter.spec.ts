@@ -23,6 +23,7 @@ import {
 } from "@utils/test/index";
 
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
+import { defaultAbiCoder } from "ethers/lib/utils";
 
 const expect = getWaffleExpect();
 
@@ -130,7 +131,8 @@ describe("UniswapV2IndexExchangeAdapter", () => {
       );
     }
 
-    describe("when boolean to swap exact tokens for tokens is true", async () => {
+    context("when boolean to swap exact tokens for tokens is true", async () => {
+
       it("should return the correct trade calldata", async () => {
         const calldata = await subject();
         const callTimestamp = await getLastBlockTimestamp();
@@ -143,9 +145,29 @@ describe("UniswapV2IndexExchangeAdapter", () => {
         ]);
         expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
       });
+
+      context("when an intermediate token is provided", async () => {
+
+        beforeEach(() => {
+          subjectData = defaultAbiCoder.encode(["address"], [setup.weth.address]);
+        });
+
+        it("should return the correct trade calldata", async () => {
+          const calldata = await subject();
+          const callTimestamp = await getLastBlockTimestamp();
+          const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapExactTokensForTokens", [
+            sourceQuantity,
+            destinationQuantity,
+            [sourceToken, setup.weth.address, destinationToken],
+            subjectMockSetToken,
+            callTimestamp,
+          ]);
+          expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+        });
+      });
     });
 
-    describe("when boolean to swap exact tokens for tokens is false", async () => {
+    context("when boolean to swap exact tokens for tokens is false", async () => {
       beforeEach(async () => {
         subjectIsSendTokenFixed = false;
       });
@@ -161,6 +183,26 @@ describe("UniswapV2IndexExchangeAdapter", () => {
           callTimestamp,
         ]);
         expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+      });
+
+      context("when an intermediate token is provided", async () => {
+
+        beforeEach(() => {
+          subjectData = defaultAbiCoder.encode(["address"], [setup.weth.address]);
+        });
+
+        it("should return the correct trade calldata", async () => {
+          const calldata = await subject();
+          const callTimestamp = await getLastBlockTimestamp();
+          const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("swapTokensForExactTokens", [
+            destinationQuantity,
+            sourceQuantity,
+            [sourceToken, setup.weth.address, destinationToken],
+            subjectMockSetToken,
+            callTimestamp,
+          ]);
+          expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+        });
       });
     });
   });
