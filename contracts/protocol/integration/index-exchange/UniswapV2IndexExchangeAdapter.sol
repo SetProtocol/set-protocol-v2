@@ -21,6 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
 
+
 /**
  * @title UniswapV2IndexExchangeAdapter
  * @author Set Protocol
@@ -68,7 +69,8 @@ contract UniswapV2IndexExchangeAdapter is IIndexExchangeAdapter {
      * @param  _isSendTokenFixed         Boolean indicating if the send quantity is fixed, used to determine correct trade interface
      * @param  _sourceQuantity           Fixed/Max amount of source token to sell
      * @param  _destinationQuantity      Min/Fixed amount of destination token to buy
-     * @param  _data                     Encoded address intermediary token in the trade path. If empty, path is the input and output tokens
+     * @param  _data                     Encoded address intermediary token in the trade path. If empty, path is the input and output tokens. 
+                                         Note: only allows one intermediary asset
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
