@@ -139,7 +139,7 @@ library AaveV2 {
         returns (address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature(
-            "borrow(address,uint256,address)", 
+            "borrow(address,uint256,uint256,uint16,address)", 
             _asset, 
             _amountNotional, 
             _interestRateMode,
@@ -189,7 +189,7 @@ library AaveV2 {
         returns (address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature(
-            "repay(address,uint256,address)", 
+            "repay(address,uint256,uint256,address)", 
             _asset, 
             _amountNotional, 
             _interestRateMode,            

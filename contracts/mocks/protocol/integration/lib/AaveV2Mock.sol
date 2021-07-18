@@ -37,7 +37,7 @@ contract AaveV2Mock {
         pure
         returns (address, uint256, bytes memory)
     {
-        AaveV2.getDepositCalldata(_asset, _amountNotional, _onBehalfOf, _referralCode, _lendingPool);
+        return AaveV2.getDepositCalldata(_asset, _amountNotional, _onBehalfOf, _referralCode, _lendingPool);
     }
     
     function testInvokeDeposit(
@@ -48,7 +48,7 @@ contract AaveV2Mock {
     )
         external
     {
-        AaveV2.invokeDeposit(_setToken, _asset, _amountNotional, _lendingPool);
+        return AaveV2.invokeDeposit(_setToken, _asset, _amountNotional, _lendingPool);
     }
     
     function testGetWithdrawCalldata(
@@ -61,7 +61,7 @@ contract AaveV2Mock {
         pure
         returns (address, uint256, bytes memory)
     {
-        AaveV2.getWithdrawCalldata(_asset, _amountNotional, _receiver, _lendingPool);
+        return AaveV2.getWithdrawCalldata(_asset, _amountNotional, _receiver, _lendingPool);
     }
     
     function testInvokeWithdraw(
@@ -72,7 +72,7 @@ contract AaveV2Mock {
     )
         external
     {
-        AaveV2.invokeWithdraw(_setToken, _asset, _amountNotional, _lendingPool);
+        return AaveV2.invokeWithdraw(_setToken, _asset, _amountNotional, _lendingPool);
     }
     
     function testGetBorrowCalldata(
@@ -87,7 +87,7 @@ contract AaveV2Mock {
         pure
         returns (address, uint256, bytes memory)
     {
-        AaveV2.getBorrowCalldata(_asset, _amountNotional, _interestRateMode, _referralCode, _onBehalfOf, _lendingPool);
+        return AaveV2.getBorrowCalldata(_asset, _amountNotional, _interestRateMode, _referralCode, _onBehalfOf, _lendingPool);
     }
     
     function testInvokeBorrow(
@@ -99,7 +99,7 @@ contract AaveV2Mock {
     )
         external
     {
-        AaveV2.invokeBorrow(_setToken, _asset, _amountNotional, _interestRateMode, _lendingPool);
+        return AaveV2.invokeBorrow(_setToken, _asset, _amountNotional, _interestRateMode, _lendingPool);
     }
 
     function testGetRepayCalldata(
@@ -113,7 +113,7 @@ contract AaveV2Mock {
         pure
         returns (address, uint256, bytes memory)
     {
-        AaveV2.getRepayCalldata(_asset, _amountNotional, _interestRateMode, _onBehalfOf, _lendingPool);
+        return AaveV2.getRepayCalldata(_asset, _amountNotional, _interestRateMode, _onBehalfOf, _lendingPool);
     }
     
     function testInvokeRepay(
@@ -125,7 +125,7 @@ contract AaveV2Mock {
     )
         external
     {
-        AaveV2.invokeRepay(_setToken, _asset, _amountNotional, _interestRateMode, _lendingPool);
+        return AaveV2.invokeRepay(_setToken, _asset, _amountNotional, _interestRateMode, _lendingPool);
     }
 
     function testGetUseReserveAsCollateralCalldata(
@@ -137,7 +137,7 @@ contract AaveV2Mock {
         pure
         returns (address, uint256, bytes memory)
     {
-        AaveV2.getUseReserveAsCollateralCalldata(_asset, _useAsCollateral, _lendingPool);
+        return AaveV2.getUseReserveAsCollateralCalldata(_asset, _useAsCollateral, _lendingPool);
     }
 
     function testInvokeUseAsCollateral(
@@ -148,7 +148,7 @@ contract AaveV2Mock {
     )
         external
     {
-        AaveV2.invokeUseAsCollateral(_setToken, _asset, _useAsCollateral, _lendingPool);
+        return AaveV2.invokeUseAsCollateral(_setToken, _asset, _useAsCollateral, _lendingPool);
     }
 
     function testGetSwapBorrowRateCalldata(
@@ -160,7 +160,7 @@ contract AaveV2Mock {
         pure
         returns (address, uint256, bytes memory)
     {
-        AaveV2.getSwapBorrowRateCalldata(_asset, _rateMode, _lendingPool);
+        return AaveV2.getSwapBorrowRateCalldata(_asset, _rateMode, _lendingPool);
     }
 
     function testInvokeSwapBorrowRate(
@@ -171,7 +171,7 @@ contract AaveV2Mock {
     )
         external
     {
-        AaveV2.invokeSwapBorrowRate(_setToken, _asset, _rateMode, _lendingPool);
+        return AaveV2.invokeSwapBorrowRate(_setToken, _asset, _rateMode, _lendingPool);
     }
 
     /* ============ Helper Functions ============ */
