@@ -2,6 +2,11 @@ import "module-alias/register";
 
 import { Account } from "@utils/test/types";
 import {
+  AaveV2AToken,
+  AaveV2StableDebtToken,
+  AaveV2VariableDebtToken
+} from "@utils/contracts/aaveV2";
+import {
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
@@ -48,13 +53,44 @@ describe("AaveV2Fixture", async () => {
       expect(lendingPoolCollateralManager).to.eq(aaveSetup.lendingPoolCollateralManager.address);
     });
 
-    it("should deploy WETH reserve with correct configuration", async () => {
+    it("should set initial asset prices and market rates", async () => {
+      const oneRay = BigNumber.from(10).pow(27);	// 1e27
       await subject();
 
+      const wethPriceInEth = await aaveSetup.priceOracle.getAssetPrice(setup.weth.address);
+      const daiPriceInEth = await aaveSetup.priceOracle.getAssetPrice(setup.dai.address);
+      const wethMarketBorrowRate = await aaveSetup.lendingRateOracle.getMarketBorrowRate(setup.weth.address);
+      const daiMarketBorrowRate = await aaveSetup.lendingRateOracle.getMarketBorrowRate(setup.dai.address);
+
+      expect(wethPriceInEth).to.eq(ether(1));
+      expect(daiPriceInEth).to.eq(ether(0.001));
+      expect(wethMarketBorrowRate).to.eq(oneRay.mul(3).div(100));
+      expect(daiMarketBorrowRate).to.eq(oneRay.mul(39).div(1000));
+    });
+  });
+
+  describe("#deployWethReserve", async () => {
+
+    beforeEach(async () => {
+      await aaveSetup.initialize(setup.weth.address, setup.dai.address);
+    });
+
+    async function subject(): Promise<[AaveV2AToken, AaveV2StableDebtToken, AaveV2VariableDebtToken]> {
+      return await aaveSetup.deployWethReserve();
+    }
+
+    it("should deploy WETH reserve with correct configuration", async () => {
+      const [aWETH, stableDebtWETH, variableDebtWETH] = await subject();
+
       const reservesList = await aaveSetup.lendingPool.getReservesList();
+      const tokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(setup.weth.address);
       const config = await aaveSetup.protocolDataProvider.getReserveConfigurationData(setup.weth.address);
 
       expect(reservesList).to.contain(setup.weth.address);
+
+      expect(aWETH.address).to.eq(tokenAddresses.aTokenAddress);
+      expect(stableDebtWETH.address).to.eq(tokenAddresses.stableDebtTokenAddress);
+      expect(variableDebtWETH.address).to.eq(tokenAddresses.variableDebtTokenAddress);
 
       expect(config.isActive).to.eq(true);
       expect(config.isFrozen).to.eq(false);
@@ -67,14 +103,30 @@ describe("AaveV2Fixture", async () => {
       expect(config.usageAsCollateralEnabled).to.eq(true);
       expect(config.stableBorrowRateEnabled).to.eq(true);
     });
+  });
+
+  describe("#deployDaiReserve", async () => {
+
+    beforeEach(async () => {
+      await aaveSetup.initialize(setup.weth.address, setup.dai.address);
+    });
+
+    async function subject(): Promise<[AaveV2AToken, AaveV2StableDebtToken, AaveV2VariableDebtToken]> {
+      return await aaveSetup.deployDaiReserve();
+    }
 
     it("should deploy DAI reserve with correct configuration", async () => {
-      await subject();
+      const [aDAI, stableDebtDAI, variableDebtDAI] = await subject();
 
       const reservesList = await aaveSetup.lendingPool.getReservesList();
+      const tokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(setup.dai.address);
       const config = await aaveSetup.protocolDataProvider.getReserveConfigurationData(setup.dai.address);
 
-      expect(reservesList).to.contain(setup.weth.address);
+      expect(reservesList).to.contain(setup.dai.address);
+
+      expect(aDAI.address).to.eq(tokenAddresses.aTokenAddress);
+      expect(stableDebtDAI.address).to.eq(tokenAddresses.stableDebtTokenAddress);
+      expect(variableDebtDAI.address).to.eq(tokenAddresses.variableDebtTokenAddress);
 
       expect(config.isActive).to.eq(true);
       expect(config.isFrozen).to.eq(false);
@@ -86,28 +138,6 @@ describe("AaveV2Fixture", async () => {
       expect(config.borrowingEnabled).to.eq(true);
       expect(config.usageAsCollateralEnabled).to.eq(true);
       expect(config.stableBorrowRateEnabled).to.eq(true);
-    });
-
-    it("should set initial asset prices", async () => {
-      await subject();
-
-      const wethPriceInEth = await aaveSetup.priceOracle.getAssetPrice(setup.weth.address);
-      const daiPriceInEth = await aaveSetup.priceOracle.getAssetPrice(setup.dai.address);
-
-      expect(wethPriceInEth).to.eq(ether(1));
-      expect(daiPriceInEth).to.eq(ether(0.001));
-    });
-
-    it("should set initial market rates", async () => {
-      const oneRay = BigNumber.from(10).pow(27);	// 1e27
-
-      await subject();
-
-      const wethMarketBorrowRate = await aaveSetup.lendingRateOracle.getMarketBorrowRate(setup.weth.address);
-      const daiMarketBorrowRate = await aaveSetup.lendingRateOracle.getMarketBorrowRate(setup.dai.address);
-
-      expect(wethMarketBorrowRate).to.eq(oneRay.mul(3).div(100));
-      expect(daiMarketBorrowRate).to.eq(oneRay.mul(39).div(1000));
     });
   });
 });
