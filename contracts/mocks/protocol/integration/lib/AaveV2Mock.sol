@@ -140,7 +140,7 @@ contract AaveV2Mock {
         return AaveV2.getUseReserveAsCollateralCalldata(_asset, _useAsCollateral, _lendingPool);
     }
 
-    function testInvokeUseAsCollateral(
+    function testInvokeUseReserveAsCollateral(
         ISetToken _setToken,
         IERC20 _asset,
         bool _useAsCollateral,
@@ -148,10 +148,10 @@ contract AaveV2Mock {
     )
         external
     {
-        return AaveV2.invokeUseAsCollateral(_setToken, _asset, _useAsCollateral, _lendingPool);
+        return AaveV2.invokeUseReserveAsCollateral(_setToken, _asset, _useAsCollateral, _lendingPool);
     }
 
-    function testGetSwapBorrowRateCalldata(
+    function testGetSwapBorrowRateModeCalldata(
         address _asset,
         uint256 _rateMode,
         address _lendingPool
@@ -160,10 +160,10 @@ contract AaveV2Mock {
         pure
         returns (address, uint256, bytes memory)
     {
-        return AaveV2.getSwapBorrowRateCalldata(_asset, _rateMode, _lendingPool);
+        return AaveV2.getSwapBorrowRateModeCalldata(_asset, _rateMode, _lendingPool);
     }
 
-    function testInvokeSwapBorrowRate(
+    function testInvokeSwapBorrowRateMode(
         ISetToken _setToken,
         IERC20 _asset,
         uint256 _rateMode,
@@ -171,7 +171,7 @@ contract AaveV2Mock {
     )
         external
     {
-        return AaveV2.invokeSwapBorrowRate(_setToken, _asset, _rateMode, _lendingPool);
+        return AaveV2.invokeSwapBorrowRateMode(_setToken, _asset, _rateMode, _lendingPool);
     }
 
     /* ============ Helper Functions ============ */

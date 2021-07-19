@@ -246,7 +246,7 @@ library AaveV2 {
     /**
      * Invoke an asset to be used as collateral on Aave from SetToken
      */
-    function invokeUseAsCollateral(
+    function invokeUseReserveAsCollateral(
         ISetToken _setToken,
         IERC20 _asset,
         bool _useAsCollateral,
@@ -266,7 +266,7 @@ library AaveV2 {
     /**
      * Get swapBorrowRate calldata from SetToken
      */
-    function getSwapBorrowRateCalldata(
+    function getSwapBorrowRateModeCalldata(
         address _asset,
         uint256 _rateMode,
         address _lendingPool
@@ -288,7 +288,7 @@ library AaveV2 {
      * Invoke to swap borrow rate of SetToken
      * Note: Aave allows a borrower to toggle his debt between stable and variable mode
      */
-    function invokeSwapBorrowRate(
+    function invokeSwapBorrowRateMode(
         ISetToken _setToken,
         IERC20 _asset,
         uint256 _rateMode,
@@ -296,7 +296,7 @@ library AaveV2 {
     )
         external
     {
-        ( , , bytes memory callData) = getSwapBorrowRateCalldata(
+        ( , , bytes memory callData) = getSwapBorrowRateModeCalldata(
             address(_asset),
             _rateMode,
             _lendingPool
