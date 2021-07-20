@@ -63,4 +63,8 @@ contract ComptrollerMock {
     function setCompAccrued(address _holder, uint _compAmount) external {
         compAccrued[_holder] = _compAmount;
     }
+
+    function getCompAddress() external view returns (address) {
+        return comp;
+    }
 }

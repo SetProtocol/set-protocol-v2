@@ -209,15 +209,23 @@ describe("ClaimModule", () => {
     it("should properly remove the module and settings", async () => {
       const rewardPoolsBefore = await claimModule.getRewardPools(setToken.address);
       const rewardPoolClaimsBefore = await claimModule.getRewardPoolClaims(setToken.address, rewardPool);
+      const isPoolAddedBefore = await claimModule.rewardPoolStatus(setToken.address, rewardPool);
+      const isAdapterAddedBefore = await claimModule.claimSettingsStatus(setToken.address, rewardPool, claimAdapterMock.address);
       expect(rewardPoolsBefore.length).to.eq(1);
       expect(rewardPoolClaimsBefore.length).to.eq(1);
+      expect(isPoolAddedBefore).to.be.true;
+      expect(isAdapterAddedBefore).to.be.true;
 
       await subject();
 
       const rewardPools = await claimModule.getRewardPools(setToken.address);
       const rewardPoolClaims = await claimModule.getRewardPoolClaims(setToken.address, rewardPool);
+      const isPoolAdded = await claimModule.rewardPoolStatus(setToken.address, rewardPool);
+      const isAdapterAdded = await claimModule.claimSettingsStatus(setToken.address, rewardPool, claimAdapterMock.address);
       expect(rewardPools.length).to.eq(0);
       expect(rewardPoolClaims.length).to.eq(0);
+      expect(isPoolAdded).to.be.false;
+      expect(isAdapterAdded).to.be.false;
       const isModuleEnabled = await setToken.isInitializedModule(subjectModule);
       expect(isModuleEnabled).to.eq(false);
     });
@@ -229,6 +237,7 @@ describe("ClaimModule", () => {
 
     let subjectSetToken: Address;
     let subjectCaller: Account;
+    let subjectAnyoneClaim: boolean;
 
     before(async () => {
       isInitialized = true;
@@ -250,18 +259,20 @@ describe("ClaimModule", () => {
     });
 
     async function subject(): Promise<any> {
-      return claimModule.connect(subjectCaller.wallet).updateAnyoneClaim(subjectSetToken);
+      return claimModule.connect(subjectCaller.wallet).updateAnyoneClaim(subjectSetToken, subjectAnyoneClaim);
     }
 
-    it("should flip the anyoneClaim indicator", async () => {
+    it("should change the anyoneClaim indicator", async () => {
       const anyoneClaimBefore = await claimModule.anyoneClaim(subjectSetToken);
       expect(anyoneClaimBefore).to.eq(true);
 
+      subjectAnyoneClaim = false;
       await subject();
 
       const anyoneClaim = await claimModule.anyoneClaim(subjectSetToken);
       expect(anyoneClaim).to.eq(false);
 
+      subjectAnyoneClaim = true;
       await subject();
 
       const anyoneClaimAfter = await claimModule.anyoneClaim(subjectSetToken);
@@ -345,13 +356,21 @@ describe("ClaimModule", () => {
     }
 
     it("should add the rewardPools to the rewardPoolList", async () => {
+      const isFirstAddedBefore = await claimModule.rewardPoolStatus(subjectSetToken, subjectRewardPools[0]);
+      const isSecondAddedBefore = await claimModule.rewardPoolStatus(subjectSetToken, subjectRewardPools[2]);
       expect((await claimModule.getRewardPools(subjectSetToken)).length).to.eq(1);
+      expect(isFirstAddedBefore).to.be.false;
+      expect(isSecondAddedBefore).to.be.false;
 
       await subject();
 
       const rewardPools = await claimModule.getRewardPools(subjectSetToken);
+      const isFirstAdded = await claimModule.rewardPoolStatus(subjectSetToken, subjectRewardPools[0]);
+      const isSecondAdded = await claimModule.rewardPoolStatus(subjectSetToken, subjectRewardPools[2]);
       expect(rewardPools[1]).to.eq(subjectRewardPools[0]);
       expect(rewardPools[2]).to.eq(subjectRewardPools[2]);
+      expect(isFirstAdded).to.be.true;
+      expect(isSecondAdded).to.be.true;
     });
 
     it("should add all new integrations for the rewardPools", async () => {
@@ -359,9 +378,15 @@ describe("ClaimModule", () => {
 
       const rewardPoolOneClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPools[0]);
       const rewardPoolTwoClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPools[2]);
+      const isFirstIntegrationAddedPool1 = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPools[0], claimAdapterMock.address);
+      const isSecondIntegrationAddedPool1 = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPools[1], claimAdapterMock2.address);
+      const isIntegrationAddedPool2 = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPools[0], claimAdapterMock.address);
       expect(rewardPoolOneClaims[0]).to.eq(claimAdapterMock.address);
       expect(rewardPoolOneClaims[1]).to.eq(claimAdapterMock2.address);
       expect(rewardPoolTwoClaims[0]).to.eq(claimAdapterMock.address);
+      expect(isFirstIntegrationAddedPool1).to.be.true;
+      expect(isSecondIntegrationAddedPool1).to.be.true;
+      expect(isIntegrationAddedPool2).to.be.true;
     });
 
     describe("when passed arrays are different length", async () => {
@@ -471,23 +496,28 @@ describe("ClaimModule", () => {
       return claimModule.connect(subjectCaller.wallet).addClaim(subjectSetToken, subjectRewardPool, subjectIntegration);
     }
 
-    it("should add the rewardPool to the rewardPoolList", async () => {
+    it("should add the rewardPool to the rewardPoolList and rewardPoolStatus", async () => {
       expect(await claimModule.isRewardPool(subjectSetToken, subjectRewardPool)).to.be.false;
 
       await subject();
 
       expect(await claimModule.isRewardPool(subjectSetToken, subjectRewardPool)).to.be.true;
+      expect(await claimModule.rewardPoolList(subjectSetToken, 1)).to.eq(subjectRewardPool);
     });
 
     it("should add new integration for the rewardPool", async () => {
       const rewardPoolClaimsBefore = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
+      const isIntegrationAddedBefore = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock2.address);
       expect(rewardPoolClaimsBefore.length).to.eq(0);
+      expect(isIntegrationAddedBefore).to.be.false;
 
       await subject();
 
       const rewardPoolClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
+      const isIntegrationAdded = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock2.address);
       expect(rewardPoolClaims.length).to.eq(1);
       expect(rewardPoolClaims[0]).to.eq(claimAdapterMock2.address);
+      expect(isIntegrationAdded).to.be.true;
     });
 
     describe("when new claim is being added to existing rewardPool", async () => {
@@ -497,13 +527,17 @@ describe("ClaimModule", () => {
 
       it("should add new integration for the rewardPool", async () => {
         const rewardPoolClaimsBefore = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
+        const isIntegrationAddedBefore = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock2.address);
         expect(rewardPoolClaimsBefore.length).to.eq(1);
+        expect(isIntegrationAddedBefore).to.be.false;
 
         await subject();
 
+        const isIntegrationAdded = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock2.address);
         const rewardPoolClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
         expect(rewardPoolClaims.length).to.eq(2);
         expect(rewardPoolClaims[1]).to.eq(claimAdapterMock2.address);
+        expect(isIntegrationAdded).to.be.true;
       });
 
       it("should not add the rewardPool again", async () => {
@@ -606,18 +640,35 @@ describe("ClaimModule", () => {
     it("should remove the adapter associated to the reward pool", async () => {
       const rewardPoolOneClaimsBefore = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPools[0]);
       const rewardPoolTwoClaimsBefore = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPools[1]);
+      const isRewardPoolOneAdapterOneBefore = await claimModule.claimSettingsStatus(
+        setToken.address,
+        subjectRewardPools[0],
+        claimAdapterMock.address
+      );
+      const isRewardPoolTwoAdapterOneBefore = await claimModule.claimSettingsStatus(
+        setToken.address,
+        subjectRewardPools[0],
+        claimAdapterMock.address
+      );
       expect(rewardPoolOneClaimsBefore.length).to.eq(1);
       expect(rewardPoolTwoClaimsBefore.length).to.eq(1);
+      expect(isRewardPoolOneAdapterOneBefore).to.be.true;
+      expect(isRewardPoolTwoAdapterOneBefore).to.be.true;
 
       await subject();
 
       const rewardPoolOneClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPools[0]);
       const rewardPoolTwoClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPools[1]);
+      const isRewardPoolOneAdapterOne = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPools[0], claimAdapterMock.address);
+      const isRewardPoolTwoAdapterOne = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPools[0], claimAdapterMock.address);
       expect(rewardPoolOneClaims.length).to.eq(0);
       expect(rewardPoolTwoClaims.length).to.eq(0);
+      expect(isRewardPoolOneAdapterOne).to.be.false;
+      expect(isRewardPoolTwoAdapterOne).to.be.false;
+
     });
 
-    it("should remove the rewardPool from the rewardPoolList", async () => {
+    it("should remove the rewardPool from the rewardPoolStatus", async () => {
       expect(await claimModule.isRewardPool(subjectSetToken, subjectRewardPools[0])).to.be.true;
       expect(await claimModule.isRewardPool(subjectSetToken, subjectRewardPools[1])).to.be.true;
 
@@ -736,15 +787,19 @@ describe("ClaimModule", () => {
 
     it("should remove the adapter associated to the reward pool", async () => {
       const rewardPoolClaimsBefore = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
+      const isAdapterAddedBefore = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock.address);
       expect(rewardPoolClaimsBefore.length).to.eq(1);
+      expect(isAdapterAddedBefore).to.be.true;
 
       await subject();
 
       const rewardPoolClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
+      const isAdapterAdded = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock.address);
       expect(rewardPoolClaims.length).to.eq(0);
+      expect(isAdapterAdded).to.be.false;
     });
 
-    it("should remove the rewardPool from the rewardPoolList", async () => {
+    it("should remove the rewardPool from the rewardPoolStatus", async () => {
       expect(await claimModule.isRewardPool(subjectSetToken, subjectRewardPool)).to.be.true;
 
       await subject();
@@ -759,16 +814,20 @@ describe("ClaimModule", () => {
 
       it("should remove the adapter associated to the reward pool", async () => {
         const rewardPoolClaimsBefore = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
+        const isAdapterAddedBefore = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock.address);
         expect(rewardPoolClaimsBefore.length).to.eq(2);
+        expect(isAdapterAddedBefore).to.be.true;
 
         await subject();
 
         const rewardPoolClaims = await claimModule.getRewardPoolClaims(setToken.address, subjectRewardPool);
+        const isAdapterAdded = await claimModule.claimSettingsStatus(setToken.address, subjectRewardPool, claimAdapterMock.address);
         expect(rewardPoolClaims.length).to.eq(1);
         expect(rewardPoolClaims[0]).to.eq(claimAdapterMock2.address);
+        expect(isAdapterAdded).to.be.false;
       });
 
-      it("should not remove the rewardPool from the rewardPoolList", async () => {
+      it("should not remove the rewardPool from the rewardPoolStatus", async () => {
         expect(await claimModule.isRewardPool(subjectSetToken, subjectRewardPool)).to.be.true;
 
         await subject();
