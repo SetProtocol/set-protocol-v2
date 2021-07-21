@@ -25,7 +25,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe.only("AGIMigrationWrapModule", () => {
+describe("AGIMigrationWrapModule", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
