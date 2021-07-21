@@ -149,6 +149,10 @@ import {
 } from "../contracts/index";
 import { TokenSwap__factory } from "../../typechain/factories/TokenSwap__factory";
 
+import {
+  SingularityNetToken
+} from "../contracts/index";
+import { SingularityNetToken__factory } from "../../typechain/factories/SingularityNetToken__factory";
 
 import {
   SwapRouter,
@@ -596,6 +600,11 @@ export default class DeployExternalContracts {
   // AXIE-INFINITY
   public async deployTokenSwap(oldToken: Address, newToken: Address): Promise<TokenSwap> {
     return await new TokenSwap__factory(this._deployerSigner).deploy(oldToken, newToken);
+  }
+
+  // Singularity Net
+  public async deploySingularityNetToken(): Promise<SingularityNetToken> {
+    return await new SingularityNetToken__factory(this._deployerSigner).deploy();
   }
 
   // Uniswap V3

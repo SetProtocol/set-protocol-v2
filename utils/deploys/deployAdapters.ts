@@ -3,6 +3,7 @@ import { Signer } from "ethers";
 import {
   AaveGovernanceAdapter,
   AaveGovernanceV2Adapter,
+  AGIMigrationWrapAdapter,
   AxieInfinityMigrationWrapAdapter,
   BalancerV1IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
@@ -56,7 +57,7 @@ import { UniswapV3ExchangeAdapter__factory } from "../../typechain/factories/Uni
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
-import { CompClaimAdapter__factory } from "../../typechain";
+import { CompClaimAdapter__factory, AGIMigrationWrapAdapter__factory } from "../../typechain";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -130,6 +131,13 @@ export default class DeployAdapters {
     newToken: Address
   ): Promise<AxieInfinityMigrationWrapAdapter> {
     return await new AxieInfinityMigrationWrapAdapter__factory(this._deployerSigner).deploy(tokenSwap, oldToken, newToken);
+  }
+
+  public async deployAGIMigrationWrapAdapter(
+    agiLegacyToken: Address,
+    agixToken: Address
+  ): Promise<AGIMigrationWrapAdapter> {
+    return await new AGIMigrationWrapAdapter__factory(this._deployerSigner).deploy(agiLegacyToken, agixToken);
   }
 
   public async deployCompoundWrapAdapter(libraryName: string, libraryAddress: Address): Promise<CompoundWrapAdapter> {
