@@ -18,160 +18,167 @@
 
 pragma solidity 0.6.10;
 
-import { ISetToken } from "../../../../interfaces/ISetToken.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { AaveV2 } from "../../../../protocol/integration/lib/AaveV2.sol";
+import { ILendingPool } from "../../../../interfaces/external/aave-v2/ILendingPool.sol";
+import { ISetToken } from "../../../../interfaces/ISetToken.sol";
 
+/**
+ * @title AaveV2Mock
+ * @author Set Protocol
+ *
+ * Mock for AaveV2 Library contract. Used for testing AaveV2 Library contract, as the library
+ * contract can't be tested directly using ethers.js
+ */
 contract AaveV2Mock {
 
     /* ============ External ============ */
     
     function testGetDepositCalldata(
+        ILendingPool _lendingPool,
         address _asset, 
         uint256 _amountNotional,
         address _onBehalfOf,
-        uint16 _referralCode,
-        address _lendingPool
+        uint16 _referralCode
     )
         public
         pure
         returns (address, uint256, bytes memory)
     {
-        return AaveV2.getDepositCalldata(_asset, _amountNotional, _onBehalfOf, _referralCode, _lendingPool);
+        return AaveV2.getDepositCalldata(_lendingPool, _asset, _amountNotional, _onBehalfOf, _referralCode);
     }
     
     function testInvokeDeposit(
         ISetToken _setToken,
-        IERC20 _asset,
-        uint256 _amountNotional,
-        address _lendingPool
+        ILendingPool _lendingPool,
+        address _asset,
+        uint256 _amountNotional
     )
         external
     {
-        return AaveV2.invokeDeposit(_setToken, _asset, _amountNotional, _lendingPool);
+        return AaveV2.invokeDeposit(_setToken, _lendingPool, _asset, _amountNotional);
     }
     
     function testGetWithdrawCalldata(
+        ILendingPool _lendingPool,
         address _asset, 
         uint256 _amountNotional,
-        address _receiver,
-        address _lendingPool
+        address _receiver
     )
         public
         pure
         returns (address, uint256, bytes memory)
     {
-        return AaveV2.getWithdrawCalldata(_asset, _amountNotional, _receiver, _lendingPool);
+        return AaveV2.getWithdrawCalldata(_lendingPool, _asset, _amountNotional, _receiver);
     }
     
     function testInvokeWithdraw(
         ISetToken _setToken,
-        IERC20 _asset,
-        uint256 _amountNotional,
-        address _lendingPool
+        ILendingPool _lendingPool,
+        address _asset,
+        uint256 _amountNotional
     )
         external
     {
-        return AaveV2.invokeWithdraw(_setToken, _asset, _amountNotional, _lendingPool);
+        return AaveV2.invokeWithdraw(_setToken, _lendingPool, _asset, _amountNotional);
     }
     
     function testGetBorrowCalldata(
+        ILendingPool _lendingPool,
         address _asset, 
         uint256 _amountNotional,
         uint256 _interestRateMode,
         uint16 _referralCode,
-        address _onBehalfOf,
-        address _lendingPool
+        address _onBehalfOf
     )
         public
         pure
         returns (address, uint256, bytes memory)
     {
-        return AaveV2.getBorrowCalldata(_asset, _amountNotional, _interestRateMode, _referralCode, _onBehalfOf, _lendingPool);
+        return AaveV2.getBorrowCalldata(_lendingPool, _asset, _amountNotional, _interestRateMode, _referralCode, _onBehalfOf);
     }
     
     function testInvokeBorrow(
         ISetToken _setToken,
-        IERC20 _asset,
+        ILendingPool _lendingPool,
+        address _asset,
         uint256 _amountNotional,
-        uint256 _interestRateMode,
-        address _lendingPool
+        uint256 _interestRateMode
     )
         external
     {
-        return AaveV2.invokeBorrow(_setToken, _asset, _amountNotional, _interestRateMode, _lendingPool);
+        return AaveV2.invokeBorrow(_setToken, _lendingPool, _asset, _amountNotional, _interestRateMode);
     }
 
     function testGetRepayCalldata(
+        ILendingPool _lendingPool,
         address _asset, 
         uint256 _amountNotional,
         uint256 _interestRateMode,        
-        address _onBehalfOf,
-        address _lendingPool
+        address _onBehalfOf
     )
         public
         pure
         returns (address, uint256, bytes memory)
     {
-        return AaveV2.getRepayCalldata(_asset, _amountNotional, _interestRateMode, _onBehalfOf, _lendingPool);
+        return AaveV2.getRepayCalldata(_lendingPool, _asset, _amountNotional, _interestRateMode, _onBehalfOf);
     }
     
     function testInvokeRepay(
         ISetToken _setToken,
-        IERC20 _asset,
+        ILendingPool _lendingPool,
+        address _asset,
         uint256 _amountNotional,
-        uint256 _interestRateMode,
-        address _lendingPool
+        uint256 _interestRateMode
     )
         external
     {
-        return AaveV2.invokeRepay(_setToken, _asset, _amountNotional, _interestRateMode, _lendingPool);
+        return AaveV2.invokeRepay(_setToken, _lendingPool, _asset, _amountNotional, _interestRateMode);
     }
 
-    function testGetUseReserveAsCollateralCalldata(
+    function testGetSetUserUseReserveAsCollateralCalldata(
+        ILendingPool _lendingPool,
         address _asset,
-        bool _useAsCollateral,
-        address _lendingPool
+        bool _useAsCollateral
     )
         external
         pure
         returns (address, uint256, bytes memory)
     {
-        return AaveV2.getUseReserveAsCollateralCalldata(_asset, _useAsCollateral, _lendingPool);
+        return AaveV2.getSetUserUseReserveAsCollateralCalldata(_lendingPool, _asset, _useAsCollateral);
     }
 
-    function testInvokeUseReserveAsCollateral(
+    function testInvokeSetUserUseReserveAsCollateral(
         ISetToken _setToken,
-        IERC20 _asset,
-        bool _useAsCollateral,
-        address _lendingPool
+        ILendingPool _lendingPool,
+        address _asset,
+        bool _useAsCollateral
     )
         external
     {
-        return AaveV2.invokeUseReserveAsCollateral(_setToken, _asset, _useAsCollateral, _lendingPool);
+        return AaveV2.invokeSetUserUseReserveAsCollateral(_setToken, _lendingPool, _asset, _useAsCollateral);
     }
 
     function testGetSwapBorrowRateModeCalldata(
+        ILendingPool _lendingPool,
         address _asset,
-        uint256 _rateMode,
-        address _lendingPool
+        uint256 _rateMode
     )
         external
         pure
         returns (address, uint256, bytes memory)
     {
-        return AaveV2.getSwapBorrowRateModeCalldata(_asset, _rateMode, _lendingPool);
+        return AaveV2.getSwapBorrowRateModeCalldata(_lendingPool, _asset, _rateMode);
     }
 
     function testInvokeSwapBorrowRateMode(
         ISetToken _setToken,
-        IERC20 _asset,
-        uint256 _rateMode,
-        address _lendingPool
+        ILendingPool _lendingPool,
+        address _asset,
+        uint256 _rateMode
     )
         external
     {
-        return AaveV2.invokeSwapBorrowRateMode(_setToken, _asset, _rateMode, _lendingPool);
+        return AaveV2.invokeSwapBorrowRateMode(_setToken, _lendingPool, _asset, _rateMode);
     }
 
     /* ============ Helper Functions ============ */

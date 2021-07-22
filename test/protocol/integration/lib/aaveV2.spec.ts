@@ -116,11 +116,11 @@ describe("AaveV2", () => {
 
     async function subject(): Promise<any> {
       return await aaveLibMock.testGetDepositCalldata(
+        subjectLendingPool,
         subjectAsset,
         subjectAmountNotional,
         subjectOnBehalfOf,
-        subjectReferralCode,
-        subjectLendingPool
+        subjectReferralCode
       );
     }
 
@@ -157,9 +157,9 @@ describe("AaveV2", () => {
     async function subject(): Promise<any> {
       return await aaveLibMock.testInvokeDeposit(
         subjectSetToken,
+        subjectLendingPool,
         subjectAsset,
-        subjectAmountNotional,
-        subjectLendingPool
+        subjectAmountNotional
       );
     }
 
@@ -172,7 +172,7 @@ describe("AaveV2", () => {
     });
   });
 
-  describe("#getUseReserveAsCollateralCalldata", async () => {
+  describe("#getSetUserUseReserveAsCollateralCalldata", async () => {
     let subjectAsset: Address;
     let subjectUseAsCollateral: boolean;
     let subjectLendingPool: Address;
@@ -184,10 +184,10 @@ describe("AaveV2", () => {
     });
 
     async function subject(): Promise<any> {
-      return await aaveLibMock.testGetUseReserveAsCollateralCalldata(
+      return await aaveLibMock.testGetSetUserUseReserveAsCollateralCalldata(
+        subjectLendingPool,
         subjectAsset,
-        subjectUseAsCollateral,
-        subjectLendingPool
+        subjectUseAsCollateral
       );
     }
 
@@ -222,7 +222,7 @@ describe("AaveV2", () => {
     });
   });
 
-  describe("#invokeUseReserveAsCollateral", async () => {
+  describe("#invokeSetUserUseReserveAsCollateral", async () => {
     let subjectSetToken: Address;
     let subjectAsset: Address;
     let subjectUseAsCollateral: boolean;
@@ -230,7 +230,7 @@ describe("AaveV2", () => {
 
     beforeEach(async () => {
       await invokeLibMock.testInvokeApprove(setToken.address, setup.weth.address, aaveSetup.lendingPool.address, MAX_UINT_256);
-      await aaveLibMock.testInvokeDeposit(setToken.address, setup.weth.address, ether(1), aaveSetup.lendingPool.address);
+      await aaveLibMock.testInvokeDeposit(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, ether(1));
 
       subjectSetToken = setToken.address;
       subjectAsset = setup.weth.address;
@@ -239,11 +239,11 @@ describe("AaveV2", () => {
     });
 
     async function subject(): Promise<any> {
-      return await aaveLibMock.testInvokeUseReserveAsCollateral(
+      return await aaveLibMock.testInvokeSetUserUseReserveAsCollateral(
         subjectSetToken,
+        subjectLendingPool,
         subjectAsset,
-        subjectUseAsCollateral,
-        subjectLendingPool
+        subjectUseAsCollateral
       );
     }
 
@@ -289,10 +289,10 @@ describe("AaveV2", () => {
 
     async function subject(): Promise<any> {
       return await aaveLibMock.testGetWithdrawCalldata(
+        subjectLendingPool,
         subjectAsset,
         subjectAmountNotional,
-        subjectReceiver,
-        subjectLendingPool
+        subjectReceiver
       );
     }
 
@@ -318,7 +318,7 @@ describe("AaveV2", () => {
 
     beforeEach(async () => {
       await invokeLibMock.testInvokeApprove(setToken.address, setup.weth.address, aaveSetup.lendingPool.address, MAX_UINT_256);
-      await aaveLibMock.testInvokeDeposit(setToken.address, setup.weth.address, ether(1), aaveSetup.lendingPool.address);
+      await aaveLibMock.testInvokeDeposit(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, ether(1));
 
       subjectSetToken = setToken.address;
       subjectAsset = setup.weth.address;
@@ -329,9 +329,9 @@ describe("AaveV2", () => {
     async function subject(): Promise<any> {
       return await aaveLibMock.testInvokeWithdraw(
         subjectSetToken,
+        subjectLendingPool,
         subjectAsset,
-        subjectAmountNotional,
-        subjectLendingPool
+        subjectAmountNotional
       );
     }
 
@@ -369,12 +369,12 @@ describe("AaveV2", () => {
 
     async function subject(): Promise<any> {
       return await aaveLibMock.testGetBorrowCalldata(
+        subjectLendingPool,
         subjectAsset,
         subjectAmountNotional,
         subjectInterestRateMode,
         subjectReferralCode,
-        subjectOnBehalfOf,
-        subjectLendingPool
+        subjectOnBehalfOf
       );
     }
 
@@ -403,8 +403,8 @@ describe("AaveV2", () => {
 
     beforeEach(async () => {
       await invokeLibMock.testInvokeApprove(setToken.address, setup.weth.address, aaveSetup.lendingPool.address, MAX_UINT_256);
-      await aaveLibMock.testInvokeDeposit(setToken.address, setup.weth.address, ether(1), aaveSetup.lendingPool.address);
-      await aaveLibMock.testInvokeUseReserveAsCollateral(setToken.address, setup.weth.address, true, aaveSetup.lendingPool.address);
+      await aaveLibMock.testInvokeDeposit(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, ether(1));
+      await aaveLibMock.testInvokeSetUserUseReserveAsCollateral(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, true);
 
       subjectSetToken = setToken.address;
       subjectAsset = setup.dai.address;
@@ -415,10 +415,10 @@ describe("AaveV2", () => {
     async function subject(): Promise<any> {
       return await aaveLibMock.testInvokeBorrow(
         subjectSetToken,
+        subjectLendingPool,
         subjectAsset,
         subjectAmountNotional,
-        subjectInterestRateMode,
-        subjectLendingPool
+        subjectInterestRateMode
       );
     }
 
@@ -468,11 +468,11 @@ describe("AaveV2", () => {
 
     async function subject(): Promise<any> {
       return await aaveLibMock.testGetRepayCalldata(
+        subjectLendingPool,
         subjectAsset,
         subjectAmountNotional,
         subjectInterestRateMode,
-        subjectOnBehalfOf,
-        subjectLendingPool
+        subjectOnBehalfOf
       );
     }
 
@@ -500,8 +500,8 @@ describe("AaveV2", () => {
 
     beforeEach(async () => {
       await invokeLibMock.testInvokeApprove(setToken.address, setup.weth.address, aaveSetup.lendingPool.address, MAX_UINT_256);
-      await aaveLibMock.testInvokeDeposit(setToken.address, setup.weth.address, ether(1), aaveSetup.lendingPool.address);
-      await aaveLibMock.testInvokeUseReserveAsCollateral(setToken.address, setup.weth.address, true, aaveSetup.lendingPool.address);
+      await aaveLibMock.testInvokeDeposit(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, ether(1));
+      await aaveLibMock.testInvokeSetUserUseReserveAsCollateral(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, true);
       await invokeLibMock.testInvokeApprove(setToken.address, setup.dai.address, aaveSetup.lendingPool.address, MAX_UINT_256); 	// for repaying
 
       subjectSetToken = setToken.address;
@@ -513,10 +513,10 @@ describe("AaveV2", () => {
     async function subject(): Promise<any> {
       return await aaveLibMock.testInvokeRepay(
         subjectSetToken,
+        subjectLendingPool,
         subjectAsset,
         subjectAmountNotional,
-        subjectInterestRateMode,
-        subjectLendingPool
+        subjectInterestRateMode
       );
     }
 
@@ -524,10 +524,10 @@ describe("AaveV2", () => {
       beforeEach(async () => {
         await aaveLibMock.testInvokeBorrow(
           subjectSetToken,
+          subjectLendingPool,
           subjectAsset,
           subjectAmountNotional,
-          stableInterestRateMode,		// stable mode
-          subjectLendingPool
+          stableInterestRateMode		// stable mode
         );
 
         subjectInterestRateMode = stableInterestRateMode;
@@ -552,10 +552,10 @@ describe("AaveV2", () => {
       beforeEach(async () => {
         await aaveLibMock.testInvokeBorrow(
           subjectSetToken,
+          subjectLendingPool,
           subjectAsset,
           subjectAmountNotional,
-          variableInterestRateMode,		// variable mode
-          subjectLendingPool
+          variableInterestRateMode		// variable mode
         );
 
         subjectInterestRateMode = variableInterestRateMode;
@@ -589,7 +589,7 @@ describe("AaveV2", () => {
     });
 
     async function subject(): Promise<any> {
-      return await aaveLibMock.testGetSwapBorrowRateModeCalldata(subjectAsset, subjectRateMode, subjectLendingPool);
+      return await aaveLibMock.testGetSwapBorrowRateModeCalldata(subjectLendingPool, subjectAsset, subjectRateMode);
     }
 
     it("should get correct data", async () => {
@@ -630,6 +630,10 @@ describe("AaveV2", () => {
     let subjectLendingPool: Address;
 
     beforeEach(async () => {
+      await invokeLibMock.testInvokeApprove(setToken.address, setup.weth.address, aaveSetup.lendingPool.address, MAX_UINT_256);
+      await aaveLibMock.testInvokeDeposit(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, ether(1));
+      await aaveLibMock.testInvokeSetUserUseReserveAsCollateral(setToken.address, aaveSetup.lendingPool.address, setup.weth.address, true);
+
       subjectSetToken = setToken.address;
       subjectAsset = setup.dai.address;
       subjectLendingPool = aaveSetup.lendingPool.address;
@@ -638,19 +642,16 @@ describe("AaveV2", () => {
     async function subject(): Promise<any> {
       return await aaveLibMock.testInvokeSwapBorrowRateMode(
         subjectSetToken,
+        subjectLendingPool,
         subjectAsset,
-        subjectRateMode,
-        subjectLendingPool
+        subjectRateMode
       );
     }
 
     describe("when moving to stable mode from variable mode", async () => {
       beforeEach(async () => {
-        await invokeLibMock.testInvokeApprove(setToken.address, setup.weth.address, aaveSetup.lendingPool.address, MAX_UINT_256);
-        await aaveLibMock.testInvokeDeposit(setToken.address, setup.weth.address, ether(1), aaveSetup.lendingPool.address);
-        await aaveLibMock.testInvokeUseReserveAsCollateral(setToken.address, setup.weth.address, true, aaveSetup.lendingPool.address);
         // Borrow DAI in variable rate mode
-        await aaveLibMock.testInvokeBorrow(setToken.address, setup.dai.address, ether(100), variableInterestRateMode, aaveSetup.lendingPool.address);
+        await aaveLibMock.testInvokeBorrow(setToken.address, aaveSetup.lendingPool.address, setup.dai.address, ether(100), variableInterestRateMode);
 
         subjectRateMode = variableInterestRateMode;
       });
@@ -667,11 +668,8 @@ describe("AaveV2", () => {
 
     describe("when moving to variable mode from stable mode", async () => {
       beforeEach(async () => {
-        await invokeLibMock.testInvokeApprove(setToken.address, setup.weth.address, aaveSetup.lendingPool.address, MAX_UINT_256);
-        await aaveLibMock.testInvokeDeposit(setToken.address, setup.weth.address, ether(1), aaveSetup.lendingPool.address);
-        await aaveLibMock.testInvokeUseReserveAsCollateral(setToken.address, setup.weth.address, true, aaveSetup.lendingPool.address);
         // Borrow DAI in stable rate mode
-        await aaveLibMock.testInvokeBorrow(setToken.address, setup.dai.address, ether(100), stableInterestRateMode, aaveSetup.lendingPool.address);
+        await aaveLibMock.testInvokeBorrow(setToken.address, aaveSetup.lendingPool.address, setup.dai.address, ether(100), stableInterestRateMode);
 
         subjectRateMode = stableInterestRateMode;
       });
