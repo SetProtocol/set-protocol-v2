@@ -124,11 +124,13 @@ describe("AGIMigrationWrapModule", () => {
         const underlyingBalance = await agiToken.balanceOf(setToken.address);
         const agiTokenUnit = await setToken.getDefaultPositionRealUnit(agiToken.address);
         const agxTokenUnit = await setToken.getDefaultPositionRealUnit(agixToken.address);
+        const components = await setToken.getComponents();
 
         const expectedUnderlyingBalance = previousUnderlyingBalance.sub(setTokensIssued.div(10 ** 10));
         expect(underlyingBalance).to.eq(expectedUnderlyingBalance);
         expect(agiTokenUnit).to.eq(ZERO);
         expect(agxTokenUnit).to.eq(ZERO);
+        expect(components.length).to.eq(ZERO);
       });
     });
   });
