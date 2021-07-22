@@ -116,7 +116,7 @@ describe("AGIMigrationWrapModule", () => {
         );
       }
 
-      it("should reduce the underlying quantity and mint the wrapped asset to the SetToken", async () => {
+      it("should reduce the zero out the AGI unit and remove token from components", async () => {
         const previousUnderlyingBalance = await agiToken.balanceOf(setToken.address);
 
         await subject();
