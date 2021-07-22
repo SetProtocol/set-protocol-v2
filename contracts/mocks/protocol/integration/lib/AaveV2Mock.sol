@@ -78,6 +78,7 @@ contract AaveV2Mock {
         uint256 _amountNotional
     )
         external
+        returns (uint256)
     {
         return AaveV2.invokeWithdraw(_setToken, _lendingPool, _asset, _amountNotional);
     }
@@ -131,6 +132,7 @@ contract AaveV2Mock {
         uint256 _interestRateMode
     )
         external
+        returns (uint256)
     {
         return AaveV2.invokeRepay(_setToken, _lendingPool, _asset, _amountNotional, _interestRateMode);
     }

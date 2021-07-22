@@ -126,12 +126,11 @@ export class AaveV2Fixture {
     // set initial asset prices in ETH
     await this.setAssetPriceInOracle(dai, daiPriceInEth);
 
-    // set initial market rates
-    // As per Aave's interest rate model, if U < U_optimal, R_t = R_0 + (U_t/U_optimal) * R_slope1
-    // When U_t = 0, R_t = R_0
+    // As per Aave's interest rate model, if U < U_optimal, R_t = R_0 + (U_t/U_optimal) * R_slope1, when U_t = 0, R_t = R_0
     // R_0 is the interest rate when utilization is 0 (it's the intercept for the above linear equation)
     // And for higher precision it is expressed in Rays
     const oneRay = BigNumber.from(10).pow(27);	// 1e27
+    // set initial market rates (R_0)
     await this.setMarketBorrowRate(weth, oneRay.mul(3).div(100));
     await this.setMarketBorrowRate(dai, oneRay.mul(39).div(1000));
 

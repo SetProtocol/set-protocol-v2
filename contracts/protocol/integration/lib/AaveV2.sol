@@ -117,6 +117,8 @@ library AaveV2 {
      * 
      * Withdraws an `_amountNotional` of underlying asset from the reserve, burning the equivalent aTokens owned
      * - E.g. SetToken has 100 aUSDC, and receives 100 USDC, burning the 100 aUSDC
+     *     
+     * @return uint256      The final amount withdrawn
      */
     function invokeWithdraw(
         ISetToken _setToken,
@@ -125,6 +127,7 @@ library AaveV2 {
         uint256 _amountNotional        
     )
         external
+        returns (uint256)
     {
         ( , , bytes memory withdrawCalldata) = getWithdrawCalldata(
             _lendingPool,
@@ -133,7 +136,7 @@ library AaveV2 {
             address(_setToken)
         );
         
-        _setToken.invoke(address(_lendingPool), 0, withdrawCalldata);
+        return abi.decode(_setToken.invoke(address(_lendingPool), 0, withdrawCalldata), (uint256));
     }
     
     /**
@@ -228,6 +231,8 @@ library AaveV2 {
      *
      * Repays a borrowed `_amountNotional` on a specific `_asset` reserve, burning the equivalent debt tokens owned
      * - E.g. SetToken repays 100 USDC, burning 100 variable/stable debt tokens
+     *     
+     * @return uint256      The final amount repaid
      */
     function invokeRepay(
         ISetToken _setToken,
@@ -237,6 +242,7 @@ library AaveV2 {
         uint256 _interestRateMode
     )
         external
+        returns (uint256)
     {
         ( , , bytes memory repayCalldata) = getRepayCalldata(
             _lendingPool,
@@ -246,7 +252,7 @@ library AaveV2 {
             address(_setToken)
         );
         
-        _setToken.invoke(address(_lendingPool), 0, repayCalldata);
+        return abi.decode(_setToken.invoke(address(_lendingPool), 0, repayCalldata), (uint256));
     }
 
     /**
