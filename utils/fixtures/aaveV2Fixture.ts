@@ -29,12 +29,18 @@ import { ether, getRandomAddress } from "../common";
 
 import { ADDRESS_ZERO } from "../constants";
 
+export interface ReserveTokens {
+  aToken: AaveV2AToken;
+  stableDebtToken: AaveV2StableDebtToken;
+  variableDebtToken: AaveV2VariableDebtToken;
+}
+
 export class AaveV2Fixture {
   private _deployer: DeployHelper;
   private _ownerSigner: Signer;
 
-  private weth: Address;
-  private dai: Address;
+  public wethReserveTokens: ReserveTokens;
+  public daiReserveTokens: ReserveTokens;
 
   public marketId: string;
   public lendingPool: AaveV2LendingPool;
@@ -67,10 +73,12 @@ export class AaveV2Fixture {
     this._deployer = new DeployHelper(this._ownerSigner);
   }
 
-  public async initialize(weth: Address, dai: Address, marketId: string = "Commons"): Promise<void> {
-
-    this.dai = dai;
-    this.weth = weth;
+  public async initialize(
+    weth: Address,
+    dai: Address,
+    marketId: string = "Commons",
+    daiPriceInEth: BigNumber = ether(0.001)   // 1 DAI = 0.001 ETH
+  ): Promise<void> {
     this.marketId = marketId;
 
     // deploy libraries
@@ -116,14 +124,118 @@ export class AaveV2Fixture {
     this.incentivesControllerAddress = ADDRESS_ZERO;
 
     // set initial asset prices in ETH
-    await this.setAssetPriceInOracle(dai, ether(0.001));	// 1 ETH = 1000$ => 1 DAI = 0.001 ETH
+    await this.setAssetPriceInOracle(dai, daiPriceInEth);
 
     // set initial market rates
+    // As per Aave's interest rate model, if U < U_optimal, R_t = R_0 + (U_t/U_optimal) * R_slope1
+    // When U_t = 0, R_t = R_0
+    // R_0 is the interest rate when utilization is 0 (it's the intercept for the above linear equation)
+    // And for higher precision it is expressed in Rays
     const oneRay = BigNumber.from(10).pow(27);	// 1e27
     await this.setMarketBorrowRate(weth, oneRay.mul(3).div(100));
     await this.setMarketBorrowRate(dai, oneRay.mul(39).div(1000));
 
-    /*
+    // Deploy and configure WETH reserve
+    this.wethReserveTokens = await this.createAndEnableReserve(
+      weth, "WETH", BigNumber.from(18),
+      BigNumber.from(8000),   // base LTV: 80%
+      BigNumber.from(8250),   // liquidation threshold: 82.5%
+      BigNumber.from(10500),  // liquidation bonus: 105.00%
+      BigNumber.from(1000),   // reserve factor: 10%
+      true,					          // enable borrowing on reserve
+      true					          // enable stable debts
+    );
+
+    // Deploy and configure DAI reserve
+    this.daiReserveTokens = await this.createAndEnableReserve(
+      dai, "DAI", BigNumber.from(18),
+      BigNumber.from(7500),   // base LTV: 75%
+      BigNumber.from(8000),   // liquidation threshold: 80%
+      BigNumber.from(10500),  // liquidation bonus: 105.00%
+      BigNumber.from(1000),   // reserve factor: 10%
+      true,					          // enable borrowing on reserve
+      true					          // enable stable debts
+    );
+  }
+
+  public async createAndEnableReserve(
+    underlyingAsset: Address,
+    underlyingAssetSymbol: string,
+    underlyingAssetDecimals: BigNumberish,
+    baseLTV: BigNumberish,
+    liquidationThreshold: BigNumberish,
+    liquidationBonus: BigNumberish,
+    reserveFactor: BigNumberish,
+    borrowingEnabled: boolean,
+    stableBorrowingEnabled: boolean,
+    treasuryAddress: Address = this.treasuryAddress,
+    incentivesControllerAddress: Address = this.incentivesControllerAddress,
+    interestRateStrategyAddress: Address = this.reserveInterestRateStrategy.address
+  ): Promise<ReserveTokens> {
+
+    let aToken = await this._deployer.external.deployAaveV2AToken();
+    let stableDebtToken = await this._deployer.external.deployAaveV2StableDebtToken();
+    let variableDebtToken = await this._deployer.external.deployAaveV2VariableDebtToken();
+
+    // init reserve
+    await this.lendingPoolConfigurator.batchInitReserve(
+      [
+        {
+          "aTokenImpl": aToken.address,
+          "stableDebtTokenImpl": stableDebtToken.address,
+          "variableDebtTokenImpl": variableDebtToken.address,
+          "underlyingAssetDecimals": underlyingAssetDecimals,
+          "interestRateStrategyAddress": interestRateStrategyAddress,
+          "underlyingAsset": underlyingAsset,
+          "treasury": treasuryAddress,
+          "incentivesController": incentivesControllerAddress,
+          "underlyingAssetName": underlyingAssetSymbol,
+          "aTokenName": `Aave interest bearing ${underlyingAssetSymbol}`,
+          "aTokenSymbol": `a${underlyingAssetSymbol}`,
+          "variableDebtTokenName": `Aave variable debt bearing ${underlyingAssetSymbol}`,
+          "variableDebtTokenSymbol": `variableDebt${underlyingAssetSymbol}`,
+          "stableDebtTokenName": `Aave stable debt bearing ${underlyingAssetSymbol}`,
+          "stableDebtTokenSymbol": `stableDebt${underlyingAssetSymbol}`,
+          "params": "0x",
+        },
+      ]
+    );
+
+    // configure reserve
+    await this.lendingPoolConfigurator.configureReserveAsCollateral(
+      underlyingAsset,
+      baseLTV,
+      liquidationThreshold,
+      liquidationBonus
+    );
+    if (borrowingEnabled) {
+      await this.lendingPoolConfigurator.enableBorrowingOnReserve(underlyingAsset, stableBorrowingEnabled);
+    }
+    await this.lendingPoolConfigurator.setReserveFactor(underlyingAsset, reserveFactor);
+
+    // LendingPoolConfigurator creates a new proxy contract and sets the passed in address as the implementation.
+    // We then fetch the proxy's address and attach it to the contract object, which allows us to use the contract object
+    // to call functions on the proxy
+    const [aTokenProxy, stableDebtTokenProxy, variableDebtTokenProxy] = await this.protocolDataProvider.getReserveTokensAddresses(
+      underlyingAsset
+    );
+    aToken = aToken.attach(aTokenProxy);
+    stableDebtToken = stableDebtToken.attach(stableDebtTokenProxy);
+    variableDebtToken = variableDebtToken.attach(variableDebtTokenProxy);
+
+    return { aToken, stableDebtToken, variableDebtToken };
+  }
+
+  public async setAssetPriceInOracle(asset: Address, priceInEth: BigNumberish): Promise<void> {
+    await this.fallbackOracle.setAssetPrice(asset, priceInEth);
+  }
+
+  public async setMarketBorrowRate(asset: Address, rate: BigNumberish): Promise<void> {
+    this.lendingRateOracle.setMarketBorrowRate(asset, rate);
+  }
+  /*
+  private async initializeGovernance(): Promise<void> {
+
     TODO: Move governance to this fixture.
     // Deploy Executor
     this.executor = await this._deployer.external.deployExecutor(
@@ -160,107 +272,6 @@ export class AaveV2Fixture {
     this.incentivesControllerAddress = (await this._deployer.external.deployAaveV2StakedTokenIncentivesController(
       this.stkAaveToken.address, this.executor.address
     )).address;
-    */
   }
-
-  public async deployReserve(
-    underlyingAsset: Address,
-    underlyingAssetSymbol: string,
-    underlyingAssetDecimals: BigNumberish = 18,
-    treasuryAddress: Address = this.treasuryAddress,
-    incentivesControllerAddress: Address = this.incentivesControllerAddress,
-    interestRateStrategyAddress: Address = this.reserveInterestRateStrategy.address
-  ): Promise<[AaveV2AToken, AaveV2StableDebtToken, AaveV2VariableDebtToken]> {
-    let aToken = await this._deployer.external.deployAaveV2AToken();
-    let stableDebtToken = await this._deployer.external.deployAaveV2StableDebtToken();
-    let variableDebtToken = await this._deployer.external.deployAaveV2VariableDebtToken();
-
-    await this.lendingPoolConfigurator.batchInitReserve(
-      [
-        {
-          "aTokenImpl": aToken.address,
-          "stableDebtTokenImpl": stableDebtToken.address,
-          "variableDebtTokenImpl": variableDebtToken.address,
-          "underlyingAssetDecimals": underlyingAssetDecimals,
-          "interestRateStrategyAddress": interestRateStrategyAddress,
-          "underlyingAsset": underlyingAsset,
-          "treasury": treasuryAddress,
-          "incentivesController": incentivesControllerAddress,
-          "underlyingAssetName": underlyingAssetSymbol,
-          "aTokenName": `Aave interest bearing ${underlyingAssetSymbol}`,
-          "aTokenSymbol": `a${underlyingAssetSymbol}`,
-          "variableDebtTokenName": `Aave variable debt bearing ${underlyingAssetSymbol}`,
-          "variableDebtTokenSymbol": `variableDebt${underlyingAssetSymbol}`,
-          "stableDebtTokenName": `Aave stable debt bearing ${underlyingAssetSymbol}`,
-          "stableDebtTokenSymbol": `stableDebt${underlyingAssetSymbol}`,
-          "params": "0x",
-        },
-      ]
-    );
-
-    const tokenAddresses = await this.protocolDataProvider.getReserveTokensAddresses(underlyingAsset);
-    aToken = aToken.attach(tokenAddresses.aTokenAddress);
-    stableDebtToken = stableDebtToken.attach(tokenAddresses.stableDebtTokenAddress);
-    variableDebtToken = variableDebtToken.attach(tokenAddresses.variableDebtTokenAddress);
-
-    return [aToken, stableDebtToken, variableDebtToken];
-  }
-
-  public async configureReserve(
-    asset: Address,
-    baseLTV: BigNumberish,
-    liquidationThreshold: BigNumberish,
-    liquidationBonus: BigNumberish,
-    reserveFactor: BigNumberish,
-    borrowingEnabled: boolean,
-    stableBorrowingEnabled: boolean
-  ): Promise<void> {
-
-    await this.lendingPoolConfigurator.configureReserveAsCollateral(
-      asset,
-      baseLTV,
-      liquidationThreshold,
-      liquidationBonus
-    );
-    if (borrowingEnabled) {
-      await this.lendingPoolConfigurator.enableBorrowingOnReserve(asset, stableBorrowingEnabled);
-    }
-    await this.lendingPoolConfigurator.setReserveFactor(asset, reserveFactor);
-  }
-
-  public async setAssetPriceInOracle(asset: Address, price: BigNumberish): Promise<void> {
-    await this.fallbackOracle.setAssetPrice(asset, price);
-  }
-
-  public async setMarketBorrowRate(asset: Address, rate: BigNumberish): Promise<void> {
-    this.lendingRateOracle.setMarketBorrowRate(asset, rate);
-  }
-
-  public async deployWethReserve(weth: Address = this.weth): Promise<[AaveV2AToken, AaveV2StableDebtToken, AaveV2VariableDebtToken]> {
-    const [aWETH, stableDebtWETH, variableDebtWETH] = await this.deployReserve(weth, "WETH", BigNumber.from(18));
-    await this.configureReserve(
-      weth,
-      BigNumber.from(8000),   // base LTV: 80%
-      BigNumber.from(8250),   // liquidation threshold: 82.5%
-      BigNumber.from(10500),  // liquidation bonus: 105.00%
-      BigNumber.from(1000),   // reserve factor: 10%
-      true,					          // enable borrowing on reserve
-      true					          // enable stable debts
-    );
-    return [aWETH, stableDebtWETH, variableDebtWETH];
-  }
-
-  public async deployDaiReserve(dai: Address = this.dai): Promise<[AaveV2AToken, AaveV2StableDebtToken, AaveV2VariableDebtToken]> {
-    const [aDAI, stableDebtDAI, variableDebtDAI] = await this.deployReserve(dai, "DAI", BigNumber.from(18));
-    await this.configureReserve(
-      dai,
-      BigNumber.from(7500),   // base LTV: 75%
-      BigNumber.from(8000),   // liquidation threshold: 80%
-      BigNumber.from(10500),  // liquidation bonus: 105.00%
-      BigNumber.from(1000),   // reserve factor: 10%
-      true,					          // enable borrowing on reserve
-      true					          // enable stable debts
-    );
-    return [aDAI, stableDebtDAI, variableDebtDAI];
-  }
+  */
 }

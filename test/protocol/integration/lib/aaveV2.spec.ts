@@ -63,8 +63,9 @@ describe("AaveV2", () => {
     aaveSetup = getAaveV2Fixture(owner.address);
     await aaveSetup.initialize(setup.weth.address, setup.dai.address);
 
-    [aWETH, , ] = await aaveSetup.deployWethReserve();
-    [, stableDebtDAI, variableDebtDAI] = await aaveSetup.deployDaiReserve();
+    aWETH = aaveSetup.wethReserveTokens.aToken;
+    stableDebtDAI = aaveSetup.daiReserveTokens.stableDebtToken;
+    variableDebtDAI = aaveSetup.daiReserveTokens.variableDebtToken;
 
     // Create liquidity
     await setup.weth.connect(owner.wallet).approve(aaveSetup.lendingPool.address, ether(100));

@@ -2,11 +2,6 @@ import "module-alias/register";
 
 import { Account } from "@utils/test/types";
 import {
-  AaveV2AToken,
-  AaveV2StableDebtToken,
-  AaveV2VariableDebtToken
-} from "@utils/contracts/aaveV2";
-import {
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
@@ -67,30 +62,20 @@ describe("AaveV2Fixture", async () => {
       expect(wethMarketBorrowRate).to.eq(oneRay.mul(3).div(100));
       expect(daiMarketBorrowRate).to.eq(oneRay.mul(39).div(1000));
     });
-  });
-
-  describe("#deployWethReserve", async () => {
-
-    beforeEach(async () => {
-      await aaveSetup.initialize(setup.weth.address, setup.dai.address);
-    });
-
-    async function subject(): Promise<[AaveV2AToken, AaveV2StableDebtToken, AaveV2VariableDebtToken]> {
-      return await aaveSetup.deployWethReserve();
-    }
 
     it("should deploy WETH reserve with correct configuration", async () => {
-      const [aWETH, stableDebtWETH, variableDebtWETH] = await subject();
+      await subject();
 
+      const wethReserveTokens = aaveSetup.wethReserveTokens;
       const reservesList = await aaveSetup.lendingPool.getReservesList();
       const tokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(setup.weth.address);
       const config = await aaveSetup.protocolDataProvider.getReserveConfigurationData(setup.weth.address);
 
       expect(reservesList).to.contain(setup.weth.address);
 
-      expect(aWETH.address).to.eq(tokenAddresses.aTokenAddress);
-      expect(stableDebtWETH.address).to.eq(tokenAddresses.stableDebtTokenAddress);
-      expect(variableDebtWETH.address).to.eq(tokenAddresses.variableDebtTokenAddress);
+      expect(wethReserveTokens.aToken.address).to.eq(tokenAddresses.aTokenAddress);
+      expect(wethReserveTokens.stableDebtToken.address).to.eq(tokenAddresses.stableDebtTokenAddress);
+      expect(wethReserveTokens.variableDebtToken.address).to.eq(tokenAddresses.variableDebtTokenAddress);
 
       expect(config.isActive).to.eq(true);
       expect(config.isFrozen).to.eq(false);
@@ -103,30 +88,20 @@ describe("AaveV2Fixture", async () => {
       expect(config.usageAsCollateralEnabled).to.eq(true);
       expect(config.stableBorrowRateEnabled).to.eq(true);
     });
-  });
-
-  describe("#deployDaiReserve", async () => {
-
-    beforeEach(async () => {
-      await aaveSetup.initialize(setup.weth.address, setup.dai.address);
-    });
-
-    async function subject(): Promise<[AaveV2AToken, AaveV2StableDebtToken, AaveV2VariableDebtToken]> {
-      return await aaveSetup.deployDaiReserve();
-    }
 
     it("should deploy DAI reserve with correct configuration", async () => {
-      const [aDAI, stableDebtDAI, variableDebtDAI] = await subject();
+      await subject();
 
+      const daiReserveTokens = aaveSetup.daiReserveTokens;
       const reservesList = await aaveSetup.lendingPool.getReservesList();
       const tokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(setup.dai.address);
       const config = await aaveSetup.protocolDataProvider.getReserveConfigurationData(setup.dai.address);
 
       expect(reservesList).to.contain(setup.dai.address);
 
-      expect(aDAI.address).to.eq(tokenAddresses.aTokenAddress);
-      expect(stableDebtDAI.address).to.eq(tokenAddresses.stableDebtTokenAddress);
-      expect(variableDebtDAI.address).to.eq(tokenAddresses.variableDebtTokenAddress);
+      expect(daiReserveTokens.aToken.address).to.eq(tokenAddresses.aTokenAddress);
+      expect(daiReserveTokens.stableDebtToken.address).to.eq(tokenAddresses.stableDebtTokenAddress);
+      expect(daiReserveTokens.variableDebtToken.address).to.eq(tokenAddresses.variableDebtTokenAddress);
 
       expect(config.isActive).to.eq(true);
       expect(config.isFrozen).to.eq(false);
