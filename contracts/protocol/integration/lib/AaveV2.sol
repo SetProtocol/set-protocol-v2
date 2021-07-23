@@ -187,7 +187,6 @@ library AaveV2 {
      *                              calling the function if he wants to borrow against his own collateral, or the address of the
      *                              credit delegator if he has been given credit delegation allowance
      *
-     *
      * @return address              Target contract address
      * @return uint256              Call value
      * @return bytes                Borrow calldata
