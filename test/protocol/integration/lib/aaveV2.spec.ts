@@ -13,7 +13,7 @@ import {
   getSystemFixture,
   getWaffleExpect,
   addSnapshotBeforeRestoreAfterEach,
-  getAaveV2Fixture,
+  getAaveV2Fixture
 } from "@utils/test/index";
 import { AaveV2Fixture, SystemFixture } from "@utils/fixtures";
 import { ADDRESS_ZERO, MAX_UINT_256, ONE, ZERO } from "@utils/constants";
@@ -535,16 +535,11 @@ describe("AaveV2", () => {
       });
 
       it("should repay DAI and burn stableDebtDAI", async () => {
-        // const previousDebtTokenBalance = await stableDebtDAI.balanceOf(setToken.address);
         const previousUnderlyingBalance = await setup.dai.balanceOf(setToken.address);
         await subject();
-        // const currentDebtTokenBalance = await stableDebtDAI.balanceOf(setToken.address);
         const currentUnderlyingBalance = await setup.dai.balanceOf(setToken.address);
 
-        // const expectedDebtTokenBalance = previousDebtTokenBalance.sub(subjectAmountNotional);
         const expectedUnderlyingBalance = previousUnderlyingBalance.sub(subjectAmountNotional);
-
-        // expect(currentDebtTokenBalance).to.eq(expectedDebtTokenBalance);
         expect(currentUnderlyingBalance).to.eq(expectedUnderlyingBalance);
       });
     });
@@ -563,16 +558,10 @@ describe("AaveV2", () => {
       });
 
       it("should repay DAI and burn variableDebtDAI", async () => {
-        // const previousDebtTokenBalance = await variableDebtDAI.balanceOf(setToken.address);
         const previousUnderlyingBalance = await setup.dai.balanceOf(setToken.address);
         await subject();
-        // const currentDebtTokenBalance = await variableDebtDAI.balanceOf(setToken.address);
         const currentUnderlyingBalance = await setup.dai.balanceOf(setToken.address);
-
-        // const expectedDebtTokenBalance = previousDebtTokenBalance.sub(subjectAmountNotional);
         const expectedUnderlyingBalance = previousUnderlyingBalance.sub(subjectAmountNotional);
-
-        // expect(currentDebtTokenBalance).to.eq(expectedDebtTokenBalance);
         expect(currentUnderlyingBalance).to.eq(expectedUnderlyingBalance);
       });
     });
@@ -661,8 +650,6 @@ describe("AaveV2", () => {
         const previousStableDebtTokenBalance = await stableDebtDAI.balanceOf(setToken.address);
         await subject();
         const currentVariableDebtTokenBalance = await variableDebtDAI.balanceOf(setToken.address);
-
-        // expect(currentStableDebtTokenBalance).to.eq(ZERO);
         expect(currentVariableDebtTokenBalance).to.eq(previousStableDebtTokenBalance);
       });
     });
@@ -679,8 +666,6 @@ describe("AaveV2", () => {
         const previousVariableDebtTokenBalance = await variableDebtDAI.balanceOf(setToken.address);
         await subject();
         const currentStableDebtTokenBalance = await stableDebtDAI.balanceOf(setToken.address);
-
-        // expect(currentVariableDebtTokenBalance).to.eq(ZERO);
         expect(currentStableDebtTokenBalance).to.eq(previousVariableDebtTokenBalance);
       });
     });
