@@ -143,6 +143,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
     }
 
     function _completeIssueExactOutput(ISetToken _setToken, IssueInfo memory _issueInfo, uint256 _amount, address _recipient) internal {
+
         uint256 wrappedCollateralAmount = _wrapCollateral(_issueInfo);
 
         _handleApproval(IERC20(_issueInfo.collateralToken), address(debtIssuanceModule), wrappedCollateralAmount);
@@ -178,8 +179,10 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
             cEth.mint{ value: wethBalance }();
             return cEth.balanceOf(address(this));
         } else {
-            // TODO: implement CErc20 deposits
-            revert("not implemented");
+            uint256 underlyingBalance = _issueInfo.underlying.balanceOf(address(this));
+            _handleApproval(_issueInfo.underlying, _issueInfo.collateralToken, underlyingBalance);
+            ICErc20(_issueInfo.collateralToken).mint(underlyingBalance);
+            return IERC20(_issueInfo.collateralToken).balanceOf(address(this));
         }
     }
 
@@ -251,7 +254,6 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         uint256 collateralAmount = _issueInfo.collateralAmount.preciseMul(_setQuantity);
 
         if (_issueInfo.isCompound) {
-            // TODO: fix for different decimal amounts
             uint256 exchangeRate = ICErc20(_issueInfo.collateralToken).exchangeRateCurrent();
             return collateralAmount.preciseMulCeil(exchangeRate);
         } else {

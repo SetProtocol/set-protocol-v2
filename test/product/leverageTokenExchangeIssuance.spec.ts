@@ -12,6 +12,7 @@ import {
 import { CEther, CERc20 } from "@utils/contracts/compound";
 import DeployHelper from "@utils/deploys";
 import {
+  bitcoin,
   ether,
   usdc
 } from "@utils/index";
@@ -32,6 +33,7 @@ import {
 import { BigNumber } from "@ethersproject/bignumber";
 import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
 import { Address } from "hardhat-deploy/dist/types";
+import { defaultAbiCoder } from "ethers/lib/utils";
 
 const expect = getWaffleExpect();
 
@@ -48,8 +50,10 @@ describe("LeverageTokenExchangeIssuance", () => {
 
   let deployer: DeployHelper;
   let setToken: SetToken;
+  let setTokenWbtc: SetToken;
   let cEther: CEther;
   let cUSDC: CERc20;
+  let cWBTC: CERc20;
 
   let compoundLeverageModule: CompoundLeverageModule;
   let debtIssuanceModule: DebtIssuanceModule;
@@ -76,11 +80,24 @@ describe("LeverageTokenExchangeIssuance", () => {
 
     await setV2Setup.weth.approve(uniswapSetup.router.address, MAX_UINT_256);
     await setV2Setup.usdc.approve(uniswapSetup.router.address, MAX_UINT_256);
+    await setV2Setup.wbtc.approve(uniswapSetup.router.address, MAX_UINT_256);
+
     await uniswapSetup.router.addLiquidity(
       setV2Setup.weth.address,
       setV2Setup.usdc.address,
       ether(1000),
       usdc(2000000),
+      0,
+      0,
+      owner.address,
+      MAX_UINT_256
+    );
+
+    await uniswapSetup.router.addLiquidity(
+      setV2Setup.weth.address,
+      setV2Setup.wbtc.address,
+      ether(1500),
+      bitcoin(100),
       0,
       0,
       owner.address,
@@ -110,12 +127,26 @@ describe("LeverageTokenExchangeIssuance", () => {
       ether(1000000000000) // IMPORTANT: Compound oracles account for decimals scaled by 10e18. For USDC, this is $1 * 10^18 * 10^18 / 10^6 = 10^30
     );
 
+    cWBTC = await compoundSetup.createAndEnableCToken(
+      setV2Setup.wbtc.address,
+      ether(0.02),
+      compoundSetup.comptroller.address,
+      compoundSetup.interestRateModel.address,
+      "Compound WBTC",
+      "cWBTC",
+      8,
+      ether(0.75),
+      ether(300000000000000) // $30,000
+    );
+
     await compoundSetup.comptroller._setCompRate(ether(1));
-    await compoundSetup.comptroller._addCompMarkets([cEther.address, cUSDC.address]);
+    await compoundSetup.comptroller._addCompMarkets([cEther.address, cUSDC.address, cWBTC.address]);
 
     // Mint cTokens
-    await setV2Setup.usdc.approve(cUSDC.address, ether(100000));
+    await setV2Setup.usdc.approve(cUSDC.address, MAX_UINT_256);
     await cUSDC.mint(ether(1));
+    await setV2Setup.wbtc.approve(cWBTC.address, MAX_UINT_256);
+    await cWBTC.mint(bitcoin(1));
     await cEther.mint({value: ether(10000)});
 
     // Deploy DebtIssuanceModule
@@ -148,9 +179,15 @@ describe("LeverageTokenExchangeIssuance", () => {
       debtIssuanceModule.address,
     );
 
-    // Deploy Set Token
+    // Deploy Set Tokens
     setToken = await setV2Setup.createSetToken(
       [cEther.address],
+      [ether("0.000000005")],
+      [compoundLeverageModule.address, debtIssuanceModule.address]
+    );
+
+    setTokenWbtc = await setV2Setup.createSetToken(
+      [cWBTC.address],
       [ether("0.000000005")],
       [compoundLeverageModule.address, debtIssuanceModule.address]
     );
@@ -158,6 +195,7 @@ describe("LeverageTokenExchangeIssuance", () => {
     // initialize modules
     managerIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
     await debtIssuanceModule.initialize(setToken.address, 0, 0, 0, owner.address, managerIssuanceHook.address);
+    await debtIssuanceModule.initialize(setTokenWbtc.address, 0, 0, 0, owner.address, managerIssuanceHook.address);
 
     await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
     await compoundLeverageModule.initialize(
@@ -166,9 +204,19 @@ describe("LeverageTokenExchangeIssuance", () => {
       [setV2Setup.usdc.address],
     );
 
+    await compoundLeverageModule.updateAllowedSetToken(setTokenWbtc.address, true);
+    await compoundLeverageModule.initialize(
+      setTokenWbtc.address,
+      [setV2Setup.wbtc.address],
+      [setV2Setup.usdc.address],
+    );
+
     // issue some sets
     await cEther.approve(debtIssuanceModule.address, MAX_UINT_256);
     await debtIssuanceModule.issue(setToken.address, ether(1), owner.address);
+
+    await cWBTC.approve(debtIssuanceModule.address, MAX_UINT_256);
+    await debtIssuanceModule.issue(setTokenWbtc.address, ether(1), owner.address);
 
     // lever up
     await compoundLeverageModule.lever(
@@ -179,6 +227,16 @@ describe("LeverageTokenExchangeIssuance", () => {
       0,
       "UniswapTradeAdapter",
       EMPTY_BYTES
+    );
+
+    await compoundLeverageModule.lever(
+      setTokenWbtc.address,
+      setV2Setup.usdc.address,
+      setV2Setup.wbtc.address,
+      usdc(15000),
+      0,
+      "UniswapTradeAdapter",
+      defaultAbiCoder.encode(["address[]"], [[setV2Setup.usdc.address, setV2Setup.weth.address, setV2Setup.wbtc.address]])
     );
 
     // deploy flash loan mock
@@ -254,7 +312,7 @@ describe("LeverageTokenExchangeIssuance", () => {
 
       subjectCaller = user;
       subjectSetToken = setToken;
-      subjectSetAmount = ether(2);
+      subjectSetAmount = ether(1);
       subjectMaxInput = MAX_UINT_256;
       subjectInputToken = setV2Setup.weth.address;
       subjectInputRouter = uniswapSetup.router.address;
@@ -301,6 +359,41 @@ describe("LeverageTokenExchangeIssuance", () => {
       expect(finalCEtherBalance).to.eq(ZERO);
       expect(finalWethBalance).to.eq(ZERO);
       expect(finalUsdcBalance).to.eq(ZERO);
+    });
+
+    context("when issuing a set token with a cErc20 collateral", async () => {
+      beforeEach(async () => {
+        subjectSetToken = setTokenWbtc;
+        subjectInputToken = setV2Setup.wbtc.address;
+        subjectDebtPath = [setV2Setup.usdc.address, setV2Setup.weth.address, setV2Setup.wbtc.address];
+
+        // prep trader
+        await setV2Setup.wbtc.transfer(subjectCaller.address, bitcoin(1000));
+        await setV2Setup.wbtc.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
+
+        // add funds to flash loan mock
+        await setV2Setup.wbtc.transfer(flashLoanMock.address, bitcoin(1000));
+      });
+
+      it("it should issue the correct amount of SetTokens", async () => {
+        const initBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
+        await subject();
+        const finalBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
+
+        expect(finalBalance.sub(initBalance)).to.eq(subjectSetAmount);
+      });
+
+      it("it should not leave any dust in the contract", async () => {
+        await subject();
+
+        const finalCWBTCBalance = await cWBTC.balanceOf(leverageExchangeIssuance.address);
+        const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
+        const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+
+        expect(finalCWBTCBalance).to.eq(ZERO);
+        expect(finalWethBalance).to.eq(ZERO);
+        expect(finalUsdcBalance).to.eq(ZERO);
+      });
     });
   });
 });
