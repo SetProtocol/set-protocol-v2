@@ -15,6 +15,7 @@ import {
   DebtIssuanceMock,
   DebtModuleMock,
   ExplicitERC20Mock,
+  FlashLoanMock,
   ForceFunderMock,
   GaugeControllerMock,
   GodModeMock,
@@ -60,6 +61,7 @@ import { CustomSetValuerMock__factory } from "../../typechain/factories/CustomSe
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
 import { ExplicitERC20Mock__factory } from "../../typechain/factories/ExplicitERC20Mock__factory";
+import { FlashLoanMock__factory } from "../../typechain/factories/FlashLoanMock__factory";
 import { ForceFunderMock__factory } from "../../typechain/factories/ForceFunderMock__factory";
 import { GaugeControllerMock__factory } from "../../typechain/factories/GaugeControllerMock__factory";
 import { GodModeMock__factory } from "../../typechain/factories/GodModeMock__factory";
@@ -333,6 +335,10 @@ export default class DeployMocks {
 
   public async deployForceFunderMock(): Promise<ForceFunderMock> {
     return await new ForceFunderMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployFlashLoanMock(): Promise<FlashLoanMock> {
+    return await new FlashLoanMock__factory(this._deployerSigner).deploy();
   }
 
   /*************************************

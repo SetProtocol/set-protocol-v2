@@ -52,6 +52,7 @@ export default class DeployProduct {
     _debtIssuanceModule: Address,
     _compLeverageModule: Address,
     _aaveLeverageModule: Address,
+    _aaveLendingPool: Address,
     _cEth: Address,
     _weth: Address
   ): Promise<LeverageTokenExchangeIssuance> {
@@ -59,6 +60,7 @@ export default class DeployProduct {
       _debtIssuanceModule,
       _compLeverageModule,
       _aaveLeverageModule,
+      _aaveLendingPool,
       _cEth,
       _weth
     );

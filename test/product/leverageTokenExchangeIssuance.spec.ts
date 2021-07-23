@@ -3,6 +3,7 @@ import { Account } from "@utils/test/types";
 import {
   CompoundLeverageModule,
   DebtIssuanceModule,
+  FlashLoanMock,
   LeverageTokenExchangeIssuance,
   ManagerIssuanceHookMock,
   SetToken,
@@ -53,6 +54,8 @@ describe("LeverageTokenExchangeIssuance", () => {
   let compoundLeverageModule: CompoundLeverageModule;
   let debtIssuanceModule: DebtIssuanceModule;
   let managerIssuanceHook: ManagerIssuanceHookMock;
+
+  let flashLoanMock: FlashLoanMock;
 
   let leverageExchangeIssuance: LeverageTokenExchangeIssuance;
 
@@ -178,11 +181,15 @@ describe("LeverageTokenExchangeIssuance", () => {
       EMPTY_BYTES
     );
 
+    // deploy flash loan mock
+    flashLoanMock = await deployer.mocks.deployFlashLoanMock();
+
     // deploy LeverageTokenExchangeIssuance
     leverageExchangeIssuance = await deployer.product.deployLeverageTokenExchangeIssuance(
       debtIssuanceModule.address,
       compoundLeverageModule.address,
       ADDRESS_ZERO,
+      flashLoanMock.address,
       cEther.address,
       setV2Setup.weth.address
     );
@@ -195,6 +202,7 @@ describe("LeverageTokenExchangeIssuance", () => {
     let subjectDebtIssuanceModule: Address;
     let subjectCompLeverageModule: Address;
     let subjectAaveLeverageModule: Address;
+    let subjectFlashLoanMock: Address;
     let subjectCEther: Address;
     let subjectWeth: Address;
 
@@ -202,6 +210,7 @@ describe("LeverageTokenExchangeIssuance", () => {
       subjectDebtIssuanceModule = debtIssuanceModule.address;
       subjectCompLeverageModule = compoundLeverageModule.address;
       subjectAaveLeverageModule = await getRandomAddress();
+      subjectFlashLoanMock = flashLoanMock.address;
       subjectCEther = cEther.address;
       subjectWeth = setV2Setup.weth.address;
     });
@@ -211,6 +220,7 @@ describe("LeverageTokenExchangeIssuance", () => {
         subjectDebtIssuanceModule,
         subjectCompLeverageModule,
         subjectAaveLeverageModule,
+        subjectFlashLoanMock,
         subjectCEther,
         subjectWeth
       );
@@ -222,6 +232,7 @@ describe("LeverageTokenExchangeIssuance", () => {
       expect(await leverageExchangeIssuance.debtIssuanceModule()).to.eq(subjectDebtIssuanceModule);
       expect(await leverageExchangeIssuance.compLeverageModule()).to.eq(subjectCompLeverageModule);
       expect(await leverageExchangeIssuance.aaveLeverageModule()).to.eq(subjectAaveLeverageModule);
+      expect(await leverageExchangeIssuance.aaveLendingPool()).to.eq(subjectFlashLoanMock);
       expect(await leverageExchangeIssuance.cEth()).to.eq(subjectCEther);
       expect(await leverageExchangeIssuance.weth()).to.eq(subjectWeth);
     });
@@ -251,8 +262,12 @@ describe("LeverageTokenExchangeIssuance", () => {
       subjectDebtRouter = uniswapSetup.router.address;
       subjectDebtPath = [setV2Setup.usdc.address, setV2Setup.weth.address];
 
+      // prep trader
       await setV2Setup.weth.transfer(subjectCaller.address, ether(1000));
       await setV2Setup.weth.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
+
+      // add funds to flash loan mock
+      await setV2Setup.weth.transfer(flashLoanMock.address, ether(1000));
     });
 
     async function subject(): Promise<void> {
