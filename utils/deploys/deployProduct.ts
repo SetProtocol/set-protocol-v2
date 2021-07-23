@@ -1,16 +1,18 @@
 import { Signer } from "ethers";
 import { BigNumber } from "@ethersproject/bignumber";
+import { Address } from "@utils/types";
 
 import {
   UniswapYieldHook,
   AssetLimitHook,
-  AMMSplitter
+  AMMSplitter,
+  LeverageTokenExchangeIssuance
 } from "../contracts";
 
 import { UniswapYieldHook__factory } from "../../typechain/factories/UniswapYieldHook__factory";
 import { AssetLimitHook__factory } from "../../typechain/factories/AssetLimitHook__factory";
 import { AMMSplitter__factory } from "../../typechain/factories/AMMSplitter__factory";
-import { Address } from "@utils/types";
+import { LeverageTokenExchangeIssuance__factory  } from "../../typechain/factories/LeverageTokenExchangeIssuance__factory";
 
 export default class DeployProduct {
   private _deployerSigner: Signer;
@@ -44,5 +46,21 @@ export default class DeployProduct {
     sushiFactory: Address
   ): Promise<AMMSplitter> {
     return await new AMMSplitter__factory(this._deployerSigner).deploy(uniRouter, sushiRouter, uniFactory, sushiFactory);
+  }
+
+  public async deployLeverageTokenExchangeIssuance(
+    _debtIssuanceModule: Address,
+    _compLeverageModule: Address,
+    _aaveLeverageModule: Address,
+    _cEth: Address,
+    _weth: Address
+  ): Promise<LeverageTokenExchangeIssuance> {
+    return await new LeverageTokenExchangeIssuance__factory(this._deployerSigner).deploy(
+      _debtIssuanceModule,
+      _compLeverageModule,
+      _aaveLeverageModule,
+      _cEth,
+      _weth
+    );
   }
 }

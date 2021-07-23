@@ -38,4 +38,14 @@ interface IDebtIssuanceModule {
      * in case checks need to be made or state needs to be cleared.
      */
     function unregisterFromIssuanceModule(ISetToken _setToken) external;
+
+    function getRequiredComponentIssuanceUnits(
+        ISetToken _setToken,
+        uint256 _quantity
+    )
+        external
+        view
+        returns (address[] memory, uint256[] memory, uint256[] memory);
+
+    function issue(ISetToken _setToken, uint256 _quantity, address _to) external;
 }

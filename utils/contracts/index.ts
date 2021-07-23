@@ -103,3 +103,4 @@ export { YearnWrapAdapter } from "../../typechain/YearnWrapAdapter";
 export { YearnStrategyMock } from "../../typechain/YearnStrategyMock";
 export { ZeroExApiAdapter } from "../../typechain/ZeroExApiAdapter";
 export { ZeroExMock } from "../../typechain/ZeroExMock";
+export { LeverageTokenExchangeIssuance } from "../../typechain/LeverageTokenExchangeIssuance";
