@@ -98,6 +98,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         if (_inputToken != issueInfo.underlying) {
             uint256 inputNeeded = _inputRouter.getAmountsIn(preflashNeeded, _inputPath)[0];
             _inputToken.safeTransferFrom(msg.sender, address(this), inputNeeded);
+            _handleApproval(_inputToken, address(_inputRouter), inputNeeded);
             _inputRouter.swapTokensForExactTokens(preflashNeeded, _maxIn, _inputPath, address(this), PreciseUnitMath.MAX_UINT_256);
         } else {
             _inputToken.safeTransferFrom(msg.sender, address(this), preflashNeeded);
