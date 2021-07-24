@@ -2179,7 +2179,7 @@ describe("GeneralIndexModule", () => {
       });
     });
 
-    describe.only("#getComponentTradeQuantityAndDirection", async () => {
+    describe("#getComponentTradeQuantityAndDirection", async () => {
       let subjectComponent: Address;
 
       let feePercentage: BigNumber;
