@@ -4,6 +4,7 @@ import { Address } from "../types";
 
 import {
   AaveFixture,
+  AaveV2Fixture,
   BalancerFixture,
   CompoundFixture,
   CurveFixture,
@@ -21,6 +22,7 @@ export const getSystemFixture = (ownerAddress: Address) => new SystemFixture(pro
 export const getProtocolUtils = () => new ProtocolUtils(provider);
 export const getBlockchainUtils = () => new Blockchain(provider);
 export const getAaveFixture = (ownerAddress: Address) => new AaveFixture(provider, ownerAddress);
+export const getAaveV2Fixture = (ownerAdderss: Address) => new AaveV2Fixture(provider, ownerAdderss);
 export const getBalancerFixture = (ownerAddress: Address) => new BalancerFixture(provider, ownerAddress);
 export const getCurveFixture = (ownerAddress: Address) => new CurveFixture(provider, ownerAddress);
 export const getCompoundFixture = (ownerAddress: Address) => new CompoundFixture(provider, ownerAddress);

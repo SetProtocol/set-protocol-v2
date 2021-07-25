@@ -42,7 +42,8 @@ import {
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
   ZeroExMock,
-  YearnStrategyMock
+  YearnStrategyMock,
+  AaveV2Mock
 } from "../contracts";
 
 import { convertLibraryNameToLinkId, ether } from "../common";
@@ -88,6 +89,7 @@ import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__facto
 import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory";
 import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
 import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrategyMock__factory";
+import { AaveV2Mock__factory } from "../../typechain/factories/AaveV2Mock__factory";
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -249,6 +251,18 @@ export default class DeployMocks {
 
   public async deployAaveLendingPoolMock(aaveLendingPoolCore: Address): Promise<AaveLendingPoolMock> {
     return await new AaveLendingPoolMock__factory(this._deployerSigner).deploy(aaveLendingPoolCore);
+  }
+
+  public async deployAaveV2Mock(libraryName: string, libraryAddress: Address): Promise<AaveV2Mock> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+
+    return await new AaveV2Mock__factory(
+      // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
   }
 
   public async deployClaimAdapterMock(): Promise<ClaimAdapterMock> {
