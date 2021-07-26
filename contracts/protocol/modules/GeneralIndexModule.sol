@@ -576,7 +576,10 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         onlyValidAndInitializedSet(_setToken)
         returns (bool, uint256)
     {
-        require(_setToken.isComponent(address(_component)), "Component not recognized");
+        require(
+            rebalanceInfo[_setToken].rebalanceComponents.contains(address(_component)),
+            "Component not recognized"
+        );
         uint256 totalSupply = _setToken.totalSupply();
         return _calculateTradeSizeAndDirection(_setToken, _component, totalSupply);
     }

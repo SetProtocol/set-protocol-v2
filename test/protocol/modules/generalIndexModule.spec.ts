@@ -20,7 +20,8 @@ import {
   ether,
   preciseDiv,
   preciseMul,
-  preciseMulCeil
+  preciseMulCeil,
+  usdc
 } from "@utils/index";
 import {
   cacheBeforeEach,
@@ -2185,9 +2186,9 @@ describe("GeneralIndexModule", () => {
 
       before(async () => {
         // current units [ether(86.9565217), bitcoin(.01111111), ether(100), ZERO]
-        newComponents = [];
+        newComponents = [setup.usdc.address];
         oldTargetUnits = [ether("60.869565780223716593"), bitcoin(.02), ether(55)];
-        newTargetUnits = [];
+        newTargetUnits = [usdc(100)];
         issueAmount = ether("20.000000000000000001");
       });
 
@@ -2208,6 +2209,8 @@ describe("GeneralIndexModule", () => {
       };
 
       beforeEach(async () => {
+        await indexModule.setTradeMaximums(index.address, [setup.usdc.address], [usdc(3000)]);
+
         initializeSubjectVariables();
 
         await startRebalance();
@@ -2240,6 +2243,29 @@ describe("GeneralIndexModule", () => {
 
         expect(componentQuantity).to.eq(expectedDaiSize);
         expect(isSendTokenFixed).to.be.true;
+      });
+
+      describe("when the component is being added to the Set", async () => {
+        beforeEach(async () => {
+          subjectComponent = setup.usdc.address;
+        });
+
+        it("the correct trade direction and size should be returned", async () => {
+          const totalSupply = await subjectSetToken.totalSupply();
+          const currentUsdcUnit = await subjectSetToken.getDefaultPositionRealUnit(setup.usdc.address);
+          const expectedUsdcSize = preciseDiv(
+            preciseMulCeil(usdc(100), totalSupply).sub(preciseMul(currentUsdcUnit, totalSupply)),
+            PRECISE_UNIT.sub(feePercentage)
+          );
+
+          const [
+            isSendTokenFixed,
+            componentQuantity,
+          ] = await subject();
+
+          expect(componentQuantity).to.eq(expectedUsdcSize);
+          expect(isSendTokenFixed).to.be.false;
+        });
       });
 
       describe("and the buy component does not meet the max trade size", async () => {
@@ -2283,9 +2309,9 @@ describe("GeneralIndexModule", () => {
         });
       });
 
-      describe("when the component is not valid", async () => {
+      describe("when the component is not part of the rebalance", async () => {
         beforeEach(() => {
-          subjectComponent = ADDRESS_ZERO;
+          subjectComponent = setup.weth.address;
         });
 
         it("should revert", async () => {
