@@ -442,4 +442,139 @@ describe("LeverageTokenExchangeIssuance", () => {
       });
     });
   });
+
+  describe("#redeemExactInput", async () => {
+
+    let subjectCaller: Account;
+    let subjectSetToken: SetToken;
+    let subjectSetAmount: BigNumber;
+    let subjectMinOut: BigNumber;
+    let subjectOutputToken: Address;
+    let subjectOutputRouter: Address;
+    let subjectOutputPath: Address[];
+    let subjectDebtRouter: Address;
+    let subjectDebtPath: Address[];
+
+    beforeEach(async () => {
+
+      subjectCaller = user;
+      subjectSetToken = setToken;
+      subjectSetAmount = ether(1);
+      subjectMinOut = ZERO;
+      subjectOutputToken = setV2Setup.weth.address;
+      subjectOutputRouter = uniswapSetup.router.address;
+      subjectOutputPath = [];
+      subjectDebtRouter = uniswapSetup.router.address;
+      subjectDebtPath = [setV2Setup.weth.address, setV2Setup.usdc.address];
+
+      // prep trader
+      await subjectSetToken.transfer(subjectCaller.address, subjectSetAmount);
+      await subjectSetToken.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
+
+      // add funds to flash loan mock
+      await setV2Setup.usdc.transfer(flashLoanMock.address, usdc(100000));
+    });
+
+    async function subject(): Promise<void> {
+      await leverageExchangeIssuance.connect(subjectCaller.wallet).redeemExactInput(
+        subjectSetToken.address,
+        subjectSetAmount,
+        subjectMinOut,
+        subjectOutputToken,
+        subjectOutputRouter,
+        subjectOutputPath,
+        subjectDebtRouter,
+        subjectDebtPath
+      );
+    }
+
+    it("it should redeem the correct amount of SetTokens", async () => {
+      const initBalance = await setToken.balanceOf(subjectCaller.address);
+      await subject();
+      const finalBalance = await setToken.balanceOf(subjectCaller.address);
+
+      expect(initBalance.sub(finalBalance)).to.eq(subjectSetAmount);
+    });
+
+    it("it should not leave any dust in the contract", async () => {
+      await subject();
+
+      const finalCEtherBalance = await cEther.balanceOf(leverageExchangeIssuance.address);
+      const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
+      const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+
+      expect(finalCEtherBalance).to.eq(ZERO);
+      expect(finalWethBalance).to.eq(ZERO);
+      expect(finalUsdcBalance).to.eq(ZERO);
+    });
+
+    // context("when issuing a set token with a cErc20 collateral", async () => {
+    //   beforeEach(async () => {
+    //     subjectSetToken = setTokenWbtc;
+    //     subjectInputToken = setV2Setup.wbtc.address;
+    //     subjectDebtPath = [setV2Setup.usdc.address, setV2Setup.weth.address, setV2Setup.wbtc.address];
+
+    //     // prep trader
+    //     await setV2Setup.wbtc.transfer(subjectCaller.address, bitcoin(1000));
+    //     await setV2Setup.wbtc.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
+
+    //     // add funds to flash loan mock
+    //     await setV2Setup.wbtc.transfer(flashLoanMock.address, bitcoin(1000));
+    //   });
+
+    //   it("it should issue the correct amount of SetTokens", async () => {
+    //     const initBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
+    //     await subject();
+    //     const finalBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
+
+    //     expect(finalBalance.sub(initBalance)).to.eq(subjectSetAmount);
+    //   });
+
+    //   it("it should not leave any dust in the contract", async () => {
+    //     await subject();
+
+    //     const finalCWBTCBalance = await cWBTC.balanceOf(leverageExchangeIssuance.address);
+    //     const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
+    //     const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+
+    //     expect(finalCWBTCBalance).to.eq(ZERO);
+    //     expect(finalWethBalance).to.eq(ZERO);
+    //     expect(finalUsdcBalance).to.eq(ZERO);
+    //   });
+    // });
+
+    // context("when input token is not collateral underlying", async () => {
+    //   beforeEach(async () => {
+    //     subjectInputToken = setV2Setup.dai.address;
+    //     subjectInputRouter = uniswapSetup.router.address;
+    //     subjectInputPath = [setV2Setup.dai.address, setV2Setup.weth.address];
+
+    //     // prep trader
+    //     await setV2Setup.dai.transfer(subjectCaller.address, ether(200000));
+    //     await setV2Setup.dai.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
+    //   });
+
+    //   it("it should issue the correct amount of SetTokens", async () => {
+    //     const initBalance = await setToken.balanceOf(subjectCaller.address);
+    //     await subject();
+    //     const finalBalance = await setToken.balanceOf(subjectCaller.address);
+
+    //     expect(finalBalance.sub(initBalance)).to.eq(subjectSetAmount);
+    //   });
+
+    //   it("it should not leave any dust in the contract", async () => {
+    //     await subject();
+
+    //     const finalCEtherBalance = await cEther.balanceOf(leverageExchangeIssuance.address);
+    //     const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
+    //     const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+    //     const finalDaiBalance = await setV2Setup.dai.balanceOf(leverageExchangeIssuance.address);
+
+    //     expect(finalCEtherBalance).to.eq(ZERO);
+    //     expect(finalWethBalance).to.eq(ZERO);
+    //     expect(finalUsdcBalance).to.eq(ZERO);
+    //     expect(finalDaiBalance).to.eq(ZERO);
+    //   });
+    // });
+  });
 });

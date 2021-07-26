@@ -25,17 +25,18 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
 
     /* =========== ENUMS ============ */
 
-    enum TradeType { EXACT_OUTPUT_ISSUE }
+    enum TradeType { EXACT_OUTPUT_ISSUE, EXACT_INPUT_REDEEM }
 
     /* =========== Structs =========== */
 
-    struct IssueInfo {
+    struct ActionInfo {
         IERC20 underlying;              // the underlying token
         address collateralToken;        // the collateral token used to represent ownership of the underlying token
+        IERC20 debtToken;               // the debt token being borrowed by the leveraged product
         address entryContract;          // the smart contract used to interact with the lending marker
         bool isCompound;                // whether the collateral is on Compound or Aave
         uint256 collateralAmount;       // amount of collateral tokens per set
-        uint256 debtAmount;           // refund side per set
+        uint256 debtAmount;             // refund amount per set
         IUniswapV2Router debtRouter;
         address[] debtPath;
     }
@@ -73,6 +74,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
 
     fallback() external payable {}
 
+    // TODO: check that input cost < 
     function issueExactOutput(
         ISetToken _setToken,
         uint256 _amountOut,
@@ -86,26 +88,53 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         external
         returns (uint256)
     {
-        IssueInfo memory issueInfo = _getIssueInfo(_setToken, _debtRouter, _debtPath);
+        ActionInfo memory actionInfo = _getActionInfo(_setToken, _debtRouter, _debtPath, true);
 
-        uint256 underlyingNeeded = _getUnderlyingNeededForExactOutput(_amountOut, issueInfo);
+        uint256 underlyingNeeded = _getUnderlyingNeededForExactOutput(_amountOut, actionInfo);
         
-        uint256 flashLoanAmount = _debtRouter.getAmountsOut(_amountOut.preciseMul(issueInfo.debtAmount), _debtPath)[_debtPath.length.sub(1)];
+        uint256 flashLoanAmount = _debtRouter.getAmountsOut(_amountOut.preciseMul(actionInfo.debtAmount), _debtPath)[_debtPath.length.sub(1)];
         flashLoanAmount = flashLoanAmount.preciseDivCeil(1.0009 ether);
         
         uint256 preflashNeeded = underlyingNeeded.sub(flashLoanAmount);
         
-        if (_inputToken != issueInfo.underlying) {
+        if (_inputToken != actionInfo.underlying) {
             uint256 inputNeeded = _inputRouter.getAmountsIn(preflashNeeded, _inputPath)[0];
             _inputToken.safeTransferFrom(msg.sender, address(this), inputNeeded);
             _handleApproval(_inputToken, address(_inputRouter), inputNeeded);
             _inputRouter.swapTokensForExactTokens(preflashNeeded, _maxIn, _inputPath, address(this), PreciseUnitMath.MAX_UINT_256);
         } else {
+            require(preflashNeeded <= _maxIn);
             _inputToken.safeTransferFrom(msg.sender, address(this), preflashNeeded);
         }
 
-        bytes memory flashLoanParams = abi.encode(_setToken, TradeType.EXACT_OUTPUT_ISSUE, issueInfo, _amountOut, msg.sender);
-        _flashLoan(issueInfo.underlying, flashLoanAmount, flashLoanParams);
+        bytes memory flashLoanParams = abi.encode(_setToken, TradeType.EXACT_OUTPUT_ISSUE, actionInfo, _amountOut, msg.sender);
+        _flashLoan(actionInfo.underlying, flashLoanAmount, flashLoanParams);
+
+        // TODO: return input amount
+    }
+
+    function redeemExactInput(
+        ISetToken _setToken,
+        uint256 _amountIn,
+        uint256 _minOut,
+        IERC20 _outputToken,
+        IUniswapV2Router _outputRouter,
+        address[] memory _outputPath,
+        IUniswapV2Router _debtRouter,
+        address[] memory _debtPath
+    )
+        external
+        returns (uint256)
+    {
+        _setToken.transferFrom(msg.sender, address(this), _amountIn);
+
+        ActionInfo memory actionInfo = _getActionInfo(_setToken, _debtRouter, _debtPath, false);
+        uint256 debtNeeded = actionInfo.debtAmount.preciseMul(_amountIn);
+
+        bytes memory flashLoanParams = abi.encode(_setToken, TradeType.EXACT_INPUT_REDEEM, actionInfo, _amountIn, msg.sender);
+        _flashLoan(actionInfo.debtToken, debtNeeded, flashLoanParams);
+
+        
     }
 
     function executeOperation(
@@ -119,11 +148,13 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         override
         returns (bool)
     {
-        (ISetToken setToken, TradeType tradeType, IssueInfo memory issueInfo, uint256 amount, address recipient) = 
-            abi.decode(_params, (ISetToken, TradeType, IssueInfo, uint256, address));
+        (ISetToken setToken, TradeType tradeType, ActionInfo memory actionInfo, uint256 amount, address recipient) = 
+            abi.decode(_params, (ISetToken, TradeType, ActionInfo, uint256, address));
 
         if (tradeType == TradeType.EXACT_OUTPUT_ISSUE) {
-            _completeIssueExactOutput(setToken, issueInfo, amount, recipient);
+            _completeIssueExactOutput(setToken, actionInfo, amount, recipient);
+        } else if (tradeType == TradeType.EXACT_INPUT_REDEEM) {
+            _completeRedeemExactInput(setToken, actionInfo, amount, recipient);
         }
     }
 
@@ -143,48 +174,98 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         aaveLendingPool.flashLoan(address(this), underlyings, amounts, modes, address(this), _params, 0);
     }
 
-    function _completeIssueExactOutput(ISetToken _setToken, IssueInfo memory _issueInfo, uint256 _amount, address _recipient) internal {
+    function _completeIssueExactOutput(ISetToken _setToken, ActionInfo memory _actionInfo, uint256 _amount, address _recipient) internal {
 
-        uint256 wrappedCollateralAmount = _wrapCollateral(_issueInfo);
+        uint256 wrappedCollateralAmount = _wrapCollateral(_actionInfo);
 
-        _handleApproval(IERC20(_issueInfo.collateralToken), address(debtIssuanceModule), wrappedCollateralAmount);
+        _handleApproval(IERC20(_actionInfo.collateralToken), address(debtIssuanceModule), wrappedCollateralAmount);
         debtIssuanceModule.issue(_setToken, _amount, _recipient);
 
-        uint256 totalDebt = _issueInfo.debtAmount.preciseMul(_amount);
+        uint256 totalDebt = _actionInfo.debtAmount.preciseMul(_amount);
 
-        _handleApproval(IERC20(_issueInfo.debtPath[0]), address(_issueInfo.debtRouter), totalDebt);
-        uint256 output = _issueInfo.debtRouter.swapExactTokensForTokens(
+        _handleApproval(IERC20(_actionInfo.debtPath[0]), address(_actionInfo.debtRouter), totalDebt);
+        uint256 output = _actionInfo.debtRouter.swapExactTokensForTokens(
             totalDebt,
             0,
-            _issueInfo.debtPath,
+            _actionInfo.debtPath,
             address(this),
             PreciseUnitMath.MAX_UINT_256
-        )[_issueInfo.debtPath.length.sub(1)];
+        )[_actionInfo.debtPath.length.sub(1)];
 
-        _handleApproval(_issueInfo.underlying, address(aaveLendingPool), output);
+        _handleApproval(_actionInfo.underlying, address(aaveLendingPool), output);
     }
 
-    function _wrapCollateral(IssueInfo memory _issueInfo) internal returns (uint256) {
-        if (_issueInfo.isCompound) {
-            return _wrapCompound(_issueInfo);
+    function _completeRedeemExactInput(ISetToken _setToken, ActionInfo memory _actionInfo, uint256 _amount, address _recipient) internal {
+        
+        uint256 debtNeeded = _actionInfo.debtAmount.preciseMul(_amount);
+        
+        _handleApproval(_actionInfo.debtToken, address(debtIssuanceModule), debtNeeded);
+        _handleApproval(_setToken, address(debtIssuanceModule), _amount);
+
+        debtIssuanceModule.redeem(_setToken, _amount, address(this));
+
+        _unrwapCollateral(_actionInfo);
+
+        uint256 debtOwed = debtNeeded.preciseMul(1.0009 ether);
+        uint256 collateralRepaymentAmount = _actionInfo.debtRouter.getAmountsIn(debtOwed, _actionInfo.debtPath)[0];
+        _handleApproval(_actionInfo.underlying, address(_actionInfo.debtRouter), collateralRepaymentAmount);
+
+        _actionInfo.debtRouter.swapTokensForExactTokens(
+            debtOwed,
+            PreciseUnitMath.MAX_UINT_256,
+            _actionInfo.debtPath,
+            address(this),
+            PreciseUnitMath.MAX_UINT_256
+        );
+
+        _handleApproval(_actionInfo.debtToken, address(aaveLendingPool), debtOwed);
+
+        uint256 underlyingLeft = IERC20(_actionInfo.underlying).balanceOf(address(this));
+        IERC20(_actionInfo.underlying).transfer(_recipient, underlyingLeft);
+    }
+
+    function _wrapCollateral(ActionInfo memory _actionInfo) internal returns (uint256) {
+        if (_actionInfo.isCompound) {
+            return _wrapCompound(_actionInfo);
         } else {
             // TODO: implement Aave wrapping
             revert("not implemented");
         }
     }
 
-    function _wrapCompound(IssueInfo memory _issueInfo) internal returns (uint256) {
-        if (address(_issueInfo.collateralToken) == address(cEth)) {
+    function _unrwapCollateral(ActionInfo memory _actionInfo) internal returns (uint256) {
+        if (_actionInfo.isCompound) {
+            return _unwrapCompound(_actionInfo);
+        } else {
+            // TODO: implement Aave unwrapping
+            revert("not implemented");
+        }
+    }
+
+    function _wrapCompound(ActionInfo memory _actionInfo) internal returns (uint256) {
+        if (address(_actionInfo.collateralToken) == address(cEth)) {
             uint256 wethBalance = weth.balanceOf(address(this));
             weth.withdraw(wethBalance);
             cEth.mint{ value: wethBalance }();
             return cEth.balanceOf(address(this));
         } else {
-            uint256 underlyingBalance = _issueInfo.underlying.balanceOf(address(this));
-            _handleApproval(_issueInfo.underlying, _issueInfo.collateralToken, underlyingBalance);
-            ICErc20(_issueInfo.collateralToken).mint(underlyingBalance);
-            return IERC20(_issueInfo.collateralToken).balanceOf(address(this));
+            uint256 underlyingBalance = _actionInfo.underlying.balanceOf(address(this));
+            _handleApproval(_actionInfo.underlying, _actionInfo.collateralToken, underlyingBalance);
+            ICErc20(_actionInfo.collateralToken).mint(underlyingBalance);
+            return IERC20(_actionInfo.collateralToken).balanceOf(address(this));
         }
+    }
+
+    function _unwrapCompound(ActionInfo memory _actionInfo) internal returns (uint256) {
+
+        uint256 collateralBalance = IERC20(_actionInfo.collateralToken).balanceOf(address(this));
+        ICErc20(_actionInfo.collateralToken).redeem(collateralBalance);
+
+        if (address(_actionInfo.underlying) == address(weth)) {
+            weth.deposit{value: address(this).balance}();
+        }
+
+        return _actionInfo.underlying.balanceOf(address(this));
     }
 
     function _handleApproval(IERC20 _token, address _spender, uint256 _amount) internal {
@@ -199,63 +280,67 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         return compLeverageModule;
     }
 
-    function _getIssueInfo(
+    function _getActionInfo(
         ISetToken _setToken,
         IUniswapV2Router _debtRouter,
-        address[] memory _debtPath
+        address[] memory _debtPath,
+        bool _isIssue
     )
         internal
-        returns (IssueInfo memory issueInfo)
+        returns (ActionInfo memory actionInfo)
     {
 
         // TODO: fix this
-        issueInfo.isCompound = true;
+        actionInfo.isCompound = true;
 
-        issueInfo.debtRouter = _debtRouter;
-        issueInfo.debtPath = _debtPath;
+        actionInfo.debtRouter = _debtRouter;
+        actionInfo.debtPath = _debtPath;
 
-        if (issueInfo.isCompound) {
+        if (actionInfo.isCompound) {
             compLeverageModule.sync(_setToken, true);
         } else {
             aaveLeverageModule.sync(_setToken, true);
         }
 
-        (address[] memory tokens ,uint256[] memory collateralAmounts, uint256[] memory debtAmounts) = 
-            debtIssuanceModule.getRequiredComponentIssuanceUnits(_setToken, 1 ether);
+        (address[] memory tokens ,uint256[] memory collateralAmounts, uint256[] memory debtAmounts) = _isIssue ? 
+            debtIssuanceModule.getRequiredComponentIssuanceUnits(_setToken, 1 ether) :
+            debtIssuanceModule.getRequiredComponentRedemptionUnits(_setToken, 1 ether);
 
         if (collateralAmounts[0] == 0) {
-            issueInfo.collateralToken = tokens[1];
-            issueInfo.collateralAmount = collateralAmounts[1];
-            issueInfo.debtAmount = debtAmounts[0];
+            actionInfo.collateralToken = tokens[1];
+            actionInfo.collateralAmount = collateralAmounts[1];
+            actionInfo.debtToken = IERC20(tokens[0]);
+            actionInfo.debtAmount = debtAmounts[0];
         } else {
-            issueInfo.collateralToken = tokens[0];
-            issueInfo.collateralAmount = collateralAmounts[0];
-            issueInfo.debtAmount = debtAmounts[1];
+            actionInfo.collateralToken = tokens[0];
+            actionInfo.collateralAmount = collateralAmounts[0];
+            actionInfo.debtToken = IERC20(tokens[1]);
+            actionInfo.debtAmount = debtAmounts[1];
         }
 
-        if (issueInfo.collateralToken == address(cEth)) {
-            issueInfo.underlying = weth;
+        if (actionInfo.collateralToken == address(cEth)) {
+            actionInfo.underlying = weth;
         } else {
-            issueInfo.underlying = IERC20(ICErc20(issueInfo.collateralToken).underlying());
+            actionInfo.underlying = IERC20(ICErc20(actionInfo.collateralToken).underlying());
         }
     }
 
     function _getUnderlyingNeededForExactOutput(
         uint256 _quantity,
-        IssueInfo memory _issueInfo
+        ActionInfo memory _actionInfo
     )
         internal
         returns (uint256)
     {
-        return _getUnderlyingAmount(_quantity, _issueInfo);
+        return _getUnderlyingAmount(_quantity, _actionInfo);
     }
 
-    function _getUnderlyingAmount(uint256 _setQuantity, IssueInfo memory _issueInfo) internal returns (uint256) {
+    function _getUnderlyingAmount(uint256 _setQuantity, ActionInfo memory _actionInfo) internal returns (uint256) {
 
-        uint256 collateralAmount = _issueInfo.collateralAmount.preciseMul(_setQuantity);
+        uint256 collateralAmount = _actionInfo.collateralAmount.preciseMul(_setQuantity);
 
-        if (_issueInfo.isCompound) {
-            uint256 exchangeRate = ICErc20(_issueInfo.collateralToken).exchangeRateCurrent();
+        if (_actionInfo.isCompound) {
+            uint256 exchangeRate = ICErc20(_actionInfo.collateralToken).exchangeRateCurrent();
             return collateralAmount.preciseMulCeil(exchangeRate);
         } else {
             return collateralAmount;

@@ -47,5 +47,15 @@ interface IDebtIssuanceModule {
         view
         returns (address[] memory, uint256[] memory, uint256[] memory);
 
+    function getRequiredComponentRedemptionUnits(
+        ISetToken _setToken,
+        uint256 _quantity
+    )
+        external
+        view
+        returns (address[] memory, uint256[] memory, uint256[] memory);
+
     function issue(ISetToken _setToken, uint256 _quantity, address _to) external;
+
+    function redeem(ISetToken _setToken, uint256 _quantity, address _to) external;
 }
