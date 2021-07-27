@@ -408,7 +408,7 @@ describe("LeverageTokenExchangeIssuance", () => {
       });
     });
 
-    context("when input token is not collateral underlying", async () => {
+    context("when input token is not the collateral underlying", async () => {
       beforeEach(async () => {
         subjectInputToken = setV2Setup.dai.address;
         subjectInputRouter = uniswapSetup.router.address;
@@ -543,38 +543,38 @@ describe("LeverageTokenExchangeIssuance", () => {
       });
     });
 
-    // context("when input token is not collateral underlying", async () => {
-    //   beforeEach(async () => {
-    //     subjectInputToken = setV2Setup.dai.address;
-    //     subjectInputRouter = uniswapSetup.router.address;
-    //     subjectInputPath = [setV2Setup.dai.address, setV2Setup.weth.address];
+    context("when output token is not the collateral underlying", async () => {
+      beforeEach(async () => {
+        subjectOutputToken = setV2Setup.dai.address;
+        subjectOutputRouter = uniswapSetup.router.address;
+        subjectOutputPath = [setV2Setup.weth.address, setV2Setup.dai.address];
 
-    //     // prep trader
-    //     await setV2Setup.dai.transfer(subjectCaller.address, ether(200000));
-    //     await setV2Setup.dai.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
-    //   });
+        // prep trader
+        await setV2Setup.dai.transfer(subjectCaller.address, ether(200000));
+        await setV2Setup.dai.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
+      });
 
-    //   it("it should issue the correct amount of SetTokens", async () => {
-    //     const initBalance = await setToken.balanceOf(subjectCaller.address);
-    //     await subject();
-    //     const finalBalance = await setToken.balanceOf(subjectCaller.address);
+      it("it should redeem the correct amount of SetTokens", async () => {
+        const initBalance = await setToken.balanceOf(subjectCaller.address);
+        await subject();
+        const finalBalance = await setToken.balanceOf(subjectCaller.address);
 
-    //     expect(finalBalance.sub(initBalance)).to.eq(subjectSetAmount);
-    //   });
+        expect(initBalance.sub(finalBalance)).to.eq(subjectSetAmount);
+      });
 
-    //   it("it should not leave any dust in the contract", async () => {
-    //     await subject();
+      it("it should not leave any dust in the contract", async () => {
+        await subject();
 
-    //     const finalCEtherBalance = await cEther.balanceOf(leverageExchangeIssuance.address);
-    //     const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
-    //     const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
-    //     const finalDaiBalance = await setV2Setup.dai.balanceOf(leverageExchangeIssuance.address);
+        const finalCEtherBalance = await cEther.balanceOf(leverageExchangeIssuance.address);
+        const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
+        const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+        const finalDaiBalance = await setV2Setup.dai.balanceOf(leverageExchangeIssuance.address);
 
-    //     expect(finalCEtherBalance).to.eq(ZERO);
-    //     expect(finalWethBalance).to.eq(ZERO);
-    //     expect(finalUsdcBalance).to.eq(ZERO);
-    //     expect(finalDaiBalance).to.eq(ZERO);
-    //   });
-    // });
+        expect(finalCEtherBalance).to.eq(ZERO);
+        expect(finalWethBalance).to.eq(ZERO);
+        expect(finalUsdcBalance).to.eq(ZERO);
+        expect(finalDaiBalance).to.eq(ZERO);
+      });
+    });
   });
 });

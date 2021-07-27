@@ -103,7 +103,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
             _handleApproval(_inputToken, address(_inputRouter), inputNeeded);
             _inputRouter.swapTokensForExactTokens(preflashNeeded, _maxIn, _inputPath, address(this), PreciseUnitMath.MAX_UINT_256);
         } else {
-            require(preflashNeeded <= _maxIn);
+            require(preflashNeeded <= _maxIn, "EXCESSIVE_INPUT_AMOUNT");
             _inputToken.safeTransferFrom(msg.sender, address(this), preflashNeeded);
         }
 
@@ -134,7 +134,17 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         bytes memory flashLoanParams = abi.encode(_setToken, TradeType.EXACT_INPUT_REDEEM, actionInfo, _amountIn, msg.sender);
         _flashLoan(actionInfo.debtToken, debtNeeded, flashLoanParams);
 
-        
+        uint256 underlyingLeft = IERC20(actionInfo.underlying).balanceOf(address(this));
+
+        if (address(_outputToken) == address(actionInfo.underlying)) {
+            require(underlyingLeft >= _minOut, "INSUFFICIENT_OUTPUT_AMOUNT");
+            IERC20(actionInfo.underlying).transfer(msg.sender, underlyingLeft);
+        } else {
+            _handleApproval(actionInfo.underlying, address(_outputRouter), underlyingLeft);
+            _outputRouter.swapExactTokensForTokens(underlyingLeft, _minOut, _outputPath, msg.sender, PreciseUnitMath.MAX_UINT_256);
+        }
+
+        // TODO: return output amount
     }
 
     function executeOperation(
@@ -154,7 +164,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         if (tradeType == TradeType.EXACT_OUTPUT_ISSUE) {
             _completeIssueExactOutput(setToken, actionInfo, amount, recipient);
         } else if (tradeType == TradeType.EXACT_INPUT_REDEEM) {
-            _completeRedeemExactInput(setToken, actionInfo, amount, recipient);
+            _completeRedeemExactInput(setToken, actionInfo, amount);
         }
     }
 
@@ -195,7 +205,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         _handleApproval(_actionInfo.underlying, address(aaveLendingPool), output);
     }
 
-    function _completeRedeemExactInput(ISetToken _setToken, ActionInfo memory _actionInfo, uint256 _amount, address _recipient) internal {
+    function _completeRedeemExactInput(ISetToken _setToken, ActionInfo memory _actionInfo, uint256 _amount) internal {
         
         uint256 debtNeeded = _actionInfo.debtAmount.preciseMul(_amount);
         
@@ -219,9 +229,6 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         );
 
         _handleApproval(_actionInfo.debtToken, address(aaveLendingPool), debtOwed);
-
-        uint256 underlyingLeft = IERC20(_actionInfo.underlying).balanceOf(address(this));
-        IERC20(_actionInfo.underlying).transfer(_recipient, underlyingLeft);
     }
 
     function _wrapCollateral(ActionInfo memory _actionInfo) internal returns (uint256) {
