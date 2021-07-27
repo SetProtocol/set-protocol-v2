@@ -508,40 +508,40 @@ describe("LeverageTokenExchangeIssuance", () => {
       expect(finalUsdcBalance).to.eq(ZERO);
     });
 
-    // context("when issuing a set token with a cErc20 collateral", async () => {
-    //   beforeEach(async () => {
-    //     subjectSetToken = setTokenWbtc;
-    //     subjectInputToken = setV2Setup.wbtc.address;
-    //     subjectDebtPath = [setV2Setup.usdc.address, setV2Setup.weth.address, setV2Setup.wbtc.address];
+    context("when redeeming a set token with a cErc20 collateral", async () => {
+      beforeEach(async () => {
+        subjectSetToken = setTokenWbtc;
+        subjectOutputToken = setV2Setup.wbtc.address;
+        subjectDebtPath = [setV2Setup.wbtc.address, setV2Setup.weth.address, setV2Setup.usdc.address];
 
-    //     // prep trader
-    //     await setV2Setup.wbtc.transfer(subjectCaller.address, bitcoin(1000));
-    //     await setV2Setup.wbtc.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
+        // prep trader
+        await setTokenWbtc.transfer(subjectCaller.address, ether(1));
+        await setTokenWbtc.connect(subjectCaller.wallet).approve(leverageExchangeIssuance.address, MAX_UINT_256);
 
-    //     // add funds to flash loan mock
-    //     await setV2Setup.wbtc.transfer(flashLoanMock.address, bitcoin(1000));
-    //   });
+        // add funds to flash loan mock
+        await setV2Setup.usdc.transfer(flashLoanMock.address, usdc(10000));
+      });
 
-    //   it("it should issue the correct amount of SetTokens", async () => {
-    //     const initBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
-    //     await subject();
-    //     const finalBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
+      it("it should redeem the correct amount of SetTokens", async () => {
+        const initBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
+        await subject();
+        const finalBalance = await setTokenWbtc.balanceOf(subjectCaller.address);
 
-    //     expect(finalBalance.sub(initBalance)).to.eq(subjectSetAmount);
-    //   });
+        expect(initBalance.sub(finalBalance)).to.eq(subjectSetAmount);
+      });
 
-    //   it("it should not leave any dust in the contract", async () => {
-    //     await subject();
+      it("it should not leave any dust in the contract", async () => {
+        await subject();
 
-    //     const finalCWBTCBalance = await cWBTC.balanceOf(leverageExchangeIssuance.address);
-    //     const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
-    //     const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+        const finalCWBTCBalance = await cWBTC.balanceOf(leverageExchangeIssuance.address);
+        const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
+        const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
 
-    //     expect(finalCWBTCBalance).to.eq(ZERO);
-    //     expect(finalWethBalance).to.eq(ZERO);
-    //     expect(finalUsdcBalance).to.eq(ZERO);
-    //   });
-    // });
+        expect(finalCWBTCBalance).to.eq(ZERO);
+        expect(finalWethBalance).to.eq(ZERO);
+        expect(finalUsdcBalance).to.eq(ZERO);
+      });
+    });
 
     // context("when input token is not collateral underlying", async () => {
     //   beforeEach(async () => {
