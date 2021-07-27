@@ -367,10 +367,12 @@ describe("LeverageTokenExchangeIssuance", () => {
       const finalCEtherBalance = await cEther.balanceOf(leverageExchangeIssuance.address);
       const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
       const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+      const finalSetBalance = await subjectSetToken.balanceOf(leverageExchangeIssuance.address);
 
       expect(finalCEtherBalance).to.eq(ZERO);
       expect(finalWethBalance).to.eq(ZERO);
       expect(finalUsdcBalance).to.eq(ZERO);
+      expect(finalSetBalance).to.eq(ZERO);
     });
 
     context("when issuing a set token with a cErc20 collateral", async () => {
@@ -401,10 +403,12 @@ describe("LeverageTokenExchangeIssuance", () => {
         const finalCWBTCBalance = await cWBTC.balanceOf(leverageExchangeIssuance.address);
         const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
         const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+        const finalSetBalance = await subjectSetToken.balanceOf(leverageExchangeIssuance.address);
 
         expect(finalCWBTCBalance).to.eq(ZERO);
         expect(finalWethBalance).to.eq(ZERO);
         expect(finalUsdcBalance).to.eq(ZERO);
+        expect(finalSetBalance).to.eq(ZERO);
       });
     });
 
@@ -434,11 +438,13 @@ describe("LeverageTokenExchangeIssuance", () => {
         const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
         const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
         const finalDaiBalance = await setV2Setup.dai.balanceOf(leverageExchangeIssuance.address);
+        const finalSetBalance = await subjectSetToken.balanceOf(leverageExchangeIssuance.address);
 
         expect(finalCEtherBalance).to.eq(ZERO);
         expect(finalWethBalance).to.eq(ZERO);
         expect(finalUsdcBalance).to.eq(ZERO);
         expect(finalDaiBalance).to.eq(ZERO);
+        expect(finalSetBalance).to.eq(ZERO);
       });
     });
   });
@@ -502,10 +508,12 @@ describe("LeverageTokenExchangeIssuance", () => {
       const finalCEtherBalance = await cEther.balanceOf(leverageExchangeIssuance.address);
       const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
       const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+      const finalSetBalance = await subjectSetToken.balanceOf(leverageExchangeIssuance.address);
 
       expect(finalCEtherBalance).to.eq(ZERO);
       expect(finalWethBalance).to.eq(ZERO);
       expect(finalUsdcBalance).to.eq(ZERO);
+      expect(finalSetBalance).to.eq(ZERO);
     });
 
     context("when redeeming a set token with a cErc20 collateral", async () => {
@@ -536,10 +544,12 @@ describe("LeverageTokenExchangeIssuance", () => {
         const finalCWBTCBalance = await cWBTC.balanceOf(leverageExchangeIssuance.address);
         const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
         const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
+        const finalSetBalance = await subjectSetToken.balanceOf(leverageExchangeIssuance.address);
 
         expect(finalCWBTCBalance).to.eq(ZERO);
         expect(finalWethBalance).to.eq(ZERO);
         expect(finalUsdcBalance).to.eq(ZERO);
+        expect(finalSetBalance).to.eq(ZERO);
       });
     });
 
@@ -569,11 +579,13 @@ describe("LeverageTokenExchangeIssuance", () => {
         const finalWethBalance = await setV2Setup.weth.balanceOf(leverageExchangeIssuance.address);
         const finalUsdcBalance = await setV2Setup.usdc.balanceOf(leverageExchangeIssuance.address);
         const finalDaiBalance = await setV2Setup.dai.balanceOf(leverageExchangeIssuance.address);
+        const finalSetBalance = await subjectSetToken.balanceOf(leverageExchangeIssuance.address);
 
         expect(finalCEtherBalance).to.eq(ZERO);
         expect(finalWethBalance).to.eq(ZERO);
         expect(finalUsdcBalance).to.eq(ZERO);
         expect(finalDaiBalance).to.eq(ZERO);
+        expect(finalSetBalance).to.eq(ZERO);
       });
     });
   });

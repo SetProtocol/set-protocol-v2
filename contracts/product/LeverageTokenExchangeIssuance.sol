@@ -74,7 +74,6 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
 
     fallback() external payable {}
 
-    // TODO: check that input cost < 
     function issueExactOutput(
         ISetToken _setToken,
         uint256 _amountOut,
@@ -96,9 +95,11 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         flashLoanAmount = flashLoanAmount.preciseDivCeil(1.0009 ether);
         
         uint256 preflashNeeded = underlyingNeeded.sub(flashLoanAmount);
-        
+
+        uint256 inputNeeded = preflashNeeded;
+
         if (_inputToken != actionInfo.underlying) {
-            uint256 inputNeeded = _inputRouter.getAmountsIn(preflashNeeded, _inputPath)[0];
+            inputNeeded = _inputRouter.getAmountsIn(preflashNeeded, _inputPath)[0];
             _inputToken.safeTransferFrom(msg.sender, address(this), inputNeeded);
             _handleApproval(_inputToken, address(_inputRouter), inputNeeded);
             _inputRouter.swapTokensForExactTokens(preflashNeeded, _maxIn, _inputPath, address(this), PreciseUnitMath.MAX_UINT_256);
@@ -110,7 +111,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         bytes memory flashLoanParams = abi.encode(_setToken, TradeType.EXACT_OUTPUT_ISSUE, actionInfo, _amountOut, msg.sender);
         _flashLoan(actionInfo.underlying, flashLoanAmount, flashLoanParams);
 
-        // TODO: return input amount
+        return inputNeeded;
     }
 
     function redeemExactInput(
@@ -139,19 +140,24 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         if (address(_outputToken) == address(actionInfo.underlying)) {
             require(underlyingLeft >= _minOut, "INSUFFICIENT_OUTPUT_AMOUNT");
             IERC20(actionInfo.underlying).transfer(msg.sender, underlyingLeft);
+            return underlyingLeft;
         } else {
             _handleApproval(actionInfo.underlying, address(_outputRouter), underlyingLeft);
-            _outputRouter.swapExactTokensForTokens(underlyingLeft, _minOut, _outputPath, msg.sender, PreciseUnitMath.MAX_UINT_256);
+            return _outputRouter.swapExactTokensForTokens(
+                underlyingLeft,
+                _minOut,
+                _outputPath,
+                msg.sender,
+                PreciseUnitMath.MAX_UINT_256
+            )[_outputPath.length.sub(1)];
         }
-
-        // TODO: return output amount
     }
 
     function executeOperation(
-        address[] calldata _assets,
-        uint256[] calldata _amounts,
-        uint256[] calldata _premiums,
-        address _initiator,
+        address[] calldata /* _assets */,
+        uint256[] calldata /* _amounts */,
+        uint256[] calldata /* _premiums */,
+        address /* _initiator */,
         bytes calldata _params
     )
         external
