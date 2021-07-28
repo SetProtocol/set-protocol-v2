@@ -10,10 +10,11 @@ import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getWaffleExpect,
-  getAaveFixture,
-  getRandomAddress
+  getAaveV2Fixture,
+  getRandomAddress,
+  getSystemFixture
 } from "@utils/test/index";
-import { AaveFixture } from "@utils/fixtures";
+import { AaveV2Fixture, SystemFixture } from "@utils/fixtures";
 
 
 const expect = getWaffleExpect();
@@ -23,7 +24,8 @@ describe("AaveGovernanceAdapter", () => {
   let deployer: DeployHelper;
   let aaveGovernanceV2Adapter: AaveGovernanceV2Adapter;
   let mockSetToken: Account;
-  let aaveSetup: AaveFixture;
+  let setV2Setup: SystemFixture;
+  let aaveSetup: AaveV2Fixture;
 
   before(async () => {
     [
@@ -33,8 +35,11 @@ describe("AaveGovernanceAdapter", () => {
 
     deployer = new DeployHelper(owner.wallet);
 
-    aaveSetup = getAaveFixture(owner.address);
-    await aaveSetup.initialize();
+    setV2Setup = getSystemFixture(owner.address);
+    await setV2Setup.initialize();
+
+    aaveSetup = getAaveV2Fixture(owner.address);
+    await aaveSetup.initialize(setV2Setup.weth.address, setV2Setup.dai.address);
 
     aaveGovernanceV2Adapter = await deployer.adapters.deployAaveGovernanceV2Adapter(
       aaveSetup.aaveGovernanceV2.address,

@@ -39,15 +39,12 @@ import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/
 import { LendingPoolAddressesProvider__factory } from "../../typechain/factories/LendingPoolAddressesProvider__factory";
 
 import {
-  AaveGovernanceV2,
   AavePropositionPower,
   AaveProtoGovernance,
   AaveTokenV2Mintable,
   AssetVotingWeightProvider,
   CoreLibrary,
   DefaultReserveInterestRateStrategy,
-  Executor,
-  GovernanceStrategy,
   GovernanceParamsProvider,
   LendingPool,
   LendingPoolAddressesProvider,
@@ -57,10 +54,7 @@ import {
   LendToAaveMigrator
 } from "../contracts/aave";
 
-import { AaveGovernanceV2__factory } from "../../typechain/factories/AaveGovernanceV2__factory";
 import { AaveTokenV2Mintable__factory } from "../../typechain/factories/AaveTokenV2Mintable__factory";
-import { Executor__factory } from "../../typechain/factories/Executor__factory";
-import { GovernanceStrategy__factory } from "../../typechain/factories/GovernanceStrategy__factory";
 import { AavePropositionPower__factory } from "../../typechain/factories/AavePropositionPower__factory";
 import { AaveProtoGovernance__factory } from "../../typechain/factories/AaveProtoGovernance__factory";
 import { AssetVotingWeightProvider__factory } from "../../typechain/factories/AssetVotingWeightProvider__factory";
@@ -168,9 +162,7 @@ import { Quoter__factory } from "../../typechain/factories/Quoter__factory";
 import { NFTDescriptor__factory } from "../../typechain/factories/NFTDescriptor__factory";
 
 import {
-  GenericLogic,
-  ValidationLogic,
-  ReserveLogic,
+  AaveGovernanceV2,
   AaveV2AToken,
   AaveV2StakedTokenIncentivesController,
   AaveV2StableDebtToken,
@@ -183,7 +175,12 @@ import {
   AaveV2DefaultReserveInterestRateStrategy,
   AaveV2LendingRateOracle,
   AaveV2Oracle,
-  AaveV2PriceOracle
+  AaveV2PriceOracle,
+  Executor,
+  GovernanceStrategy,
+  GenericLogic,
+  ReserveLogic,
+  ValidationLogic
 } from "../contracts/aaveV2";
 import { AaveV2LendingPool__factory } from "../../typechain/factories/AaveV2LendingPool__factory";
 import { AaveV2LendingPoolAddressesProvider__factory } from "../../typechain/factories/AaveV2LendingPoolAddressesProvider__factory";
@@ -201,6 +198,9 @@ import { ReserveLogic__factory } from "../../typechain/factories/ReserveLogic__f
 import { AaveV2LendingRateOracle__factory } from "../../typechain/factories/AaveV2LendingRateOracle__factory";
 import { AaveV2Oracle__factory } from "../../typechain/factories/AaveV2Oracle__factory";
 import { AaveV2PriceOracle__factory } from "../../typechain/factories/AaveV2PriceOracle__factory";
+import { AaveGovernanceV2__factory } from "../../typechain/factories/AaveGovernanceV2__factory";
+import { Executor__factory } from "../../typechain/factories/Executor__factory";
+import { GovernanceStrategy__factory } from "../../typechain/factories/GovernanceStrategy__factory";
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
