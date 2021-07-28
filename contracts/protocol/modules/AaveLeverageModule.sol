@@ -413,7 +413,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
         _withdraw(deleverInfo.setToken, _collateralAsset, deleverInfo.notionalSendQuantity);
 
-        // TODO: Unused variable
+        // TODO: Check postTradRecevieQuantity > notionalRepayQuantity
         uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
 
         _repayBorrow(deleverInfo.setToken, _repayAsset, notionalRepayQuantity);
@@ -940,7 +940,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         enabledAssets[_setToken].borrowAssets.removeStorage(address(_borrowAsset));
     }
     
-
     function _addAaveReserve(IERC20 _underlying) internal {
         (
             address aToken, 

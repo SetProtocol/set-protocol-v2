@@ -2,6 +2,7 @@ import { Signer } from "ethers";
 import { convertLibraryNameToLinkId } from "../common";
 
 import {
+  AaveLeverageModule,
   AirdropModule,
   AmmModule,
   BasicIssuanceModule,
@@ -21,6 +22,7 @@ import {
 } from "../contracts";
 import { Address } from "../types";
 
+import { AaveLeverageModule__factory } from "../../typechain/factories/AaveLeverageModule__factory";
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
@@ -61,7 +63,7 @@ export default class DeployModules {
     return await new AmmModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async getBasicIssuanceModule(basicIssuanceModule: Address): Promise <BasicIssuanceModule> {
+  public async getBasicIssuanceModule(basicIssuanceModule: Address): Promise<BasicIssuanceModule> {
     return await new BasicIssuanceModule__factory(this._deployerSigner).attach(basicIssuanceModule);
   }
 
@@ -69,7 +71,7 @@ export default class DeployModules {
     return await new StreamingFeeModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async getStreamingFeeModule(streamingFeeModule: Address): Promise <StreamingFeeModule> {
+  public async getStreamingFeeModule(streamingFeeModule: Address): Promise<StreamingFeeModule> {
     return await new StreamingFeeModule__factory(this._deployerSigner).attach(streamingFeeModule);
   }
 
@@ -101,7 +103,7 @@ export default class DeployModules {
     return await new CustomOracleNavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
-  public async getNavIssuanceModule(navIssuanceModule: Address): Promise <NavIssuanceModule> {
+  public async getNavIssuanceModule(navIssuanceModule: Address): Promise<NavIssuanceModule> {
     return await new NavIssuanceModule__factory(this._deployerSigner).attach(navIssuanceModule);
   }
 
@@ -158,6 +160,32 @@ export default class DeployModules {
       comptroller,
       cEth,
       weth,
+    );
+  }
+
+  public async deployAaveLeverageModule(
+    controller: Address,
+    lendingPoolAddressesProvider: Address,
+    protocolDataProvider: Address,
+    stAaveToken: Address,
+    weth: Address,
+    libraryName: string,
+    libraryAddress: Address
+  ): Promise<AaveLeverageModule> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+
+    return await new AaveLeverageModule__factory(
+      // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy(
+      controller,
+      lendingPoolAddressesProvider,
+      protocolDataProvider,
+      stAaveToken,
+      weth
     );
   }
 }
