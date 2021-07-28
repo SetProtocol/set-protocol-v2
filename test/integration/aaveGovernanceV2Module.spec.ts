@@ -15,10 +15,10 @@ import {
   getAccounts,
   getWaffleExpect,
   getSystemFixture,
-  getAaveFixture,
   increaseTimeAsync,
+  getAaveV2Fixture,
 } from "@utils/test/index";
-import { AaveFixture, SystemFixture } from "@utils/fixtures";
+import { AaveV2Fixture, SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
@@ -27,7 +27,7 @@ describe("AaveGovernanceV2Module", () => {
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
-  let aaveSetup: AaveFixture;
+  let aaveSetup: AaveV2Fixture;
 
   let governanceModule: GovernanceModule;
   let aaveGovernanceV2Adapter: AaveGovernanceV2Adapter;
@@ -45,8 +45,8 @@ describe("AaveGovernanceV2Module", () => {
     await setup.initialize();
 
     // Aave setup
-    aaveSetup = getAaveFixture(owner.address);
-    await aaveSetup.initialize();
+    aaveSetup = getAaveV2Fixture(owner.address);
+    await aaveSetup.initialize(setup.weth.address, setup.dai.address);
 
     // GovernanceModule setup
     governanceModule = await deployer.modules.deployGovernanceModule(setup.controller.address);
