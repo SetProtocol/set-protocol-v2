@@ -5,6 +5,8 @@ import { Address } from "../types";
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 
 import {
+  AaveGovernanceV2,
+  AaveTokenV2Mintable,
   AaveV2Oracle,
   AaveV2PriceOracle,
   AaveV2LendingPool,
@@ -16,18 +18,15 @@ import {
   AaveV2LendingRateOracle,
   AaveV2AToken,
   AaveV2StableDebtToken,
-  AaveV2VariableDebtToken
+  AaveV2VariableDebtToken,
+  Executor,
+  GovernanceStrategy
 } from "../contracts/aaveV2";
 
-// import {
-// 	Executor,
-// 	AaveGovernanceV2,
-// 	AaveTokenV2Mintable
-// } from "../contracts/aave";
 
 import { ether, getRandomAddress } from "../common";
 
-import { ADDRESS_ZERO } from "../constants";
+import { ADDRESS_ZERO, MAX_UINT_256 } from "../constants";
 
 export interface ReserveTokens {
   aToken: AaveV2AToken;
@@ -57,16 +56,12 @@ export class AaveV2Fixture {
   public treasuryAddress: Address;
   public incentivesControllerAddress: Address;
 
-  // TODO: move governance to this fixture
-  // public executor: Executor;
-  // public aaveGovernanceV2: AaveGovernanceV2;
-  // public aaveToken: AaveTokenV2Mintable;
-  // public stkAaveToken: AaveTokenV2Mintable;
-  // public governanceStrategy: GovernanceStrategy;
-  // public aaveProtoGovernance: AaveProtoGovernance;
-  // public aavePropositionPower: AavePropositionPower;
-  // public assetVotingWeightPower: AssetVotingWeightProvider;
-  // public governanceParamsProvider: GovernanceParamsProvider;
+  public aaveToken: AaveTokenV2Mintable;
+  public stkAaveToken: AaveTokenV2Mintable;
+
+  public aaveGovernanceV2: AaveGovernanceV2;
+  public executor: Executor;
+  public governanceStrategy: GovernanceStrategy;
 
   constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
@@ -155,6 +150,9 @@ export class AaveV2Fixture {
       true,					          // enable borrowing on reserve
       true					          // enable stable debts
     );
+
+    // Initialize governance
+    await this.initializeGovernance();
   }
 
   public async createAndEnableReserve(
@@ -232,10 +230,9 @@ export class AaveV2Fixture {
   public async setMarketBorrowRate(asset: Address, rate: BigNumberish): Promise<void> {
     this.lendingRateOracle.setMarketBorrowRate(asset, rate);
   }
-  /*
+
   private async initializeGovernance(): Promise<void> {
 
-    TODO: Move governance to this fixture.
     // Deploy Executor
     this.executor = await this._deployer.external.deployExecutor(
       await this._ownerSigner.getAddress(),
@@ -249,11 +246,13 @@ export class AaveV2Fixture {
       ether(100)
     );
 
+    // Deploy Aave and stkAave
     this.aaveToken = await this._deployer.external.deployAaveTokenV2Mintable();
     await this.aaveToken.mint(await this._ownerSigner.getAddress(), ether(100000));
     this.stkAaveToken = await this._deployer.external.deployAaveTokenV2Mintable();
     await this.stkAaveToken.mint(await this._ownerSigner.getAddress(), ether(100000));
 
+    // Deploy core gov contracts
     this.governanceStrategy = await this._deployer.external.deployGovernanceStrategy(this.aaveToken.address, this.stkAaveToken.address);
     this.aaveGovernanceV2 =  await this._deployer.external.deployAaveGovernanceV2(
       this.governanceStrategy.address,
@@ -262,15 +261,17 @@ export class AaveV2Fixture {
       [this.executor.address]
     );
 
+    // send some aave and stkAave to random addresses to initialize the vote snapshots
     this.aaveToken.connect(this._ownerSigner).transfer(await getRandomAddress(), 100);
     this.stkAaveToken.connect(this._ownerSigner).transfer(await getRandomAddress(), 100);
+
+    // Deploy inventive controller
     await this._deployer.external.deployAaveV2StakedTokenIncentivesController(
       this.stkAaveToken.address, this.executor.address
-    )
+    );
 
     this.incentivesControllerAddress = (await this._deployer.external.deployAaveV2StakedTokenIncentivesController(
       this.stkAaveToken.address, this.executor.address
     )).address;
   }
-  */
 }
