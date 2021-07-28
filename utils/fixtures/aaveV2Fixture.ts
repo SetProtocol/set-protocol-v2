@@ -41,6 +41,10 @@ export class AaveV2Fixture {
   public wethReserveTokens: ReserveTokens;
   public daiReserveTokens: ReserveTokens;
 
+  public genericLogicLibraryAddress: Address;
+  public reserveLogicAddress: Address;
+  public validationLogicAddress: Address;
+
   public marketId: string;
   public lendingPool: AaveV2LendingPool;
   public protocolDataProvider: AaveV2ProtocolDataProvider;
@@ -77,14 +81,14 @@ export class AaveV2Fixture {
     this.marketId = marketId;
 
     // deploy libraries
-    const genericLogicLibraryAddress = (await this._deployer.external.deployGeneralLogic()).address;
-    const reserveLogicAddress = (await this._deployer.external.deployReserveLogic()).address;
-    const validationLogicAddress = (await this._deployer.external.deployValidationLogic(genericLogicLibraryAddress)).address;
+    this.genericLogicLibraryAddress = (await this._deployer.external.deployGeneralLogic()).address;
+    this.reserveLogicAddress = (await this._deployer.external.deployReserveLogic()).address;
+    this.validationLogicAddress = (await this._deployer.external.deployValidationLogic(this.genericLogicLibraryAddress)).address;
 
     // deploy contracts
     this.lendingPoolConfigurator = await this._deployer.external.deployAaveV2LendingPoolConfigurator();
     this.lendingPoolCollateralManager = await this._deployer.external.deployAaveV2LendingPoolCollateralManager();
-    this.lendingPool = await this._deployer.external.deployAaveV2LendingPool(validationLogicAddress, reserveLogicAddress);
+    this.lendingPool = await this._deployer.external.deployAaveV2LendingPool(this.validationLogicAddress, this.reserveLogicAddress);
     this.lendingPoolAddressesProvider = await this._deployer.external.deployAaveV2LendingPoolAddressesProvider(this.marketId);
     this.protocolDataProvider = await this._deployer.external.deployAaveV2ProtocolDataProvider(this.lendingPoolAddressesProvider.address);
     this.reserveInterestRateStrategy = await this._deployer.external.deployAaveV2DefaultReserveInterestRateStrategy(
