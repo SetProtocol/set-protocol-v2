@@ -199,7 +199,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         }
     }
     
-    // todo: anagers can enable collateral assets that don't exist as positions on the SetToken ?
     /**
      * MANAGER ONLY: Initializes this module to the SetToken. Only callable by the SetToken's manager. Note: managers can enable
      * collateral and borrow assets that don't exist as positions on the SetToken
@@ -281,7 +280,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             true
         );
 
-        // todo: Should we do this in a separate function instead?
+        // todo: Should we do this in a separate external function instead?
         (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(_collateralAsset), address(_setToken));
         if (!usageAsCollateralEnabled) {
             _setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(_collateralAsset), true);
@@ -585,8 +584,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
     /**
      * MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any deposited collateral assets
-     * are disabled to be used as collateral on Aave. Aave Settings and manager enabled assets state is deleted. 
-     * todo: Any extra aToken balance is converted to default position? 
+     * are disabled to be used as collateral on Aave. Aave Settings and manager enabled assets state is deleted.      
      * Note: Function will revert is there is any debt remaining on Aave
      */
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
@@ -616,7 +614,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * MANAGER ONLY: Remove collateral asset. Disable deposited assets to be used as collateral on Aave market.
      * todo: If there is a borrow balance, collateral asset cannot be removed? Should we check for health factor as well?
-     * todo: Any extra aToken balance is converted to default position? 
      *
      * @param _setToken             Instance of the SetToken
      * @param _collateralAssets     Addresses of collateral underlying assets to remove

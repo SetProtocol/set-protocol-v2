@@ -37,6 +37,7 @@ import { ReserveTokens } from "@utils/fixtures/aaveV2Fixture";
 const expect = getWaffleExpect();
 const web3 = new Web3();
 
+// TODO: Add tests for case when managers can enable collateral assets that don't exist as positions on the SetToken
 describe("AaveLeverageModule", () => {
   let owner: Account;
   let mockModule: Account;
