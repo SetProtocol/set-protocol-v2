@@ -25,7 +25,6 @@ import {
 } from "@utils/test/index";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
-import { defaultAbiCoder } from "ethers/lib/utils";
 
 const expect = getWaffleExpect();
 
@@ -244,7 +243,7 @@ describe("UniswapV2ExchangeGeneralIndexModule", () => {
         beforeEach(async () => {
           initializeSubjectVariables();
 
-          const exchangeData = defaultAbiCoder.encode(["address"], [setup.wbtc.address]);
+          const exchangeData = setup.wbtc.address;
           await indexModule.setExchangeData(subjectSetToken.address, [setup.dai.address], [exchangeData]);
 
           expectedOut = (await uniswapSetup.router.getAmountsOut(
@@ -347,7 +346,7 @@ describe("UniswapV2ExchangeGeneralIndexModule", () => {
               subjectEthQuantityLimit
             );
 
-            const exchangeData = defaultAbiCoder.encode(["address"], [setup.dai.address]);
+            const exchangeData = setup.dai.address;
             await indexModule.setExchangeData(subjectSetToken.address, [setup.wbtc.address], [exchangeData]);
 
             expectedOut = (await uniswapSetup.router.getAmountsOut(
