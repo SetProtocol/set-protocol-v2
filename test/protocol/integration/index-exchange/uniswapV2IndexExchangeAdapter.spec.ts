@@ -23,7 +23,6 @@ import {
 } from "@utils/test/index";
 
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
-import { defaultAbiCoder } from "ethers/lib/utils";
 
 const expect = getWaffleExpect();
 
@@ -149,7 +148,7 @@ describe("UniswapV2IndexExchangeAdapter", () => {
       context("when an intermediate token is provided", async () => {
 
         beforeEach(() => {
-          subjectData = defaultAbiCoder.encode(["address"], [setup.weth.address]);
+          subjectData = setup.weth.address;
         });
 
         it("should return the correct trade calldata", async () => {
@@ -188,7 +187,7 @@ describe("UniswapV2IndexExchangeAdapter", () => {
       context("when an intermediate token is provided", async () => {
 
         beforeEach(() => {
-          subjectData = defaultAbiCoder.encode(["address"], [setup.weth.address]);
+          subjectData = setup.weth.address;
         });
 
         it("should return the correct trade calldata", async () => {
