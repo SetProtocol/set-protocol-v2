@@ -1,63 +1,27 @@
-// SPDX-License-Identifier: agpl-3.0
+/*
+  Copyright 2021 Set Labs Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+  SPDX-License-Identifier: Apache License, Version 2.0
+*/
 pragma solidity 0.6.10;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IScaledBalanceToken} from "./IScaledBalanceToken.sol";
-import {IInitializableDebtToken} from "./IInitializableDebtToken.sol";
-import {IAaveIncentivesController} from "./IAaveIncentivesController.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title IVariableDebtToken
  * @author Aave
  * @notice Defines the basic interface for a variable debt token.
  **/
-interface IVariableDebtToken is IScaledBalanceToken, IInitializableDebtToken, IERC20 {
-  /**
-   * @dev Emitted after the mint action
-   * @param from The address performing the mint
-   * @param onBehalfOf The address of the user on which behalf minting has been performed
-   * @param value The amount to be minted
-   * @param index The last index of the reserve
-   **/
-  event Mint(address indexed from, address indexed onBehalfOf, uint256 value, uint256 index);
-
-  /**
-   * @dev Mints debt token to the `onBehalfOf` address
-   * @param user The address receiving the borrowed underlying, being the delegatee in case
-   * of credit delegate, or same as `onBehalfOf` otherwise
-   * @param onBehalfOf The address receiving the debt tokens
-   * @param amount The amount of debt being minted
-   * @param index The variable debt index of the reserve
-   * @return `true` if the the previous balance of the user is 0
-   **/
-  function mint(
-    address user,
-    address onBehalfOf,
-    uint256 amount,
-    uint256 index
-  ) external returns (bool);
-
-  /**
-   * @dev Emitted when variable debt is burnt
-   * @param user The user which debt has been burned
-   * @param amount The amount of debt being burned
-   * @param index The index of the user
-   **/
-  event Burn(address indexed user, uint256 amount, uint256 index);
-
-  /**
-   * @dev Burns user variable debt
-   * @param user The user which debt is burnt
-   * @param index The variable debt index of the reserve
-   **/
-  function burn(
-    address user,
-    uint256 amount,
-    uint256 index
-  ) external;
-
-  /**
-   * @dev Returns the address of the incentives controller contract
-   **/
-  function getIncentivesController() external view returns (IAaveIncentivesController);
-}
+interface IVariableDebtToken is IERC20 {}
