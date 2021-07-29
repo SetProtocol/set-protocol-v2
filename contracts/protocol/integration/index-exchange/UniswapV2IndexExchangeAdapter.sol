@@ -19,6 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { BytesLib } from "external/contracts/uniswap/v3/lib/BytesLib.sol";
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
 
 
@@ -33,6 +34,8 @@ import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter
  * - Update getTradeCalldata to allow for the intermediate token of the path to be passed in through the _data parameter
  */
 contract UniswapV2IndexExchangeAdapter is IIndexExchangeAdapter {
+
+    using BytesLib for bytes;
 
     /* ============ State Variables ============ */
 
@@ -97,7 +100,7 @@ contract UniswapV2IndexExchangeAdapter is IIndexExchangeAdapter {
             path[0] = _sourceToken;
             path[1] = _destinationToken;
         } else {
-            address intermediateToken = abi.decode(_data, (address));
+            address intermediateToken = _data.toAddress(0);
             path = new address[](3);
             path[0] = _sourceToken;
             path[1] = intermediateToken;
