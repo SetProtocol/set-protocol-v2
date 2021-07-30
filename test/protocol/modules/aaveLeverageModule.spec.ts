@@ -103,12 +103,6 @@ describe("AaveLeverageModule", () => {
   let varaibleDebtWETH: AaveV2VariableDebtToken;
   let varaibleDebtDAI: AaveV2VariableDebtToken;
 
-  const interestRateModes = {
-    "none": BigNumber.from(0),
-    "stable": BigNumber.from(1),
-    "variable": BigNumber.from(2),
-  };
-
   let oneInchFunctionSignature: Bytes;
   let oneInchExchangeMockToWeth: OneInchExchangeMock;
   let oneInchExchangeMockFromWeth: OneInchExchangeMock;
@@ -117,6 +111,8 @@ describe("AaveLeverageModule", () => {
 
   let oneInchExchangeAdapterToWeth: OneInchExchangeAdapter;
   let oneInchExchangeAdapterFromWeth: OneInchExchangeAdapter;
+
+  const VARIABLE_INTEREST_RATE_MODE = BigNumber.from(2);
 
   cacheBeforeEach(async () => {
     [
@@ -302,11 +298,9 @@ describe("AaveLeverageModule", () => {
       const daiReserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.dai.address);
 
       expect(wethReserveTokens.aToken).to.eq(aWETH.address);
-      expect(wethReserveTokens.stableDebtToken).to.eq(aaveSetup.wethReserveTokens.stableDebtToken.address);
       expect(wethReserveTokens.variableDebtToken).to.eq(aaveSetup.wethReserveTokens.variableDebtToken.address);
 
       expect(daiReserveTokens.aToken).to.eq(aaveSetup.daiReserveTokens.aToken.address);
-      expect(daiReserveTokens.stableDebtToken).to.eq(aaveSetup.daiReserveTokens.stableDebtToken.address);
       expect(daiReserveTokens.variableDebtToken).to.eq(aaveSetup.daiReserveTokens.variableDebtToken.address);
     });
   });
@@ -317,7 +311,6 @@ describe("AaveLeverageModule", () => {
     let subjectSetToken: Address;
     let subjectCollateralAssets: Address[];
     let subjectBorrowAssets: Address[];
-    let subjectRateMode: BigNumber;
     let subjectCaller: Account;
 
     const initializeContracts = async () => {
@@ -338,7 +331,6 @@ describe("AaveLeverageModule", () => {
       subjectSetToken = setToken.address;
       subjectCollateralAssets = [setup.weth.address, setup.dai.address];
       subjectBorrowAssets = [setup.dai.address, setup.weth.address];
-      subjectRateMode = interestRateModes.variable;
       subjectCaller = owner;
     };
 
@@ -346,8 +338,7 @@ describe("AaveLeverageModule", () => {
       return aaveLeverageModule.connect(subjectCaller.wallet).initialize(
         subjectSetToken,
         subjectCollateralAssets,
-        subjectBorrowAssets,
-        subjectRateMode
+        subjectBorrowAssets
       );
     }
 
@@ -388,41 +379,6 @@ describe("AaveLeverageModule", () => {
         await subject();
         const isRegistered = await debtIssuanceMock.isRegistered(setToken.address);
         expect(isRegistered).to.be.true;
-      });
-
-      describe("when defualt debt mode is stable", async () => {
-        beforeEach(async () => {
-          subjectRateMode = interestRateModes.stable;
-        });
-
-        it("should set the borrowRateMode to stable", async () => {
-          await subject();
-
-          const borrowRateMode = await aaveLeverageModule.borrowRateMode(setToken.address);
-          expect(borrowRateMode).to.eq(interestRateModes.stable);
-        });
-
-        describe("when stable borrowing is disabled for an asset on Aave", async () => {
-          beforeEach(async () => {
-            await aaveSetup.createAndEnableReserve(
-              setup.usdc.address,
-              "USDC",
-              BigNumber.from(6),
-              BigNumber.from(8000),
-              BigNumber.from(8200),
-              BigNumber.from(10500),
-              BigNumber.from(1000),
-              true,
-              false,
-            );
-
-            subjectBorrowAssets = [setup.dai.address, setup.usdc.address];
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Stable borrowing disabled");
-          });
-        });
       });
 
       describe("when debt issuance module is not added to integration registry", async () => {
@@ -647,8 +603,7 @@ describe("AaveLeverageModule", () => {
           await aaveLeverageModule.initialize(
             setToken.address,
             [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address],
-            interestRateModes.variable
+            [setup.dai.address, setup.weth.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -1098,8 +1053,7 @@ describe("AaveLeverageModule", () => {
           await aaveLeverageModule.initialize(
             setToken.address,
             [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address],
-            interestRateModes.variable
+            [setup.dai.address, setup.weth.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -1237,8 +1191,7 @@ describe("AaveLeverageModule", () => {
         await aaveLeverageModule.initialize(
           setToken.address,
           [setup.weth.address, setup.dai.address],
-          [setup.dai.address, setup.weth.address],
-          interestRateModes.variable
+          [setup.dai.address, setup.weth.address]
         );
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -1615,8 +1568,7 @@ describe("AaveLeverageModule", () => {
         await aaveLeverageModule.initialize(
           setToken.address,
           [setup.weth.address, setup.dai.address],
-          [setup.dai.address, setup.weth.address],
-          interestRateModes.variable
+          [setup.dai.address, setup.weth.address]
         );
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -1936,9 +1888,8 @@ describe("AaveLeverageModule", () => {
         if (isInitialized) {
           await aaveLeverageModule.initialize(
             setToken.address,
-            [setup.weth.address, setup.dai.address], // Enable USDC that is not a Set position
-            [setup.dai.address, setup.weth.address],
-            interestRateModes.variable
+            [setup.weth.address, setup.dai.address],
+            [setup.dai.address, setup.weth.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2214,8 +2165,7 @@ describe("AaveLeverageModule", () => {
         await aaveLeverageModule.initialize(
           setToken.address,
           [setup.weth.address],
-          [],
-          interestRateModes.variable
+          []
         );
       }
     };
@@ -2324,8 +2274,7 @@ describe("AaveLeverageModule", () => {
         await aaveLeverageModule.initialize(
           setToken.address,
           [],
-          [setup.weth.address],
-          interestRateModes.variable
+          [setup.weth.address]
         );
       }
     };
@@ -2417,13 +2366,12 @@ describe("AaveLeverageModule", () => {
         //   setToken.address,
         //   [setup.weth.address, setup.dai.address, setup.usdc.address], // Enable COMP that is not a Set position
         //   [setup.dai.address, setup.weth.address, setup.usdc.address],
-        //   interestRateModes.variable
+        VARIABLE_INTEREST_RATE_MODE;
         // );
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address, setup.dai.address], // Enable COMP that is not a Set position
-          [setup.dai.address, setup.weth.address],
-          interestRateModes.variable
+          [setup.weth.address, setup.dai.address],
+          [setup.dai.address, setup.weth.address]
         );
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2527,8 +2475,7 @@ describe("AaveLeverageModule", () => {
           await aaveLeverageModule.initialize(
             setToken.address,
             [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address],
-            interestRateModes.variable
+            [setup.dai.address, setup.weth.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2721,8 +2668,7 @@ describe("AaveLeverageModule", () => {
           await aaveLeverageModule.initialize(
             setToken.address,
             [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address],
-            interestRateModes.variable
+            [setup.dai.address, setup.weth.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2920,8 +2866,7 @@ describe("AaveLeverageModule", () => {
           await aaveLeverageModule.initialize(
             setToken.address,
             [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address],
-            interestRateModes.variable
+            [setup.dai.address, setup.weth.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -3068,8 +3013,7 @@ describe("AaveLeverageModule", () => {
           await aaveLeverageModule.initialize(
             setToken.address,
             [setup.weth.address],
-            [setup.dai.address],
-            interestRateModes.variable
+            [setup.dai.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -3202,8 +3146,7 @@ describe("AaveLeverageModule", () => {
       await aaveLeverageModule.initialize(
         setToken.address,
         [setup.weth.address],
-        [setup.weth.address, setup.dai.address],
-        interestRateModes.variable
+        [setup.weth.address, setup.dai.address]
       );
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
 
@@ -3326,8 +3269,7 @@ describe("AaveLeverageModule", () => {
         await aaveLeverageModule.initialize(
           setToken.address,
           [setup.weth.address, setup.dai.address],
-          [],
-          interestRateModes.variable
+          []
         );
       }
       // Approve tokens to issuance module and call issue
@@ -3440,8 +3382,7 @@ describe("AaveLeverageModule", () => {
         await aaveLeverageModule.initialize(
           setToken.address,
           [],
-          [setup.weth.address, setup.dai.address],
-          interestRateModes.variable
+          [setup.weth.address, setup.dai.address]
         );
       }
       // Approve tokens to issuance module and call issue
@@ -3657,7 +3598,6 @@ describe("AaveLeverageModule", () => {
         const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.wbtc.address);
 
         expect(reserveTokens.aToken).to.eq(wbtcReserveTokens.aToken.address);
-        expect(reserveTokens.stableDebtToken).to.eq(wbtcReserveTokens.stableDebtToken.address);
         expect(reserveTokens.variableDebtToken).to.eq(wbtcReserveTokens.variableDebtToken.address);
       });
     });

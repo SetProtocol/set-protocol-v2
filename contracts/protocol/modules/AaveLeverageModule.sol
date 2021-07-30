@@ -32,7 +32,6 @@ import { ILendingPool } from "../../interfaces/external/aave-v2/ILendingPool.sol
 import { ILendingPoolAddressesProvider } from "../../interfaces/external/aave-v2/ILendingPoolAddressesProvider.sol";
 import { IProtocolDataProvider } from "../../interfaces/external/aave-v2/IProtocolDataProvider.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IStableDebtToken } from "../../interfaces/external/aave-v2/IStableDebtToken.sol";
 import { IVariableDebtToken } from "../../interfaces/external/aave-v2/IVariableDebtToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 
@@ -71,12 +70,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     struct ReserveTokens {
         IAToken aToken;                         // Reserve's aToken instance
-        IStableDebtToken stableDebtToken;       // Reserve's stable debt token instance
         IVariableDebtToken variableDebtToken;   // Reserve's variable debt token instance
     }
-    /* ============ Enums ============ */
-    
-    enum InterestRateMode {NONE, STABLE, VARIABLE}
     
     /* ============ Events ============ */
 
@@ -132,9 +127,11 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /* ============ Constants ============ */
 
+    // This module only supports borrowing in variable rate mode from Aave which is represented by 2
+    uint256 constant internal BORROW_RATE_MODE = 2;
+    
     // String identifying the DebtIssuanceModule in the IntegrationRegistry. Note: Governance must add DefaultIssuanceModule as
     // the string as the integration name
-    
     string constant internal DEFAULT_ISSUANCE_MODULE_NAME = "DefaultIssuanceModule";
 
     // 0 index stores protocol fee % on the controller, charged in the trade function
@@ -161,9 +158,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // Mapping to efficiently check if a borrow asset is enabled in SetToken
     mapping(ISetToken => mapping(IERC20 => bool)) public borrowAssetEnabled;
     
-    // Mapping of SetToken to its fixed interest rate mode
-    mapping(ISetToken => InterestRateMode) public borrowRateMode;
-
     // Internal mapping of enabled collateral and borrow tokens for syncing positions
     mapping(ISetToken => EnabledAssets) internal enabledAssets;
 
@@ -208,21 +202,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setToken             Instance of the SetToken to initialize
      * @param _collateralAssets     Underlying tokens to be enabled as collateral in the SetToken
      * @param _borrowAssets         Underlying tokens to be enabled as borrow in the SetToken
-     * @param _rateMode             Interest rate mode to be used for borrowing assets in _borrowAssets
-     *                              Note: 1 represents stable rate and 2 represents variable rate.
      */
     function initialize(
         ISetToken _setToken,
         IERC20[] memory _collateralAssets,
-        IERC20[] memory _borrowAssets,
-        InterestRateMode _rateMode
+        IERC20[] memory _borrowAssets
     )
         external
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
-        require(_rateMode != InterestRateMode.NONE, "Rate mode can not be none");
-
         if (!anySetAllowed) {
             require(allowedSetTokens[_setToken], "Not allowed SetToken");
         }
@@ -239,8 +228,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
         }
         
-        borrowRateMode[_setToken] = _rateMode;
-    
         addCollateralAssets(_setToken, _collateralAssets);
         addBorrowAssets(_setToken, _borrowAssets);    
     }
@@ -395,9 +382,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
         require(borrowAssetEnabled[_setToken][_repayAsset], "Borrow not enabled");
         
-        uint256 notionalRepayQuantity = borrowRateMode[_setToken] == InterestRateMode.STABLE
-                ? underlyingToReserveTokens[_repayAsset].stableDebtToken.balanceOf(address(_setToken))
-                : underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
+        uint256 notionalRepayQuantity = underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
 
         ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
             _setToken,
@@ -602,7 +587,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             IERC20 borrowAsset = IERC20(borrowAssets[i]);
             
             require(borrowAssetEnabled[setToken][borrowAsset], "Borrow not enabled");
-            require(underlyingToReserveTokens[borrowAsset].stableDebtToken.balanceOf(address(setToken)) == 0, "Stable debt remaining");
             require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(setToken)) == 0, "Variable debt remaining");
     
             delete borrowAssetEnabled[setToken][borrowAsset];
@@ -623,7 +607,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         }
         
         delete enabledAssets[setToken];
-        delete borrowRateMode[setToken];
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
@@ -674,7 +657,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             IERC20 borrowAsset = _borrowAssets[i];
             
             require(borrowAssetEnabled[_setToken][borrowAsset], "Borrow not enabled");
-            require(underlyingToReserveTokens[borrowAsset].stableDebtToken.balanceOf(address(_setToken)) == 0, "Stable debt remaining");
             require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(_setToken)) == 0, "Variable debt remaining");
     
             delete borrowAssetEnabled[_setToken][borrowAsset];
@@ -762,7 +744,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Invoke borrow from the SetToken. Mints DebtTokens for SetToken.
      */
     function _borrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, uint256(borrowRateMode[_setToken]));
+        _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
 
     /**
@@ -770,7 +752,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function _repayBorrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
-        _setToken.invokeRepay(lendingPool, address(_asset), _notionalQuantity, uint256(borrowRateMode[_setToken]));
+        _setToken.invokeRepay(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
 
     /**
@@ -924,11 +906,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
-        uint256 borrowNotionalBalance = borrowRateMode[_setToken] == InterestRateMode.STABLE
-                ? underlyingToReserveTokens[_borrowAsset].stableDebtToken.balanceOf(address(_setToken))
-                : underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
-        int256 borrowPositionUnit = borrowNotionalBalance.preciseDiv(_setTotalSupply).toInt256().mul(-1);
-        return borrowPositionUnit;
+        uint256 borrowNotionalBalance = underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
+        return borrowNotionalBalance.preciseDiv(_setTotalSupply).toInt256().mul(-1);
     }
     
     function _updateCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _newPositionUnit) internal {
@@ -940,15 +919,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
    
     function _addAaveReserve(IERC20 _underlying) internal {
-        (
-            address aToken, 
-            address stableDebtToken,
-            address variableDebtToken
-        ) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
         // Note: Returns zero addresses if specified reserve is not present on Aave market
+        (address aToken, , address variableDebtToken) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
         
         underlyingToReserveTokens[_underlying].aToken = IAToken(aToken);
-        underlyingToReserveTokens[_underlying].stableDebtToken = IStableDebtToken(stableDebtToken);
         underlyingToReserveTokens[_underlying].variableDebtToken = IVariableDebtToken(variableDebtToken);
     }   
 
@@ -962,13 +936,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     function _validateNewBorrowAsset(ISetToken _setToken, IERC20 _borrowAsset) internal view {
         require(!borrowAssetEnabled[_setToken][_borrowAsset], "Borrow already enabled");    
-        (, , , , , , bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_borrowAsset));
+        (, , , , , , bool borrowingEnabled, , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_borrowAsset));
         require(isActive, "Inactive aave reserve");
         require(!isFrozen, "Frozen aave reserve");
         require(borrowingEnabled, "Borrowing disabled on Aave");
-        if (borrowRateMode[_setToken] == InterestRateMode.STABLE) {
-            require(stableBorrowRateEnabled, "Stable borrowing disabled on Aave");
-        }
     }
 
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
