@@ -25,15 +25,15 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 import { AaveV2 } from "../integration/lib/AaveV2.sol";
 import { IAToken } from "../../interfaces/external/aave-v2/IAToken.sol";
-import { IStableDebtToken } from "../../interfaces/external/aave-v2/IStableDebtToken.sol";
-import { IVariableDebtToken } from "../../interfaces/external/aave-v2/IVariableDebtToken.sol";
 import { IController } from "../../interfaces/IController.sol";
+import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
+import { IExchangeAdapter } from "../../interfaces/IExchangeAdapter.sol";
 import { ILendingPool } from "../../interfaces/external/aave-v2/ILendingPool.sol";
 import { ILendingPoolAddressesProvider } from "../../interfaces/external/aave-v2/ILendingPoolAddressesProvider.sol";
 import { IProtocolDataProvider } from "../../interfaces/external/aave-v2/IProtocolDataProvider.sol";
-import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
-import { IExchangeAdapter } from "../../interfaces/IExchangeAdapter.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
+import { IStableDebtToken } from "../../interfaces/external/aave-v2/IStableDebtToken.sol";
+import { IVariableDebtToken } from "../../interfaces/external/aave-v2/IVariableDebtToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 
 // TODO: Avoid balanceOf() for transferrable tokens
@@ -47,16 +47,13 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  *
  * Note: Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
  * debt when borrowed assets are the same.
- * todo: Just Aave or other debt positions as well?
  */
 contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     using AaveV2 for ISetToken;
 
     /* ============ Structs ============ */
 
-    struct EnabledAssets {
-        // todo: Use IERC20[] arrays instead? Would have to write a utility function to delete element at a given index
-        // todo: Save address of aTokens in collateral assets instead of underlying assets?
+    struct EnabledAssets {        
         address[] collateralAssets;             // Array of enabled underlying collateral assets for a SetToken
         address[] borrowAssets;                 // Array of enabled underlying borrow assets for a SetToken
     }
@@ -72,6 +69,11 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         uint256 preTradeReceiveTokenBalance;     // Balance of pre-trade receive token balance
     }
 
+    struct ReserveTokens {
+        IAToken aToken;                         // Reserve's aToken instance
+        IStableDebtToken stableDebtToken;       // Reserve's stable debt token instance
+        IVariableDebtToken variableDebtToken;   // Reserve's variable debt token instance
+    }
     /* ============ Enums ============ */
     
     enum InterestRateMode {NONE, STABLE, VARIABLE}
@@ -109,6 +111,15 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         bool indexed _added,
         IERC20[] _assets
     );
+    
+    event AaveReserveUpdated(
+        IERC20 indexed _underlying,
+        ReserveTokens indexed _reserveTokens
+    );
+    
+    event LendingPoolUpdated(
+        ILendingPool indexed _LendingPool
+    );
 
     event SetTokenStatusUpdated(
         ISetToken indexed _setToken,
@@ -124,7 +135,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // String identifying the DebtIssuanceModule in the IntegrationRegistry. Note: Governance must add DefaultIssuanceModule as
     // the string as the integration name
     
-    // TODO: Can we make this settable?
     string constant internal DEFAULT_ISSUANCE_MODULE_NAME = "DefaultIssuanceModule";
 
     // 0 index stores protocol fee % on the controller, charged in the trade function
@@ -132,20 +142,18 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /* ============ State Variables ============ */
 
-    mapping(IERC20 => IAToken) public underlyingToAToken;
-    mapping(IERC20 => IStableDebtToken) public underlyingToStableDebtToken;
-    mapping(IERC20 => IVariableDebtToken) public underlyingToVariableDebtToken;
+    // Mapping to efficiently fetch reserve token addresses
+    mapping(IERC20 => ReserveTokens) public underlyingToReserveTokens;
 
-    // Wrapped Ether address
-    IERC20 public weth;
-
-    //  Aave contracts
+    // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
+    // We use this variable along with AaveV2 library contract to invoke those actions on SetToken
     ILendingPool public lendingPool;
+    
+    // Used to fetch reserves and user data from AaveV2
     IProtocolDataProvider public protocolDataProvider;
+    
+    // Used to fetch lendingPool address
     ILendingPoolAddressesProvider public lendingPoolAddressesProvider;
-
-    // stAAVE (staked AAVE) token address
-    IERC20 public stAaveToken;
     
     // Mapping to efficiently check if collateral asset is enabled in SetToken
     mapping(ISetToken => mapping(IERC20 => bool)) public collateralAssetEnabled;
@@ -153,7 +161,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // Mapping to efficiently check if a borrow asset is enabled in SetToken
     mapping(ISetToken => mapping(IERC20 => bool)) public borrowAssetEnabled;
     
-    // Mapping of SetToken to it's fixed interst rate mode
+    // Mapping of SetToken to its fixed interest rate mode
     mapping(ISetToken => InterestRateMode) public borrowRateMode;
 
     // Internal mapping of enabled collateral and borrow tokens for syncing positions
@@ -171,25 +179,19 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Instantiate addresses. Underlying to reserve tokens mapping is created.
      * 
      * @param _controller                       Address of controller contract
-     * @param _stAaveToken                      Address of stAAVE token
      * @param _lendingPoolAddressesProvider     Address of Aave LendingPoolAddressProvider
      * @param _protocolDataProvider             Address of Aave ProtocolDataProvider
-     * @param _weth                             Address of WETH contract
      */
     constructor(
         IController _controller,
         ILendingPoolAddressesProvider _lendingPoolAddressesProvider,
-        IProtocolDataProvider _protocolDataProvider,
-        IERC20 _stAaveToken,
-        IERC20 _weth
+        IProtocolDataProvider _protocolDataProvider
     )
         public
         ModuleBase(_controller)
     {
-        stAaveToken = _stAaveToken;
         lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
         protocolDataProvider = _protocolDataProvider;
-        weth = _weth;
 
         lendingPool = ILendingPool(_lendingPoolAddressesProvider.getLendingPool());
         
@@ -314,7 +316,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * MANAGER ONLY: Decrease leverage for a given collateral position using an enabled borrow asset that is enabled
      *
      * @param _setToken             Instance of the SetToken
-     * @param _collateralAsset      Address of collateral asset (underlying of cToken)
+     * @param _collateralAsset      Address of collateral asset (underlying of aToken)
      * @param _repayAsset           Address of asset being repaid
      * @param _redeemQuantity       Quantity of collateral asset to delever
      * @param _minRepayQuantity     Minimum amount of repay asset to receive post trade
@@ -374,11 +376,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * borrow asset is updated as equity. No protocol fee is charged.
      *
      * @param _setToken             Instance of the SetToken
-     * @param _collateralAsset      Address of collateral asset (underlying of cToken)
+     * @param _collateralAsset      Address of collateral asset (underlying of aToken)
      * @param _repayAsset           Address of asset being repaid (underlying asset e.g. DAI)
      * @param _redeemQuantity       Quantity of collateral asset to delever
      * @param _tradeAdapterName     Name of trade adapter
      * @param _tradeData            Arbitrary data for trade
+     *
+     * @return uint256              Notional repay quantity
      */
     function deleverToZeroBorrowBalance(
         ISetToken _setToken,
@@ -391,14 +395,15 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         external
         nonReentrant
         onlyManagerAndValidSet(_setToken)
+        returns (uint256)
     {
         uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(_setToken.totalSupply());
         
         require(borrowAssetEnabled[_setToken][_repayAsset], "Borrow not enabled");
         
         uint256 notionalRepayQuantity = borrowRateMode[_setToken] == InterestRateMode.STABLE
-                ? underlyingToStableDebtToken[_repayAsset].balanceOf(address(_setToken))
-                : underlyingToVariableDebtToken[_repayAsset].balanceOf(address(_setToken));
+                ? underlyingToReserveTokens[_repayAsset].stableDebtToken.balanceOf(address(_setToken))
+                : underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
 
         ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
             _setToken,
@@ -412,8 +417,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
         _withdraw(deleverInfo.setToken, _collateralAsset, deleverInfo.notionalSendQuantity);
 
-        // TODO: Check postTradRecevieQuantity > notionalRepayQuantity
-        uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
+        _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
 
         _repayBorrow(deleverInfo.setToken, _repayAsset, notionalRepayQuantity);
 
@@ -435,6 +439,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             notionalRepayQuantity,
             0   // No protocol fee
         );
+
+        return notionalRepayQuantity;
     }
 
     /**
@@ -442,6 +448,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * assets, update aToken default position. For borrow assets, update external borrow position.
      * - Collateral assets may come out of sync when interest is accrued or a a position is liquidated
      * - Borrow assets may come out of sync when interest is accrued or position is liquidated and borrow is repaid
+     * Note: In Aave, both collateral and borrow interest is accrued in each block by increasing the balance of aTokens & debtTokens
+     * for each user, and 1 aToken = 1 stableDebtToken = 1 variableDebtToken = 1 underlying.
      *
      * @param _setToken               Instance of the SetToken
      */
@@ -454,7 +462,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             // Loop through collateral assets
             address[] memory collateralAssets = enabledAssets[_setToken].collateralAssets;
             for(uint256 i = 0; i < collateralAssets.length; i++) {
-                IAToken aToken = underlyingToAToken[IERC20(collateralAssets[i])];
+                IAToken aToken = underlyingToReserveTokens[IERC20(collateralAssets[i])].aToken;
                 
                 uint256 previousPositionUnit = _setToken.getDefaultPositionRealUnit(address(aToken)).toUint256();
                 uint256 newPositionUnit = _getCollateralPosition(_setToken, aToken, setTotalSupply);
@@ -596,11 +604,30 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         // TODO: Emit remove collateral/borrow asset events here?
 
         address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
-        _removeBorrowAssets(setToken, borrowAssets);
+        for(uint256 i = 0; i < borrowAssets.length; i++) {
+            IERC20 borrowAsset = IERC20(borrowAssets[i]);
+            
+            require(borrowAssetEnabled[setToken][borrowAsset], "Borrow not enabled");
+            require(underlyingToReserveTokens[borrowAsset].stableDebtToken.balanceOf(address(setToken)) == 0, "Stable debt remaining");
+            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(setToken)) == 0, "Variable debt remaining");
+    
+            delete borrowAssetEnabled[setToken][borrowAsset];
+        }
+
 
         address[] memory collateralAssets = enabledAssets[setToken].collateralAssets;
-        _removeCollateralAssets(setToken, collateralAssets);
-
+        for(uint256 i = 0; i < collateralAssets.length; i++) {
+            IERC20 collateralAsset = IERC20(collateralAssets[i]);
+            
+            require(collateralAssetEnabled[setToken][collateralAsset], "Collateral not enabled");
+            (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(collateralAsset), address(setToken));
+            if (usageAsCollateralEnabled) {
+                setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(collateralAsset), false);
+            }
+            
+            delete collateralAssetEnabled[setToken][collateralAsset];
+        }
+        
         delete enabledAssets[setToken];
         delete borrowRateMode[setToken];
 
@@ -622,7 +649,19 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         // Sync Aave and SetToken positions prior to any removal action
         sync(_setToken);
         
-        _removeCollateralAssets(_setToken, _collateralAssets);
+        for(uint256 i = 0; i < _collateralAssets.length; i++) {
+            IERC20 collateralAsset = _collateralAssets[i];
+            
+            require(collateralAssetEnabled[_setToken][collateralAsset], "Collateral not enabled");
+            (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(collateralAsset), address(_setToken));
+            if (usageAsCollateralEnabled) {
+                _setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(collateralAsset), false);
+            }
+            
+            delete collateralAssetEnabled[_setToken][collateralAsset];
+            enabledAssets[_setToken].collateralAssets.removeStorage(address(collateralAsset));
+        }
+        
         emit CollateralAssetsUpdated(_setToken, false, _collateralAssets);
     }
 
@@ -637,7 +676,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         // Sync Aave and SetToken positions prior to any removal action
         sync(_setToken);
         
-        _removeBorrowAssets(_setToken, _borrowAssets);
+        for(uint256 i = 0; i < _borrowAssets.length; i++) {
+            IERC20 borrowAsset = _borrowAssets[i];
+            
+            require(borrowAssetEnabled[_setToken][borrowAsset], "Borrow not enabled");
+            require(underlyingToReserveTokens[borrowAsset].stableDebtToken.balanceOf(address(_setToken)) == 0, "Stable debt remaining");
+            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(_setToken)) == 0, "Variable debt remaining");
+    
+            delete borrowAssetEnabled[_setToken][borrowAsset];
+            enabledAssets[_setToken].borrowAssets.removeStorage(address(borrowAsset));
+        }
         emit BorrowAssetsUpdated(_setToken, false, _borrowAssets);
     }
 
@@ -662,20 +710,26 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * CALLABLE BY ANYBODY: Updates underlying to reserve tokens mappings.
-     * Adds a new mapping for previously untracked reserves.
+     * CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Adds a new mapping for previously untracked reserves.
+     * Aave's reserve tokens are mutable and their addresses can be changed. This function upates the stored reserve token addresses
+     * to their latest value.
+     * Note: Use this function for adding new reserves to `underlyingToReserveTokens` mapping.
      *
      * @param _underlying               Address of underlying asset
      */
     function updateAaveReserve(IERC20 _underlying) external {
         _addAaveReserve(_underlying);
+        emit AaveReserveUpdated(_underlying, underlyingToReserveTokens[_underlying]);
     }
 
     /**
-     * CALLABLE BY ANYBODY: Updates AaveV2 LendingPool contract.
+     * CALLABLE BY ANYBODY: Updates AaveV2 LendingPool contract. Aave's LendingPool contract is mutable and is address 
+     * can be changed. This function updates the lendingPool to its latest address.
+     * 
      */
     function updateLendingPool() external {
         lendingPool = ILendingPool(lendingPoolAddressesProvider.getLendingPool());
+        emit LendingPoolUpdated(lendingPool);
     }
     
     /* ============ External Getter Functions ============ */
@@ -707,7 +761,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Invoke withdraw from SetToken. Burns aTokens and returns underlying to SetToken.
      */
     function _withdraw(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
         _setToken.invokeWithdraw(lendingPool, address(_asset), _notionalQuantity);
     }
 
@@ -715,7 +768,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Invoke borrow from the SetToken. Mints DebtTokens for SetToken.
      */
     function _borrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
         _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, uint256(borrowRateMode[_setToken]));
     }
 
@@ -853,10 +905,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function _updateLeverPositions(ActionInfo memory actionInfo, IERC20 _borrowAsset) internal {
         _updateCollateralPosition(
             actionInfo.setToken,
-            underlyingToAToken[actionInfo.collateralAsset],
+            underlyingToReserveTokens[actionInfo.collateralAsset].aToken,
             _getCollateralPosition(
                 actionInfo.setToken,
-                underlyingToAToken[actionInfo.collateralAsset],
+                underlyingToReserveTokens[actionInfo.collateralAsset].aToken,
                 actionInfo.setTotalSupply
             )
         );
@@ -879,8 +931,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
         uint256 borrowNotionalBalance = borrowRateMode[_setToken] == InterestRateMode.STABLE
-                ? underlyingToStableDebtToken[_borrowAsset].balanceOf(address(_setToken))
-                : underlyingToVariableDebtToken[_borrowAsset].balanceOf(address(_setToken));
+                ? underlyingToReserveTokens[_borrowAsset].stableDebtToken.balanceOf(address(_setToken))
+                : underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
         int256 borrowPositionUnit = borrowNotionalBalance.preciseDiv(_setTotalSupply).toInt256().mul(-1);
         return borrowPositionUnit;
     }
@@ -893,50 +945,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         _setToken.editExternalPosition(address(_underlyingAsset), address(this), _newPositionUnit, "");
     }
    
-    function _removeCollateralAssets(ISetToken _setToken, address[] memory _collateralAssets) internal  {
-        for(uint256 i = 0; i < _collateralAssets.length; i++) {
-            _removeCollateralAsset(_setToken, IERC20(_collateralAssets[i]));
-        }
-    }
-    
-    function _removeCollateralAssets(ISetToken _setToken, IERC20[] memory _collateralAssets) internal  {
-        for(uint256 i = 0; i < _collateralAssets.length; i++) {
-            _removeCollateralAsset(_setToken, _collateralAssets[i]);
-        }
-    }
-
-    function _removeCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal {
-        require(collateralAssetEnabled[_setToken][_collateralAsset], "Collateral not enabled");
-        (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(_collateralAsset), address(_setToken));
-        if (usageAsCollateralEnabled) {
-            _setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(_collateralAsset), false);
-        }
-        
-        delete collateralAssetEnabled[_setToken][_collateralAsset];
-        enabledAssets[_setToken].collateralAssets.removeStorage(address(_collateralAsset));
-    }
-
-    function _removeBorrowAssets(ISetToken _setToken, address[] memory _borrowAssets) internal  {
-        for(uint256 i = 0; i < _borrowAssets.length; i++) {
-            _removeBorrowAsset(_setToken, IERC20(_borrowAssets[i]));
-        }
-    }
-    
-    function _removeBorrowAssets(ISetToken _setToken, IERC20[] memory _borrowAssets) internal onlyManagerAndValidSet(_setToken) {
-        for(uint256 i = 0; i < _borrowAssets.length; i++) {
-            _removeBorrowAsset(_setToken, _borrowAssets[i]);
-        }   
-    }
-
-    function _removeBorrowAsset(ISetToken _setToken, IERC20 _borrowAsset) internal {
-        require(borrowAssetEnabled[_setToken][_borrowAsset], "Borrow not enabled");
-        require(underlyingToStableDebtToken[_borrowAsset].balanceOf(address(_setToken)) == 0, "Stable debt remaining");
-        require(underlyingToVariableDebtToken[_borrowAsset].balanceOf(address(_setToken)) == 0, "Variable debt remaining");
-
-        delete borrowAssetEnabled[_setToken][_borrowAsset];
-        enabledAssets[_setToken].borrowAssets.removeStorage(address(_borrowAsset));
-    }
-    
     function _addAaveReserve(IERC20 _underlying) internal {
         (
             address aToken, 
@@ -945,9 +953,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         ) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
         // Note: Returns zero addresses if specified reserve is not present on Aave market
         
-        underlyingToAToken[_underlying] = IAToken(aToken);
-        underlyingToStableDebtToken[_underlying] = IStableDebtToken(stableDebtToken);
-        underlyingToVariableDebtToken[_underlying] = IVariableDebtToken(variableDebtToken);
+        underlyingToReserveTokens[_underlying].aToken = IAToken(aToken);
+        underlyingToReserveTokens[_underlying].stableDebtToken = IStableDebtToken(stableDebtToken);
+        underlyingToReserveTokens[_underlying].variableDebtToken = IVariableDebtToken(variableDebtToken);
     }   
 
     function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal view {
