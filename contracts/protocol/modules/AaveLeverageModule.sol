@@ -144,6 +144,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
     // We use this variable along with AaveV2 library contract to invoke those actions on SetToken
+    // Note: LendingPool contract is mutable and can be updated. Call `updateLendingPool()` to sync lendingPool with Aave.
     ILendingPool public lendingPool;
     
     // Used to fetch reserves and user data from AaveV2
@@ -292,7 +293,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         );
     }
     
-    
     /**
      * MANAGER ONLY: Decrease leverage for a given collateral position using an enabled borrow asset that is enabled
      *
@@ -381,7 +381,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(_setToken.totalSupply());
         
         require(borrowAssetEnabled[_setToken][_repayAsset], "Borrow not enabled");
-        
         uint256 notionalRepayQuantity = underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
 
         ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
@@ -435,8 +434,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function sync(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
         uint256 setTotalSupply = _setToken.totalSupply();
 
-        // TODO: explain
-        // Only sync positions when Set supply is not 0. This preserves debt and collateral positions on issuance / redemption
+        // Only sync positions when Set supply is not 0. Without this check, if sync is called by someone before the 
+        // first issuance, then editDefaultPosition would remove the default positions from the SetToken
         if (setTotalSupply > 0) {
             // Loop through collateral assets
             address[] memory collateralAssets = enabledAssets[_setToken].collateralAssets;
@@ -451,17 +450,17 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
                   _updateCollateralPosition(_setToken, aToken, newPositionUnit);
                 }
             }
-        }
+        
+            address[] memory borrowAssets = enabledAssets[_setToken].borrowAssets;
+            for(uint256 i = 0; i < borrowAssets.length; i++) {
+                
+                int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(borrowAssets[i], address(this));
+                int256 newPositionUnit = _getBorrowPosition(_setToken, IERC20(borrowAssets[i]), setTotalSupply);
 
-        address[] memory borrowAssets = enabledAssets[_setToken].borrowAssets;
-        for(uint256 i = 0; i < borrowAssets.length; i++) {
-            
-            int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(borrowAssets[i], address(this));
-            int256 newPositionUnit = _getBorrowPosition(_setToken, IERC20(borrowAssets[i]), setTotalSupply);
-
-            // Note: Accounts for if position does not exist on SetToken but is tracked in enabledAssets
-            if (newPositionUnit != previousPositionUnit) {
-                _updateBorrowPosition(_setToken, IERC20(borrowAssets[i]), newPositionUnit);
+                // Note: Accounts for if position does not exist on SetToken but is tracked in enabledAssets
+                if (newPositionUnit != previousPositionUnit) {
+                    _updateBorrowPosition(_setToken, IERC20(borrowAssets[i]), newPositionUnit);
+                }
             }
         }
     }
@@ -580,8 +579,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         // Sync Aave and SetToken positions prior to any removal action
         sync(setToken);
 
-        // TODO: Emit remove collateral/borrow asset events here?
-
         address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
         for(uint256 i = 0; i < borrowAssets.length; i++) {
             IERC20 borrowAsset = IERC20(borrowAssets[i]);
@@ -590,17 +587,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             delete borrowAssetEnabled[setToken][borrowAsset];
         }
 
-
         address[] memory collateralAssets = enabledAssets[setToken].collateralAssets;
         for(uint256 i = 0; i < collateralAssets.length; i++) {
-            IERC20 collateralAsset = IERC20(collateralAssets[i]);
-            
-            (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(collateralAsset), address(setToken));
-            if (usageAsCollateralEnabled) {
-                setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(collateralAsset), false);
-            }
-            
-            delete collateralAssetEnabled[setToken][collateralAsset];
+            delete collateralAssetEnabled[setToken][IERC20(collateralAssets[i])];
         }
         
         delete enabledAssets[setToken];
@@ -625,13 +614,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
         for(uint256 i = 0; i < _collateralAssets.length; i++) {
             IERC20 collateralAsset = _collateralAssets[i];
-            
             require(collateralAssetEnabled[_setToken][collateralAsset], "Collateral not enabled");
-            (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(collateralAsset), address(_setToken));
-            if (usageAsCollateralEnabled) {
-                _setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(collateralAsset), false);
-            }
-            
             delete collateralAssetEnabled[_setToken][collateralAsset];
             enabledAssets[_setToken].collateralAssets.removeStorage(address(collateralAsset));
         }
