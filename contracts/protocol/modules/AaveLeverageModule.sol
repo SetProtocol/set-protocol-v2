@@ -282,12 +282,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             true
         );
 
-        // todo: Should we do this in a separate external function instead?
-        (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(_collateralAsset), address(_setToken));
-        if (!usageAsCollateralEnabled) {
-            _setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(_collateralAsset), true);
-        }
-
         _borrow(leverInfo.setToken, leverInfo.borrowAsset, leverInfo.notionalSendQuantity);
 
         uint256 postTradeReceiveQuantity = _executeTrade(leverInfo, _borrowAsset, _collateralAsset, _tradeData);
