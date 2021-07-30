@@ -2208,7 +2208,17 @@ describe("AaveLeverageModule", () => {
         );
       });
 
-      describe("when collateral asset does not exist on Compound", async () => {
+      describe("when collateral asset is already enabled on module", async () => {
+        beforeEach(async () => {
+          subjectCollateralAssets = [setup.weth.address, setup.weth.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Collateral already enabled");
+        });
+      });
+
+      describe("when collateral asset does not exist on Aave", async () => {
         beforeEach(async () => {
           subjectCollateralAssets = [await getRandomAddress()];
         });
@@ -2218,13 +2228,37 @@ describe("AaveLeverageModule", () => {
         });
       });
 
-      describe("when collateral asset is enabled on module", async () => {
+      describe("when collateral asset reserve is frozen on Aave", async () => {
         beforeEach(async () => {
-          subjectCollateralAssets = [setup.weth.address, setup.weth.address];
+          await aaveSetup.lendingPoolConfigurator.connect(owner.wallet).freezeReserve(setup.dai.address);
+        });
+
+        afterEach(async () => {
+          await aaveSetup.lendingPoolConfigurator.connect(owner.wallet).unfreezeReserve(setup.dai.address);
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral already enabled");
+          await expect(subject()).to.be.revertedWith("Frozen aave reserve");
+        });
+      });
+
+      describe("when LTV is zero and asset can not be used as collateral", async () => {
+        beforeEach(async () => {
+          await aaveSetup.createAndEnableReserve(
+            setup.wbtc.address, "WBTC", BigNumber.from(18),
+            ZERO,   // base LTV: 0%
+            ZERO,   // liquidation threshold: 0%
+            ZERO,  // liquidation bonus: 105.00%
+            BigNumber.from(1000),   // reserve factor: 10%
+            true,                   // enable borrowing on reserve
+            false                    // enable stable debts
+          );
+
+          subjectCollateralAssets = [setup.wbtc.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Collateral disabled on Aave");
         });
       });
 
@@ -2317,6 +2351,20 @@ describe("AaveLeverageModule", () => {
         );
       });
 
+      describe("when borrow asset reserve is frozen on Aave", async () => {
+        beforeEach(async () => {
+          await aaveSetup.lendingPoolConfigurator.connect(owner.wallet).freezeReserve(setup.dai.address);
+        });
+
+        afterEach(async () => {
+          await aaveSetup.lendingPoolConfigurator.connect(owner.wallet).unfreezeReserve(setup.dai.address);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Frozen aave reserve");
+        });
+      });
+
       describe("when the caller is not the SetToken manager", async () => {
         beforeEach(async () => {
           subjectCaller = await getRandomAccount();
@@ -2327,6 +2375,7 @@ describe("AaveLeverageModule", () => {
         });
       });
     });
+
     describe("when module is not initialized", async () => {
       beforeEach(async () => {
         isInitialized = false;
@@ -3307,15 +3356,6 @@ describe("AaveLeverageModule", () => {
         expect(isDAICollateral).to.be.false;
       });
 
-      it("should exit reserve on Aave", async () => {
-        // TODO:
-        // await subject();
-        // const isCEtherEntered = await aaveSetup.comptroller.checkMembership(setToken.address, cEther.address);
-        // const isCCompEntered = await aaveSetup.comptroller.checkMembership(setToken.address, cComp.address);
-        // expect(isCEtherEntered).to.be.true;
-        // expect(isCCompEntered).to.be.false;
-      });
-
       it("should emit the correct CollateralAssetsUpdated event", async () => {
         await expect(subject()).to.emit(aaveLeverageModule, "CollateralAssetsUpdated").withArgs(
           subjectSetToken,
@@ -3331,6 +3371,36 @@ describe("AaveLeverageModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Collateral not enabled");
+        });
+      });
+
+      describe("when usage as collateral is enabled", async () => {
+        beforeEach(async () => {
+          // Mint aTokens
+          await setup.dai.approve(aaveSetup.lendingPool.address, ether(100));
+          await aaveSetup.lendingPool.connect(owner.wallet).deposit(setup.dai.address, ether(100), owner.address, ZERO);
+
+          // TODO: think more about this
+          // transferring aTokens would enable usage as collateral
+          await aDAI.approve(setToken.address, ether(100));
+          await aDAI.transfer(setToken.address, ether(100));
+        });
+
+        it("should disable usage as collateral", async () => {
+          const usageAsCollateralBefore = (await aaveSetup.protocolDataProvider.getUserReserveData(
+            setup.dai.address,
+            setToken.address
+          )).usageAsCollateralEnabled;
+
+          await subject();
+
+          const usageAsCollateralAfter = (await aaveSetup.protocolDataProvider.getUserReserveData(
+            setup.dai.address,
+            setToken.address
+          )).usageAsCollateralEnabled;
+
+          expect(usageAsCollateralBefore).to.be.true;
+          expect(usageAsCollateralAfter).to.be.false;
         });
       });
 
@@ -3368,8 +3438,8 @@ describe("AaveLeverageModule", () => {
 
     const initializeContracts = async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address, setup.dai.address],
-        [ether(1), ether(100)],
+        [aWETH.address],
+        [ether(2)],
         [aaveLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
       );
       await debtIssuanceMock.initialize(setToken.address);
@@ -3377,18 +3447,25 @@ describe("AaveLeverageModule", () => {
       await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
 
+      // Mint aTokens
+      await setup.weth.approve(aaveSetup.lendingPool.address, ether(1000));
+      await aaveSetup.lendingPool.connect(owner.wallet).deposit(setup.weth.address, ether(1000), owner.address, ZERO);
+
+      // Approve tokens to issuance module and call issue
+      await aWETH.approve(setup.issuanceModule.address, ether(1000));
+
+      // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+      const issueQuantity = ether(1);
+      await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
       // Initialize module if set to true
       if (isInitialized) {
         await aaveLeverageModule.initialize(
           setToken.address,
-          [],
+          [setup.weth.address],
           [setup.weth.address, setup.dai.address]
         );
       }
-      // Approve tokens to issuance module and call issue
-      await setup.weth.approve(setup.issuanceModule.address, ether(1000));
-      await setup.dai.approve(setup.issuanceModule.address, ether(1000));
-      await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
     };
 
     const initializeSubjectVariables = () => {
@@ -3435,6 +3512,45 @@ describe("AaveLeverageModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Borrow not enabled");
+        });
+      });
+
+      describe("when borrow balance exists", async () => {
+        beforeEach(async () => {
+          // Add Set token as token sender / recipient
+          oneInchExchangeMockToWeth = oneInchExchangeMockToWeth.connect(owner.wallet);
+          await oneInchExchangeMockToWeth.addSetTokenAddress(setToken.address);
+
+          // Fund One Inch exchange with destinationToken WETH
+          await setup.weth.transfer(oneInchExchangeMockToWeth.address, ether(10));
+
+          // Lever SetToken
+          const leverTradeData = oneInchExchangeMockToWeth.interface.encodeFunctionData("swap", [
+            setup.dai.address, // Send token
+            setup.weth.address, // Receive token
+            ether(1000), // Send quantity
+            ether(1), // Min receive quantity
+            ZERO,
+            ADDRESS_ZERO,
+            [ADDRESS_ZERO],
+            EMPTY_BYTES,
+            [ZERO],
+            [ZERO],
+          ]);
+
+          await aaveLeverageModule.lever(
+            setToken.address,
+            setup.dai.address,
+            setup.weth.address,
+            ether(1000),
+            ether(1),
+            "ONEINCHTOWETH",
+            leverTradeData
+          );
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Variable debt remaining");
         });
       });
 
@@ -3575,8 +3691,8 @@ describe("AaveLeverageModule", () => {
         BigNumber.from(8250),   // liquidation threshold: 82.5%
         BigNumber.from(10500),  // liquidation bonus: 105.00%
         BigNumber.from(1000),   // reserve factor: 10%
-        true,					          // enable borrowing on reserve
-        true					          // enable stable debts
+        true,                   // enable borrowing on reserve
+        true                    // enable stable debts
       );
     });
 

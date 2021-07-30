@@ -585,8 +585,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
         for(uint256 i = 0; i < borrowAssets.length; i++) {
             IERC20 borrowAsset = IERC20(borrowAssets[i]);
-            
-            require(borrowAssetEnabled[setToken][borrowAsset], "Borrow not enabled");
             require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(setToken)) == 0, "Variable debt remaining");
     
             delete borrowAssetEnabled[setToken][borrowAsset];
@@ -597,7 +595,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         for(uint256 i = 0; i < collateralAssets.length; i++) {
             IERC20 collateralAsset = IERC20(collateralAssets[i]);
             
-            require(collateralAssetEnabled[setToken][collateralAsset], "Collateral not enabled");
             (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(collateralAsset), address(setToken));
             if (usageAsCollateralEnabled) {
                 setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(collateralAsset), false);
