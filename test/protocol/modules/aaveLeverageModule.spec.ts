@@ -8,7 +8,8 @@ import {
   DebtIssuanceMock,
   OneInchExchangeAdapter,
   OneInchExchangeMock,
-  SetToken
+  SetToken,
+  UniswapV2ExchangeAdapterV2
 } from "@utils/contracts";
 import {
   AaveV2AToken,
@@ -27,15 +28,63 @@ import {
   getSystemFixture,
   getAaveV2Fixture,
   getRandomAccount,
-  getRandomAddress
+  getRandomAddress,
+  getUniswapFixture
 } from "@utils/test/index";
-import { AaveV2Fixture, SystemFixture } from "@utils/fixtures";
+import { AaveV2Fixture, SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { BigNumber } from "@ethersproject/bignumber";
-import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
 import { ReserveTokens } from "@utils/fixtures/aaveV2Fixture";
+import { ContractTransaction } from "@ethersproject/contracts";
 
 const expect = getWaffleExpect();
 const web3 = new Web3();
+
+/* HELPER FUNCTIONS
+
+const TWO = BigNumber.from(2);
+const RAY = BigNumber.from(10).pow(27);	// 1e27
+
+function ray_mul(a: BigNumber, b: BigNumber): BigNumber {
+  return (a.mul(b).add(RAY.div(TWO))).div(RAY);
+}
+
+function ray_div(a: BigNumber, b: BigNumber): BigNumber {
+  return (a.mul(RAY).add(b.div(TWO))).div(b);
+}
+
+function calculate_variable_borrow_rate(
+  base_rate: BigNumber,
+  slope_1: BigNumber,
+  slope_2: BigNumber,
+  utilization_rate: BigNumber,
+  optimal_utilization_rate: BigNumber
+): BigNumber {
+  if (utilization_rate.lte(optimal_utilization_rate)) {
+    return base_rate.add(ray_div(ray_mul(utilization_rate, slope_1), optimal_utilization_rate));
+  } else {
+    return base_rate.add(slope_1).add(ray_mul(slope_2, ray_div(utilization_rate.sub(optimal_utilization_rate), RAY.sub(optimal_utilization_rate))));
+  }
+}
+
+function calculate_compound_interest(currentVariableBorrowRate: BigNumber, exp: BigNumber): BigNumber {
+  if (exp.eq(ZERO)) {
+    return RAY;
+  }
+
+  const exp_minus_one = exp.sub(ONE);
+  const exp_minus_two = exp.gt(TWO) ? exp.sub(TWO) : ZERO;
+  const rate_per_second = currentVariableBorrowRate;
+
+  const base_power_two = ray_mul(rate_per_second, rate_per_second);
+  const base_power_three = ray_mul(base_power_two, rate_per_second);
+
+  const second_term = exp.mul(exp_minus_one).mul(base_power_two).div(TWO);
+  const third_term = exp.mul(exp_minus_one).mul(exp_minus_two).div(base_power_three).div(BigNumber.from(6));
+
+  return RAY.add(rate_per_second.mul(exp)).add(second_term).add(third_term);
+};
+*/
 
 // TODO: Add tests for case when managers can enable collateral assets that don't exist as positions on the SetToken
 describe("AaveLeverageModule", () => {
@@ -85,19 +134,19 @@ describe("AaveLeverageModule", () => {
 
     // Create liquidity
     const ape = await getRandomAccount();   // The wallet who aped in first and added initial liquidity
-    await setup.weth.transfer(ape.address, ether(100));
-    await setup.weth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(100));
+    await setup.weth.transfer(ape.address, ether(50));
+    await setup.weth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(50));
     await aaveSetup.lendingPool.connect(ape.wallet).deposit(
       setup.weth.address,
-      ether(100),
+      ether(50),
       ape.address,
       ZERO
     );
-    await setup.dai.transfer(ape.address, ether(100000));
-    await setup.dai.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(100000));
+    await setup.dai.transfer(ape.address, ether(50000));
+    await setup.dai.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(50000));
     await aaveSetup.lendingPool.connect(ape.wallet).deposit(
       setup.dai.address,
-      ether(100000),
+      ether(50000),
       ape.address,
       ZERO
     );
@@ -116,8 +165,6 @@ describe("AaveLeverageModule", () => {
       setup.controller.address,
       aaveSetup.lendingPoolAddressesProvider.address,
       aaveSetup.protocolDataProvider.address,
-      ADDRESS_ZERO,     // TODO: fix this
-      setup.weth.address,
       "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
       aaveV2Library.address,
     );
@@ -215,17 +262,13 @@ describe("AaveLeverageModule", () => {
 
   describe("#constructor", async () => {
     let subjectController: Address;
-    let subjectstAaveToken: Address;
     let subjectLendingPoolAddressesProvider: Address;
     let subjectProtocolDataProvider: Address;
-    let subjectWeth: Address;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
-      subjectstAaveToken = ADDRESS_ZERO;
       subjectLendingPoolAddressesProvider = aaveSetup.lendingPoolAddressesProvider.address;
       subjectProtocolDataProvider = aaveSetup.protocolDataProvider.address;
-      subjectWeth = setup.weth.address;
     });
 
     async function subject(): Promise<AaveLeverageModule> {
@@ -233,8 +276,6 @@ describe("AaveLeverageModule", () => {
         subjectController,
         subjectLendingPoolAddressesProvider,
         subjectProtocolDataProvider,
-        subjectstAaveToken,
-        subjectWeth,
         "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
         aaveV2Library.address
       );
@@ -254,36 +295,19 @@ describe("AaveLeverageModule", () => {
       expect(lendingPool).to.eq(aaveSetup.lendingPool.address);
     });
 
-    it("should set the correct underlying to aToken mapping", async () => {
+    it("should set the correct underlying to reserve tokens mappings", async () => {
       const aaveLeverageModule = await subject();
 
-      const returnedAWeth = await aaveLeverageModule.underlyingToAToken(setup.weth.address);
-      const returnedADai = await aaveLeverageModule.underlyingToAToken(setup.dai.address);
+      const wethReserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.weth.address);
+      const daiReserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.dai.address);
 
-      expect(returnedAWeth).to.eq(aWETH.address);
-      expect(returnedADai).to.eq(aaveSetup.daiReserveTokens.aToken.address);
-    });
+      expect(wethReserveTokens.aToken).to.eq(aWETH.address);
+      expect(wethReserveTokens.stableDebtToken).to.eq(aaveSetup.wethReserveTokens.stableDebtToken.address);
+      expect(wethReserveTokens.variableDebtToken).to.eq(aaveSetup.wethReserveTokens.variableDebtToken.address);
 
-
-    it("should set the correct underlying to stableDebtToken mapping", async () => {
-      const aaveLeverageModule = await subject();
-
-      const wethDebtToken = await aaveLeverageModule.underlyingToStableDebtToken(setup.weth.address);
-      const daiDebtToken = await aaveLeverageModule.underlyingToStableDebtToken(setup.dai.address);
-
-      expect(wethDebtToken).to.eq(aaveSetup.wethReserveTokens.stableDebtToken.address);
-      expect(daiDebtToken).to.eq(aaveSetup.daiReserveTokens.stableDebtToken.address);
-    });
-
-
-    it("should set the correct underlying to variableDebtToken mapping", async () => {
-      const aaveLeverageModule = await subject();
-
-      const wethDebtToken = await aaveLeverageModule.underlyingToVariableDebtToken(setup.weth.address);
-      const daiDebtToken = await aaveLeverageModule.underlyingToVariableDebtToken(setup.dai.address);
-
-      expect(wethDebtToken).to.eq(aaveSetup.wethReserveTokens.variableDebtToken.address);
-      expect(daiDebtToken).to.eq(aaveSetup.daiReserveTokens.variableDebtToken.address);
+      expect(daiReserveTokens.aToken).to.eq(aaveSetup.daiReserveTokens.aToken.address);
+      expect(daiReserveTokens.stableDebtToken).to.eq(aaveSetup.daiReserveTokens.stableDebtToken.address);
+      expect(daiReserveTokens.variableDebtToken).to.eq(aaveSetup.daiReserveTokens.variableDebtToken.address);
     });
   });
 
@@ -1564,11 +1588,330 @@ describe("AaveLeverageModule", () => {
   });
 
   describe("#deleverToZeroBorrowBalance", async () => {
-    // todo: Add this test.
-    // Things to consider:
-    // 1. Debt accrues every block, so would need a more dynamic exchange, and OneInchExchangeMocks would not be
-    //    enough for the job.
-    // 2. Would need to calculate interest rates for upcoming blocks.
+    let setToken: SetToken;
+    let isInitialized: boolean;
+
+    let uniswapExchangeAdapter: UniswapV2ExchangeAdapterV2;
+    let uniswapSetup: UniswapFixture;
+    let subjectSetToken: Address;
+    let subjectCollateralAsset: Address;
+    let subjectRepayAsset: Address;
+    let subjectRedeemQuantity: BigNumber;
+    let subjectTradeAdapterName: string;
+    let subjectTradeData: Bytes;
+    let subjectCaller: Account;
+
+    const initializeContracts = async () => {
+      setToken = await setup.createSetToken(
+        [aWETH.address],
+        [ether(10)],
+        [aaveLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+      await debtIssuanceMock.initialize(setToken.address);
+      // Add SetToken to allow list
+      await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+      // Initialize module if set to true
+      if (isInitialized) {
+        await aaveLeverageModule.initialize(
+          setToken.address,
+          [setup.weth.address, setup.dai.address],
+          [setup.dai.address, setup.weth.address],
+          interestRateModes.variable
+        );
+      }
+      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+
+      // Add Set token as token sender / recipient
+      oneInchExchangeMockToWeth = oneInchExchangeMockToWeth.connect(owner.wallet);
+      await oneInchExchangeMockToWeth.addSetTokenAddress(setToken.address);
+
+      // Fund One Inch exchange with destinationToken WETH
+      await setup.weth.transfer(oneInchExchangeMockToWeth.address, ether(1));
+
+      // Setup uniswap
+      uniswapSetup = getUniswapFixture(owner.address);
+      await uniswapSetup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
+      uniswapExchangeAdapter = await deployer.adapters.deployUniswapV2ExchangeAdapterV2(uniswapSetup.router.address);
+
+      // Add integration
+      await setup.integrationRegistry.addIntegration(
+        aaveLeverageModule.address,
+        "UNISWAP",
+        uniswapExchangeAdapter.address
+      );
+
+      // Add liquidity
+      await setup.weth.approve(uniswapSetup.router.address, ether(500));
+      await setup.dai.approve(uniswapSetup.router.address, ether(500000));
+      await uniswapSetup.router.addLiquidity(
+        setup.weth.address,
+        setup.dai.address,
+        ether(500),
+        ether(500000),
+        ether(499),
+        ether(499000),
+        owner.address,
+        MAX_UINT_256
+      );
+
+      // Mint aTokens
+      await setup.weth.approve(aaveSetup.lendingPool.address, ether(10));
+      await aaveSetup.lendingPool.connect(owner.wallet).deposit(setup.weth.address, ether(10), owner.address, ZERO);
+
+      // Approve tokens to issuance module and call issue
+      await aWETH.approve(setup.issuanceModule.address, ether(10));
+
+      // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+      const issueQuantity = ether(1);
+      await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+      // Lever SetToken
+      if (isInitialized) {
+        const leverTradeData = oneInchExchangeMockToWeth.interface.encodeFunctionData("swap", [
+          setup.dai.address, // Send token
+          setup.weth.address, // Receive token
+          ether(1000), // Send quantity
+          ether(1), // Min receive quantity
+          ZERO,
+          ADDRESS_ZERO,
+          [ADDRESS_ZERO],
+          EMPTY_BYTES,
+          [ZERO],
+          [ZERO],
+        ]);
+
+        await aaveLeverageModule.lever(
+          setToken.address,
+          setup.dai.address,
+          setup.weth.address,
+          ether(1000),
+          ether(1),
+          "ONEINCHTOWETH",
+          leverTradeData
+        );
+      }
+    };
+
+    const initializeSubjectVariables = async () => {
+      subjectSetToken = setToken.address;
+      subjectCollateralAsset = setup.weth.address;
+      subjectRepayAsset = setup.dai.address;
+      subjectRedeemQuantity = ether(2);
+      subjectTradeAdapterName = "UNISWAP";
+      subjectCaller = owner;
+      subjectTradeData = await uniswapExchangeAdapter.generateDataParam(
+        setup.weth.address,
+        setup.dai.address,
+        true   // fixed_input
+      );
+    };
+
+    async function subject(): Promise<ContractTransaction> {
+      return await aaveLeverageModule.connect(subjectCaller.wallet).deleverToZeroBorrowBalance(
+        subjectSetToken,
+        subjectCollateralAsset,
+        subjectRepayAsset,
+        subjectRedeemQuantity,
+        subjectTradeAdapterName,
+        subjectTradeData
+      );
+    }
+
+    describe("when module is initialized", async () => {
+      before(async () => {
+        isInitialized = true;
+      });
+
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+
+      it("should update the collateral position on the SetToken correctly", async () => {
+        const initialPositions = await setToken.getPositions();
+
+        await subject();
+
+        const currentPositions = await setToken.getPositions();
+        const newFirstPosition = (await setToken.getPositions())[0];
+
+        // Get expected aTokens burnt
+        const removedUnits = subjectRedeemQuantity;
+        const expectedFirstPositionUnit = initialPositions[0].unit.sub(removedUnits);
+
+        expect(initialPositions.length).to.eq(2);
+        expect(currentPositions.length).to.eq(2);
+        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.positionState).to.eq(0); // Default
+        expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+      });
+
+      it("should wipe the debt on Aave", async () => {
+        await subject();
+
+        const borrowDebt = await varaibleDebtDAI.balanceOf(setToken.address);
+
+        expect(borrowDebt).to.eq(ZERO);
+      });
+
+      it("should remove external positions on the borrow asset", async () => {
+        await subject();
+
+        const borrowAssetExternalModules = await setToken.getExternalPositionModules(setup.dai.address);
+        const borrowExternalUnit = await setToken.getExternalPositionRealUnit(
+          setup.dai.address,
+          aaveLeverageModule.address
+        );
+        const isPositionModule = await setToken.isExternalPositionModule(
+          setup.dai.address,
+          aaveLeverageModule.address
+        );
+
+        expect(borrowAssetExternalModules.length).to.eq(0);
+        expect(borrowExternalUnit).to.eq(ZERO);
+        expect(isPositionModule).to.eq(false);
+      });
+
+      it("should update the borrow asset equity on the SetToken correctly", async () => {
+        const initialPositions = await setToken.getPositions();
+
+        const [, repayAssetAmountOut] = await uniswapSetup.router.getAmountsOut(
+          subjectRedeemQuantity,
+          [setup.weth.address, setup.dai.address]
+        );
+
+        const tx = await subject();
+
+        // Fetch total repay amount
+        const res = await tx.wait();
+        const levDecreasedEvent = res.events?.find((value, index, array) => { return value.event == "LeverageDecreased"; });
+        const totalRepayAmount: BigNumber = levDecreasedEvent?.args?.[5];
+
+        const expectedSecondPositionUnit = repayAssetAmountOut.sub(totalRepayAmount);
+
+        const currentPositions = await setToken.getPositions();
+        const newSecondPosition = (await setToken.getPositions())[1];
+
+        expect(initialPositions.length).to.eq(2);
+        expect(currentPositions.length).to.eq(2);
+        expect(newSecondPosition.component).to.eq(setup.dai.address);
+        expect(newSecondPosition.positionState).to.eq(0); // Default
+        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+        expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+      });
+
+      it("should transfer the correct components to the exchange", async () => {
+        const oldSourceTokenBalance = await setup.weth.balanceOf(uniswapSetup.wethDaiPool.address);
+
+        await subject();
+        const totalSourceQuantity = subjectRedeemQuantity;
+        const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+        const newSourceTokenBalance = await setup.weth.balanceOf(uniswapSetup.wethDaiPool.address);
+        expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+      });
+
+      it("should transfer the correct components from the exchange", async () => {
+        const [, repayAssetAmountOut] = await uniswapSetup.router.getAmountsOut(
+          subjectRedeemQuantity,
+          [setup.weth.address, setup.dai.address]
+        );
+        const oldDestinationTokenBalance = await setup.dai.balanceOf(uniswapSetup.wethDaiPool.address);
+
+        await subject();
+        const totalDestinationQuantity = repayAssetAmountOut;
+        const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(totalDestinationQuantity);
+        const newDestinationTokenBalance = await setup.dai.balanceOf(uniswapSetup.wethDaiPool.address);
+        expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+      });
+
+      describe("when the exchange is not valid", async () => {
+        beforeEach(async () => {
+          subjectTradeAdapterName = "UNISWAPV3";
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be valid adapter");
+        });
+      });
+
+      describe("when quantity of token to sell is 0", async () => {
+        beforeEach(async () => {
+          subjectRedeemQuantity = ZERO;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Quantity is 0");
+        });
+      });
+
+      describe("when borrow / repay asset is not enabled", async () => {
+        beforeEach(async () => {
+          subjectRepayAsset = setup.wbtc.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Borrow not enabled");
+        });
+      });
+
+      describe("when collateral asset is not enabled", async () => {
+        beforeEach(async () => {
+          subjectCollateralAsset = await getRandomAddress();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Collateral not enabled");
+        });
+      });
+
+      describe("when borrow asset is same as collateral asset", async () => {
+        beforeEach(async () => {
+          subjectRepayAsset = setup.weth.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be different");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+            [setup.weth.address],
+            [ether(1)],
+            [aaveLeverageModule.address],
+            owner.address
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#sync", async () => {
@@ -3311,13 +3654,11 @@ describe("AaveLeverageModule", () => {
       it("should add the underlying to reserve tokens mappings", async () => {
         await subject();
 
-        const storedAToken = await aaveLeverageModule.underlyingToAToken(setup.wbtc.address);
-        const storedStableDebtToken = await aaveLeverageModule.underlyingToStableDebtToken(setup.wbtc.address);
-        const storedVariableDebtToken = await aaveLeverageModule.underlyingToVariableDebtToken(setup.wbtc.address);
+        const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.wbtc.address);
 
-        expect(storedAToken).to.eq(wbtcReserveTokens.aToken.address);
-        expect(storedStableDebtToken).to.eq(wbtcReserveTokens.stableDebtToken.address);
-        expect(storedVariableDebtToken).to.eq(wbtcReserveTokens.variableDebtToken.address);
+        expect(reserveTokens.aToken).to.eq(wbtcReserveTokens.aToken.address);
+        expect(reserveTokens.stableDebtToken).to.eq(wbtcReserveTokens.stableDebtToken.address);
+        expect(reserveTokens.variableDebtToken).to.eq(wbtcReserveTokens.variableDebtToken.address);
       });
     });
 
