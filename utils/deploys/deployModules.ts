@@ -167,8 +167,6 @@ export default class DeployModules {
     controller: Address,
     lendingPoolAddressesProvider: Address,
     protocolDataProvider: Address,
-    stAaveToken: Address,
-    weth: Address,
     libraryName: string,
     libraryAddress: Address
   ): Promise<AaveLeverageModule> {
@@ -183,9 +181,7 @@ export default class DeployModules {
     ).deploy(
       controller,
       lendingPoolAddressesProvider,
-      protocolDataProvider,
-      stAaveToken,
-      weth
+      protocolDataProvider
     );
   }
 }
