@@ -40,53 +40,6 @@ import { ContractTransaction } from "@ethersproject/contracts";
 const expect = getWaffleExpect();
 const web3 = new Web3();
 
-/* HELPER FUNCTIONS
-
-const TWO = BigNumber.from(2);
-const RAY = BigNumber.from(10).pow(27);	// 1e27
-
-function ray_mul(a: BigNumber, b: BigNumber): BigNumber {
-  return (a.mul(b).add(RAY.div(TWO))).div(RAY);
-}
-
-function ray_div(a: BigNumber, b: BigNumber): BigNumber {
-  return (a.mul(RAY).add(b.div(TWO))).div(b);
-}
-
-function calculate_variable_borrow_rate(
-  base_rate: BigNumber,
-  slope_1: BigNumber,
-  slope_2: BigNumber,
-  utilization_rate: BigNumber,
-  optimal_utilization_rate: BigNumber
-): BigNumber {
-  if (utilization_rate.lte(optimal_utilization_rate)) {
-    return base_rate.add(ray_div(ray_mul(utilization_rate, slope_1), optimal_utilization_rate));
-  } else {
-    return base_rate.add(slope_1).add(ray_mul(slope_2, ray_div(utilization_rate.sub(optimal_utilization_rate), RAY.sub(optimal_utilization_rate))));
-  }
-}
-
-function calculate_compound_interest(currentVariableBorrowRate: BigNumber, exp: BigNumber): BigNumber {
-  if (exp.eq(ZERO)) {
-    return RAY;
-  }
-
-  const exp_minus_one = exp.sub(ONE);
-  const exp_minus_two = exp.gt(TWO) ? exp.sub(TWO) : ZERO;
-  const rate_per_second = currentVariableBorrowRate;
-
-  const base_power_two = ray_mul(rate_per_second, rate_per_second);
-  const base_power_three = ray_mul(base_power_two, rate_per_second);
-
-  const second_term = exp.mul(exp_minus_one).mul(base_power_two).div(TWO);
-  const third_term = exp.mul(exp_minus_one).mul(exp_minus_two).div(base_power_three).div(BigNumber.from(6));
-
-  return RAY.add(rate_per_second.mul(exp)).add(second_term).add(third_term);
-};
-*/
-
-// TODO: Add tests for case when managers can enable collateral assets that don't exist as positions on the SetToken
 describe("AaveLeverageModule", () => {
   let owner: Account;
   let mockModule: Account;
@@ -112,8 +65,6 @@ describe("AaveLeverageModule", () => {
   let oneInchExchangeAdapterToWeth: OneInchExchangeAdapter;
   let oneInchExchangeAdapterFromWeth: OneInchExchangeAdapter;
 
-  const VARIABLE_INTEREST_RATE_MODE = BigNumber.from(2);
-
   cacheBeforeEach(async () => {
     [
       owner,
@@ -128,8 +79,19 @@ describe("AaveLeverageModule", () => {
     aaveSetup = getAaveV2Fixture(owner.address);
     await aaveSetup.initialize(setup.weth.address, setup.dai.address);
 
+    // Create a WBTC reserve
+    await aaveSetup.createAndEnableReserve(
+      setup.wbtc.address, "WBTC", BigNumber.from(18),
+      BigNumber.from(8000),   // base LTV: 80%
+      BigNumber.from(8250),   // liquidation threshold: 82.5%
+      BigNumber.from(10500),  // liquidation bonus: 105.00%
+      BigNumber.from(1000),   // reserve factor: 10%
+      true,                   // enable borrowing on reserve
+      true                    // enable stable debts
+    );
+
     // Create liquidity
-    const ape = await getRandomAccount();   // The wallet who aped in first and added initial liquidity
+    const ape = await getRandomAccount();   // The wallet which aped in first and added initial liquidity
     await setup.weth.transfer(ape.address, ether(50));
     await setup.weth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(50));
     await aaveSetup.lendingPool.connect(ape.wallet).deposit(
@@ -1775,8 +1737,8 @@ describe("AaveLeverageModule", () => {
         if (isInitialized) {
           await aaveLeverageModule.initialize(
             setToken.address,
-            [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address]
+            [setup.weth.address, setup.dai.address, setup.wbtc.address],  // Enable WBTC that is not a Set position
+            [setup.dai.address, setup.weth.address, setup.wbtc.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2401,17 +2363,10 @@ describe("AaveLeverageModule", () => {
       await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
       // Initialize module if set to true
       if (isInitialized) {
-        // TODO: doesn't seem to work with setup.usdc.address
-        // await aaveLeverageModule.initialize(
-        //   setToken.address,
-        //   [setup.weth.address, setup.dai.address, setup.usdc.address], // Enable COMP that is not a Set position
-        //   [setup.dai.address, setup.weth.address, setup.usdc.address],
-        VARIABLE_INTEREST_RATE_MODE;
-        // );
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address, setup.dai.address],
-          [setup.dai.address, setup.weth.address]
+          [setup.weth.address, setup.dai.address, setup.wbtc.address],  // Enable WBTC that is not a Set position
+          [setup.dai.address, setup.weth.address, setup.wbtc.address]
         );
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2514,8 +2469,8 @@ describe("AaveLeverageModule", () => {
         if (isInitialized) {
           await aaveLeverageModule.initialize(
             setToken.address,
-            [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address]
+            [setup.weth.address, setup.dai.address, setup.wbtc.address],  // Enable WBTC that is not a Set position
+            [setup.dai.address, setup.weth.address, setup.wbtc.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2707,8 +2662,8 @@ describe("AaveLeverageModule", () => {
         if (isInitialized) {
           await aaveLeverageModule.initialize(
             setToken.address,
-            [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address]
+            [setup.weth.address, setup.dai.address, setup.wbtc.address],  // Enable WBTC that is not a Set position
+            [setup.dai.address, setup.weth.address, setup.wbtc.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -2905,8 +2860,8 @@ describe("AaveLeverageModule", () => {
         if (isInitialized) {
           await aaveLeverageModule.initialize(
             setToken.address,
-            [setup.weth.address, setup.dai.address],
-            [setup.dai.address, setup.weth.address]
+            [setup.weth.address, setup.dai.address, setup.wbtc.address],  // Enable WBTC that is not a Set position
+            [setup.dai.address, setup.weth.address, setup.wbtc.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -3052,8 +3007,8 @@ describe("AaveLeverageModule", () => {
         if (isInitialized) {
           await aaveLeverageModule.initialize(
             setToken.address,
-            [setup.weth.address],
-            [setup.dai.address]
+            [setup.weth.address, setup.wbtc.address],  // Enable WBTC that is not a Set position
+            [setup.dai.address, setup.wbtc.address]
           );
         }
         await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
