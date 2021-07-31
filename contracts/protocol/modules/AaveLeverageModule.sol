@@ -909,17 +909,20 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal view {
         require(!collateralAssetEnabled[_setToken][_collateralAsset], "Collateral already enabled");
         (, , , , , bool usageAsCollateralEnabled, , ,bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_collateralAsset));
-        require(isActive, "Inactive aave reserve");
+        // Every valid Aave reserve is an Aave active reserve. "Invalid aave reserve" is a more clear error statement for users
+        require(isActive, "Invalid aave reserve");      
         require(!isFrozen, "Frozen aave reserve");
         require(usageAsCollateralEnabled, "Collateral disabled on Aave");
+        require(address(underlyingToReserveTokens[_collateralAsset].aToken) != address(0), "Reserve not tracked. Call updateAaveReserve()");
     }
 
     function _validateNewBorrowAsset(ISetToken _setToken, IERC20 _borrowAsset) internal view {
         require(!borrowAssetEnabled[_setToken][_borrowAsset], "Borrow already enabled");    
         (, , , , , , bool borrowingEnabled, , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_borrowAsset));
-        require(isActive, "Inactive aave reserve");
+        require(isActive, "Invalid aave reserve");
         require(!isFrozen, "Frozen aave reserve");
         require(borrowingEnabled, "Borrowing disabled on Aave");
+        require(address(underlyingToReserveTokens[_borrowAsset].variableDebtToken) != address(0), "Reserve not tracked. Call updateAaveReserve()");
     }
 
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
