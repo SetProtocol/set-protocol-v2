@@ -192,6 +192,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
         IProtocolDataProvider.TokenData[] memory reserveTokens = protocolDataProvider.getAllReservesTokens();
         for(uint256 i = 0; i < reserveTokens.length; i++) {
+            // todo: Emit AaveReserveUpdated event?
             _addAaveReserve(IERC20(reserveTokens[i].tokenAddress));
         }
     }
@@ -880,24 +881,39 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         );
     }
     
+    /**
+     * Returns new default position unit for given collateral aToken and SetToken
+     */
     function _getCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _setTotalSupply) internal view returns (uint256) {
         uint256 collateralNotionalBalance = _aToken.balanceOf(address(_setToken));
         return collateralNotionalBalance.preciseDiv(_setTotalSupply);
     }
-
+    
+    /**
+     * Returns new external position unit for given borrow asset and SetToken
+     */
     function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
         uint256 borrowNotionalBalance = underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
         return borrowNotionalBalance.preciseDiv(_setTotalSupply).toInt256().mul(-1);
     }
     
+    /**
+     * Updates default position unit for given aToken on SetToken
+     */
     function _updateCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _newPositionUnit) internal {
         _setToken.editDefaultPosition(address(_aToken), _newPositionUnit);
     }
 
+    /**
+     * Updates external position unit for given borrow asset on SetToken
+     */
     function _updateBorrowPosition(ISetToken _setToken, IERC20 _underlyingAsset, int256 _newPositionUnit) internal {
         _setToken.editExternalPosition(address(_underlyingAsset), address(this), _newPositionUnit, "");
     }
    
+    /**
+     * Updates `underlyingToReserveTokens` mappings for given `_underlying` asset
+     */
     function _addAaveReserve(IERC20 _underlying) internal {
         // Note: Returns zero addresses if specified reserve is not present on Aave market
         (address aToken, , address variableDebtToken) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
@@ -906,6 +922,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         underlyingToReserveTokens[_underlying].variableDebtToken = IVariableDebtToken(variableDebtToken);
     }   
 
+    /**
+     * Validates if a new asset can be added as collateral asset for given SetToken
+     */
     function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal view {
         require(!collateralAssetEnabled[_setToken][_collateralAsset], "Collateral already enabled");
         (, , , , , bool usageAsCollateralEnabled, , ,bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_collateralAsset));
@@ -916,6 +935,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         require(address(underlyingToReserveTokens[_collateralAsset].aToken) != address(0), "Reserve not tracked. Call updateAaveReserve()");
     }
 
+    /**
+     * Validates if a new asset can be added as borrow asset for given SetToken
+     */
     function _validateNewBorrowAsset(ISetToken _setToken, IERC20 _borrowAsset) internal view {
         require(!borrowAssetEnabled[_setToken][_borrowAsset], "Borrow already enabled");    
         (, , , , , , bool borrowingEnabled, , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_borrowAsset));
@@ -925,6 +947,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         require(address(underlyingToReserveTokens[_borrowAsset].variableDebtToken) != address(0), "Reserve not tracked. Call updateAaveReserve()");
     }
 
+    /**
+     * Validate common requirements for lever and delever
+     */
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
         require(collateralAssetEnabled[_actionInfo.setToken][_actionInfo.collateralAsset], "Collateral not enabled");
         require(borrowAssetEnabled[_actionInfo.setToken][_actionInfo.borrowAsset], "Borrow not enabled");
