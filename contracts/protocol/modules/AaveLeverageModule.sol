@@ -35,16 +35,11 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { IVariableDebtToken } from "../../interfaces/external/aave-v2/IVariableDebtToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 
-// TODO: Avoid balanceOf() for transferrable tokens
-// TODO: Refactor javadoc comments to natspec format
-
 /**
  * @title AaveLeverageModule
- * @author Set Protocol
- *
- * Smart contract that enables leverage trading using Aave as the lending protocol. 
- *
- * Note: Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
+ * @author Set Protocol 
+ * @notice Smart contract that enables leverage trading using Aave as the lending protocol. 
+ * @dev Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
  * debt when borrowed assets are the same.
  */
 contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
@@ -75,6 +70,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     
     /* ============ Events ============ */
 
+    /**
+     * @dev Emitted on lever()
+     * @param Instance of the SetToken being levered
+     * @param Asset being borrowed for leverage
+     * @param Collateral asset being levered
+     * @param Exchange adapter used for trading
+     * @param Total amount of `_borrowAsset` borrowed
+     * @param Total amount of `_collateralAsset` received by selling `_borrowAsset`
+     * @param Protocol fee charged
+     */
     event LeverageIncreased(
         ISetToken indexed _setToken,
         IERC20 indexed _borrowAsset,
@@ -85,6 +90,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         uint256 _protocolFee
     );
 
+    /**
+     * @dev Emitted on delever() and deleverToZeroBorrowBalance()
+     * @param Instance of the SetToken being delevered
+     * @param Asset sold to decrease leverage
+     * @param Asset being bought to repay to Aave
+     * @param Exchagne adapter used for trading
+     * @param Total amount of `_collateralAsset` being sold
+     * @param Total amount of `_repayAsset` being repaid
+     * @param Protocol fee charged
+     */
     event LeverageDecreased(
         ISetToken indexed _setToken,
         IERC20 indexed _collateralAsset,
@@ -95,32 +110,62 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         uint256 _protocolFee
     );
 
+    /**
+     * @dev Emitted on addCollateralAssets() and removeCollateralAssets()
+     * @param Instance of SetToken whose collateral assets is updated
+     * @param true if added false if removed
+     * @param Array of assets
+     */
     event CollateralAssetsUpdated(
         ISetToken indexed _setToken,
         bool indexed _added,
         IERC20[] _assets
     );
 
+    /**
+     * @dev Emitted on addBorrowAssets() and removeBorrowAssets()
+     * @param Instance of SetToken whose borrow assets is updated
+     * @param true if added false if removed
+     * @param Array of assets
+     */
     event BorrowAssetsUpdated(
         ISetToken indexed _setToken,
         bool indexed _added,
         IERC20[] _assets
     );
     
+    /**
+     * @dev Emitted when `underlyingToReserveTokensMappings` is updated
+     * @param Address of the underlying asset
+     * @param Updated aave reserve tokens 
+     */
     event AaveReserveUpdated(
         IERC20 indexed _underlying,
         ReserveTokens indexed _reserveTokens
     );
     
+    /**
+     * @dev Emitted when tracked AaveV2 lendingPool is udpated
+     * @param Address of the new lendingPool contract
+     */
     event LendingPoolUpdated(
         ILendingPool indexed _LendingPool
     );
 
+    /**
+     * @dev Emitted on updateAllowedSetToken()
+     * @param SetToken being whose allowance to initialize this module is being updated
+     * @param true if added false if removed
+     */
     event SetTokenStatusUpdated(
         ISetToken indexed _setToken,
         bool indexed _added
     );
 
+    /**
+     * @dev Emitted on updateAnySetAllowed()
+     * @param true if any set is allowed to initialize this module, false otherwise
+     */
     event AnySetAllowedUpdated(
         bool indexed _anySetAllowed    
     );
@@ -172,8 +217,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /* ============ Constructor ============ */
 
     /**
-     * Instantiate addresses. Underlying to reserve tokens mapping is created.
-     * 
+     * @dev Instantiate addresses. Underlying to reserve tokens mapping is created.
      * @param _controller                       Address of controller contract
      * @param _lendingPoolAddressesProvider     Address of Aave LendingPoolAddressProvider
      * @param _protocolDataProvider             Address of Aave ProtocolDataProvider
@@ -199,9 +243,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * MANAGER ONLY: Initializes this module to the SetToken. Only callable by the SetToken's manager. Note: managers can enable
-     * collateral and borrow assets that don't exist as positions on the SetToken
-     *
+     * @dev MANAGER ONLY: Initializes this module to the SetToken. Only callable by the SetToken's manager. 
+     * Note: managers can enable collateral and borrow assets that don't exist as positions on the SetToken
      * @param _setToken             Instance of the SetToken to initialize
      * @param _collateralAssets     Underlying tokens to be enabled as collateral in the SetToken
      * @param _borrowAssets         Underlying tokens to be enabled as borrow in the SetToken
@@ -236,9 +279,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * MANAGER ONLY: Increases leverage for a given collateral position using an enabled borrow asset.
+     * @dev MANAGER ONLY: Increases leverage for a given collateral position using an enabled borrow asset.
      * Performs a DEX trade, exchanging the borrow asset for collateral asset.
-     *
      * @param _setToken             Instance of the SetToken
      * @param _borrowAsset          Address of asset being borrowed for leverage
      * @param _collateralAsset      Address of collateral reserve
@@ -296,8 +338,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * MANAGER ONLY: Decrease leverage for a given collateral position using an enabled borrow asset that is enabled
-     *
+     * @dev MANAGER ONLY: Decrease leverage for a given collateral position using an enabled borrow asset that is enabled
      * @param _setToken             Instance of the SetToken
      * @param _collateralAsset      Address of collateral asset (underlying of aToken)
      * @param _repayAsset           Address of asset being repaid
@@ -355,16 +396,14 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * MANAGER ONLY: Pays down the borrow asset to 0 selling off a given collateral asset. Any extra received
+     * @dev MANAGER ONLY: Pays down the borrow asset to 0 selling off a given collateral asset. Any extra received
      * borrow asset is updated as equity. No protocol fee is charged.
-     *
      * @param _setToken             Instance of the SetToken
      * @param _collateralAsset      Address of collateral asset (underlying of aToken)
      * @param _repayAsset           Address of asset being repaid (underlying asset e.g. DAI)
      * @param _redeemQuantity       Quantity of collateral asset to delever
      * @param _tradeAdapterName     Name of trade adapter
-     * @param _tradeData            Arbitrary data for trade
-     *
+     * @param _tradeData            Arbitrary data for trade     
      * @return uint256              Notional repay quantity
      */
     function deleverToZeroBorrowBalance(
@@ -424,13 +463,12 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * CALLABLE BY ANYBODY: Sync Set positions with enabled Aave collateral and borrow positions. For collateral 
+     * @dev CALLABLE BY ANYBODY: Sync Set positions with enabled Aave collateral and borrow positions. For collateral 
      * assets, update aToken default position. For borrow assets, update external borrow position.
      * - Collateral assets may come out of sync when interest is accrued or a a position is liquidated
      * - Borrow assets may come out of sync when interest is accrued or position is liquidated and borrow is repaid
      * Note: In Aave, both collateral and borrow interest is accrued in each block by increasing the balance of aTokens & debtTokens
      * for each user, and 1 aToken = 1 stableDebtToken = 1 variableDebtToken = 1 underlying.
-     *
      * @param _setToken               Instance of the SetToken
      */
     function sync(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
@@ -468,8 +506,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * MANAGER ONLY: Add collateral assets. aTokens corresponding to collateral assets are tracked for syncing positions.
-     *
+     * @dev MANAGER ONLY: Add collateral assets. aTokens corresponding to collateral assets are tracked for syncing positions.
      * @param _setToken             Instance of the SetToken
      * @param _newCollateralAssets  Addresses of new collateral underlying assets
      */
@@ -487,8 +524,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * MANAGER ONLY: Add borrow asset. Debt tokens corresponding to borrow assets are tracked for syncing positions.
-     *
+     * @dev MANAGER ONLY: Add borrow asset. Debt tokens corresponding to borrow assets are tracked for syncing positions.
      * @param _setToken             Instance of the SetToken
      * @param _newBorrowAssets      Addresses of borrow underlying assets to add
      */
@@ -506,10 +542,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
         
     /**
-     * MANAGER ONLY: Add registration of this module on debt issuance module for the SetToken. Note: if the debt issuance module is not added to SetToken
-     * before this module is initialized, then this function needs to be called if the debt issuance module is later added and initialized to prevent state
-     * inconsistencies
-     *
+     * @dev MANAGER ONLY: Add registration of this module on debt issuance module for the SetToken. 
+     * Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function
+     * needs to be called if the debt issuance module is later added and initialized to prevent state inconsistencies
      * @param _setToken             Instance of the SetToken
      * @param _debtIssuanceModule   Debt issuance module address to register
      */
@@ -520,8 +555,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * MODULE ONLY: Hook called prior to issuance to sync positions on SetToken. Only callable by valid module.
-     *
+     * @dev MODULE ONLY: Hook called prior to issuance to sync positions on SetToken. Only callable by valid module.
      * @param _setToken             Instance of the SetToken
      */
     function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
@@ -529,9 +563,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * MODULE ONLY: Hook called prior to redemption to sync positions on SetToken. For redemption, always use current borrowed balance after interest accrual.
-     * Only callable by valid module.
-     *
+     * @dev MODULE ONLY: Hook called prior to redemption to sync positions on SetToken. For redemption, always use current borrowed
+     * balance after interest accrual. Only callable by valid module.
      * @param _setToken             Instance of the SetToken
      */
     function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
@@ -539,9 +572,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * MODULE ONLY: Hook called prior to looping through each component on issuance. Invokes borrow in order for 
+     * @dev MODULE ONLY: Hook called prior to looping through each component on issuance. Invokes borrow in order for 
      * module to return debt to issuer. Only callable by valid module.
-     *
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
@@ -556,9 +588,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * MODULE ONLY: Hook called prior to looping through each component on redemption. Invokes repay after 
+     * @dev MODULE ONLY: Hook called prior to looping through each component on redemption. Invokes repay after 
      * issuance module transfers debt from issuer. Only callable by valid module.
-     *
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
@@ -573,7 +604,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
         
     /**
-     * MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any deposited collateral assets
+     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any deposited collateral assets
      * are disabled to be used as collateral on Aave. Aave Settings and manager enabled assets state is deleted.      
      * Note: Function will revert is there is any debt remaining on Aave
      */
@@ -606,9 +637,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * MANAGER ONLY: Remove collateral asset. Disable deposited assets to be used as collateral on Aave market.
-     * todo: If there is a borrow balance, collateral asset cannot be removed? Should we check for health factor as well?
-     *
+     * @dev MANAGER ONLY: Remove collateral asset. Disable deposited assets to be used as collateral on Aave market.
      * @param _setToken             Instance of the SetToken
      * @param _collateralAssets     Addresses of collateral underlying assets to remove
      */
@@ -627,9 +656,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * MANAGER ONLY: Remove borrow asset.
+     * @dev MANAGER ONLY: Remove borrow asset.
      * Note: If there is a borrow balance, borrow asset cannot be removed
-     *
      * @param _setToken             Instance of the SetToken
      * @param _borrowAssets         Addresses of borrow underlying assets to remove
      */
@@ -650,8 +678,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * GOVERNANCE ONLY: Add or remove allowed SetToken to initialize this module. Only callable by governance.
-     *
+     * @dev GOVERNANCE ONLY: Add or remove allowed SetToken to initialize this module. Only callable by governance.
      * @param _setToken             Instance of the SetToken
      */
     function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
@@ -660,8 +687,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * GOVERNANCE ONLY: Toggle whether any SetToken is allowed to initialize this module. Only callable by governance.
-     *
+     * @dev GOVERNANCE ONLY: Toggle whether any SetToken is allowed to initialize this module. Only callable by governance.
      * @param _anySetAllowed             Bool indicating whether allowedSetTokens is enabled
      */
     function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
@@ -670,11 +696,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Adds a new mapping for previously untracked reserves.
+     * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Adds a new mapping for previously untracked reserves.
      * Aave's reserve tokens are mutable and their addresses can be changed. This function upates the stored reserve token addresses
      * to their latest value.
      * Note: Use this function for adding new reserves to `underlyingToReserveTokens` mapping.
-     *
      * @param _underlying               Address of underlying asset
      */
     function updateUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
@@ -683,9 +708,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * CALLABLE BY ANYBODY: Updates AaveV2 LendingPool contract. Aave's LendingPool contract is mutable and is address 
+     * @dev CALLABLE BY ANYBODY: Updates AaveV2 LendingPool contract. Aave's LendingPool contract is mutable and is address 
      * can be changed. This function updates the lendingPool to its latest address.
-     * 
      */
     function updateLendingPool() external {
         lendingPool = ILendingPool(lendingPoolAddressesProvider.getLendingPool());
@@ -695,10 +719,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Get enabled assets for SetToken. Returns an array of collateral and borrow assets.
-     *
-     * @return                    Underlying collateral assets that are enabled
-     * @return                    Underlying borrowed assets that are enabled
+     * @dev Get enabled assets for SetToken. Returns an array of collateral and borrow assets.
+     * @return Underlying collateral assets that are enabled
+     * @return Underlying borrowed assets that are enabled
      */
     function getEnabledAssets(ISetToken _setToken) external view returns(address[] memory, address[] memory) {
         return (
@@ -710,7 +733,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /* ============ Internal Functions ============ */
     
     /**
-     * Invoke deposit from SetToken. Mints aTokens for SetToken.
+     * @dev Invoke deposit from SetToken. Mints aTokens for SetToken.
      */
     function _deposit(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
@@ -718,21 +741,21 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * Invoke withdraw from SetToken. Burns aTokens and returns underlying to SetToken.
+     * @dev Invoke withdraw from SetToken. Burns aTokens and returns underlying to SetToken.
      */
     function _withdraw(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeWithdraw(lendingPool, address(_asset), _notionalQuantity);
     }
 
     /**
-     * Invoke borrow from the SetToken. Mints DebtTokens for SetToken.
+     * @dev Invoke borrow from the SetToken. Mints DebtTokens for SetToken.
      */
     function _borrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
 
     /**
-     * Invoke repay from SetToken. Burns DebtTokens for SetToken.
+     * @dev Invoke repay from SetToken. Burns DebtTokens for SetToken.
      */
     function _repayBorrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
@@ -740,8 +763,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * Construct the ActionInfo struct for lever and delever
-     *
+     * @dev Construct the ActionInfo struct for lever and delever
      * @return ActionInfo       Instance of constructed ActionInfo struct
      */
     function _createAndValidateActionInfo(
@@ -771,8 +793,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * Construct the ActionInfo struct for lever and delever accepting notional units
-     *
+     * @dev Construct the ActionInfo struct for lever and delever accepting notional units     
      * @return ActionInfo       Instance of constructed ActionInfo struct
      */
     function _createAndValidateActionInfoNotional(
@@ -806,8 +827,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * Invokes approvals, gets trade call data from exchange adapter and invokes trade from SetToken
-     *
+     * @dev Invokes approvals, gets trade call data from exchange adapter and invokes trade from SetToken
      * @return uint256     The quantity of tokens received post-trade
      */
     function _executeTrade(
@@ -853,8 +873,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * Calculates protocol fee on module and pays protocol fee from SetToken
-     *
+     * @dev Calculates protocol fee on module and pays protocol fee from SetToken     
      * @return uint256          Total protocol fee paid
      */
     function _accrueProtocolFee(ISetToken _setToken, IERC20 _receiveToken, uint256 _exchangedQuantity) internal returns(uint256) {
@@ -866,7 +885,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * Updates the collateral (aToken held) and borrow position (variableDebtToken held) of the SetToken
+     * @dev Updates the collateral (aToken held) and borrow position (variableDebtToken held) of the SetToken
      */
     function _updateLeverPositions(ActionInfo memory actionInfo, IERC20 _borrowAsset) internal {
         _updateCollateralPosition(
@@ -891,7 +910,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * Reads aToken balance and calculates default position unit for given collateral aToken and SetToken
+     * @dev Reads aToken balance and calculates default position unit for given collateral aToken and SetToken
      *
      * @return uint256       default collateral position unit          
      */
@@ -901,7 +920,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * Reads variableDebtToken balance and calculates external position unit for given borrow asset and SetToken
+     * @dev Reads variableDebtToken balance and calculates external position unit for given borrow asset and SetToken
      *
      * @return int256       external borrow position unit
      */
@@ -911,24 +930,24 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * Updates default position unit for given aToken on SetToken
+     * @dev Updates default position unit for given aToken on SetToken
      */
     function _updateCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _newPositionUnit) internal {
         _setToken.editDefaultPosition(address(_aToken), _newPositionUnit);
     }
 
     /**
-     * Updates external position unit for given borrow asset on SetToken
+     * @dev Updates external position unit for given borrow asset on SetToken
      */
     function _updateBorrowPosition(ISetToken _setToken, IERC20 _underlyingAsset, int256 _newPositionUnit) internal {
         _setToken.editExternalPosition(address(_underlyingAsset), address(this), _newPositionUnit, "");
     }
    
     /**
-     * Updates `underlyingToReserveTokens` mappings for given `_underlying` asset
+     * @dev Updates `underlyingToReserveTokens` mappings for given `_underlying` asset
      */
     function _updateUnderlyingToReserveTokensMapping(IERC20 _underlying) internal {
-        // Note: Returns zero addresses if specified reserve is not present on Aave market
+        // Returns zero addresses if specified reserve is not present on Aave market
         (address aToken, , address variableDebtToken) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
         
         underlyingToReserveTokens[_underlying].aToken = IAToken(aToken);
@@ -936,7 +955,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }   
 
     /**
-     * Validates if a new asset can be added as collateral asset for given SetToken
+     * @dev Validates if a new asset can be added as collateral asset for given SetToken
      */
     function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal view {
         require(!collateralAssetEnabled[_setToken][_collateralAsset], "Collateral already enabled");
@@ -951,7 +970,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * Validates if a new asset can be added as borrow asset for given SetToken
+     * @dev Validates if a new asset can be added as borrow asset for given SetToken
      */
     function _validateNewBorrowAsset(ISetToken _setToken, IERC20 _borrowAsset) internal view {
         require(!borrowAssetEnabled[_setToken][_borrowAsset], "Borrow already enabled");    
@@ -962,7 +981,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * Validate common requirements for lever and delever
+     * @dev Validate common requirements for lever and delever
      */
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
         require(collateralAssetEnabled[_actionInfo.setToken][_actionInfo.collateralAsset], "Collateral not enabled");
