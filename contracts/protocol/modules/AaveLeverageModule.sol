@@ -72,13 +72,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev Emitted on lever()
-     * @param Instance of the SetToken being levered
-     * @param Asset being borrowed for leverage
-     * @param Collateral asset being levered
-     * @param Exchange adapter used for trading
-     * @param Total amount of `_borrowAsset` borrowed
-     * @param Total amount of `_collateralAsset` received by selling `_borrowAsset`
-     * @param Protocol fee charged
+     * @param _setToken             Instance of the SetToken being levered
+     * @param _borrowAsset          Asset being borrowed for leverage
+     * @param _collateralAsset      Collateral asset being levered
+     * @param _exchangeAdapter      Exchange adapter used for trading
+     * @param _totalBorrowAmount    Total amount of `_borrowAsset` borrowed
+     * @param _totalReceiveAmount   Total amount of `_collateralAsset` received by selling `_borrowAsset`
+     * @param _protocolFee          Protocol fee charged
      */
     event LeverageIncreased(
         ISetToken indexed _setToken,
@@ -92,13 +92,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev Emitted on delever() and deleverToZeroBorrowBalance()
-     * @param Instance of the SetToken being delevered
-     * @param Asset sold to decrease leverage
-     * @param Asset being bought to repay to Aave
-     * @param Exchagne adapter used for trading
-     * @param Total amount of `_collateralAsset` being sold
-     * @param Total amount of `_repayAsset` being repaid
-     * @param Protocol fee charged
+     * @param _setToken             Instance of the SetToken being delevered
+     * @param _collateralAsset      Asset sold to decrease leverage
+     * @param _repayAsset           Asset being bought to repay to Aave
+     * @param _exchangeAdapter      Exchagne adapter used for trading
+     * @param _totalRedeemAmount    Total amount of `_collateralAsset` being sold
+     * @param _totalRepayAmount     Total amount of `_repayAsset` being repaid
+     * @param _protocolFee          Protocol fee charged
      */
     event LeverageDecreased(
         ISetToken indexed _setToken,
@@ -112,9 +112,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev Emitted on addCollateralAssets() and removeCollateralAssets()
-     * @param Instance of SetToken whose collateral assets is updated
-     * @param true if added false if removed
-     * @param Array of assets
+     * @param _setToken Instance of SetToken whose collateral assets is updated
+     * @param _added    true if added false if removed
+     * @param _assets   Array of assets
      */
     event CollateralAssetsUpdated(
         ISetToken indexed _setToken,
@@ -124,9 +124,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev Emitted on addBorrowAssets() and removeBorrowAssets()
-     * @param Instance of SetToken whose borrow assets is updated
-     * @param true if added false if removed
-     * @param Array of assets
+     * @param _setToken Instance of SetToken whose borrow assets is updated
+     * @param _added    true if added false if removed
+     * @param _assets   Array of assets
      */
     event BorrowAssetsUpdated(
         ISetToken indexed _setToken,
@@ -136,8 +136,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     
     /**
      * @dev Emitted when `underlyingToReserveTokensMappings` is updated
-     * @param Address of the underlying asset
-     * @param Updated aave reserve tokens 
+     * @param _underlying       Address of the underlying asset
+     * @param _reserveTokens    Updated aave reserve tokens 
      */
     event AaveReserveUpdated(
         IERC20 indexed _underlying,
@@ -146,16 +146,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     
     /**
      * @dev Emitted when tracked AaveV2 lendingPool is udpated
-     * @param Address of the new lendingPool contract
+     * @param _lendingPool Address of the new lendingPool contract
      */
     event LendingPoolUpdated(
-        ILendingPool indexed _LendingPool
+        ILendingPool indexed _lendingPool
     );
 
     /**
      * @dev Emitted on updateAllowedSetToken()
-     * @param SetToken being whose allowance to initialize this module is being updated
-     * @param true if added false if removed
+     * @param _setToken SetToken being whose allowance to initialize this module is being updated
+     * @param _added    true if added false if removed
      */
     event SetTokenStatusUpdated(
         ISetToken indexed _setToken,
@@ -164,7 +164,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev Emitted on updateAnySetAllowed()
-     * @param true if any set is allowed to initialize this module, false otherwise
+     * @param _anySetAllowed    true if any set is allowed to initialize this module, false otherwise
      */
     event AnySetAllowedUpdated(
         bool indexed _anySetAllowed    
