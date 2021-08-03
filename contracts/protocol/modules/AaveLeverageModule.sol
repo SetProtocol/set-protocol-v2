@@ -139,7 +139,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /* ============ State Variables ============ */
 
-    // Mapping to efficiently fetch reserve token addresses
+    // Mapping to efficiently fetch reserve token addresses. Tracking Aave reserve token addresses and updating them 
+    // upon requirement is more efficient than fetching them each time from Aave
     mapping(IERC20 => ReserveTokens) public underlyingToReserveTokens;
 
     // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
@@ -193,7 +194,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         IProtocolDataProvider.TokenData[] memory reserveTokens = protocolDataProvider.getAllReservesTokens();
         for(uint256 i = 0; i < reserveTokens.length; i++) {
             // todo: Emit AaveReserveUpdated event?
-            _addAaveReserve(IERC20(reserveTokens[i].tokenAddress));
+            _updateUnderlyingToReserveTokensMapping(IERC20(reserveTokens[i].tokenAddress));
         }
     }
     
@@ -477,6 +478,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             IERC20 collateralAsset = _newCollateralAssets[i];
             
             _validateNewCollateralAsset(_setToken, collateralAsset);
+            _updateUnderlyingToReserveTokensMapping(collateralAsset);
             
             collateralAssetEnabled[_setToken][collateralAsset] = true;
             enabledAssets[_setToken].collateralAssets.push(address(collateralAsset));
@@ -495,6 +497,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             IERC20 borrowAsset = _newBorrowAssets[i];
             
             _validateNewBorrowAsset(_setToken, borrowAsset);
+            _updateUnderlyingToReserveTokensMapping(borrowAsset);
             
             borrowAssetEnabled[_setToken][borrowAsset] = true;
             enabledAssets[_setToken].borrowAssets.push(address(borrowAsset));
@@ -674,8 +677,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      *
      * @param _underlying               Address of underlying asset
      */
-    function updateAaveReserve(IERC20 _underlying) external {
-        _addAaveReserve(_underlying);
+    function updateUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
+        _updateUnderlyingToReserveTokensMapping(_underlying);
         emit AaveReserveUpdated(_underlying, underlyingToReserveTokens[_underlying]);
     }
 
@@ -738,6 +741,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * Construct the ActionInfo struct for lever and delever
+     *
+     * @return ActionInfo       Instance of constructed ActionInfo struct
      */
     function _createAndValidateActionInfo(
         ISetToken _setToken,
@@ -767,6 +772,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     
     /**
      * Construct the ActionInfo struct for lever and delever accepting notional units
+     *
+     * @return ActionInfo       Instance of constructed ActionInfo struct
      */
     function _createAndValidateActionInfoNotional(
         ISetToken _setToken,
@@ -801,7 +808,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * Invokes approvals, gets trade call data from exchange adapter and invokes trade from SetToken
      *
-     * @return receiveTokenQuantity The quantity of tokens received post-trade
+     * @return uint256     The quantity of tokens received post-trade
      */
     function _executeTrade(
         ActionInfo memory _actionInfo,
@@ -847,6 +854,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * Calculates protocol fee on module and pays protocol fee from SetToken
+     *
+     * @return uint256          Total protocol fee paid
      */
     function _accrueProtocolFee(ISetToken _setToken, IERC20 _receiveToken, uint256 _exchangedQuantity) internal returns(uint256) {
         uint256 protocolFeeTotal = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
@@ -882,7 +891,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * Returns new default position unit for given collateral aToken and SetToken
+     * Reads aToken balance and calculates default position unit for given collateral aToken and SetToken
+     *
+     * @return uint256       default collateral position unit          
      */
     function _getCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _setTotalSupply) internal view returns (uint256) {
         uint256 collateralNotionalBalance = _aToken.balanceOf(address(_setToken));
@@ -890,7 +901,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * Returns new external position unit for given borrow asset and SetToken
+     * Reads variableDebtToken balance and calculates external position unit for given borrow asset and SetToken
+     *
+     * @return int256       external borrow position unit
      */
     function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
         uint256 borrowNotionalBalance = underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
@@ -914,7 +927,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * Updates `underlyingToReserveTokens` mappings for given `_underlying` asset
      */
-    function _addAaveReserve(IERC20 _underlying) internal {
+    function _updateUnderlyingToReserveTokensMapping(IERC20 _underlying) internal {
         // Note: Returns zero addresses if specified reserve is not present on Aave market
         (address aToken, , address variableDebtToken) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
         
@@ -927,12 +940,14 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal view {
         require(!collateralAssetEnabled[_setToken][_collateralAsset], "Collateral already enabled");
-        (, , , , , bool usageAsCollateralEnabled, , ,bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_collateralAsset));
-        // Every valid Aave reserve is an Aave active reserve. "Invalid aave reserve" is a more clear error statement for users
-        require(isActive, "Invalid aave reserve");      
+        (,,,,, bool usageAsCollateralEnabled,,, bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_collateralAsset));
+        // An active reserve is an alias for a valid reserve on Aave.
+        // We are checking for the availability of the reserve directly on Aave rather than checking our internal `underlyingToResrveTokens` mappings, 
+        // becuase our mappings can be out-of-date if a new reserve is added to Aave        
+        require(isActive, "Invalid aave reserve");
+        // Forzen reserve doesn't allow any new deposit or borrow but allows repayments and withdrawals.
         require(!isFrozen, "Frozen aave reserve");
         require(usageAsCollateralEnabled, "Collateral disabled on Aave");
-        require(address(underlyingToReserveTokens[_collateralAsset].aToken) != address(0), "Reserve not tracked. Call updateAaveReserve()");
     }
 
     /**
@@ -944,7 +959,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         require(isActive, "Invalid aave reserve");
         require(!isFrozen, "Frozen aave reserve");
         require(borrowingEnabled, "Borrowing disabled on Aave");
-        require(address(underlyingToReserveTokens[_borrowAsset].variableDebtToken) != address(0), "Reserve not tracked. Call updateAaveReserve()");
     }
 
     /**

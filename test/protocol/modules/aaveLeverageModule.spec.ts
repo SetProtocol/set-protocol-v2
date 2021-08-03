@@ -2106,9 +2106,12 @@ describe("AaveLeverageModule", () => {
         await subject();
         const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
         const isDaiCollatearal = await aaveLeverageModule.collateralAssetEnabled(setToken.address, setup.dai.address);
+        const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.dai.address);
 
         expect(JSON.stringify(collateralAssets)).to.eq(JSON.stringify([setup.weth.address, setup.dai.address]));
         expect(isDaiCollatearal).to.be.true;
+        expect(aToken).to.be.eq(aDAI.address);
+        expect(variableDebtToken).to.be.eq(varaibleDebtDAI.address);
       });
 
       it("should emit the correct CollateralAssetsUpdated event", async () => {
@@ -2189,25 +2192,16 @@ describe("AaveLeverageModule", () => {
           subjectCollateralAssets = [setup.usdc.address];
         });
 
-        describe("it did not call updateAaveReserve() before", async () => {
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Reserve not tracked. Call updateAaveReserve()");
-          });
-        });
+        it("should add asset to the underlyingToReserveTokens mappings", async () => {
+          await subject();
 
-        describe("it called updateAaveReserve() before", async () => {
-          beforeEach(async () => {
-            await aaveLeverageModule.updateAaveReserve(setup.usdc.address);
-          });
+          const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
+          const reserveTokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(
+            setup.usdc.address
+          );
 
-          it("should add the collateral asset to mappings", async () => {
-            await subject();
-            const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
-            const isUsdcCollatearal = await aaveLeverageModule.collateralAssetEnabled(setToken.address, setup.usdc.address);
-
-            expect(JSON.stringify(collateralAssets)).to.eq(JSON.stringify([setup.weth.address, setup.usdc.address]));
-            expect(isUsdcCollatearal).to.be.true;
-          });
+          expect(aToken).to.be.eq(reserveTokenAddresses.aTokenAddress);
+          expect(variableDebtToken).to.be.eq(reserveTokenAddresses.variableDebtTokenAddress);
         });
       });
 
@@ -2287,9 +2281,12 @@ describe("AaveLeverageModule", () => {
         await subject();
         const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
         const isDAIBorrow = await aaveLeverageModule.borrowAssetEnabled(setToken.address, setup.dai.address);
+        const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.dai.address);
 
         expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address, setup.dai.address]));
         expect(isDAIBorrow).to.be.true;
+        expect(aToken).to.be.eq(aDAI.address);
+        expect(variableDebtToken).to.be.eq(varaibleDebtDAI.address);
       });
 
       it("should emit the correct BorrowAssetsUpdated event", async () => {
@@ -2356,7 +2353,7 @@ describe("AaveLeverageModule", () => {
         });
       });
 
-      describe("when a brand new reserve is added as borrow asset", async () => {
+      describe("when a brand new reserve is added as collateral", async () => {
         beforeEach(async () => {
           // Create a new reserve
           await aaveSetup.createAndEnableReserve(
@@ -2372,25 +2369,16 @@ describe("AaveLeverageModule", () => {
           subjectBorrowAssets = [setup.usdc.address];
         });
 
-        describe("it did not call updateAaveReserve() before", async () => {
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Reserve not tracked. Call updateAaveReserve()");
-          });
-        });
+        it("should add asset to the underlyingToReserveTokens mappings", async () => {
+          await subject();
 
-        describe("it called updateAaveReserve() before", async () => {
-          beforeEach(async () => {
-            await aaveLeverageModule.updateAaveReserve(setup.usdc.address);
-          });
+          const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
+          const reserveTokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(
+            setup.usdc.address
+          );
 
-          it("should add the borrow asset to mappings", async () => {
-            await subject();
-            const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
-            const isUsdcBorrow = await aaveLeverageModule.borrowAssetEnabled(setToken.address, setup.usdc.address);
-
-            expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address, setup.usdc.address]));
-            expect(isUsdcBorrow).to.be.true;
-          });
+          expect(aToken).to.be.eq(reserveTokenAddresses.aTokenAddress);
+          expect(variableDebtToken).to.be.eq(reserveTokenAddresses.variableDebtTokenAddress);
         });
       });
 
@@ -3662,7 +3650,7 @@ describe("AaveLeverageModule", () => {
     });
   });
 
-  describe("#updateAaveReserve", async () => {
+  describe("#updateUnderlyingToReserveTokensMappings", async () => {
     let subjectUnderlying: Address;
     let subjectCaller: Account;
 
@@ -3686,7 +3674,7 @@ describe("AaveLeverageModule", () => {
     });
 
     async function subject(): Promise<any> {
-      return aaveLeverageModule.connect(subjectCaller.wallet).updateAaveReserve(
+      return aaveLeverageModule.connect(subjectCaller.wallet).updateUnderlyingToReserveTokensMapping(
         subjectUnderlying
       );
     }
@@ -3702,7 +3690,6 @@ describe("AaveLeverageModule", () => {
       });
     });
 
-    // TODO
     // describe("when udating a reserve", async () => {
 
     //   let name: string;
