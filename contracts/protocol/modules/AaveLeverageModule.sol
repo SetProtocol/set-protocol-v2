@@ -95,7 +95,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setToken             Instance of the SetToken being delevered
      * @param _collateralAsset      Asset sold to decrease leverage
      * @param _repayAsset           Asset being bought to repay to Aave
-     * @param _exchangeAdapter      Exchagne adapter used for trading
+     * @param _exchangeAdapter      Exchange adapter used for trading
      * @param _totalRedeemAmount    Total amount of `_collateralAsset` being sold
      * @param _totalRepayAmount     Total amount of `_repayAsset` being repaid
      * @param _protocolFee          Protocol fee charged
@@ -145,7 +145,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     );
     
     /**
-     * @dev Emitted when tracked AaveV2 lendingPool is udpated
+     * @dev Emitted when tracked AaveV2 lendingPool is updated
      * @param _lendingPool Address of the new lendingPool contract
      */
     event LendingPoolUpdated(
@@ -237,7 +237,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
         IProtocolDataProvider.TokenData[] memory reserveTokens = protocolDataProvider.getAllReservesTokens();
         for(uint256 i = 0; i < reserveTokens.length; i++) {
-            // todo: Emit AaveReserveUpdated event?
             _updateUnderlyingToReserveTokensMapping(IERC20(reserveTokens[i].tokenAddress));
         }
     }
@@ -516,6 +515,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             
             _validateNewCollateralAsset(_setToken, collateralAsset);
             _updateUnderlyingToReserveTokensMapping(collateralAsset);
+            _updateUseReserveAsCollateral(_setToken, collateralAsset, true);
             
             collateralAssetEnabled[_setToken][collateralAsset] = true;
             enabledAssets[_setToken].collateralAssets.push(address(collateralAsset));
@@ -624,7 +624,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
         address[] memory collateralAssets = enabledAssets[setToken].collateralAssets;
         for(uint256 i = 0; i < collateralAssets.length; i++) {
-            delete collateralAssetEnabled[setToken][IERC20(collateralAssets[i])];
+            IERC20 collateralAsset = IERC20(collateralAssets[i]);
+            _updateUseReserveAsCollateral(setToken, collateralAsset, false);
+
+            delete collateralAssetEnabled[setToken][collateralAsset];
         }
         
         delete enabledAssets[setToken];
@@ -648,6 +651,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         for(uint256 i = 0; i < _collateralAssets.length; i++) {
             IERC20 collateralAsset = _collateralAssets[i];
             require(collateralAssetEnabled[_setToken][collateralAsset], "Collateral not enabled");
+            
+            _updateUseReserveAsCollateral(_setToken, collateralAsset, false);
+            
             delete collateralAssetEnabled[_setToken][collateralAsset];
             enabledAssets[_setToken].collateralAssets.removeStorage(address(collateralAsset));
         }
@@ -697,7 +703,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Adds a new mapping for previously untracked reserves.
-     * Aave's reserve tokens are mutable and their addresses can be changed. This function upates the stored reserve token addresses
+     * Aave's reserve tokens are mutable and their addresses can be changed. This function updates the stored reserve token addresses
      * to their latest value.
      * Note: Use this function for adding new reserves to `underlyingToReserveTokens` mapping.
      * @param _underlying               Address of underlying asset
@@ -934,7 +940,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function _updateCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _newPositionUnit) internal {
         _setToken.editDefaultPosition(address(_aToken), _newPositionUnit);
-    }
+    } 
 
     /**
      * @dev Updates external position unit for given borrow asset on SetToken
@@ -955,16 +961,83 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }   
 
     /**
+     * @dev Updates SetToken's ability to use an asset as collateral on Aave
+     */
+    function _updateUseReserveAsCollateral(ISetToken _setToken, IERC20 _asset, bool _useAsCollateral) internal {
+        /*
+        Note: Aave ENABLES an asset to be used as collateral by `to` address in an `aToken.transfer(to, amount)` call provided 
+            1. msg.sender (from address) isn't the same as `to` address
+            2. `to` address had zero aToken balance before the transfer 
+            3. transfer `amount` is greater than 0
+        
+        Note: Aave DISABLES an asset to be used as collateral by `msg.sender`in an `aToken.transfer(to, amount)` call provided 
+            1. msg.sender (from address) isn't the same as `to` address
+            2. msg.sender has zero balance after the transfer
+
+        Different states of the SetToken and what this function does in those states:
+
+            Case 1: Manager adds collateral asset to SetToken before first issuance
+                - Since aToken.balanceOf(setToken) == 0, we do not call `setToken.invokeUserUseReserveAsCollateral` because Aave 
+                requires aToken balance to be greater than 0 before enabling/disabling the underlying asset to be used as collateral 
+                on Aave markets.
+        
+            Case 2: First issuance of the SetToken
+                - SetToken was initialized with aToken as default position
+                - DebtIssuanceModule reads the default position and transfers corresponding aToken from the issuer to the SetToken
+                - Aave enables aToken to be used as collateral by the SetToken
+                - Manager calls lever() and the aToken is used as collateral to borrow other assets
+
+            Case 3: Manager removes collateral asset from the SetToken
+                - Disable asset to be used as collateral on SetToken by calling `setToken.invokeSetUserUseReserveAsCollateral` with 
+                useAsCollateral equals false
+                - Note: If health factor goes below 1 by removing the collateral asset, then Aave reverts on the above call, thus whole
+                transaction reverts, and manager can't remove corresponding collateral asset
+        
+            Case 4: Manager adds collateral asset after removing it
+                - If aToken.balanceOf(setToken) > 0, we call `setToken.invokeUserUseReserveAsCollateral` and the corresponding aToken 
+                is re-enabled as collateral on Aave
+        
+            Case 5: On redemption/delever/liquidated and aToken balance becomes zero
+                - Aave disables aToken to be used as collateral by SetToken
+
+        Values of variables in below if condition and corresponding action taken:
+
+         -------------------------------------------------------------------------------------------------------
+        | usageAsCollateralEnabled |  _useAsCollateral |   aTkoken.balanceOf() |     Action                    |
+        |--------------------------|-------------------|-----------------------|-------------------------------|
+        |   true                   |   true            |      X                |   Skip invoke. Save gas.      |
+        |--------------------------|-------------------|-----------------------|-------------------------------|
+        |   true                   |   false           |   greater than 0      |   Invoke and set to false.    |
+        |--------------------------|-------------------|-----------------------|-------------------------------|
+        |   true                   |   false           |   = 0                 |   Don't invoke. Will revert.  |
+        |--------------------------|-------------------|-----------------------|-------------------------------|
+        |   false                  |   false           |     X                 |   Skip invoke. Save gas.      |
+        |--------------------------|-------------------|-----------------------|-------------------------------|
+        |   false                  |   true            |   greater than 0      |   Invoke and set to true.     |
+        |--------------------------|-------------------|-----------------------|-------------------------------|
+        |   false                  |   true            |   = 0                 |   Don't invoke. Will revert.  |
+         ------------------------------------------------------------------------------------------------------
+        */
+        (,,,,,,,,bool usageAsCollateralEnabled) = protocolDataProvider.getUserReserveData(address(_asset), address(_setToken));
+        if (
+            usageAsCollateralEnabled != _useAsCollateral
+            && underlyingToReserveTokens[_asset].aToken.balanceOf(address(_setToken)) > 0
+        ) {
+            _setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(_asset), _useAsCollateral);
+        }
+    }
+
+    /**
      * @dev Validates if a new asset can be added as collateral asset for given SetToken
      */
     function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal view {
         require(!collateralAssetEnabled[_setToken][_collateralAsset], "Collateral already enabled");
         (,,,,, bool usageAsCollateralEnabled,,, bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_collateralAsset));
         // An active reserve is an alias for a valid reserve on Aave.
-        // We are checking for the availability of the reserve directly on Aave rather than checking our internal `underlyingToResrveTokens` mappings, 
-        // becuase our mappings can be out-of-date if a new reserve is added to Aave        
+        // We are checking for the availability of the reserve directly on Aave rather than checking our internal `underlyingToReserveTokens` mappings, 
+        // because our mappings can be out-of-date if a new reserve is added to Aave
         require(isActive, "Invalid aave reserve");
-        // Forzen reserve doesn't allow any new deposit or borrow but allows repayments and withdrawals.
+        // Frozen reserve doesn't allow any new deposit or borrow but allows repayments and withdrawals.
         require(!isFrozen, "Frozen aave reserve");
         require(usageAsCollateralEnabled, "Collateral disabled on Aave");
     }
