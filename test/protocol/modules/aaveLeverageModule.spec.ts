@@ -53,8 +53,8 @@ describe("AaveLeverageModule", () => {
 
   let aWETH: AaveV2AToken;
   let aDAI: AaveV2AToken;
-  let varaibleDebtWETH: AaveV2VariableDebtToken;
-  let varaibleDebtDAI: AaveV2VariableDebtToken;
+  let variableDebtWETH: AaveV2VariableDebtToken;
+  let variableDebtDAI: AaveV2VariableDebtToken;
 
   let oneInchFunctionSignature: Bytes;
   let oneInchExchangeMockToWeth: OneInchExchangeMock;
@@ -110,10 +110,10 @@ describe("AaveLeverageModule", () => {
     );
 
     aWETH = aaveSetup.wethReserveTokens.aToken;
-    varaibleDebtWETH = aaveSetup.wethReserveTokens.variableDebtToken;
+    variableDebtWETH = aaveSetup.wethReserveTokens.variableDebtToken;
 
     aDAI = aaveSetup.daiReserveTokens.aToken;
-    varaibleDebtDAI = aaveSetup.daiReserveTokens.variableDebtToken;
+    variableDebtDAI = aaveSetup.daiReserveTokens.variableDebtToken;
 
     debtIssuanceMock = await deployer.mocks.deployDebtIssuanceMock();
     await setup.controller.addModule(debtIssuanceMock.address);
@@ -505,7 +505,7 @@ describe("AaveLeverageModule", () => {
         // Approve tokens to issuance module and call issue
         await aWETH.approve(setup.issuanceModule.address, ether(1000));
 
-        // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 590 DAI regardless of Set supply
+        // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
         const issueQuantity = ether(1);
         destinationTokenQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
@@ -581,7 +581,7 @@ describe("AaveLeverageModule", () => {
           const currentPositions = await setToken.getPositions();
           const newSecondPosition = (await setToken.getPositions())[1];
 
-          const expectedSecondPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
+          const expectedSecondPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
 
           expect(initialPositions.length).to.eq(1);
           expect(currentPositions.length).to.eq(2);
@@ -692,7 +692,7 @@ describe("AaveLeverageModule", () => {
             const currentPositions = await setToken.getPositions();
             const newSecondPosition = (await setToken.getPositions())[1];
 
-            const expectedSecondPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
+            const expectedSecondPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
 
             expect(initialPositions.length).to.eq(2);
             expect(currentPositions.length).to.eq(2);
@@ -767,7 +767,7 @@ describe("AaveLeverageModule", () => {
             const currentPositions = await setToken.getPositions();
             const newSecondPosition = (await setToken.getPositions())[1];
 
-            const expectedSecondPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
+            const expectedSecondPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
 
             expect(initialPositions.length).to.eq(1);
             expect(currentPositions.length).to.eq(2);
@@ -1032,7 +1032,7 @@ describe("AaveLeverageModule", () => {
         const currentPositions = await setToken.getPositions();
         const newThridPosition = (await setToken.getPositions())[2];
 
-        const expectedPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
+        const expectedPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(3);
@@ -1202,7 +1202,7 @@ describe("AaveLeverageModule", () => {
         // Most of cDai position is repaid
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
-        const expectedSecondPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
+        const expectedSecondPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
@@ -1292,7 +1292,7 @@ describe("AaveLeverageModule", () => {
           const currentPositions = await setToken.getPositions();
           const newSecondPosition = (await setToken.getPositions())[1];
 
-          const expectedSecondPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
+          const expectedSecondPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
 
           expect(initialPositions.length).to.eq(2);
           expect(currentPositions.length).to.eq(2);
@@ -1570,7 +1570,7 @@ describe("AaveLeverageModule", () => {
       it("should wipe the debt on Aave", async () => {
         await subject();
 
-        const borrowDebt = await varaibleDebtDAI.balanceOf(setToken.address);
+        const borrowDebt = await variableDebtDAI.balanceOf(setToken.address);
 
         expect(borrowDebt).to.eq(ZERO);
       });
@@ -1860,8 +1860,8 @@ describe("AaveLeverageModule", () => {
           const newThirdPosition = (await setToken.getPositions())[2];
           const newFourthPosition = (await setToken.getPositions())[3];
 
-          const expectedThirdPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
-          const expectedFourthPositionUnit = (await varaibleDebtWETH.balanceOf(setToken.address)).mul(-1);
+          const expectedThirdPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
+          const expectedFourthPositionUnit = (await variableDebtWETH.balanceOf(setToken.address)).mul(-1);
 
           expect(initialPositions.length).to.eq(4);
           expect(currentPositions.length).to.eq(4);
@@ -1962,8 +1962,8 @@ describe("AaveLeverageModule", () => {
             const newThirdPosition = (await setToken.getPositions())[2];
             const newFourthPosition = (await setToken.getPositions())[3];
 
-            const expectedThirdPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);
-            const expectedFourthPositionUnit = (await varaibleDebtWETH.balanceOf(setToken.address)).mul(-1);
+            const expectedThirdPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);
+            const expectedFourthPositionUnit = (await variableDebtWETH.balanceOf(setToken.address)).mul(-1);
 
             expect(initialPositions.length).to.eq(4);
             expect(currentPositions.length).to.eq(4);
@@ -2064,9 +2064,9 @@ describe("AaveLeverageModule", () => {
 
     const initializeContracts = async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address],
+        [aWETH.address],
         [ether(1)],
-        [aaveLeverageModule.address, debtIssuanceMock.address]
+        [aaveLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
       );
       await debtIssuanceMock.initialize(setToken.address);
       // Add SetToken to allow list
@@ -2105,13 +2105,13 @@ describe("AaveLeverageModule", () => {
       it("should add the collateral asset to mappings", async () => {
         await subject();
         const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
-        const isDaiCollatearal = await aaveLeverageModule.collateralAssetEnabled(setToken.address, setup.dai.address);
+        const isDaiCollateral = await aaveLeverageModule.collateralAssetEnabled(setToken.address, setup.dai.address);
         const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.dai.address);
 
         expect(JSON.stringify(collateralAssets)).to.eq(JSON.stringify([setup.weth.address, setup.dai.address]));
-        expect(isDaiCollatearal).to.be.true;
+        expect(isDaiCollateral).to.be.true;
         expect(aToken).to.be.eq(aDAI.address);
-        expect(variableDebtToken).to.be.eq(varaibleDebtDAI.address);
+        expect(variableDebtToken).to.be.eq(variableDebtDAI.address);
       });
 
       it("should emit the correct CollateralAssetsUpdated event", async () => {
@@ -2120,6 +2120,84 @@ describe("AaveLeverageModule", () => {
           true,
           subjectCollateralAssets,
         );
+      });
+
+
+      context("before first issuance, aToken balance is zero", async () => {
+        it("should not be able to enable collateral asset to be used as collateral on Aave", async () => {
+          const beforeUsageAsCollateralEnabled = (
+            await aaveSetup.protocolDataProvider.getUserReserveData(setup.dai.address, setToken.address)
+          ).usageAsCollateralEnabled;
+          await subject();
+          const afterUsageAsCollateralEnabled = (
+            await aaveSetup.protocolDataProvider.getUserReserveData(setup.dai.address, setToken.address)
+          ).usageAsCollateralEnabled;
+
+          expect(beforeUsageAsCollateralEnabled).to.be.false;
+          expect(afterUsageAsCollateralEnabled).to.be.false;
+        });
+      });
+
+      describe("when a new Aave reserve is added as collateral", async () => {
+        beforeEach(async () => {
+          // Create a new reserve
+          await aaveSetup.createAndEnableReserve(
+            setup.usdc.address, "USDC", BigNumber.from(8),
+            BigNumber.from(8000),   // base LTV: 80%
+            BigNumber.from(8250),   // liquidation threshold: 82.5%
+            BigNumber.from(10500),  // liquidation bonus: 105.00%
+            BigNumber.from(1000),   // reserve factor: 10%
+            true,                   // enable borrowing on reserve
+            true                    // enable stable debts
+          );
+
+          subjectCollateralAssets = [setup.usdc.address];
+        });
+
+        it("should add asset to the underlyingToReserveTokens mappings", async () => {
+          await subject();
+
+          const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
+          const reserveTokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(
+            setup.usdc.address
+          );
+
+          expect(aToken).to.be.eq(reserveTokenAddresses.aTokenAddress);
+          expect(variableDebtToken).to.be.eq(reserveTokenAddresses.variableDebtTokenAddress);
+        });
+      });
+
+      describe("when re-adding a removed collateral asset", async () => {
+        beforeEach(async () => {
+          // Mint aTokens
+          await setup.weth.approve(aaveSetup.lendingPool.address, ether(1000));
+          await aaveSetup.lendingPool.connect(owner.wallet).deposit(setup.weth.address, ether(1000), owner.address, ZERO);
+
+          // Approve tokens to issuance module and call issue
+          await aWETH.approve(setup.issuanceModule.address, ether(1000));
+
+          // Transfer of aToken to SetToken during issuance would enable the underlying to be used as collateral by SetToken on Aave
+          const issueQuantity = ether(1);
+          await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+          await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+          // Now remove collateral asset to disable underlying to be used as collateral on Aave
+          await aaveLeverageModule.removeCollateralAssets(setToken.address, [setup.weth.address]);
+
+          subjectCollateralAssets = [setup.weth.address];   // re-add weth
+        });
+
+        it("should re-enable asset to be used as collateral on Aave", async () => {
+          const beforeUsageAsCollateralEnabled = (
+            await aaveSetup.protocolDataProvider.getUserReserveData(setup.weth.address, setToken.address)
+          ).usageAsCollateralEnabled;
+          await subject();
+          const afterUsageAsCollateralEnabled = (
+            await aaveSetup.protocolDataProvider.getUserReserveData(setup.weth.address, setToken.address)
+          ).usageAsCollateralEnabled;
+          expect(beforeUsageAsCollateralEnabled).to.be.false;
+          expect(afterUsageAsCollateralEnabled).to.be.true;
+        });
       });
 
       describe("when collateral asset is duplicated", async () => {
@@ -2173,35 +2251,6 @@ describe("AaveLeverageModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Collateral disabled on Aave");
-        });
-      });
-
-      describe("when a brand new reserve is added as collateral", async () => {
-        beforeEach(async () => {
-          // Create a new reserve
-          await aaveSetup.createAndEnableReserve(
-            setup.usdc.address, "USDC", BigNumber.from(8),
-            BigNumber.from(8000),   // base LTV: 80%
-            BigNumber.from(8250),   // liquidation threshold: 82.5%
-            BigNumber.from(10500),  // liquidation bonus: 105.00%
-            BigNumber.from(1000),   // reserve factor: 10%
-            true,                   // enable borrowing on reserve
-            true                    // enable stable debts
-          );
-
-          subjectCollateralAssets = [setup.usdc.address];
-        });
-
-        it("should add asset to the underlyingToReserveTokens mappings", async () => {
-          await subject();
-
-          const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
-          const reserveTokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(
-            setup.usdc.address
-          );
-
-          expect(aToken).to.be.eq(reserveTokenAddresses.aTokenAddress);
-          expect(variableDebtToken).to.be.eq(reserveTokenAddresses.variableDebtTokenAddress);
         });
       });
 
@@ -2286,7 +2335,7 @@ describe("AaveLeverageModule", () => {
         expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address, setup.dai.address]));
         expect(isDAIBorrow).to.be.true;
         expect(aToken).to.be.eq(aDAI.address);
-        expect(variableDebtToken).to.be.eq(varaibleDebtDAI.address);
+        expect(variableDebtToken).to.be.eq(variableDebtDAI.address);
       });
 
       it("should emit the correct BorrowAssetsUpdated event", async () => {
@@ -2659,8 +2708,8 @@ describe("AaveLeverageModule", () => {
         const newThirdPosition = (await setToken.getPositions())[2];
         const newFourthPosition = (await setToken.getPositions())[3];
 
-        const expectedThirdPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);    // since, variable debt mode
-        const expectedFourthPositionUnit = (await varaibleDebtWETH.balanceOf(setToken.address)).mul(-1);
+        const expectedThirdPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);    // since, variable debt mode
+        const expectedFourthPositionUnit = (await variableDebtWETH.balanceOf(setToken.address)).mul(-1);
 
         expect(initialPositions.length).to.eq(4);
         expect(currentPositions.length).to.eq(4);
@@ -2852,8 +2901,8 @@ describe("AaveLeverageModule", () => {
         const newThirdPosition = (await setToken.getPositions())[2];
         const newFourthPosition = (await setToken.getPositions())[3];
 
-        const expectedThirdPositionUnit = (await varaibleDebtDAI.balanceOf(setToken.address)).mul(-1);    // since, variable debt mode
-        const expectedFourthPositionUnit = (await varaibleDebtWETH.balanceOf(setToken.address)).mul(-1);
+        const expectedThirdPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(-1);    // since, variable debt mode
+        const expectedFourthPositionUnit = (await variableDebtWETH.balanceOf(setToken.address)).mul(-1);
 
         expect(initialPositions.length).to.eq(4);
         expect(currentPositions.length).to.eq(4);
@@ -3306,14 +3355,13 @@ describe("AaveLeverageModule", () => {
 
     const initializeContracts = async () => {
       setToken = await setup.createSetToken(
-        [setup.weth.address, setup.dai.address],
-        [ether(1), ether(100)],
-        [aaveLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
+        [aWETH.address],
+        [ether(1)],
+        [aaveLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
       );
       await debtIssuanceMock.initialize(setToken.address);
       // Add SetToken to allow list
       await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
       // Initialize module if set to true
       if (isInitialized) {
         await aaveLeverageModule.initialize(
@@ -3322,10 +3370,6 @@ describe("AaveLeverageModule", () => {
           []
         );
       }
-      // Approve tokens to issuance module and call issue
-      await setup.weth.approve(setup.issuanceModule.address, ether(1000));
-      await setup.dai.approve(setup.issuanceModule.address, ether(1000));
-      await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
     };
 
     const initializeSubjectVariables = () => {
@@ -3363,6 +3407,36 @@ describe("AaveLeverageModule", () => {
           false,
           subjectCollateralAssets,
         );
+      });
+
+      describe("when removing a collateral asset which has been enabled to be used as collateral on aave", async () => {
+        beforeEach(async () => {
+          // Mint aTokens
+          await setup.weth.approve(aaveSetup.lendingPool.address, ether(1000));
+          await aaveSetup.lendingPool.connect(owner.wallet).deposit(setup.weth.address, ether(1000), owner.address, ZERO);
+
+          // Approve tokens to issuance module and call issue
+          await aWETH.approve(setup.issuanceModule.address, ether(1000));
+
+          // Transfer of aToken to SetToken during issuance would enable the underlying to be used as collateral by SetToken on Aave
+          const issueQuantity = ether(1);
+          await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+          await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+          subjectCollateralAssets = [setup.weth.address];   // remove weth
+        });
+
+        it("should disable the asset to be used as collateral on aave", async () => {
+          const beforeUsageAsCollateralEnabled = (
+            await aaveSetup.protocolDataProvider.getUserReserveData(setup.weth.address, setToken.address)
+          ).usageAsCollateralEnabled;
+          await subject();
+          const afterUsageAsCollateralEnabled = (
+            await aaveSetup.protocolDataProvider.getUserReserveData(setup.weth.address, setToken.address)
+          ).usageAsCollateralEnabled;
+          expect(beforeUsageAsCollateralEnabled).to.be.true;
+          expect(afterUsageAsCollateralEnabled).to.be.false;
+        });
       });
 
       describe("when collateral asset is not enabled on module", async () => {
@@ -3690,44 +3764,9 @@ describe("AaveLeverageModule", () => {
       });
     });
 
-    // describe("when udating a reserve", async () => {
-
-    //   let name: string;
-    //   let symbol: string;
-    //   let implementation: Address;
-
-    //   beforeEach(async () => {
-    //     await subject();  // add WBTC reserve
-
-    //     name = 'Aave interest bearing WBTC';
-    //     symbol = 'newAWBTC';
-    //     implementation = (await deployer.external.deployAaveV2AToken()).address;
-
-    //     // upadate WBTC aToken on Aave
-    //     await aaveSetup.lendingPoolConfigurator.connect(owner.wallet).updateAToken({
-    //       'asset': setup.wbtc.address,
-    //       'treasury': aaveSetup.treasuryAddress,
-    //       'incentivesController': aaveSetup.incentivesControllerAddress,
-    //       name,
-    //       symbol,
-    //       implementation,
-    //       'params': "0x"
-    //     });
-    //   });
-
-    //   it("should update the underlying to reserve tokens mappings", async () => {
-    //     await subject();
-
-    //     console.log('atoken', wbtcReserveTokens.aToken.address);
-    //     const storedAToken = await aaveLeverageModule.underlyingToAToken(setup.wbtc.address);
-    //     const storedStableDebtToken = await aaveLeverageModule.underlyingToStableDebtToken(setup.wbtc.address);
-    //     const storedVariableDebtToken = await aaveLeverageModule.underlyingToVariableDebtToken(setup.wbtc.address);
-
-    //     expect(storedAToken).to.eq(wbtcReserveTokens.aToken.address);
-    //     expect(storedStableDebtToken).to.eq(wbtcReserveTokens.stableDebtToken.address);
-    //     expect(storedVariableDebtToken).to.eq(wbtcReserveTokens.variableDebtToken.address);
-    //   });
-    // });
+    describe("when updating a reserve", async () => {
+      // todo: Add this test.
+    });
   });
 
   describe("#updateLendingPool", async () => {
