@@ -3763,19 +3763,17 @@ describe("AaveLeverageModule", () => {
         expect(reserveTokens.variableDebtToken).to.eq(usdcReserveTokens.variableDebtToken.address);
       });
     });
-
-    describe("when updating a reserve", async () => {
-      // todo: Add this test.
-    });
   });
 
   describe("#updateLendingPool", async () => {
     let subjectCaller: Account;
 
     beforeEach(async () => {
-      // TODO
+      // todo: Figure out how to update lending pool locally. Facing issues due to it being a delegatecall from proxy contract and
+      // transaction reverts without a reason.
       // const newLendingPool = await deployer.external.deployAaveV2LendingPool(aaveSetup.validationLogicAddress, aaveSetup.reserveLogicAddress);
       // await aaveSetup.lendingPoolAddressesProvider.connect(owner.wallet).setLendingPoolImpl(newLendingPool.address);
+
       subjectCaller = await getRandomAccount();
     });
 
@@ -3783,7 +3781,7 @@ describe("AaveLeverageModule", () => {
       return await aaveLeverageModule.connect(subjectCaller.wallet).updateLendingPool();
     }
 
-    it("should update lending pool", async () => {
+    it("should update to the latest lending pool", async () => {
       await subject();
 
       const savedLendingPoolAddress = await aaveLeverageModule.lendingPool();
