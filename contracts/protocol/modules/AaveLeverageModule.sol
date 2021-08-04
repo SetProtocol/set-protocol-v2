@@ -1003,7 +1003,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         Values of variables in below if condition and corresponding action taken:
 
          -------------------------------------------------------------------------------------------------------
-        | usageAsCollateralEnabled |  _useAsCollateral |   aTkoken.balanceOf() |     Action                    |
+        | usageAsCollateralEnabled |  _useAsCollateral |   aToken.balanceOf()  |     Action                    |
         |--------------------------|-------------------|-----------------------|-------------------------------|
         |   true                   |   true            |      X                |   Skip invoke. Save gas.      |
         |--------------------------|-------------------|-----------------------|-------------------------------|
