@@ -29,7 +29,7 @@ import {
   getWaffleExpect,
   getSystemFixture,
   getAaveV2Fixture,
-  getUniswapFixture,
+  getUniswapFixture
 } from "@utils/test/index";
 import { AaveV2Fixture, SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { BigNumber } from "@ethersproject/bignumber";
@@ -418,8 +418,8 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       let issueQuantity: BigNumber;
 
       cacheBeforeEach(async () => {
-        // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
+        // TODO: Borrow some WETH to ensure the aWETH balance increases due to interest
+        // await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
 
         aWETHUnits = ether(1);
         setToken = await setup.createSetToken(
@@ -485,6 +485,9 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
         // ETH increases to $1000 to allow more borrow
         await aaveV2Setup.setAssetPriceInOracle(setup.usdc.address, ether(0.001));  // 1/1000 = .001
+
+        // TODO: Test Increase time
+        // await increaseTimeAsync(BigNumber.from(86400));
       });
 
       beforeEach(() => {
@@ -505,6 +508,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
         const setTotalSupply = await setToken.totalSupply();
+
         await subject();
         // aWETH position is increased
         const currentPositions = await setToken.getPositions();
@@ -515,7 +519,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.gte(expectedPostLiquidationUnit); // Greater than expected to WETH interest accrual
+        expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -560,10 +564,10 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postMinterAWETHBalance).to.gte(preMinterAWETHBalance.sub(aWETHFlows)); // Round up due to interest accrual
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.add(aWETHFlows)); // Round up due to interest accrual
+        expect(postMinterAWETHBalance).to.eq(preMinterAWETHBalance.sub(aWETHFlows));
+        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.add(aWETHFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
-        expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows)); // Round up due to interest accrual
+        expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows));
       });
     });
 
@@ -571,9 +575,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       let issueQuantity: BigNumber;
 
       cacheBeforeEach(async () => {
-        // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
-
         setToken = await setup.createSetToken(
           [aWETH.address, setup.wbtc.address],
           [
@@ -659,7 +660,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.gte(initialPositions[0].unit); // Interest accrued on WETH so greater than expected
+        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
 
         expect(newSecondPosition.component).to.eq(setup.wbtc.address);
@@ -684,12 +685,12 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
         expect(newThirdPosition.component).to.eq(setup.dai.address);
         expect(newThirdPosition.positionState).to.eq(1); // External
-        expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit); // Interest accrual in debt greater than expected
+        expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
         expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
 
         expect(newFourthPosition.component).to.eq(setup.usdc.address);
         expect(newFourthPosition.positionState).to.eq(1); // External
-        expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit); // Interest accrual in debt greater than expected
+        expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
         expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
       });
 
@@ -725,8 +726,8 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         const postMinterWbtcBalance = await setup.wbtc.balanceOf(subjectCaller.address);
         const postSetWbtcBalance = await setup.wbtc.balanceOf(subjectSetToken);
 
-        expect(postMinterAWETHBalance).to.gte(preMinterAWETHBalance.sub(aWETHFlows)); // Round up due to interest accrual
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.add(aWETHFlows)); // Round up due to interest accrual
+        expect(postMinterAWETHBalance).to.eq(preMinterAWETHBalance.sub(aWETHFlows));
+        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.add(aWETHFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
         expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows)); // Round up due to interest accrual
         expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
@@ -751,9 +752,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
     context("when a default aToken position and redeem will take supply to 0", async () => {
       cacheBeforeEach(async () => {
-        // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
-
         aWETHUnits = ether(1);
         setToken = await setup.createSetToken(
           [aWETH.address],
@@ -809,7 +807,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(1);
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.gte(aWETHUnits); // Greater than expected due to interest accrual post issuance, pre redemption
+        expect(newFirstPosition.unit).to.eq(aWETHUnits);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -841,11 +839,8 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
 
-        // Note: Due to 1 aToken = 1 underlying and interest accruing every block, it is difficult to track precise
-        // balances without replicating interest rate logic. Therefore, we expect actual balances to be greater
-        // than expected due to interest accruals on aWETH
-        expect(postMinterAWETHBalance).to.gte(preMinterAWETHBalance.add(aWETHFlows));
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.sub(aWETHFlows));
+        expect(postMinterAWETHBalance).to.eq(preMinterAWETHBalance.add(aWETHFlows));
+        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.sub(aWETHFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.sub(usdcFlows)); // No debt
         expect(postSetUsdcBalance).to.eq(preSetUsdcBalance); // No debt
       });
@@ -855,8 +850,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       let issueQuantity: BigNumber;
 
       cacheBeforeEach(async () => {
-        // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
 
         aWETHUnits = ether(1);
         setToken = await setup.createSetToken(
@@ -931,7 +924,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.gte(initialPositions[0].unit); // Should be greater due to interest accrual
+        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit); // Should be greater due to interest accrual
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -950,7 +943,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPosition.unit).to.gte(expectedSecondPositionUnit); // Should be greater due to interest accrual
+        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit); // Should be greater due to interest accrual
         expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
       });
 
@@ -974,8 +967,8 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         const postRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postRedeemerAWETHBalance).to.gte(preRedeemerAWETHBalance.add(aWETHFlows));
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.sub(aWETHFlows));
+        expect(postRedeemerAWETHBalance).to.eq(preRedeemerAWETHBalance.add(aWETHFlows));
+        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.sub(aWETHFlows));
         expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
         expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));
       });
@@ -985,8 +978,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       let issueQuantity: BigNumber;
 
       cacheBeforeEach(async () => {
-        // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
 
         aWETHUnits = ether(1);
         setToken = await setup.createSetToken(
@@ -1060,7 +1051,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.gte(initialPositions[0].unit); // Greater than expected due to interest accrual post issuance, pre redeem
+        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -1105,8 +1096,8 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         const postRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postRedeemerAWETHBalance).to.gte(preRedeemerAWETHBalance.add(aWETHFlows));
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.sub(aWETHFlows));
+        expect(postRedeemerAWETHBalance).to.eq(preRedeemerAWETHBalance.add(aWETHFlows));
+        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.sub(aWETHFlows));
         expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
         expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));
       });
@@ -1116,8 +1107,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       let issueQuantity: BigNumber;
 
       cacheBeforeEach(async () => {
-        // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
 
         aWETHUnits = ether(1);
         setToken = await setup.createSetToken(
@@ -1210,12 +1199,12 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
 
-        const expectedPostLiquidationUnit = initialPositions[0].unit.sub(preciseDiv(actualSeizedTokens, setTotalSupply));
+        const expectedPostLiquidationUnit = initialPositions[0].unit.sub(preciseDivCeil(actualSeizedTokens, setTotalSupply));
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.gte(expectedPostLiquidationUnit);
+        expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -1258,7 +1247,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         const postRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postRedeemerAWETHBalance).to.gte(preRedeemerAWETHBalance.add(aWETHFlows));
+        expect(postRedeemerAWETHBalance).to.eq(preRedeemerAWETHBalance.add(aWETHFlows));
         expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.sub(aWETHFlows));
         expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
         expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));
