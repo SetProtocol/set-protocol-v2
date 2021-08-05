@@ -37,6 +37,9 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants"
 
 const expect = getWaffleExpect();
 
+// TODO: The following tests have inconsistent results and sometimes revert with "Invalid post transfer balance"
+// in ExplicitERC20#transferFrom. It might be because aToken interest accrual depends upon block.timestamp and time difference
+// between subsequent invocations of the Aave protocol. It is being further investigated and will be fixed in a different PR.
 describe("AaveUniswapLeverageDebtIssuance", () => {
   let owner: Account;
   let feeRecipient: Account;
