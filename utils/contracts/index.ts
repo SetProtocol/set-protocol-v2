@@ -2,6 +2,7 @@ export { AaveGovernanceAdapter } from "../../typechain/AaveGovernanceAdapter";
 export { AaveGovernanceV2Adapter } from "../../typechain/AaveGovernanceV2Adapter";
 export { AaveLendingPoolCoreMock } from "../../typechain/AaveLendingPoolCoreMock";
 export { AaveLendingPoolMock } from "../../typechain/AaveLendingPoolMock";
+export { AaveLeverageModule } from "../../typechain/AaveLeverageModule";
 export { AaveMigrationWrapAdapter } from "../../typechain/AaveMigrationWrapAdapter";
 export { AaveWrapAdapter } from "../../typechain/AaveWrapAdapter";
 export { AaveV2 } from "../../typechain/AaveV2";
