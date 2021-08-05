@@ -39,6 +39,8 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         uint256 debtAmount;             // refund amount per set
         IUniswapV2Router debtRouter;
         address[] debtPath;
+        IUniswapV2Router inputOutputRouter;
+        address[] inputOutputPath;
     }
 
     /* ======== State Variables ======== */
@@ -87,26 +89,14 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         external
         returns (uint256)
     {
-        ActionInfo memory actionInfo = _getActionInfo(_setToken, _debtRouter, _debtPath, true);
+        ActionInfo memory actionInfo = _getActionInfo(_setToken, _debtRouter, _debtPath, _inputRouter, _inputPath, true);
 
         uint256 underlyingNeeded = _getUnderlyingNeededForExactOutput(_amountOut, actionInfo);
         
         uint256 flashLoanAmount = _debtRouter.getAmountsOut(_amountOut.preciseMul(actionInfo.debtAmount), _debtPath)[_debtPath.length.sub(1)];
         flashLoanAmount = flashLoanAmount.preciseDivCeil(1.0009 ether);
-        
-        uint256 preflashNeeded = underlyingNeeded.sub(flashLoanAmount);
 
-        uint256 inputNeeded = preflashNeeded;
-
-        if (_inputToken != actionInfo.underlying) {
-            inputNeeded = _inputRouter.getAmountsIn(preflashNeeded, _inputPath)[0];
-            _inputToken.safeTransferFrom(msg.sender, address(this), inputNeeded);
-            _handleApproval(_inputToken, address(_inputRouter), inputNeeded);
-            _inputRouter.swapTokensForExactTokens(preflashNeeded, _maxIn, _inputPath, address(this), PreciseUnitMath.MAX_UINT_256);
-        } else {
-            require(preflashNeeded <= _maxIn, "EXCESSIVE_INPUT_AMOUNT");
-            _inputToken.safeTransferFrom(msg.sender, address(this), preflashNeeded);
-        }
+        uint256 inputNeeded = _handleInputs(_inputToken, actionInfo, underlyingNeeded.sub(flashLoanAmount), _maxIn);
 
         bytes memory flashLoanParams = abi.encode(_setToken, TradeType.EXACT_OUTPUT_ISSUE, actionInfo, _amountOut, msg.sender);
         _flashLoan(actionInfo.underlying, flashLoanAmount, flashLoanParams);
@@ -129,7 +119,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
     {
         _setToken.transferFrom(msg.sender, address(this), _amountIn);
 
-        ActionInfo memory actionInfo = _getActionInfo(_setToken, _debtRouter, _debtPath, false);
+        ActionInfo memory actionInfo = _getActionInfo(_setToken, _debtRouter, _debtPath, _outputRouter, _outputPath, false);
         uint256 debtNeeded = actionInfo.debtAmount.preciseMul(_amountIn);
 
         bytes memory flashLoanParams = abi.encode(_setToken, TradeType.EXACT_INPUT_REDEEM, actionInfo, _amountIn, msg.sender);
@@ -137,20 +127,7 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
 
         uint256 underlyingLeft = IERC20(actionInfo.underlying).balanceOf(address(this));
 
-        if (address(_outputToken) == address(actionInfo.underlying)) {
-            require(underlyingLeft >= _minOut, "INSUFFICIENT_OUTPUT_AMOUNT");
-            IERC20(actionInfo.underlying).transfer(msg.sender, underlyingLeft);
-            return underlyingLeft;
-        } else {
-            _handleApproval(actionInfo.underlying, address(_outputRouter), underlyingLeft);
-            return _outputRouter.swapExactTokensForTokens(
-                underlyingLeft,
-                _minOut,
-                _outputPath,
-                msg.sender,
-                PreciseUnitMath.MAX_UINT_256
-            )[_outputPath.length.sub(1)];
-        }
+        return _handleOutputs(_outputToken, actionInfo, underlyingLeft, _minOut);
     }
 
     function executeOperation(
@@ -188,6 +165,62 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         modes[0] = 0;
 
         aaveLendingPool.flashLoan(address(this), underlyings, amounts, modes, address(this), _params, 0);
+    }
+
+    function _handleInputs(
+        IERC20 _inputToken,
+        ActionInfo memory _actionInfo,
+        uint256 _preflashNeeded,
+        uint256 _maxIn
+    )
+        internal
+        returns (uint256)
+    {
+        if (_inputToken != _actionInfo.underlying) {
+            uint256 inputNeeded = _actionInfo.inputOutputRouter.getAmountsIn(_preflashNeeded, _actionInfo.inputOutputPath)[0];
+            _inputToken.safeTransferFrom(msg.sender, address(this), inputNeeded);
+
+            _handleApproval(_inputToken, address(_actionInfo.inputOutputRouter), inputNeeded);
+            _actionInfo.inputOutputRouter.swapTokensForExactTokens(
+                _preflashNeeded,
+                _maxIn,
+                _actionInfo.inputOutputPath,
+                address(this),
+                PreciseUnitMath.MAX_UINT_256
+            );
+
+            return inputNeeded;
+        } else {
+            require(_preflashNeeded <= _maxIn, "EXCESSIVE_INPUT_AMOUNT");
+            _inputToken.safeTransferFrom(msg.sender, address(this), _preflashNeeded);
+
+            return _preflashNeeded;
+        }
+    }
+
+    function _handleOutputs(
+        IERC20 _outputToken,
+        ActionInfo memory _actionInfo,
+        uint256 _underlyingLeft,
+        uint256 _minOut
+    )
+        internal
+        returns (uint256)
+    {
+        if (address(_outputToken) == address(_actionInfo.underlying)) {
+            require(_underlyingLeft >= _minOut, "INSUFFICIENT_OUTPUT_AMOUNT");
+            IERC20(_actionInfo.underlying).transfer(msg.sender, _underlyingLeft);
+            return _underlyingLeft;
+        } else {
+            _handleApproval(_actionInfo.underlying, address(_actionInfo.inputOutputRouter), _underlyingLeft);
+            return _actionInfo.inputOutputRouter.swapExactTokensForTokens(
+                _underlyingLeft,
+                _minOut,
+                _actionInfo.inputOutputPath,
+                msg.sender,
+                PreciseUnitMath.MAX_UINT_256
+            )[_actionInfo.inputOutputPath.length.sub(1)];
+        }
     }
 
     function _completeIssueExactOutput(ISetToken _setToken, ActionInfo memory _actionInfo, uint256 _amount, address _recipient) internal {
@@ -297,6 +330,8 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         ISetToken _setToken,
         IUniswapV2Router _debtRouter,
         address[] memory _debtPath,
+        IUniswapV2Router _inputOutputRouter,
+        address[] memory _inputOutputPath,
         bool _isIssue
     )
         internal
@@ -336,6 +371,9 @@ contract LeverageTokenExchangeIssuance is IFlashLoanReceiver {
         } else {
             actionInfo.underlying = IERC20(ICErc20(actionInfo.collateralToken).underlying());
         }
+
+        actionInfo.inputOutputRouter = _inputOutputRouter;
+        actionInfo.inputOutputPath = _inputOutputPath;
     }
 
     function _getUnderlyingNeededForExactOutput(
