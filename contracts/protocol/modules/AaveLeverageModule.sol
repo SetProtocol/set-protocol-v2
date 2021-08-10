@@ -715,7 +715,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev CALLABLE BY ANYBODY: Updates AaveV2 LendingPool contract. Aave's LendingPool contract is mutable and is address 
+     * @dev CALLABLE BY ANYBODY: Updates AaveV2 LendingPool contract. Aave's LendingPool contract is mutable and its address 
      * can be changed. This function updates the lendingPool to its latest address.
      */
     function updateLendingPool() external {
@@ -773,7 +773,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Invoke deposit from SetToken. Mints aTokens for SetToken.
+     * @dev Invoke deposit from SetToken using AaveV2 library. Mints aTokens for SetToken.
      */
     function _deposit(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
@@ -781,21 +781,21 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Invoke withdraw from SetToken. Burns aTokens and returns underlying to SetToken.
+     * @dev Invoke withdraw from SetToken using AaveV2 library. Burns aTokens and returns underlying to SetToken.
      */
     function _withdraw(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeWithdraw(lendingPool, address(_asset), _notionalQuantity);
     }
 
     /**
-     * @dev Invoke borrow from the SetToken. Mints DebtTokens for SetToken.
+     * @dev Invoke borrow from the SetToken using AaveV2 library. Mints DebtTokens for SetToken.
      */
     function _borrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
 
     /**
-     * @dev Invoke repay from SetToken. Burns DebtTokens for SetToken.
+     * @dev Invoke repay from SetToken using AaveV2 library. Burns DebtTokens for SetToken.
      */
     function _repayBorrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
