@@ -3762,6 +3762,14 @@ describe("AaveLeverageModule", () => {
         expect(reserveTokens.aToken).to.eq(usdcReserveTokens.aToken.address);
         expect(reserveTokens.variableDebtToken).to.eq(usdcReserveTokens.variableDebtToken.address);
       });
+
+      it("should emit AaveReserveUpdated event", async () => {
+        await expect(subject()).to.emit(aaveLeverageModule, "AaveReserveUpdated").withArgs(
+          setup.usdc.address,
+          usdcReserveTokens.aToken.address,
+          usdcReserveTokens.variableDebtToken.address
+        );
+      });
     });
   });
 

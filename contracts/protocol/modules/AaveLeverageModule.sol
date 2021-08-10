@@ -136,12 +136,14 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     
     /**
      * @dev Emitted when `underlyingToReserveTokensMappings` is updated
-     * @param _underlying       Address of the underlying asset
-     * @param _reserveTokens    Updated aave reserve tokens 
+     * @param _underlying           Address of the underlying asset
+     * @param _aToken               Updated aave reserve aToken
+     * @param _variableDebtToken    Updated aave reserve variable debt token 
      */
     event AaveReserveUpdated(
         IERC20 indexed _underlying,
-        ReserveTokens indexed _reserveTokens
+        IAToken indexed _aToken,
+        IVariableDebtToken indexed _variableDebtToken
     );
     
     /**
@@ -710,7 +712,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function updateUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
         _updateUnderlyingToReserveTokensMapping(_underlying);
-        emit AaveReserveUpdated(_underlying, underlyingToReserveTokens[_underlying]);
+        
+        ReserveTokens memory updatedReserveTokens = underlyingToReserveTokens[_underlying];
+        emit AaveReserveUpdated(_underlying, updatedReserveTokens.aToken, updatedReserveTokens.variableDebtToken);
     }
 
     /**
