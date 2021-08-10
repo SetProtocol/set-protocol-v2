@@ -931,12 +931,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @dev Updates the collateral (aToken held) and borrow position (variableDebtToken held) of the SetToken
      */
     function _updateLeverPositions(ActionInfo memory actionInfo, IERC20 _borrowAsset) internal {
+        IAToken aToken = underlyingToReserveTokens[actionInfo.collateralAsset].aToken;
         _updateCollateralPosition(
             actionInfo.setToken,
-            underlyingToReserveTokens[actionInfo.collateralAsset].aToken,
+            aToken,
             _getCollateralPosition(
                 actionInfo.setToken,
-                underlyingToReserveTokens[actionInfo.collateralAsset].aToken,
+                aToken,
                 actionInfo.setTotalSupply
             )
         );
