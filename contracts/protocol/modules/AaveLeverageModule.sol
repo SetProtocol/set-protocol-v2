@@ -113,8 +113,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * @dev Emitted on addCollateralAssets() and removeCollateralAssets()
      * @param _setToken Instance of SetToken whose collateral assets is updated
-     * @param _added    true if added false if removed
-     * @param _assets   Array of assets
+     * @param _added    true if assets are added false if removed
+     * @param _assets   Array of collateral assets being added/removed
      */
     event CollateralAssetsUpdated(
         ISetToken indexed _setToken,
@@ -125,8 +125,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * @dev Emitted on addBorrowAssets() and removeBorrowAssets()
      * @param _setToken Instance of SetToken whose borrow assets is updated
-     * @param _added    true if added false if removed
-     * @param _assets   Array of assets
+     * @param _added    true if assets are added false if removed
+     * @param _assets   Array of borrow assets being added/removed
      */
     event BorrowAssetsUpdated(
         ISetToken indexed _setToken,
