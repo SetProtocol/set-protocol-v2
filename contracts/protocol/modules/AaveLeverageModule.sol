@@ -147,14 +147,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     );
     
     /**
-     * @dev Emitted when tracked AaveV2 lendingPool is updated
-     * @param _lendingPool Address of the new lendingPool contract
-     */
-    event LendingPoolUpdated(
-        ILendingPool indexed _lendingPool
-    );
-
-    /**
      * @dev Emitted on updateAllowedSetToken()
      * @param _setToken SetToken being whose allowance to initialize this module is being updated
      * @param _added    true if added false if removed
@@ -193,7 +185,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
     // We use this variable along with AaveV2 library contract to invoke those actions on SetToken
-    // Note: LendingPool contract is mutable and can be updated. Call `updateLendingPool()` to sync lendingPool with Aave.
     ILendingPool public lendingPool;
     
     // Used to fetch reserves and user data from AaveV2
@@ -716,15 +707,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         require(isActive, "Invalid aave reserve");
         
         _addUnderlyingToReserveTokensMapping(_underlying);
-    }
-
-    /**
-     * @dev CALLABLE BY ANYBODY: Updates AaveV2 LendingPool contract. Aave's LendingPool contract is mutable and its address 
-     * can be changed. This function updates the lendingPool to its latest address.
-     */
-    function updateLendingPool() external {
-        lendingPool = ILendingPool(lendingPoolAddressesProvider.getLendingPool());
-        emit LendingPoolUpdated(lendingPool);
     }
     
     /* ============ External Getter Functions ============ */
