@@ -532,10 +532,11 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     
     /**
      * @dev MANAGER ONLY: Add borrow assets. Debt tokens corresponding to borrow assets are tracked for syncing positions.
+     * Note: Reverts with "Borrow already enabled" if there are duplicate assets in the passed _newBorrowAssets array.
      * @param _setToken             Instance of the SetToken
      * @param _newBorrowAssets      Addresses of borrow underlying assets to add
      */
-    function addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) public onlyManagerAndValidSet(_setToken) {
+    function addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) external onlyManagerAndValidSet(_setToken) {
         _addBorrowAssets(_setToken, _newBorrowAssets);
     }
         
@@ -764,7 +765,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             IERC20 borrowAsset = _newBorrowAssets[i];
             
             _validateNewBorrowAsset(_setToken, borrowAsset);
-            _updateUnderlyingToReserveTokensMapping(borrowAsset);
             
             borrowAssetEnabled[_setToken][borrowAsset] = true;
             enabledAssets[_setToken].borrowAssets.push(address(borrowAsset));
