@@ -433,7 +433,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         onlyManagerAndValidSet(_setToken)
         returns (uint256)
     {
-        uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(_setToken.totalSupply());
+        uint256 setTotalSupply = _setToken.totalSupply();
+        uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(setTotalSupply);
         
         require(borrowAssetEnabled[_setToken][_repayAsset], "Borrow not enabled");
         uint256 notionalRepayQuantity = underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
@@ -446,7 +447,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             notionalRedeemQuantity,
             notionalRepayQuantity,
             _tradeAdapterName,
-            false
+            false,
+            setTotalSupply
         );
 
         _withdraw(deleverInfo.setToken, _collateralAsset, deleverInfo.notionalSendQuantity);
@@ -828,7 +830,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             _sendQuantityUnits.preciseMul(totalSupply),
             _minReceiveQuantityUnits.preciseMul(totalSupply),
             _tradeAdapterName,
-            _isLever
+            _isLever,
+            totalSupply
         );
     }
     
@@ -843,19 +846,19 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         uint256 _notionalSendQuantity,
         uint256 _minNotionalReceiveQuantity,
         string memory _tradeAdapterName,
-        bool _isLever
+        bool _isLever,
+        uint256 _setTotalSupply
     )
         internal
         view
         returns(ActionInfo memory)
     {
-        uint256 totalSupply = _setToken.totalSupply();
         ActionInfo memory actionInfo = ActionInfo ({
             exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
             setToken: _setToken,
             collateralAsset: _isLever ? _receiveToken : _sendToken,
             borrowAsset: _isLever ? _sendToken : _receiveToken,
-            setTotalSupply: totalSupply,
+            setTotalSupply: _setTotalSupply,
             notionalSendQuantity: _notionalSendQuantity,
             minNotionalReceiveQuantity: _minNotionalReceiveQuantity,
             preTradeReceiveTokenBalance: IERC20(_receiveToken).balanceOf(address(_setToken))
