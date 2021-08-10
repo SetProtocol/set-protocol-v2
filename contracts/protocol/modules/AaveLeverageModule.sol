@@ -507,13 +507,14 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
             address[] memory borrowAssets = enabledAssets[_setToken].borrowAssets;
             for(uint256 i = 0; i < borrowAssets.length; i++) {
-                
-                int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(borrowAssets[i], address(this));
-                int256 newPositionUnit = _getBorrowPosition(_setToken, IERC20(borrowAssets[i]), setTotalSupply);
+                IERC20 borrowAsset = IERC20(borrowAssets[i]);
+
+                int256 previousPositionUnit = _setToken.getExternalPositionRealUnit(address(borrowAsset), address(this));
+                int256 newPositionUnit = _getBorrowPosition(_setToken, borrowAsset, setTotalSupply);
 
                 // Note: Accounts for if position does not exist on SetToken but is tracked in enabledAssets
                 if (newPositionUnit != previousPositionUnit) {
-                    _updateBorrowPosition(_setToken, IERC20(borrowAssets[i]), newPositionUnit);
+                    _updateBorrowPosition(_setToken, borrowAsset, newPositionUnit);
                 }
             }
         }
