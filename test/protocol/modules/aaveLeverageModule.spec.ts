@@ -860,7 +860,7 @@ describe("AaveLeverageModule", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be different");
+            await expect(subject()).to.be.revertedWith("Collateral and borrow asset must be different");
           });
         });
 
@@ -1365,7 +1365,7 @@ describe("AaveLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be different");
+          await expect(subject()).to.be.revertedWith("Collateral and borrow asset must be different");
         });
       });
 

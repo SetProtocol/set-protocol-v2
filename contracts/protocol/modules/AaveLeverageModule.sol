@@ -1076,7 +1076,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         // We are checking for the availability of the reserve directly on Aave rather than checking our internal `underlyingToReserveTokens` mappings, 
         // because our mappings can be out-of-date if a new reserve is added to Aave
         require(isActive, "Invalid aave reserve");
-        // Frozen reserve doesn't allow any new deposit or borrow but allows repayments and withdrawals.
+        // A frozen reserve doesn't allow any new deposit, borrow or rate swap but allows repayments, liquidations and withdrawals
         require(!isFrozen, "Frozen aave reserve");
         require(usageAsCollateralEnabled, "Collateral disabled on Aave");
     }
@@ -1085,7 +1085,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @dev Validates if a new asset can be added as borrow asset for given SetToken
      */
     function _validateNewBorrowAsset(ISetToken _setToken, IERC20 _borrowAsset) internal view {
-        require(!borrowAssetEnabled[_setToken][_borrowAsset], "Borrow already enabled");    
+        require(!borrowAssetEnabled[_setToken][_borrowAsset], "Borrow already enabled");
         (, , , , , , bool borrowingEnabled, , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_borrowAsset));
         require(isActive, "Invalid aave reserve");
         require(!isFrozen, "Frozen aave reserve");
@@ -1098,7 +1098,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
         require(collateralAssetEnabled[_actionInfo.setToken][_actionInfo.collateralAsset], "Collateral not enabled");
         require(borrowAssetEnabled[_actionInfo.setToken][_actionInfo.borrowAsset], "Borrow not enabled");
-        require(_actionInfo.collateralAsset != _actionInfo.borrowAsset, "Must be different");
+        require(_actionInfo.collateralAsset != _actionInfo.borrowAsset, "Collateral and borrow asset must be different");
         require(_actionInfo.notionalSendQuantity > 0, "Quantity is 0");
     }
 }
