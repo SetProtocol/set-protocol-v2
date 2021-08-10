@@ -285,7 +285,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     
     /**
      * @dev MANAGER ONLY: Increases leverage for a given collateral position using an enabled borrow asset.
-     * Performs a DEX trade, exchanging the borrow asset for collateral asset.
+     * Borrows _borrowAsset from Aave. Performs a DEX trade, exchanging the _borrowAsset for _collateralAsset.
+     * Deposits _collateralAsset to Aave and mints corresponding aToken.
      * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
      * @param _setToken             Instance of the SetToken
      * @param _borrowAsset          Address of underlying asset being borrowed for leverage
@@ -344,10 +345,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /**
-     * @dev MANAGER ONLY: Decrease leverage for a given collateral position using an enabled borrow asset that is enabled
+     * @dev MANAGER ONLY: Decrease leverage for a given collateral position using an enabled borrow asset.
+     * Withdraws _collateralAsset from Aave. Performs a DEX trade, exchanging the _collateralAsset for _repayAsset.
+     * Repays _repayAsset to Aave and burns corresponding debt tokens.
+     * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
      * @param _setToken             Instance of the SetToken
-     * @param _collateralAsset      Address of collateral asset (underlying of aToken)
-     * @param _repayAsset           Address of asset being repaid
+     * @param _collateralAsset      Address of underlying collateral asset being withdrawn
+     * @param _repayAsset           Address of underlying borrowed asset being repaid
      * @param _redeemQuantity       Quantity of collateral asset to delever
      * @param _minRepayQuantity     Minimum amount of repay asset to receive post trade
      * @param _tradeAdapterName     Name of trade adapter
