@@ -478,12 +478,12 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev CALLABLE BY ANYBODY: Sync Set positions with enabled Aave collateral and borrow positions. For collateral 
-     * assets, update aToken default position. For borrow assets, update external borrow position.
-     * - Collateral assets may come out of sync when interest is accrued or a a position is liquidated
+     * @dev CALLABLE BY ANYBODY: Sync Set positions with ALL enabled Aave collateral and borrow positions. 
+     * For collateral assets, update aToken default position. For borrow assets, update external borrow position.
+     * - Collateral assets may come out of sync when interest is accrued or a position is liquidated
      * - Borrow assets may come out of sync when interest is accrued or position is liquidated and borrow is repaid
-     * Note: In Aave, both collateral and borrow interest is accrued in each block by increasing the balance of aTokens & debtTokens
-     * for each user, and 1 aToken = 1 stableDebtToken = 1 variableDebtToken = 1 underlying.
+     * Note: In Aave, both collateral and borrow interest is accrued in each block by increasing the balance of
+     * aTokens and debtTokens for each user, and 1 aToken = 1 variableDebtToken = 1 underlying.
      * @param _setToken               Instance of the SetToken
      */
     function sync(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
@@ -492,7 +492,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         // Only sync positions when Set supply is not 0. Without this check, if sync is called by someone before the 
         // first issuance, then editDefaultPosition would remove the default positions from the SetToken
         if (setTotalSupply > 0) {
-            // Loop through collateral assets
             address[] memory collateralAssets = enabledAssets[_setToken].collateralAssets;
             for(uint256 i = 0; i < collateralAssets.length; i++) {
                 IAToken aToken = underlyingToReserveTokens[IERC20(collateralAssets[i])].aToken;
