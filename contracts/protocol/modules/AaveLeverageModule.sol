@@ -286,9 +286,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * @dev MANAGER ONLY: Increases leverage for a given collateral position using an enabled borrow asset.
      * Performs a DEX trade, exchanging the borrow asset for collateral asset.
+     * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
      * @param _setToken             Instance of the SetToken
-     * @param _borrowAsset          Address of asset being borrowed for leverage
-     * @param _collateralAsset      Address of collateral reserve
+     * @param _borrowAsset          Address of underlying asset being borrowed for leverage
+     * @param _collateralAsset      Address of underlying collateral asset
      * @param _borrowQuantity       Borrow quantity of asset in position units
      * @param _minReceiveQuantity   Min receive quantity of collateral asset to receive post-trade in position units
      * @param _tradeAdapterName     Name of trade adapter
