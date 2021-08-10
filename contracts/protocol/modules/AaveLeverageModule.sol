@@ -523,6 +523,11 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * @dev MANAGER ONLY: Add collateral assets. aTokens corresponding to collateral assets are tracked for syncing positions.
      * Note: Reverts with "Borrow already enabled" if there are duplicate assets in the passed _newBorrowAssets array.
+     * 
+     * NOTE: ALL ADDED COLLATERAL ASSETS CAN BE ADDED AS A POSITION ON THE SET TOKEN WITHOUT MANAGER'S EXPLICIT PERMISSION.
+     * UNWANTED EXTRA POSITIONS CAN BREAK EXTERNAL LOGIC, INCREASE COST OF MINT/REDEEM OF SET TOKEN, AMONG OTHER POTENTIAL UNINTENDED CONSEQUENCES.
+     * SO, PLEASE ADD ONLY THOSE COLLATERAL ASSETS WHOSE CORRESPONDING aTOKENS ARE NEEDED AS DEFAULT POSITIONS ON THE SET TOKEN.
+     *
      * @param _setToken             Instance of the SetToken
      * @param _newCollateralAssets  Addresses of new collateral underlying assets
      */
