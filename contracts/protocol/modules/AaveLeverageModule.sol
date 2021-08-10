@@ -181,7 +181,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // the string as the integration name
     string constant internal DEFAULT_ISSUANCE_MODULE_NAME = "DefaultIssuanceModule";
 
-    // 0 index stores protocol fee % on the controller, charged in the trade function
+    // 0 index stores protocol fee % on the controller, charged in the _executeTrade function
     uint256 constant internal PROTOCOL_TRADE_FEE_INDEX = 0;
 
     /* ============ State Variables ============ */
@@ -198,7 +198,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // Used to fetch reserves and user data from AaveV2
     IProtocolDataProvider public protocolDataProvider;
     
-    // Used to fetch lendingPool address
+    // Used to fetch lendingPool address. This contract is immutable and its address will never change.
     ILendingPoolAddressesProvider public lendingPoolAddressesProvider;
     
     // Mapping to efficiently check if collateral asset is enabled in SetToken
@@ -213,7 +213,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
     mapping(ISetToken => bool) public allowedSetTokens;
 
-    // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list
+    // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list. Updateable by governance.
     bool public anySetAllowed;
     
     /* ============ Constructor ============ */
