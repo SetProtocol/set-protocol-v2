@@ -3750,6 +3750,16 @@ describe("AaveLeverageModule", () => {
         );
       });
     });
+
+    describe("when reserve is invalid", async () => {
+      beforeEach(async () => {
+        subjectUnderlying = await getRandomAddress();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid aave reserve");
+      });
+    });
   });
 
   describe("#updateLendingPool", async () => {
