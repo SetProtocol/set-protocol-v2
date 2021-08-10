@@ -3742,8 +3742,8 @@ describe("AaveLeverageModule", () => {
         expect(reserveTokens.variableDebtToken).to.eq(usdcReserveTokens.variableDebtToken.address);
       });
 
-      it("should emit AaveReserveUpdated event", async () => {
-        await expect(subject()).to.emit(aaveLeverageModule, "AaveReserveUpdated").withArgs(
+      it("should emit ReserveTokensUpdated event", async () => {
+        await expect(subject()).to.emit(aaveLeverageModule, "ReserveTokensUpdated").withArgs(
           setup.usdc.address,
           usdcReserveTokens.aToken.address,
           usdcReserveTokens.variableDebtToken.address

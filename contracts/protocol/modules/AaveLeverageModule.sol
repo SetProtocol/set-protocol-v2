@@ -140,7 +140,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _aToken               Updated aave reserve aToken
      * @param _variableDebtToken    Updated aave reserve variable debt token 
      */
-    event AaveReserveUpdated(
+    event ReserveTokensUpdated(
         IERC20 indexed _underlying,
         IAToken indexed _aToken,
         IVariableDebtToken indexed _variableDebtToken
@@ -700,17 +700,18 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Adds a new mapping for previously untracked reserves.
-     * Aave's reserve tokens are mutable and their addresses can be changed. This function updates the stored reserve token addresses
-     * to their latest value.
-     * Note: Use this function for adding new reserves to `underlyingToReserveTokens` mapping.
+     * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Reverts if passed _underlying asset does not 
+     * has a valid reserve on Aave. Aave's reserve tokens are mutable and their addresses can be changed. This function updates
+     * the stored reserve token addresses to their latest value. 
+     * Note: Adds a new mapping for previously untracked reserves.     
      * @param _underlying               Address of underlying asset
      */
     function updateUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
-        _updateUnderlyingToReserveTokensMapping(_underlying);
+        // An active reserve is an alias for a valid reserve on Aave.
+        (,,,,,,,, bool isActive,) = protocolDataProvider.getReserveConfigurationData(address(_underlying));
+        require(isActive, "Invalid aave reserve");
         
-        ReserveTokens memory updatedReserveTokens = underlyingToReserveTokens[_underlying];
-        emit AaveReserveUpdated(_underlying, updatedReserveTokens.aToken, updatedReserveTokens.variableDebtToken);
+        _updateUnderlyingToReserveTokensMapping(_underlying);
     }
 
     /**
@@ -983,15 +984,15 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
    
     /**
-     * @dev Updates `underlyingToReserveTokens` mappings for given `_underlying` asset
+     * @dev Updates `underlyingToReserveTokens` mappings for given `_underlying` asset. Emits ReserveTokensUpdated event.
      */
     function _updateUnderlyingToReserveTokensMapping(IERC20 _underlying) internal {
-        // Returns zero addresses if specified reserve is not present on Aave market
         (address aToken, , address variableDebtToken) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
-        
         underlyingToReserveTokens[_underlying].aToken = IAToken(aToken);
         underlyingToReserveTokens[_underlying].variableDebtToken = IVariableDebtToken(variableDebtToken);
-    }   
+
+        emit ReserveTokensUpdated(_underlying, IAToken(aToken), IVariableDebtToken(variableDebtToken));
+    }
 
     /**
      * @dev Updates SetToken's ability to use an asset as collateral on Aave
