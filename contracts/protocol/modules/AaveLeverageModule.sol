@@ -656,7 +656,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             delete collateralAssetEnabled[_setToken][collateralAsset];
             enabledAssets[_setToken].collateralAssets.removeStorage(address(collateralAsset));
         }
-        
         emit CollateralAssetsUpdated(_setToken, false, _collateralAssets);
     }
 
@@ -681,17 +680,19 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev GOVERNANCE ONLY: Add or remove allowed SetToken to initialize this module. Only callable by governance.
+     * @dev GOVERNANCE ONLY: Enable/disable ability of a SetToken to initialize this module. Only callable by governance.
      * @param _setToken             Instance of the SetToken
+     * @param _status               Bool indicating if _setToken is allowed to initialize this module
      */
     function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
+        require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "Invalid SetToken");
         allowedSetTokens[_setToken] = _status;
         emit SetTokenStatusUpdated(_setToken, _status);
     }
 
     /**
-     * @dev GOVERNANCE ONLY: Toggle whether any SetToken is allowed to initialize this module. Only callable by governance.
-     * @param _anySetAllowed             Bool indicating whether allowedSetTokens is enabled
+     * @dev GOVERNANCE ONLY: Toggle whether ANY SetToken is allowed to initialize this module. Only callable by governance.
+     * @param _anySetAllowed             Bool indicating if ANY SetToken is allowed to initialize this module
      */
     function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
         anySetAllowed = _anySetAllowed;

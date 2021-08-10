@@ -3571,12 +3571,20 @@ describe("AaveLeverageModule", () => {
   });
 
   describe("#updateAllowedSetToken", async () => {
+    let setToken: SetToken;
+
     let subjectSetToken: Address;
     let subjectStatus: boolean;
     let subjectCaller: Account;
 
     beforeEach(async () => {
-      subjectSetToken = await getRandomAddress();
+      setToken = setToken = await setup.createSetToken(
+        [aWETH.address],
+        [ether(2)],
+        [aaveLeverageModule.address, debtIssuanceMock.address]
+      );
+
+      subjectSetToken = setToken.address;
       subjectStatus = true;
       subjectCaller = owner;
     });
@@ -3619,6 +3627,30 @@ describe("AaveLeverageModule", () => {
           subjectSetToken,
           subjectStatus
         );
+      });
+
+      describe("when Set Token is removed on controller", async () => {
+        beforeEach(async () => {
+          await setup.controller.removeSet(setToken.address);
+        });
+
+        it("should remove the Set from allow list", async () => {
+          await subject();
+
+          const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
+
+          expect(isAllowed).to.be.false;
+        });
+      });
+    });
+
+    describe("when Set is removed on controller", async () => {
+      beforeEach(async () => {
+        await setup.controller.removeSet(setToken.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid SetToken");
       });
     });
 
