@@ -1069,9 +1069,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * @dev Validates if a new asset can be added as collateral asset for given SetToken
      */
-    function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _collateralAsset) internal view {
-        require(!collateralAssetEnabled[_setToken][_collateralAsset], "Collateral already enabled");
-        (,,,,, bool usageAsCollateralEnabled,,, bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_collateralAsset));
+    function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _asset) internal view {
+        require(!collateralAssetEnabled[_setToken][_asset], "Collateral already enabled");
+        
+        (address aToken, , ) = protocolDataProvider.getReserveTokensAddresses(address(_asset));
+        require(address(underlyingToReserveTokens[_asset].aToken) == aToken, "Invalid aToken address");
+        
+        ( , , , , , bool usageAsCollateralEnabled, , , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_asset));
         // An active reserve is an alias for a valid reserve on Aave.
         // We are checking for the availability of the reserve directly on Aave rather than checking our internal `underlyingToReserveTokens` mappings, 
         // because our mappings can be out-of-date if a new reserve is added to Aave
@@ -1084,9 +1088,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * @dev Validates if a new asset can be added as borrow asset for given SetToken
      */
-    function _validateNewBorrowAsset(ISetToken _setToken, IERC20 _borrowAsset) internal view {
-        require(!borrowAssetEnabled[_setToken][_borrowAsset], "Borrow already enabled");
-        (, , , , , , bool borrowingEnabled, , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_borrowAsset));
+    function _validateNewBorrowAsset(ISetToken _setToken, IERC20 _asset) internal view {
+        require(!borrowAssetEnabled[_setToken][_asset], "Borrow already enabled");
+        
+        ( , , address variableDebtToken) = protocolDataProvider.getReserveTokensAddresses(address(_asset));
+        require(address(underlyingToReserveTokens[_asset].variableDebtToken) == variableDebtToken, "Invalid variable debt token address");
+        
+        (, , , , , , bool borrowingEnabled, , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_asset));
         require(isActive, "Invalid aave reserve");
         require(!isFrozen, "Frozen aave reserve");
         require(borrowingEnabled, "Borrowing disabled on Aave");
