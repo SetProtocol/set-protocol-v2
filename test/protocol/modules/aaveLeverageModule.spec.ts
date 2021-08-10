@@ -3796,5 +3796,11 @@ describe("AaveLeverageModule", () => {
       const expectedLendingPoolAddress = await aaveSetup.lendingPoolAddressesProvider.getLendingPool();
       expect(savedLendingPoolAddress).to.eq(expectedLendingPoolAddress);
     });
+
+    it("should emit LendingPoolUpdated event", async () => {
+      await expect(subject()).to.emit(aaveLeverageModule, "LendingPoolUpdated").withArgs(
+        aaveSetup.lendingPool.address
+      );
+    });
   });
 });
