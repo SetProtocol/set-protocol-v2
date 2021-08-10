@@ -243,9 +243,12 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         }
     }
     
+    /* ============ External Functions ============ */
+
     /**
-     * @dev MANAGER ONLY: Initializes this module to the SetToken. Only callable by the SetToken's manager. 
-     * Note: managers can enable collateral and borrow assets that don't exist as positions on the SetToken
+     * @dev MANAGER ONLY: Initializes this module to the SetToken. Either the SetToken needs to be on the allowed list
+     * or anySetAllowed needs to be true. Only callable by the SetToken's manager.
+     * Note: Managers can enable collateral and borrow assets that don't exist as positions on the SetToken
      * @param _setToken             Instance of the SetToken to initialize
      * @param _collateralAssets     Underlying tokens to be enabled as collateral in the SetToken
      * @param _borrowAssets         Underlying tokens to be enabled as borrow in the SetToken
@@ -275,8 +278,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
         }
         
-        addCollateralAssets(_setToken, _collateralAssets);
-        addBorrowAssets(_setToken, _borrowAssets);    
+        // _collateralAssets and _borrowAssets arrays are validated in their respective internal functions
+        _addCollateralAssets(_setToken, _collateralAssets);
+        _addBorrowAssets(_setToken, _borrowAssets);
     }
     
     /**
@@ -512,35 +516,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _newCollateralAssets  Addresses of new collateral underlying assets
      */
     function addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) public onlyManagerAndValidSet(_setToken) {
-        for(uint256 i = 0; i < _newCollateralAssets.length; i++) {
-            IERC20 collateralAsset = _newCollateralAssets[i];
-            
-            _validateNewCollateralAsset(_setToken, collateralAsset);
-            _updateUnderlyingToReserveTokensMapping(collateralAsset);
-            _updateUseReserveAsCollateral(_setToken, collateralAsset, true);
-            
-            collateralAssetEnabled[_setToken][collateralAsset] = true;
-            enabledAssets[_setToken].collateralAssets.push(address(collateralAsset));
-        }
-        emit CollateralAssetsUpdated(_setToken, true, _newCollateralAssets);
+        _addCollateralAssets(_setToken, _newCollateralAssets);
     }
     
     /**
-     * @dev MANAGER ONLY: Add borrow asset. Debt tokens corresponding to borrow assets are tracked for syncing positions.
+     * @dev MANAGER ONLY: Add borrow assets. Debt tokens corresponding to borrow assets are tracked for syncing positions.
      * @param _setToken             Instance of the SetToken
      * @param _newBorrowAssets      Addresses of borrow underlying assets to add
      */
     function addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) public onlyManagerAndValidSet(_setToken) {
-        for(uint256 i = 0; i < _newBorrowAssets.length; i++) {
-            IERC20 borrowAsset = _newBorrowAssets[i];
-            
-            _validateNewBorrowAsset(_setToken, borrowAsset);
-            _updateUnderlyingToReserveTokensMapping(borrowAsset);
-            
-            borrowAssetEnabled[_setToken][borrowAsset] = true;
-            enabledAssets[_setToken].borrowAssets.push(address(borrowAsset));
-        }
-        emit BorrowAssetsUpdated(_setToken, true, _newBorrowAssets);
+        _addBorrowAssets(_setToken, _newBorrowAssets);
     }
         
     /**
@@ -742,6 +727,41 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /* ============ Internal Functions ============ */
     
+    /**
+     * @dev Add collateral assets to SetToken. Updates the collateralAssetsEnabled and enabledAssets mappings.
+     * Emits CollateralAssetsUpdated event.
+     */
+    function _addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) internal {
+        for(uint256 i = 0; i < _newCollateralAssets.length; i++) {
+            IERC20 collateralAsset = _newCollateralAssets[i];
+            
+            _validateNewCollateralAsset(_setToken, collateralAsset);
+            _updateUnderlyingToReserveTokensMapping(collateralAsset);
+            _updateUseReserveAsCollateral(_setToken, collateralAsset, true);
+            
+            collateralAssetEnabled[_setToken][collateralAsset] = true;
+            enabledAssets[_setToken].collateralAssets.push(address(collateralAsset));
+        }
+        emit CollateralAssetsUpdated(_setToken, true, _newCollateralAssets);
+    }
+
+    /**
+     * @dev Add borrow assets to SetToken. Updates the borrowAssetsEnabled and enabledAssets mappings.
+     * Emits BorrowAssetsUpdated event.
+     */
+    function _addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) internal {
+        for(uint256 i = 0; i < _newBorrowAssets.length; i++) {
+            IERC20 borrowAsset = _newBorrowAssets[i];
+            
+            _validateNewBorrowAsset(_setToken, borrowAsset);
+            _updateUnderlyingToReserveTokensMapping(borrowAsset);
+            
+            borrowAssetEnabled[_setToken][borrowAsset] = true;
+            enabledAssets[_setToken].borrowAssets.push(address(borrowAsset));
+        }
+        emit BorrowAssetsUpdated(_setToken, true, _newBorrowAssets);
+    }
+
     /**
      * @dev Invoke deposit from SetToken. Mints aTokens for SetToken.
      */
