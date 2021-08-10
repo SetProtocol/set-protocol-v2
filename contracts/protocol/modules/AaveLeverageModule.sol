@@ -615,9 +615,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
 
-        // Sync Aave and SetToken positions prior to any removal action
-        sync(setToken);
-
         address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
         for(uint256 i = 0; i < borrowAssets.length; i++) {
             IERC20 borrowAsset = IERC20(borrowAssets[i]);
@@ -649,8 +646,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _collateralAssets     Addresses of collateral underlying assets to remove
      */
     function removeCollateralAssets(ISetToken _setToken, IERC20[] memory _collateralAssets) external onlyManagerAndValidSet(_setToken) {
-        // Sync Aave and SetToken positions prior to any removal action
-        sync(_setToken);
         
         for(uint256 i = 0; i < _collateralAssets.length; i++) {
             IERC20 collateralAsset = _collateralAssets[i];
@@ -672,8 +667,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _borrowAssets         Addresses of borrow underlying assets to remove
      */
     function removeBorrowAssets(ISetToken _setToken, IERC20[] memory _borrowAssets) external onlyManagerAndValidSet(_setToken) {
-        // Sync Aave and SetToken positions prior to any removal action
-        sync(_setToken);
         
         for(uint256 i = 0; i < _borrowAssets.length; i++) {
             IERC20 borrowAsset = _borrowAssets[i];
