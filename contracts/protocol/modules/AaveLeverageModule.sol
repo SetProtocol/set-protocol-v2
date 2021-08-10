@@ -522,10 +522,11 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev MANAGER ONLY: Add collateral assets. aTokens corresponding to collateral assets are tracked for syncing positions.
+     * Note: Reverts with "Borrow already enabled" if there are duplicate assets in the passed _newBorrowAssets array.
      * @param _setToken             Instance of the SetToken
      * @param _newCollateralAssets  Addresses of new collateral underlying assets
      */
-    function addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) public onlyManagerAndValidSet(_setToken) {
+    function addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) external onlyManagerAndValidSet(_setToken) {
         _addCollateralAssets(_setToken, _newCollateralAssets);
     }
     
@@ -746,7 +747,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             IERC20 collateralAsset = _newCollateralAssets[i];
             
             _validateNewCollateralAsset(_setToken, collateralAsset);
-            _updateUnderlyingToReserveTokensMapping(collateralAsset);
             _updateUseReserveAsCollateral(_setToken, collateralAsset, true);
             
             collateralAssetEnabled[_setToken][collateralAsset] = true;
