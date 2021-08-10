@@ -970,7 +970,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      */
     function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
         uint256 borrowNotionalBalance = underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
-        return borrowNotionalBalance.preciseDiv(_setTotalSupply).toInt256().mul(-1);
+        return borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
     }
     
     /**
