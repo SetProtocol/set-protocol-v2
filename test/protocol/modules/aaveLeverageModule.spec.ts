@@ -2211,7 +2211,7 @@ describe("AaveLeverageModule", () => {
 
         describe("when updateUnderlyingToReserveTokenMappings is called before", async () => {
           beforeEach(async () => {
-            await aaveLeverageModule.updateUnderlyingToReserveTokensMapping(setup.usdc.address);
+            await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
           });
 
           it("should add collateral asset to mappings", async () => {
@@ -2260,7 +2260,7 @@ describe("AaveLeverageModule", () => {
             true,                 // enable borrowing on reserve
             false                 // enable stable debts
           );
-          await aaveLeverageModule.updateUnderlyingToReserveTokensMapping(setup.usdc.address);
+          await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
 
           subjectCollateralAssets = [setup.usdc.address];
         });
@@ -2391,7 +2391,7 @@ describe("AaveLeverageModule", () => {
 
         describe("when updateUnderlyingToReserveTokenMappings is called before", async () => {
           beforeEach(async () => {
-            await aaveLeverageModule.updateUnderlyingToReserveTokensMapping(setup.usdc.address);
+            await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
           });
 
           it("should add collateral asset to mappings", async () => {
@@ -2442,7 +2442,7 @@ describe("AaveLeverageModule", () => {
             false,
             false,
           );
-          await aaveLeverageModule.updateUnderlyingToReserveTokensMapping(setup.usdc.address);
+          await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
 
           subjectBorrowAssets = [setup.dai.address, setup.usdc.address];
         });
@@ -3777,7 +3777,7 @@ describe("AaveLeverageModule", () => {
     });
   });
 
-  describe("#updateUnderlyingToReserveTokensMappings", async () => {
+  describe("#addUnderlyingToReserveTokensMappings", async () => {
     let subjectUnderlying: Address;
     let subjectCaller: Account;
 
@@ -3801,27 +3801,36 @@ describe("AaveLeverageModule", () => {
     });
 
     async function subject(): Promise<any> {
-      return aaveLeverageModule.connect(subjectCaller.wallet).updateUnderlyingToReserveTokensMapping(
+      return aaveLeverageModule.connect(subjectCaller.wallet).addUnderlyingToReserveTokensMapping(
         subjectUnderlying
       );
     }
 
-    describe("when adding a new reserve", async () => {
-      it("should add the underlying to reserve tokens mappings", async () => {
-        await subject();
 
-        const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
+    it("should add the underlying to reserve tokens mappings", async () => {
+      await subject();
 
-        expect(reserveTokens.aToken).to.eq(usdcReserveTokens.aToken.address);
-        expect(reserveTokens.variableDebtToken).to.eq(usdcReserveTokens.variableDebtToken.address);
+      const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
+
+      expect(reserveTokens.aToken).to.eq(usdcReserveTokens.aToken.address);
+      expect(reserveTokens.variableDebtToken).to.eq(usdcReserveTokens.variableDebtToken.address);
+    });
+
+    it("should emit ReserveTokensUpdated event", async () => {
+      await expect(subject()).to.emit(aaveLeverageModule, "ReserveTokensUpdated").withArgs(
+        setup.usdc.address,
+        usdcReserveTokens.aToken.address,
+        usdcReserveTokens.variableDebtToken.address
+      );
+    });
+
+    describe("when mapping already exists", async () => {
+      beforeEach(async () => {
+        subjectUnderlying = setup.weth.address;
       });
 
-      it("should emit ReserveTokensUpdated event", async () => {
-        await expect(subject()).to.emit(aaveLeverageModule, "ReserveTokensUpdated").withArgs(
-          setup.usdc.address,
-          usdcReserveTokens.aToken.address,
-          usdcReserveTokens.variableDebtToken.address
-        );
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Mapping already exists");
       });
     });
 

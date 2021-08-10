@@ -187,7 +187,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /* ============ State Variables ============ */
 
     // Mapping to efficiently fetch reserve token addresses. Tracking Aave reserve token addresses and updating them 
-    // upon requirement is more efficient than fetching them each time from Aave
+    // upon requirement is more efficient than fetching them each time from Aave.
+    // Note: For an underlying asset to be enabled as collateral/borrow asset on SetToken, it must be added to this mapping first.
     mapping(IERC20 => ReserveTokens) public underlyingToReserveTokens;
 
     // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
@@ -239,7 +240,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
         IProtocolDataProvider.TokenData[] memory reserveTokens = protocolDataProvider.getAllReservesTokens();
         for(uint256 i = 0; i < reserveTokens.length; i++) {
-            _updateUnderlyingToReserveTokensMapping(IERC20(reserveTokens[i].tokenAddress));
+            _addUnderlyingToReserveTokensMapping(IERC20(reserveTokens[i].tokenAddress));
         }
     }
     
@@ -702,18 +703,19 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Reverts if passed _underlying asset does not 
-     * has a valid reserve on Aave. Aave's reserve tokens are mutable and their addresses can be changed. This function updates
-     * the stored reserve token addresses to their latest value. 
-     * Note: Adds a new mapping for previously untracked reserves.     
+     * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Reverts if mapping already exists
+     * or the passed _underlying asset does not has a valid reserve on Aave.
+     * Note: Call this function when Aave adds a new reserve.
      * @param _underlying               Address of underlying asset
      */
-    function updateUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
+    function addUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
+        require(address(underlyingToReserveTokens[_underlying].aToken) == address(0), "Mapping already exists");
+
         // An active reserve is an alias for a valid reserve on Aave.
         (,,,,,,,, bool isActive,) = protocolDataProvider.getReserveConfigurationData(address(_underlying));
         require(isActive, "Invalid aave reserve");
         
-        _updateUnderlyingToReserveTokensMapping(_underlying);
+        _addUnderlyingToReserveTokensMapping(_underlying);
     }
 
     /**
@@ -990,7 +992,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /**
      * @dev Updates `underlyingToReserveTokens` mappings for given `_underlying` asset. Emits ReserveTokensUpdated event.
      */
-    function _updateUnderlyingToReserveTokensMapping(IERC20 _underlying) internal {
+    function _addUnderlyingToReserveTokensMapping(IERC20 _underlying) internal {
         (address aToken, , address variableDebtToken) = protocolDataProvider.getReserveTokensAddresses(address(_underlying));
         underlyingToReserveTokens[_underlying].aToken = IAToken(aToken);
         underlyingToReserveTokens[_underlying].variableDebtToken = IVariableDebtToken(variableDebtToken);
