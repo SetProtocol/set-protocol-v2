@@ -236,44 +236,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
     
     /* ============ External Functions ============ */
-
-    /**
-     * @dev MANAGER ONLY: Initializes this module to the SetToken. Either the SetToken needs to be on the allowed list
-     * or anySetAllowed needs to be true. Only callable by the SetToken's manager.
-     * Note: Managers can enable collateral and borrow assets that don't exist as positions on the SetToken
-     * @param _setToken             Instance of the SetToken to initialize
-     * @param _collateralAssets     Underlying tokens to be enabled as collateral in the SetToken
-     * @param _borrowAssets         Underlying tokens to be enabled as borrow in the SetToken
-     */
-    function initialize(
-        ISetToken _setToken,
-        IERC20[] memory _collateralAssets,
-        IERC20[] memory _borrowAssets
-    )
-        external
-        onlySetManager(_setToken, msg.sender)
-        onlyValidAndPendingSet(_setToken)
-    {
-        if (!anySetAllowed) {
-            require(allowedSetTokens[_setToken], "Not allowed SetToken");
-        }
-
-        // Initialize module before trying register
-        _setToken.initializeModule();
-
-        // Get debt issuance module registered to this module and require that it is initialized
-        require(_setToken.isInitializedModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)), "Issuance not initialized");
-
-        // Try if register exists on any of the modules including the debt issuance module
-        address[] memory modules = _setToken.getModules();
-        for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
-        }
-        
-        // _collateralAssets and _borrowAssets arrays are validated in their respective internal functions
-        _addCollateralAssets(_setToken, _collateralAssets);
-        _addBorrowAssets(_setToken, _borrowAssets);
-    }
     
     /**
      * @dev MANAGER ONLY: Increases leverage for a given collateral position using an enabled borrow asset.
@@ -515,6 +477,106 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
+     * @dev MANAGER ONLY: Initializes this module to the SetToken. Either the SetToken needs to be on the allowed list
+     * or anySetAllowed needs to be true. Only callable by the SetToken's manager.
+     * Note: Managers can enable collateral and borrow assets that don't exist as positions on the SetToken
+     * @param _setToken             Instance of the SetToken to initialize
+     * @param _collateralAssets     Underlying tokens to be enabled as collateral in the SetToken
+     * @param _borrowAssets         Underlying tokens to be enabled as borrow in the SetToken
+     */
+    function initialize(
+        ISetToken _setToken,
+        IERC20[] memory _collateralAssets,
+        IERC20[] memory _borrowAssets
+    )
+        external
+        onlySetManager(_setToken, msg.sender)
+        onlyValidAndPendingSet(_setToken)
+    {
+        if (!anySetAllowed) {
+            require(allowedSetTokens[_setToken], "Not allowed SetToken");
+        }
+
+        // Initialize module before trying register
+        _setToken.initializeModule();
+
+        // Get debt issuance module registered to this module and require that it is initialized
+        require(_setToken.isInitializedModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)), "Issuance not initialized");
+
+        // Try if register exists on any of the modules including the debt issuance module
+        address[] memory modules = _setToken.getModules();
+        for(uint256 i = 0; i < modules.length; i++) {
+            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
+        }
+        
+        // _collateralAssets and _borrowAssets arrays are validated in their respective internal functions
+        _addCollateralAssets(_setToken, _collateralAssets);
+        _addBorrowAssets(_setToken, _borrowAssets);
+    }
+
+    /**
+     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any deposited collateral assets
+     * are disabled to be used as collateral on Aave. Aave Settings and manager enabled assets state is deleted.      
+     * Note: Function will revert is there is any debt remaining on Aave
+     */
+    function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
+        ISetToken setToken = ISetToken(msg.sender);
+
+        address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
+        for(uint256 i = 0; i < borrowAssets.length; i++) {
+            IERC20 borrowAsset = IERC20(borrowAssets[i]);
+            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(setToken)) == 0, "Variable debt remaining");
+    
+            delete borrowAssetEnabled[setToken][borrowAsset];
+        }
+
+        address[] memory collateralAssets = enabledAssets[setToken].collateralAssets;
+        for(uint256 i = 0; i < collateralAssets.length; i++) {
+            IERC20 collateralAsset = IERC20(collateralAssets[i]);
+            _updateUseReserveAsCollateral(setToken, collateralAsset, false);
+
+            delete collateralAssetEnabled[setToken][collateralAsset];
+        }
+        
+        delete enabledAssets[setToken];
+
+        // Try if unregister exists on any of the modules
+        address[] memory modules = setToken.getModules();
+        for(uint256 i = 0; i < modules.length; i++) {
+            try IDebtIssuanceModule(modules[i]).unregisterFromIssuanceModule(setToken) {} catch {}
+        }
+    }
+
+    /**
+     * @dev MANAGER ONLY: Add registration of this module on debt issuance module for the SetToken. 
+     * Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function
+     * needs to be called if the debt issuance module is later added and initialized to prevent state inconsistencies
+     * @param _setToken             Instance of the SetToken
+     * @param _debtIssuanceModule   Debt issuance module address to register
+     */
+    function registerToModule(ISetToken _setToken, IDebtIssuanceModule _debtIssuanceModule) external onlyManagerAndValidSet(_setToken) {
+        require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
+
+        _debtIssuanceModule.registerToIssuanceModule(_setToken);
+    }
+
+    /**
+     * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Reverts if mapping already exists
+     * or the passed _underlying asset does not has a valid reserve on Aave.
+     * Note: Call this function when Aave adds a new reserve.
+     * @param _underlying               Address of underlying asset
+     */
+    function addUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
+        require(address(underlyingToReserveTokens[_underlying].aToken) == address(0), "Mapping already exists");
+
+        // An active reserve is an alias for a valid reserve on Aave.
+        (,,,,,,,, bool isActive,) = protocolDataProvider.getReserveConfigurationData(address(_underlying));
+        require(isActive, "Invalid aave reserve");
+        
+        _addUnderlyingToReserveTokensMapping(_underlying);
+    }
+
+    /**
      * @dev MANAGER ONLY: Add collateral assets. aTokens corresponding to collateral assets are tracked for syncing positions.
      * Note: Reverts with "Borrow already enabled" if there are duplicate assets in the passed _newBorrowAssets array.
      * 
@@ -528,7 +590,26 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) external onlyManagerAndValidSet(_setToken) {
         _addCollateralAssets(_setToken, _newCollateralAssets);
     }
-    
+   
+    /**
+     * @dev MANAGER ONLY: Remove collateral asset. Disable deposited assets to be used as collateral on Aave market.
+     * @param _setToken             Instance of the SetToken
+     * @param _collateralAssets     Addresses of collateral underlying assets to remove
+     */
+    function removeCollateralAssets(ISetToken _setToken, IERC20[] memory _collateralAssets) external onlyManagerAndValidSet(_setToken) {
+        
+        for(uint256 i = 0; i < _collateralAssets.length; i++) {
+            IERC20 collateralAsset = _collateralAssets[i];
+            require(collateralAssetEnabled[_setToken][collateralAsset], "Collateral not enabled");
+            
+            _updateUseReserveAsCollateral(_setToken, collateralAsset, false);
+            
+            delete collateralAssetEnabled[_setToken][collateralAsset];
+            enabledAssets[_setToken].collateralAssets.removeStorage(address(collateralAsset));
+        }
+        emit CollateralAssetsUpdated(_setToken, false, _collateralAssets);
+    }
+
     /**
      * @dev MANAGER ONLY: Add borrow assets. Debt tokens corresponding to borrow assets are tracked for syncing positions.
      * Note: Reverts with "Borrow already enabled" if there are duplicate assets in the passed _newBorrowAssets array.
@@ -538,18 +619,45 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) external onlyManagerAndValidSet(_setToken) {
         _addBorrowAssets(_setToken, _newBorrowAssets);
     }
-        
-    /**
-     * @dev MANAGER ONLY: Add registration of this module on debt issuance module for the SetToken. 
-     * Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function
-     * needs to be called if the debt issuance module is later added and initialized to prevent state inconsistencies
-     * @param _setToken             Instance of the SetToken
-     * @param _debtIssuanceModule   Debt issuance module address to register
-     */
-    function registerToModule(ISetToken _setToken, IDebtIssuanceModule _debtIssuanceModule) external onlyManagerAndValidSet(_setToken) {
-        require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
 
-        _debtIssuanceModule.registerToIssuanceModule(_setToken);
+    /**
+     * @dev MANAGER ONLY: Remove borrow asset.
+     * Note: If there is a borrow balance, borrow asset cannot be removed
+     * @param _setToken             Instance of the SetToken
+     * @param _borrowAssets         Addresses of borrow underlying assets to remove
+     */
+    function removeBorrowAssets(ISetToken _setToken, IERC20[] memory _borrowAssets) external onlyManagerAndValidSet(_setToken) {
+        
+        for(uint256 i = 0; i < _borrowAssets.length; i++) {
+            IERC20 borrowAsset = _borrowAssets[i];
+            
+            require(borrowAssetEnabled[_setToken][borrowAsset], "Borrow not enabled");
+            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(_setToken)) == 0, "Variable debt remaining");
+    
+            delete borrowAssetEnabled[_setToken][borrowAsset];
+            enabledAssets[_setToken].borrowAssets.removeStorage(address(borrowAsset));
+        }
+        emit BorrowAssetsUpdated(_setToken, false, _borrowAssets);
+    }
+
+    /**
+     * @dev GOVERNANCE ONLY: Enable/disable ability of a SetToken to initialize this module. Only callable by governance.
+     * @param _setToken             Instance of the SetToken
+     * @param _status               Bool indicating if _setToken is allowed to initialize this module
+     */
+    function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
+        require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "Invalid SetToken");
+        allowedSetTokens[_setToken] = _status;
+        emit SetTokenStatusUpdated(_setToken, _status);
+    }
+
+    /**
+     * @dev GOVERNANCE ONLY: Toggle whether ANY SetToken is allowed to initialize this module. Only callable by governance.
+     * @param _anySetAllowed             Bool indicating if ANY SetToken is allowed to initialize this module
+     */
+    function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
+        anySetAllowed = _anySetAllowed;
+        emit AnySetAllowedUpdated(_anySetAllowed);
     }
 
     /**
@@ -600,114 +708,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
         _repayBorrow(_setToken, _component, notionalDebt);
     }
-        
-    /**
-     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any deposited collateral assets
-     * are disabled to be used as collateral on Aave. Aave Settings and manager enabled assets state is deleted.      
-     * Note: Function will revert is there is any debt remaining on Aave
-     */
-    function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
-        ISetToken setToken = ISetToken(msg.sender);
-
-        address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
-        for(uint256 i = 0; i < borrowAssets.length; i++) {
-            IERC20 borrowAsset = IERC20(borrowAssets[i]);
-            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(setToken)) == 0, "Variable debt remaining");
-    
-            delete borrowAssetEnabled[setToken][borrowAsset];
-        }
-
-        address[] memory collateralAssets = enabledAssets[setToken].collateralAssets;
-        for(uint256 i = 0; i < collateralAssets.length; i++) {
-            IERC20 collateralAsset = IERC20(collateralAssets[i]);
-            _updateUseReserveAsCollateral(setToken, collateralAsset, false);
-
-            delete collateralAssetEnabled[setToken][collateralAsset];
-        }
-        
-        delete enabledAssets[setToken];
-
-        // Try if unregister exists on any of the modules
-        address[] memory modules = setToken.getModules();
-        for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).unregisterFromIssuanceModule(setToken) {} catch {}
-        }
-    }
-    
-    /**
-     * @dev MANAGER ONLY: Remove collateral asset. Disable deposited assets to be used as collateral on Aave market.
-     * @param _setToken             Instance of the SetToken
-     * @param _collateralAssets     Addresses of collateral underlying assets to remove
-     */
-    function removeCollateralAssets(ISetToken _setToken, IERC20[] memory _collateralAssets) external onlyManagerAndValidSet(_setToken) {
-        
-        for(uint256 i = 0; i < _collateralAssets.length; i++) {
-            IERC20 collateralAsset = _collateralAssets[i];
-            require(collateralAssetEnabled[_setToken][collateralAsset], "Collateral not enabled");
-            
-            _updateUseReserveAsCollateral(_setToken, collateralAsset, false);
-            
-            delete collateralAssetEnabled[_setToken][collateralAsset];
-            enabledAssets[_setToken].collateralAssets.removeStorage(address(collateralAsset));
-        }
-        emit CollateralAssetsUpdated(_setToken, false, _collateralAssets);
-    }
-
-    /**
-     * @dev MANAGER ONLY: Remove borrow asset.
-     * Note: If there is a borrow balance, borrow asset cannot be removed
-     * @param _setToken             Instance of the SetToken
-     * @param _borrowAssets         Addresses of borrow underlying assets to remove
-     */
-    function removeBorrowAssets(ISetToken _setToken, IERC20[] memory _borrowAssets) external onlyManagerAndValidSet(_setToken) {
-        
-        for(uint256 i = 0; i < _borrowAssets.length; i++) {
-            IERC20 borrowAsset = _borrowAssets[i];
-            
-            require(borrowAssetEnabled[_setToken][borrowAsset], "Borrow not enabled");
-            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(_setToken)) == 0, "Variable debt remaining");
-    
-            delete borrowAssetEnabled[_setToken][borrowAsset];
-            enabledAssets[_setToken].borrowAssets.removeStorage(address(borrowAsset));
-        }
-        emit BorrowAssetsUpdated(_setToken, false, _borrowAssets);
-    }
-
-    /**
-     * @dev GOVERNANCE ONLY: Enable/disable ability of a SetToken to initialize this module. Only callable by governance.
-     * @param _setToken             Instance of the SetToken
-     * @param _status               Bool indicating if _setToken is allowed to initialize this module
-     */
-    function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
-        require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "Invalid SetToken");
-        allowedSetTokens[_setToken] = _status;
-        emit SetTokenStatusUpdated(_setToken, _status);
-    }
-
-    /**
-     * @dev GOVERNANCE ONLY: Toggle whether ANY SetToken is allowed to initialize this module. Only callable by governance.
-     * @param _anySetAllowed             Bool indicating if ANY SetToken is allowed to initialize this module
-     */
-    function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
-        anySetAllowed = _anySetAllowed;
-        emit AnySetAllowedUpdated(_anySetAllowed);
-    }
-
-    /**
-     * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Reverts if mapping already exists
-     * or the passed _underlying asset does not has a valid reserve on Aave.
-     * Note: Call this function when Aave adds a new reserve.
-     * @param _underlying               Address of underlying asset
-     */
-    function addUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
-        require(address(underlyingToReserveTokens[_underlying].aToken) == address(0), "Mapping already exists");
-
-        // An active reserve is an alias for a valid reserve on Aave.
-        (,,,,,,,, bool isActive,) = protocolDataProvider.getReserveConfigurationData(address(_underlying));
-        require(isActive, "Invalid aave reserve");
-        
-        _addUnderlyingToReserveTokensMapping(_underlying);
-    }
     
     /* ============ External Getter Functions ============ */
 
@@ -726,39 +726,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     /* ============ Internal Functions ============ */
     
     /**
-     * @dev Add collateral assets to SetToken. Updates the collateralAssetsEnabled and enabledAssets mappings.
-     * Emits CollateralAssetsUpdated event.
-     */
-    function _addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) internal {
-        for(uint256 i = 0; i < _newCollateralAssets.length; i++) {
-            IERC20 collateralAsset = _newCollateralAssets[i];
-            
-            _validateNewCollateralAsset(_setToken, collateralAsset);
-            _updateUseReserveAsCollateral(_setToken, collateralAsset, true);
-            
-            collateralAssetEnabled[_setToken][collateralAsset] = true;
-            enabledAssets[_setToken].collateralAssets.push(address(collateralAsset));
-        }
-        emit CollateralAssetsUpdated(_setToken, true, _newCollateralAssets);
-    }
-
-    /**
-     * @dev Add borrow assets to SetToken. Updates the borrowAssetsEnabled and enabledAssets mappings.
-     * Emits BorrowAssetsUpdated event.
-     */
-    function _addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) internal {
-        for(uint256 i = 0; i < _newBorrowAssets.length; i++) {
-            IERC20 borrowAsset = _newBorrowAssets[i];
-            
-            _validateNewBorrowAsset(_setToken, borrowAsset);
-            
-            borrowAssetEnabled[_setToken][borrowAsset] = true;
-            enabledAssets[_setToken].borrowAssets.push(address(borrowAsset));
-        }
-        emit BorrowAssetsUpdated(_setToken, true, _newBorrowAssets);
-    }
-
-    /**
      * @dev Invoke deposit from SetToken using AaveV2 library. Mints aTokens for SetToken.
      */
     function _deposit(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
@@ -774,13 +741,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Invoke borrow from the SetToken using AaveV2 library. Mints DebtTokens for SetToken.
-     */
-    function _borrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
-    }
-
-    /**
      * @dev Invoke repay from SetToken using AaveV2 library. Burns DebtTokens for SetToken.
      */
     function _repayBorrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
@@ -789,68 +749,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Construct the ActionInfo struct for lever and delever
-     * @return ActionInfo       Instance of constructed ActionInfo struct
+     * @dev Invoke borrow from the SetToken using AaveV2 library. Mints DebtTokens for SetToken.
      */
-    function _createAndValidateActionInfo(
-        ISetToken _setToken,
-        IERC20 _sendToken,
-        IERC20 _receiveToken,
-        uint256 _sendQuantityUnits,
-        uint256 _minReceiveQuantityUnits,
-        string memory _tradeAdapterName,
-        bool _isLever
-    )
-        internal
-        view
-        returns(ActionInfo memory)
-    {
-        uint256 totalSupply = _setToken.totalSupply();
-
-        return _createAndValidateActionInfoNotional(
-            _setToken,
-            _sendToken,
-            _receiveToken,
-            _sendQuantityUnits.preciseMul(totalSupply),
-            _minReceiveQuantityUnits.preciseMul(totalSupply),
-            _tradeAdapterName,
-            _isLever,
-            totalSupply
-        );
-    }
-    
-    /**
-     * @dev Construct the ActionInfo struct for lever and delever accepting notional units     
-     * @return ActionInfo       Instance of constructed ActionInfo struct
-     */
-    function _createAndValidateActionInfoNotional(
-        ISetToken _setToken,
-        IERC20 _sendToken,
-        IERC20 _receiveToken,
-        uint256 _notionalSendQuantity,
-        uint256 _minNotionalReceiveQuantity,
-        string memory _tradeAdapterName,
-        bool _isLever,
-        uint256 _setTotalSupply
-    )
-        internal
-        view
-        returns(ActionInfo memory)
-    {
-        ActionInfo memory actionInfo = ActionInfo ({
-            exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
-            setToken: _setToken,
-            collateralAsset: _isLever ? _receiveToken : _sendToken,
-            borrowAsset: _isLever ? _sendToken : _receiveToken,
-            setTotalSupply: _setTotalSupply,
-            notionalSendQuantity: _notionalSendQuantity,
-            minNotionalReceiveQuantity: _minNotionalReceiveQuantity,
-            preTradeReceiveTokenBalance: IERC20(_receiveToken).balanceOf(address(_setToken))
-        });
-
-        _validateCommon(actionInfo);
-
-        return actionInfo;
+    function _borrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
+        _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
     
     /**
@@ -936,27 +838,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             )
         );
     }
-    
-    /**
-     * @dev Reads aToken balance and calculates default position unit for given collateral aToken and SetToken
-     *
-     * @return uint256       default collateral position unit          
-     */
-    function _getCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _setTotalSupply) internal view returns (uint256) {
-        uint256 collateralNotionalBalance = _aToken.balanceOf(address(_setToken));
-        return collateralNotionalBalance.preciseDiv(_setTotalSupply);
-    }
-    
-    /**
-     * @dev Reads variableDebtToken balance and calculates external position unit for given borrow asset and SetToken
-     *
-     * @return int256       external borrow position unit
-     */
-    function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
-        uint256 borrowNotionalBalance = underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
-        return borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
-    }
-    
+     
     /**
      * @dev Updates default position unit for given aToken on SetToken
      */
@@ -970,7 +852,72 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function _updateBorrowPosition(ISetToken _setToken, IERC20 _underlyingAsset, int256 _newPositionUnit) internal {
         _setToken.editExternalPosition(address(_underlyingAsset), address(this), _newPositionUnit, "");
     }
-   
+
+    /**
+     * @dev Construct the ActionInfo struct for lever and delever
+     * @return ActionInfo       Instance of constructed ActionInfo struct
+     */
+    function _createAndValidateActionInfo(
+        ISetToken _setToken,
+        IERC20 _sendToken,
+        IERC20 _receiveToken,
+        uint256 _sendQuantityUnits,
+        uint256 _minReceiveQuantityUnits,
+        string memory _tradeAdapterName,
+        bool _isLever
+    )
+        internal
+        view
+        returns(ActionInfo memory)
+    {
+        uint256 totalSupply = _setToken.totalSupply();
+
+        return _createAndValidateActionInfoNotional(
+            _setToken,
+            _sendToken,
+            _receiveToken,
+            _sendQuantityUnits.preciseMul(totalSupply),
+            _minReceiveQuantityUnits.preciseMul(totalSupply),
+            _tradeAdapterName,
+            _isLever,
+            totalSupply
+        );
+    }
+    
+    /**
+     * @dev Construct the ActionInfo struct for lever and delever accepting notional units     
+     * @return ActionInfo       Instance of constructed ActionInfo struct
+     */
+    function _createAndValidateActionInfoNotional(
+        ISetToken _setToken,
+        IERC20 _sendToken,
+        IERC20 _receiveToken,
+        uint256 _notionalSendQuantity,
+        uint256 _minNotionalReceiveQuantity,
+        string memory _tradeAdapterName,
+        bool _isLever,
+        uint256 _setTotalSupply
+    )
+        internal
+        view
+        returns(ActionInfo memory)
+    {
+        ActionInfo memory actionInfo = ActionInfo ({
+            exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
+            setToken: _setToken,
+            collateralAsset: _isLever ? _receiveToken : _sendToken,
+            borrowAsset: _isLever ? _sendToken : _receiveToken,
+            setTotalSupply: _setTotalSupply,
+            notionalSendQuantity: _notionalSendQuantity,
+            minNotionalReceiveQuantity: _minNotionalReceiveQuantity,
+            preTradeReceiveTokenBalance: IERC20(_receiveToken).balanceOf(address(_setToken))
+        });
+
+        _validateCommon(actionInfo);
+
+        return actionInfo;
+    }
+
     /**
      * @dev Updates `underlyingToReserveTokens` mappings for given `_underlying` asset. Emits ReserveTokensUpdated event.
      */
@@ -980,6 +927,39 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         underlyingToReserveTokens[_underlying].variableDebtToken = IVariableDebtToken(variableDebtToken);
 
         emit ReserveTokensUpdated(_underlying, IAToken(aToken), IVariableDebtToken(variableDebtToken));
+    }
+
+    /**
+     * @dev Add collateral assets to SetToken. Updates the collateralAssetsEnabled and enabledAssets mappings.
+     * Emits CollateralAssetsUpdated event.
+     */
+    function _addCollateralAssets(ISetToken _setToken, IERC20[] memory _newCollateralAssets) internal {
+        for(uint256 i = 0; i < _newCollateralAssets.length; i++) {
+            IERC20 collateralAsset = _newCollateralAssets[i];
+            
+            _validateNewCollateralAsset(_setToken, collateralAsset);
+            _updateUseReserveAsCollateral(_setToken, collateralAsset, true);
+            
+            collateralAssetEnabled[_setToken][collateralAsset] = true;
+            enabledAssets[_setToken].collateralAssets.push(address(collateralAsset));
+        }
+        emit CollateralAssetsUpdated(_setToken, true, _newCollateralAssets);
+    }
+
+    /**
+     * @dev Add borrow assets to SetToken. Updates the borrowAssetsEnabled and enabledAssets mappings.
+     * Emits BorrowAssetsUpdated event.
+     */
+    function _addBorrowAssets(ISetToken _setToken, IERC20[] memory _newBorrowAssets) internal {
+        for(uint256 i = 0; i < _newBorrowAssets.length; i++) {
+            IERC20 borrowAsset = _newBorrowAssets[i];
+            
+            _validateNewBorrowAsset(_setToken, borrowAsset);
+            
+            borrowAssetEnabled[_setToken][borrowAsset] = true;
+            enabledAssets[_setToken].borrowAssets.push(address(borrowAsset));
+        }
+        emit BorrowAssetsUpdated(_setToken, true, _newBorrowAssets);
     }
 
     /**
@@ -1051,6 +1031,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
+     * @dev Validate common requirements for lever and delever
+     */
+    function _validateCommon(ActionInfo memory _actionInfo) internal view {
+        require(collateralAssetEnabled[_actionInfo.setToken][_actionInfo.collateralAsset], "Collateral not enabled");
+        require(borrowAssetEnabled[_actionInfo.setToken][_actionInfo.borrowAsset], "Borrow not enabled");
+        require(_actionInfo.collateralAsset != _actionInfo.borrowAsset, "Collateral and borrow asset must be different");
+        require(_actionInfo.notionalSendQuantity > 0, "Quantity is 0");
+    }
+
+    /**
      * @dev Validates if a new asset can be added as collateral asset for given SetToken
      */
     function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _asset) internal view {
@@ -1085,12 +1075,22 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Validate common requirements for lever and delever
+     * @dev Reads aToken balance and calculates default position unit for given collateral aToken and SetToken
+     *
+     * @return uint256       default collateral position unit          
      */
-    function _validateCommon(ActionInfo memory _actionInfo) internal view {
-        require(collateralAssetEnabled[_actionInfo.setToken][_actionInfo.collateralAsset], "Collateral not enabled");
-        require(borrowAssetEnabled[_actionInfo.setToken][_actionInfo.borrowAsset], "Borrow not enabled");
-        require(_actionInfo.collateralAsset != _actionInfo.borrowAsset, "Collateral and borrow asset must be different");
-        require(_actionInfo.notionalSendQuantity > 0, "Quantity is 0");
+    function _getCollateralPosition(ISetToken _setToken, IAToken _aToken, uint256 _setTotalSupply) internal view returns (uint256) {
+        uint256 collateralNotionalBalance = _aToken.balanceOf(address(_setToken));
+        return collateralNotionalBalance.preciseDiv(_setTotalSupply);
+    }
+    
+    /**
+     * @dev Reads variableDebtToken balance and calculates external position unit for given borrow asset and SetToken
+     *
+     * @return int256       external borrow position unit
+     */
+    function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
+        uint256 borrowNotionalBalance = underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
+        return borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
     }
 }
