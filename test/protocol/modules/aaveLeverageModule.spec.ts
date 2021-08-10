@@ -1665,6 +1665,18 @@ describe("AaveLeverageModule", () => {
         });
       });
 
+      describe("when borrow balance is 0", async () => {
+        beforeEach(async () => {
+          await aaveLeverageModule.connect(owner.wallet).addBorrowAssets(setToken.address, [setup.wbtc.address]);
+
+          subjectRepayAsset = setup.wbtc.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Borrow balance is zero");
+        });
+      });
+
       describe("when the caller is not the SetToken manager", async () => {
         beforeEach(async () => {
           subjectCaller = await getRandomAccount();

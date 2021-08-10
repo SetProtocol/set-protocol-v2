@@ -405,12 +405,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         );
     }
 
-    /**
-     * @dev MANAGER ONLY: Pays down the borrow asset to 0 selling off a given collateral asset. Any extra received
-     * borrow asset is updated as equity. No protocol fee is charged.
+    /** @dev MANAGER ONLY: Pays down the borrow asset to 0 selling off a given amount of collateral asset. 
+     * Withdraws _collateralAsset from Aave. Performs a DEX trade, exchanging the _collateralAsset for _repayAsset. 
+     * Minimum receive amount for the DEX trade is set to the current variable debt balance of the borrow asset. 
+     * Repays received _repayAsset to Aave which burns corresponding debt tokens. Any extra received borrow asset is .
+     * updated as equity. No protocol fee is charged.
+     * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
+     * The function reverts if not enough collateral asset is redeemed to buy required minimum amount of _repayAsset.
      * @param _setToken             Instance of the SetToken
-     * @param _collateralAsset      Address of collateral asset (underlying of aToken)
-     * @param _repayAsset           Address of asset being repaid (underlying asset e.g. DAI)
+     * @param _collateralAsset      Address of underlying collateral asset being redeemed
+     * @param _repayAsset           Address of underlying asset being repaid
      * @param _redeemQuantity       Quantity of collateral asset to delever
      * @param _tradeAdapterName     Name of trade adapter
      * @param _tradeData            Arbitrary data for trade     
@@ -433,6 +437,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         
         require(borrowAssetEnabled[_setToken][_repayAsset], "Borrow not enabled");
         uint256 notionalRepayQuantity = underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
+        require(notionalRepayQuantity > 0, "Borrow balance is zero");
 
         ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
             _setToken,
