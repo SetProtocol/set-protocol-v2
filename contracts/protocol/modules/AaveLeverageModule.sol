@@ -587,7 +587,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
         require(componentDebt < 0, "Component must be negative");
 
-        uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
+        uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
         _borrow(_setToken, _component, notionalDebt);
     }
 
