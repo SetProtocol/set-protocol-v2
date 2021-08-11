@@ -860,7 +860,7 @@ describe("AaveLeverageModule", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be different");
+            await expect(subject()).to.be.revertedWith("Collateral and borrow asset must be different");
           });
         });
 
@@ -1365,7 +1365,7 @@ describe("AaveLeverageModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Must be different");
+          await expect(subject()).to.be.revertedWith("Collateral and borrow asset must be different");
         });
       });
 
@@ -1662,6 +1662,18 @@ describe("AaveLeverageModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Borrow not enabled");
+        });
+      });
+
+      describe("when borrow balance is 0", async () => {
+        beforeEach(async () => {
+          await aaveLeverageModule.connect(owner.wallet).addBorrowAssets(setToken.address, [setup.wbtc.address]);
+
+          subjectRepayAsset = setup.wbtc.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Borrow balance is zero");
         });
       });
 
@@ -2106,12 +2118,9 @@ describe("AaveLeverageModule", () => {
         await subject();
         const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
         const isDaiCollateral = await aaveLeverageModule.collateralAssetEnabled(setToken.address, setup.dai.address);
-        const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.dai.address);
 
         expect(JSON.stringify(collateralAssets)).to.eq(JSON.stringify([setup.weth.address, setup.dai.address]));
         expect(isDaiCollateral).to.be.true;
-        expect(aToken).to.be.eq(aDAI.address);
-        expect(variableDebtToken).to.be.eq(variableDebtDAI.address);
       });
 
       it("should emit the correct CollateralAssetsUpdated event", async () => {
@@ -2121,7 +2130,6 @@ describe("AaveLeverageModule", () => {
           subjectCollateralAssets,
         );
       });
-
 
       context("before first issuance, aToken balance is zero", async () => {
         it("should not be able to enable collateral asset to be used as collateral on Aave", async () => {
@@ -2135,35 +2143,6 @@ describe("AaveLeverageModule", () => {
 
           expect(beforeUsageAsCollateralEnabled).to.be.false;
           expect(afterUsageAsCollateralEnabled).to.be.false;
-        });
-      });
-
-      describe("when a new Aave reserve is added as collateral", async () => {
-        beforeEach(async () => {
-          // Create a new reserve
-          await aaveSetup.createAndEnableReserve(
-            setup.usdc.address, "USDC", BigNumber.from(8),
-            BigNumber.from(8000),   // base LTV: 80%
-            BigNumber.from(8250),   // liquidation threshold: 82.5%
-            BigNumber.from(10500),  // liquidation bonus: 105.00%
-            BigNumber.from(1000),   // reserve factor: 10%
-            true,                   // enable borrowing on reserve
-            true                    // enable stable debts
-          );
-
-          subjectCollateralAssets = [setup.usdc.address];
-        });
-
-        it("should add asset to the underlyingToReserveTokens mappings", async () => {
-          await subject();
-
-          const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
-          const reserveTokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(
-            setup.usdc.address
-          );
-
-          expect(aToken).to.be.eq(reserveTokenAddresses.aTokenAddress);
-          expect(variableDebtToken).to.be.eq(reserveTokenAddresses.variableDebtTokenAddress);
         });
       });
 
@@ -2210,6 +2189,42 @@ describe("AaveLeverageModule", () => {
         });
       });
 
+      describe("when a new Aave reserve is added as collateral", async () => {
+        beforeEach(async () => {
+          // Create a new reserve
+          await aaveSetup.createAndEnableReserve(
+            setup.usdc.address, "USDC", BigNumber.from(8),
+            BigNumber.from(8000),   // base LTV: 80%
+            BigNumber.from(8250),   // liquidation threshold: 82.5%
+            BigNumber.from(10500),  // liquidation bonus: 105.00%
+            BigNumber.from(1000),   // reserve factor: 10%
+            true,                   // enable borrowing on reserve
+            true                    // enable stable debts
+          );
+
+          subjectCollateralAssets = [setup.usdc.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Invalid aToken address");
+        });
+
+        describe("when updateUnderlyingToReserveTokenMappings is called before", async () => {
+          beforeEach(async () => {
+            await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
+          });
+
+          it("should add collateral asset to mappings", async () => {
+            await subject();
+            const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
+            const isUsdcCollateral = await aaveLeverageModule.collateralAssetEnabled(setToken.address, setup.usdc.address);
+
+            expect(JSON.stringify(collateralAssets)).to.eq(JSON.stringify([setup.weth.address, setup.usdc.address]));
+            expect(isUsdcCollateral).to.be.true;
+          });
+        });
+      });
+
       describe("when collateral asset does not exist on Aave", async () => {
         beforeEach(async () => {
           subjectCollateralAssets = [await getRandomAddress()];
@@ -2245,6 +2260,7 @@ describe("AaveLeverageModule", () => {
             true,                 // enable borrowing on reserve
             false                 // enable stable debts
           );
+          await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
 
           subjectCollateralAssets = [setup.usdc.address];
         });
@@ -2330,12 +2346,9 @@ describe("AaveLeverageModule", () => {
         await subject();
         const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
         const isDAIBorrow = await aaveLeverageModule.borrowAssetEnabled(setToken.address, setup.dai.address);
-        const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.dai.address);
 
         expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address, setup.dai.address]));
         expect(isDAIBorrow).to.be.true;
-        expect(aToken).to.be.eq(aDAI.address);
-        expect(variableDebtToken).to.be.eq(variableDebtDAI.address);
       });
 
       it("should emit the correct BorrowAssetsUpdated event", async () => {
@@ -2353,6 +2366,42 @@ describe("AaveLeverageModule", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Borrow already enabled");
+        });
+      });
+
+      describe("when a new Aave reserve is added as borrow", async () => {
+        beforeEach(async () => {
+          // Create a new reserve
+          await aaveSetup.createAndEnableReserve(
+            setup.usdc.address, "USDC", BigNumber.from(8),
+            BigNumber.from(8000),   // base LTV: 80%
+            BigNumber.from(8250),   // liquidation threshold: 82.5%
+            BigNumber.from(10500),  // liquidation bonus: 105.00%
+            BigNumber.from(1000),   // reserve factor: 10%
+            true,                   // enable borrowing on reserve
+            true                    // enable stable debts
+          );
+
+          subjectBorrowAssets = [setup.usdc.address];
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Invalid variable debt token address");
+        });
+
+        describe("when updateUnderlyingToReserveTokenMappings is called before", async () => {
+          beforeEach(async () => {
+            await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
+          });
+
+          it("should add collateral asset to mappings", async () => {
+            await subject();
+            const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
+            const isUsdcBorrow = await aaveLeverageModule.borrowAssetEnabled(setToken.address, setup.usdc.address);
+
+            expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([setup.weth.address, setup.usdc.address]));
+            expect(isUsdcBorrow).to.be.true;
+          });
         });
       });
 
@@ -2393,41 +2442,13 @@ describe("AaveLeverageModule", () => {
             false,
             false,
           );
+          await aaveLeverageModule.addUnderlyingToReserveTokensMapping(setup.usdc.address);
 
           subjectBorrowAssets = [setup.dai.address, setup.usdc.address];
         });
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Borrowing disabled on Aave");
-        });
-      });
-
-      describe("when a brand new reserve is added as collateral", async () => {
-        beforeEach(async () => {
-          // Create a new reserve
-          await aaveSetup.createAndEnableReserve(
-            setup.usdc.address, "USDC", BigNumber.from(8),
-            BigNumber.from(8000),   // base LTV: 80%
-            BigNumber.from(8250),   // liquidation threshold: 82.5%
-            BigNumber.from(10500),  // liquidation bonus: 105.00%
-            BigNumber.from(1000),   // reserve factor: 10%
-            true,                   // enable borrowing on reserve
-            true                    // enable stable debts
-          );
-
-          subjectBorrowAssets = [setup.usdc.address];
-        });
-
-        it("should add asset to the underlyingToReserveTokens mappings", async () => {
-          await subject();
-
-          const [aToken, variableDebtToken] = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
-          const reserveTokenAddresses = await aaveSetup.protocolDataProvider.getReserveTokensAddresses(
-            setup.usdc.address
-          );
-
-          expect(aToken).to.be.eq(reserveTokenAddresses.aTokenAddress);
-          expect(variableDebtToken).to.be.eq(reserveTokenAddresses.variableDebtTokenAddress);
         });
       });
 
@@ -3624,12 +3645,20 @@ describe("AaveLeverageModule", () => {
   });
 
   describe("#updateAllowedSetToken", async () => {
+    let setToken: SetToken;
+
     let subjectSetToken: Address;
     let subjectStatus: boolean;
     let subjectCaller: Account;
 
     beforeEach(async () => {
-      subjectSetToken = await getRandomAddress();
+      setToken = setToken = await setup.createSetToken(
+        [aWETH.address],
+        [ether(2)],
+        [aaveLeverageModule.address, debtIssuanceMock.address]
+      );
+
+      subjectSetToken = setToken.address;
       subjectStatus = true;
       subjectCaller = owner;
     });
@@ -3672,6 +3701,30 @@ describe("AaveLeverageModule", () => {
           subjectSetToken,
           subjectStatus
         );
+      });
+
+      describe("when Set Token is removed on controller", async () => {
+        beforeEach(async () => {
+          await setup.controller.removeSet(setToken.address);
+        });
+
+        it("should remove the Set from allow list", async () => {
+          await subject();
+
+          const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
+
+          expect(isAllowed).to.be.false;
+        });
+      });
+    });
+
+    describe("when Set is removed on controller", async () => {
+      beforeEach(async () => {
+        await setup.controller.removeSet(setToken.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid SetToken");
       });
     });
 
@@ -3724,7 +3777,7 @@ describe("AaveLeverageModule", () => {
     });
   });
 
-  describe("#updateUnderlyingToReserveTokensMappings", async () => {
+  describe("#addUnderlyingToReserveTokensMappings", async () => {
     let subjectUnderlying: Address;
     let subjectCaller: Account;
 
@@ -3748,45 +3801,47 @@ describe("AaveLeverageModule", () => {
     });
 
     async function subject(): Promise<any> {
-      return aaveLeverageModule.connect(subjectCaller.wallet).updateUnderlyingToReserveTokensMapping(
+      return aaveLeverageModule.connect(subjectCaller.wallet).addUnderlyingToReserveTokensMapping(
         subjectUnderlying
       );
     }
 
-    describe("when adding a new reserve", async () => {
-      it("should add the underlying to reserve tokens mappings", async () => {
-        await subject();
 
-        const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
-
-        expect(reserveTokens.aToken).to.eq(usdcReserveTokens.aToken.address);
-        expect(reserveTokens.variableDebtToken).to.eq(usdcReserveTokens.variableDebtToken.address);
-      });
-    });
-  });
-
-  describe("#updateLendingPool", async () => {
-    let subjectCaller: Account;
-
-    beforeEach(async () => {
-      // todo: Figure out how to update lending pool locally. Facing issues due to it being a delegatecall from proxy contract and
-      // transaction reverts without a reason.
-      // const newLendingPool = await deployer.external.deployAaveV2LendingPool(aaveSetup.validationLogicAddress, aaveSetup.reserveLogicAddress);
-      // await aaveSetup.lendingPoolAddressesProvider.connect(owner.wallet).setLendingPoolImpl(newLendingPool.address);
-
-      subjectCaller = await getRandomAccount();
-    });
-
-    async function subject(): Promise<any> {
-      return await aaveLeverageModule.connect(subjectCaller.wallet).updateLendingPool();
-    }
-
-    it("should update to the latest lending pool", async () => {
+    it("should add the underlying to reserve tokens mappings", async () => {
       await subject();
 
-      const savedLendingPoolAddress = await aaveLeverageModule.lendingPool();
-      const expectedLendingPoolAddress = await aaveSetup.lendingPoolAddressesProvider.getLendingPool();
-      expect(savedLendingPoolAddress).to.eq(expectedLendingPoolAddress);
+      const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(setup.usdc.address);
+
+      expect(reserveTokens.aToken).to.eq(usdcReserveTokens.aToken.address);
+      expect(reserveTokens.variableDebtToken).to.eq(usdcReserveTokens.variableDebtToken.address);
+    });
+
+    it("should emit ReserveTokensUpdated event", async () => {
+      await expect(subject()).to.emit(aaveLeverageModule, "ReserveTokensUpdated").withArgs(
+        setup.usdc.address,
+        usdcReserveTokens.aToken.address,
+        usdcReserveTokens.variableDebtToken.address
+      );
+    });
+
+    describe("when mapping already exists", async () => {
+      beforeEach(async () => {
+        subjectUnderlying = setup.weth.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Mapping already exists");
+      });
+    });
+
+    describe("when reserve is invalid", async () => {
+      beforeEach(async () => {
+        subjectUnderlying = await getRandomAddress();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid aave reserve");
+      });
     });
   });
 });
