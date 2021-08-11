@@ -522,6 +522,9 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
 
+        // Sync Aave and SetToken positions prior to any removal action
+        sync(setToken);
+
         address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
         for(uint256 i = 0; i < borrowAssets.length; i++) {
             IERC20 borrowAsset = IERC20(borrowAssets[i]);
@@ -562,7 +565,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Reverts if mapping already exists
-     * or the passed _underlying asset does not has a valid reserve on Aave.
+     * or the passed _underlying asset does not have a valid reserve on Aave.
      * Note: Call this function when Aave adds a new reserve.
      * @param _underlying               Address of underlying asset
      */
