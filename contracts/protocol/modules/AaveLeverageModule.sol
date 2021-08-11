@@ -242,20 +242,20 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Borrows _borrowAsset from Aave. Performs a DEX trade, exchanging the _borrowAsset for _collateralAsset.
      * Deposits _collateralAsset to Aave and mints corresponding aToken.
      * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
-     * @param _setToken             Instance of the SetToken
-     * @param _borrowAsset          Address of underlying asset being borrowed for leverage
-     * @param _collateralAsset      Address of underlying collateral asset
-     * @param _borrowQuantity       Borrow quantity of asset in position units
-     * @param _minReceiveQuantity   Min receive quantity of collateral asset to receive post-trade in position units
-     * @param _tradeAdapterName     Name of trade adapter
-     * @param _tradeData            Arbitrary data for trade
+     * @param _setToken                     Instance of the SetToken
+     * @param _borrowAsset                  Address of underlying asset being borrowed for leverage
+     * @param _collateralAsset              Address of underlying collateral asset
+     * @param _borrowQuantityUnits          Borrow quantity of asset in position units
+     * @param _minReceiveQuantityUnits      Min receive quantity of collateral asset to receive post-trade in position units
+     * @param _tradeAdapterName             Name of trade adapter
+     * @param _tradeData                    Arbitrary data for trade
      */
     function lever(
         ISetToken _setToken,
         IERC20 _borrowAsset,
         IERC20 _collateralAsset,
-        uint256 _borrowQuantity,
-        uint256 _minReceiveQuantity,
+        uint256 _borrowQuantityUnits,
+        uint256 _minReceiveQuantityUnits,
         string memory _tradeAdapterName,
         bytes memory _tradeData
     )
@@ -269,8 +269,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             _setToken,
             _borrowAsset,
             _collateralAsset,
-            _borrowQuantity,
-            _minReceiveQuantity,
+            _borrowQuantityUnits,
+            _minReceiveQuantityUnits,
             _tradeAdapterName,
             true
         );
@@ -303,20 +303,20 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Withdraws _collateralAsset from Aave. Performs a DEX trade, exchanging the _collateralAsset for _repayAsset.
      * Repays _repayAsset to Aave and burns corresponding debt tokens.
      * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
-     * @param _setToken             Instance of the SetToken
-     * @param _collateralAsset      Address of underlying collateral asset being withdrawn
-     * @param _repayAsset           Address of underlying borrowed asset being repaid
-     * @param _redeemQuantity       Quantity of collateral asset to delever
-     * @param _minRepayQuantity     Minimum amount of repay asset to receive post trade
-     * @param _tradeAdapterName     Name of trade adapter
-     * @param _tradeData            Arbitrary data for trade
+     * @param _setToken                 Instance of the SetToken
+     * @param _collateralAsset          Address of underlying collateral asset being withdrawn
+     * @param _repayAsset               Address of underlying borrowed asset being repaid
+     * @param _redeemQuantityUnits      Quantity of collateral asset to delever in position units
+     * @param _minRepayQuantityUnits    Minimum amount of repay asset to receive post trade in position units
+     * @param _tradeAdapterName         Name of trade adapter
+     * @param _tradeData                Arbitrary data for trade
      */
     function delever(
         ISetToken _setToken,
         IERC20 _collateralAsset,
         IERC20 _repayAsset,
-        uint256 _redeemQuantity,
-        uint256 _minRepayQuantity,
+        uint256 _redeemQuantityUnits,
+        uint256 _minRepayQuantityUnits,
         string memory _tradeAdapterName,
         bytes memory _tradeData
     )
@@ -330,8 +330,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
             _setToken,
             _collateralAsset,
             _repayAsset,
-            _redeemQuantity,
-            _minRepayQuantity,
+            _redeemQuantityUnits,
+            _minRepayQuantityUnits,
             _tradeAdapterName,
             false
         );
@@ -369,7 +369,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setToken             Instance of the SetToken
      * @param _collateralAsset      Address of underlying collateral asset being redeemed
      * @param _repayAsset           Address of underlying asset being repaid
-     * @param _redeemQuantity       Quantity of collateral asset to delever
+     * @param _redeemQuantityUnits  Quantity of collateral asset to delever in position units
      * @param _tradeAdapterName     Name of trade adapter
      * @param _tradeData            Arbitrary data for trade     
      * @return uint256              Notional repay quantity
@@ -378,7 +378,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         ISetToken _setToken,
         IERC20 _collateralAsset,
         IERC20 _repayAsset,
-        uint256 _redeemQuantity,
+        uint256 _redeemQuantityUnits,
         string memory _tradeAdapterName,
         bytes memory _tradeData
     )
@@ -388,7 +388,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
         returns (uint256)
     {
         uint256 setTotalSupply = _setToken.totalSupply();
-        uint256 notionalRedeemQuantity = _redeemQuantity.preciseMul(setTotalSupply);
+        uint256 notionalRedeemQuantity = _redeemQuantityUnits.preciseMul(setTotalSupply);
         
         require(borrowAssetEnabled[_setToken][_repayAsset], "Borrow not enabled");
         uint256 notionalRepayQuantity = underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
