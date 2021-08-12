@@ -18,7 +18,8 @@ import {
   StakingModule,
   StreamingFeeModule,
   TradeModule,
-  WrapModule
+  WrapModule,
+  WrapModuleV2
 } from "../contracts";
 import { Address } from "../types";
 
@@ -39,6 +40,7 @@ import { StakingModule__factory } from "../../typechain/factories/StakingModule_
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
 import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
 import { WrapModule__factory } from "../../typechain/factories/WrapModule__factory";
+import { WrapModuleV2__factory } from "../../typechain/factories/WrapModuleV2__factory";
 
 export default class DeployModules {
   private _deployerSigner: Signer;
@@ -183,5 +185,9 @@ export default class DeployModules {
       lendingPoolAddressesProvider,
       protocolDataProvider
     );
+  }
+
+  public async deployWrapModuleV2(controller: Address, weth: Address): Promise<WrapModuleV2> {
+    return await new WrapModuleV2__factory(this._deployerSigner).deploy(controller, weth);
   }
 }

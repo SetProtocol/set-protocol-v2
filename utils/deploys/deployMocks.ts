@@ -41,6 +41,7 @@ import {
   SynthetixExchangerMock,
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
+  WrapV2AdapterMock,
   ZeroExMock,
   YearnStrategyMock,
   AaveV2Mock
@@ -85,6 +86,7 @@ import { StandardTokenWithFeeMock__factory } from "../../typechain/factories/Sta
 import { TradeAdapterMock__factory } from "../../typechain/factories/TradeAdapterMock__factory";
 import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint256ArrayUtilsMock__factory";
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
+import { WrapV2AdapterMock__factory } from "../../typechain/factories/WrapV2AdapterMock__factory";
 import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
 import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory";
 import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
@@ -347,6 +349,10 @@ export default class DeployMocks {
 
   public async deployForceFunderMock(): Promise<ForceFunderMock> {
     return await new ForceFunderMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployWrapV2AdapterMock(): Promise<WrapV2AdapterMock> {
+    return await new WrapV2AdapterMock__factory(this._deployerSigner).deploy();
   }
 
   /*************************************
