@@ -15,6 +15,7 @@ import {
   AaveMigrationWrapAdapter,
   AaveWrapAdapter,
   CompoundWrapAdapter,
+  CompoundWrapV2Adapter,
   YearnWrapAdapter,
   UniswapPairPriceAdapter,
   UniswapV2ExchangeAdapter,
@@ -46,6 +47,7 @@ import { ZeroExApiAdapter__factory } from "../../typechain/factories/ZeroExApiAd
 import { AaveMigrationWrapAdapter__factory } from "../../typechain/factories/AaveMigrationWrapAdapter__factory";
 import { AaveWrapAdapter__factory } from "../../typechain/factories/AaveWrapAdapter__factory";
 import { CompoundWrapAdapter__factory } from "../../typechain/factories/CompoundWrapAdapter__factory";
+import { CompoundWrapV2Adapter__factory } from "../../typechain/factories/CompoundWrapV2Adapter__factory";
 import { YearnWrapAdapter__factory } from "../../typechain/factories/YearnWrapAdapter__factory";
 import { UniswapPairPriceAdapter__factory } from "../../typechain/factories/UniswapPairPriceAdapter__factory";
 import { UniswapV2ExchangeAdapter__factory } from "../../typechain/factories/UniswapV2ExchangeAdapter__factory";
@@ -213,5 +215,16 @@ export default class DeployAdapters {
 
   public async deployKyberV3IndexExchangeAdapter(dmmRouter: Address, dmmFactory: Address): Promise<KyberV3IndexExchangeAdapter> {
     return await new KyberV3IndexExchangeAdapter__factory(this._deployerSigner).deploy(dmmRouter, dmmFactory);
+  }
+
+  public async deployCompoundWrapV2Adapter(libraryName: string, libraryAddress: Address): Promise<CompoundWrapV2Adapter> {
+    const linkId = convertLibraryNameToLinkId(libraryName);
+    return await new CompoundWrapV2Adapter__factory(
+      // @ts-ignore
+      {
+        [linkId]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
   }
 }

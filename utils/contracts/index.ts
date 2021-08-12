@@ -24,6 +24,7 @@ export { CompoundLikeGovernanceAdapter } from "../../typechain/CompoundLikeGover
 export { CompoundLeverageModule } from "../../typechain/CompoundLeverageModule";
 export { CompoundMock } from "../../typechain/CompoundMock";
 export { CompoundWrapAdapter } from "../../typechain/CompoundWrapAdapter";
+export { CompoundWrapV2Adapter } from "../../typechain/CompoundWrapV2Adapter";
 export { CompClaimAdapter } from "../../typechain/CompClaimAdapter";
 export { ComptrollerMock } from "../../typechain/ComptrollerMock";
 export { ContractCallerMock } from "../../typechain/ContractCallerMock";
