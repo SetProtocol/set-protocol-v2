@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ pragma solidity 0.6.10;
 /**
  * @title IWrapV2Adapter
  * @author Set Protocol
- *
  */
 interface IWrapV2Adapter {
 

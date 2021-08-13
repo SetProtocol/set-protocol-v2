@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -65,7 +65,14 @@ contract WrapV2AdapterMock is ERC20 {
     }
 
     /**
-     * [x]
+     * Generates the calldata to wrap an underlying asset into a wrappedToken.
+     *
+     * @param _underlyingToken      Address of the component to be wrapped
+     * @param _underlyingUnits      Total quantity of underlying units to wrap
+     *
+     * @return _subject             Target contract address
+     * @return _value               Total quantity of underlying units (if underlying is ETH)
+     * @return _calldata            Wrap calldata
      */
     function getWrapCallData(
         address _underlyingToken,
@@ -79,6 +86,16 @@ contract WrapV2AdapterMock is ERC20 {
         return (address(this), value, callData);
     }
 
+    /**
+     * Generates the calldata to unwrap a wrapped asset into its underlying.
+     *
+     * @param _underlyingToken      Address of the underlying of the component to be unwrapped
+     * @param _wrappedTokenUnits    Total quantity of wrapped token units to unwrap
+     *
+     * @return _subject             Target contract address
+     * @return _value               Total quantity of wrapped token units to unwrap. This will always be 0 for unwrapping
+     * @return _calldata            Unwrap calldata
+     */
     function getUnwrapCallData(
         address _underlyingToken,
         address /* _wrappedToken */,
@@ -90,6 +107,11 @@ contract WrapV2AdapterMock is ERC20 {
         return (address(this), 0, callData);
     }
 
+    /**
+     * Returns the address to approve source tokens for wrapping.
+     *
+     * @return address              Address of the contract to approve tokens to
+     */
     function getSpenderAddress(
         address /* _underlyingToken */,
         address /* _wrappedToken */

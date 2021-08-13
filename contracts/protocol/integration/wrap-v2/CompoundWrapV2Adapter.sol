@@ -20,12 +20,11 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { ICErc20 } from "../../../interfaces/external/ICErc20.sol";
-import { IWrapV2Adapter } from "../../../interfaces/IWrapV2Adapter.sol";
 import { Compound } from "../lib/Compound.sol";
 
 /**
  * @title CompoundWrapV2Adapter
- * @author Set Protocol, Ember Fund
+ * @author Set Protocol
  *
  * Wrap adapter for Compound that returns data for wraps/unwraps of tokens
  */

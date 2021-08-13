@@ -19,12 +19,11 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { IWrapV2Adapter } from "../../../interfaces/IWrapV2Adapter.sol";
 import { IYearnVault } from "../../../interfaces/external/IYearnVault.sol";
 
 /**
  * @title YearnWrapV2Adapter
- * @author Set Protocol, Ember Fund
+ * @author Set Protocol
  *
  * Wrap adapter for Yearn that returns data for wraps/unwraps of tokens
  */

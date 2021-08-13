@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -99,6 +99,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken         Address of the desired wrapped token
      * @param _underlyingUnits      Quantity of underlying units in Position units
      * @param _integrationName      Name of wrap module integration (mapping on integration registry)
+     * @param _wrapData             Arbitrary bytes to pass into the WrapV2Adapter
      */
     function wrap(
         ISetToken _setToken,
@@ -144,6 +145,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken         Address of the desired wrapped token
      * @param _underlyingUnits      Quantity of underlying units in Position units
      * @param _integrationName      Name of wrap module integration (mapping on integration registry)
+     * @param _wrapData             Arbitrary bytes to pass into the WrapV2Adapter
      */
     function wrapWithEther(
         ISetToken _setToken,
@@ -187,6 +189,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken         Address of the component to be unwrapped
      * @param _wrappedUnits         Quantity of wrapped tokens in Position units
      * @param _integrationName      ID of wrap module integration (mapping on integration registry)
+     * @param _unwrapData           Arbitrary bytes to pass into the WrapV2Adapter
      */
     function unwrap(
         ISetToken _setToken,
@@ -231,6 +234,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken             Address of the component to be unwrapped
      * @param _wrappedUnits             Quantity of wrapped tokens in Position units
      * @param _integrationName          ID of wrap module integration (mapping on integration registry)
+     * @param _unwrapData           Arbitrary bytes to pass into the WrapV2Adapter
      */
     function unwrapWithEther(
         ISetToken _setToken,
