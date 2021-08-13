@@ -407,6 +407,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         uint256 notionalWrappedToken = _setToken.totalSupply().getDefaultTotalNotional(_wrappedTokenUnits);
         IWrapV2Adapter wrapAdapter = IWrapV2Adapter(getAndValidateAdapter(_integrationName));
 
+        // Approve wrapped token for spending in case protocols require approvals to transfer wrapped tokens
         _setToken.invokeApprove(_wrappedToken, wrapAdapter.getSpenderAddress(_underlyingToken, _wrappedToken), notionalWrappedToken);
 
         // Get function call data and invoke on SetToken
