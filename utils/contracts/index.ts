@@ -7,6 +7,7 @@ export { AaveMigrationWrapAdapter } from "../../typechain/AaveMigrationWrapAdapt
 export { AaveWrapAdapter } from "../../typechain/AaveWrapAdapter";
 export { AaveV2 } from "../../typechain/AaveV2";
 export { AaveV2Mock } from "../../typechain/AaveV2Mock";
+export { AaveV2WrapV2Adapter } from "../../typechain/AaveV2WrapV2Adapter";
 export { AddressArrayUtilsMock } from "../../typechain/AddressArrayUtilsMock";
 export { AirdropModule } from "../../typechain/AirdropModule";
 export { AmmAdapterMock } from "../../typechain/AmmAdapterMock";

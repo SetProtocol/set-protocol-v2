@@ -3,6 +3,7 @@ import { Signer } from "ethers";
 import {
   AaveGovernanceAdapter,
   AaveGovernanceV2Adapter,
+  AaveV2WrapV2Adapter,
   AGIMigrationWrapAdapter,
   AxieInfinityMigrationWrapAdapter,
   BalancerV1IndexExchangeAdapter,
@@ -36,6 +37,7 @@ import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
+import { AaveV2WrapV2Adapter__factory } from "../../typechain/factories/AaveV2WrapV2Adapter__factory";
 import { AxieInfinityMigrationWrapAdapter__factory } from "../../typechain/factories/AxieInfinityMigrationWrapAdapter__factory";
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
@@ -232,5 +234,9 @@ export default class DeployAdapters {
 
   public async deployYearnWrapV2Adapter(): Promise<YearnWrapV2Adapter> {
     return await new YearnWrapV2Adapter__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployAaveV2WrapV2Adapter(lendingPool: Address): Promise<AaveV2WrapV2Adapter> {
+    return await new AaveV2WrapV2Adapter__factory(this._deployerSigner).deploy(lendingPool);
   }
 }

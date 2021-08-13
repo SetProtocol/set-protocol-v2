@@ -19,12 +19,12 @@ import { IAToken } from "../../../interfaces/external/aave-v2/IAToken.sol";
 import { ILendingPool } from "../../../interfaces/external/aave-v2/ILendingPool.sol";
 
 /**
- * @title AaveV2WrapAdapter
+ * @title AaveV2WrapV2Adapter
  * @author Set Protocol
  *
  * Wrap adapter for Aave V2 that returns data for wraps/unwraps of tokens
  */
-contract AaveV2WrapAdapter {
+contract AaveV2WrapV2Adapter {
 
     /* ============ Modifiers ============ */
 
