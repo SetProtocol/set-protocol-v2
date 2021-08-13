@@ -20,7 +20,7 @@ import {
 
 const expect = getWaffleExpect();
 
-describe("CompoundWrapAdapter", () => {
+describe("CompoundWrapV2Adapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
