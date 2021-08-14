@@ -18,4 +18,6 @@
 pragma solidity 0.6.10;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-interface IAToken is IERC20 {}
+interface IAToken is IERC20 {
+    function UNDERLYING_ASSET_ADDRESS() external view returns (address);
+}
