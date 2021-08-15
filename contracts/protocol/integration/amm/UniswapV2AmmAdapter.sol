@@ -32,12 +32,12 @@ struct Position {
 }
 
 /**
- * @title UniswapAmmAdapter
+ * @title UniswapV2AmmAdapter
  * @author Stephen Hankinson
  *
- * Adapter for Uniswap V2 Router02 that encodes adding and removing liquidty
+ * Adapter for Uniswap V2 Router that encodes adding and removing liquidty
  */
-contract UniswapAmmAdapter is IAmmAdapter {
+contract UniswapV2AmmAdapter is IAmmAdapter {
     using SafeMath for uint256;
 
     /* ============ State Variables ============ */
