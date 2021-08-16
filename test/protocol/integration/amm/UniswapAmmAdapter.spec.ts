@@ -146,15 +146,32 @@ describe("UniswapV2AmmAdapter", () => {
   });
 
   describe("isValidPool", async () => {
+    let poolAddress: Address;
+
+    beforeEach(async () => {
+        poolAddress = uniswapSetup.wethDaiPool.address;
+    });
+
     async function subject(): Promise<any> {
-      return await uniswapV2AmmAdapter.isValidPool(uniswapSetup.wethDaiPool.address);
+      return await uniswapV2AmmAdapter.isValidPool(poolAddress);
     }
 
     it("should be a valid pool", async () => {
       const status = await subject();
-
       expect(status).to.be.true;
     });
+
+    describe("when the pool address is invalid", async () => {
+        beforeEach(async () => {
+            poolAddress = uniswapSetup.router.address;
+        });
+
+        it("should be an invalid pool", async () => {
+          const status = await subject();
+          expect(status).to.be.false;
+        });
+    });
+
   });
 
   describe("getProvideLiquiditySingleAssetCalldata", async () => {
