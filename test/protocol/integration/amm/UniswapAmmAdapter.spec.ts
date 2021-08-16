@@ -195,16 +195,21 @@ describe("UniswapV2AmmAdapter", () => {
     let liquidity: BigNumber;
 
     beforeEach(async () => {
-      component0 = setup.dai.address;  // DAI Address
-      component1 = setup.weth.address; // WETH Address
-      component1Quantity = ether(1);   // Provide 1 WETH
-
+      component0 = await uniswapSetup.wethDaiPool.token0();
+      component1 = await uniswapSetup.wethDaiPool.token1();
       const [reserve0, reserve1] = await uniswapSetup.wethDaiPool.getReserves();
-      component0Quantity = reserve0.mul(component1Quantity).div(reserve1);
+      if ( setup.dai.address == component0 ) {
+        component1Quantity = ether(1); // 1 WETH
+        component0Quantity = reserve0.mul(component1Quantity).div(reserve1);
+      }
+      else {
+        component0Quantity = ether(1); // 1 WETH
+        component1Quantity = reserve1.mul(component0Quantity).div(reserve0);
+      }
       const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-      const daiLiquidity = component0Quantity.mul(totalSupply).div(reserve0);
-      const wethLiquidity = component1Quantity.mul(totalSupply).div(reserve1);
-      liquidity = wethLiquidity < daiLiquidity ? wethLiquidity : daiLiquidity;
+      const component0Liquidity = component0Quantity.mul(totalSupply).div(reserve0);
+      const component1Liquidity = component1Quantity.mul(totalSupply).div(reserve1);
+      liquidity = component0Liquidity < component1Liquidity ? component0Liquidity : component1Liquidity;
       minimumComponent0Quantity = liquidity.mul(reserve0).div(totalSupply);
       minimumComponent1Quantity = liquidity.mul(reserve1).div(totalSupply);
     });
@@ -222,8 +227,8 @@ describe("UniswapV2AmmAdapter", () => {
         const callTimestamp = await getLastBlockTimestamp();
 
         const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("addLiquidity", [
-          setup.dai.address,
-          setup.weth.address,
+          component0,
+          component1,
           component0Quantity,
           component1Quantity,
           minimumComponent0Quantity,
@@ -243,8 +248,8 @@ describe("UniswapV2AmmAdapter", () => {
     let liquidity: BigNumber;
 
     beforeEach(async () => {
-      component0 = setup.dai.address;  // DAI Address
-      component1 = setup.weth.address; // WETH Address
+      component0 = await uniswapSetup.wethDaiPool.token0();
+      component1 = await uniswapSetup.wethDaiPool.token1();
       liquidity = await uniswapSetup.wethDaiPool.balanceOf(owner.address);
       const [reserve0, reserve1] = await uniswapSetup.wethDaiPool.getReserves();
       const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
@@ -265,8 +270,8 @@ describe("UniswapV2AmmAdapter", () => {
         const callTimestamp = await getLastBlockTimestamp();
 
         const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("removeLiquidity", [
-          setup.dai.address,
-          setup.weth.address,
+          component0,
+          component1,
           liquidity,
           component0Quantity,
           component1Quantity,
