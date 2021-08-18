@@ -230,6 +230,12 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
 
         _validateRemoveLiquidity(actionInfo);
 
+        _setToken.invokeApprove(
+                _ammPool,
+                actionInfo.ammAdapter.getSpenderAddress(_ammPool),
+                _poolTokenPositionUnits
+        );
+
         _executeRemoveLiquidity(actionInfo);
 
         _validateMinimumUnderlyingReceived(actionInfo);

@@ -9,19 +9,17 @@ import {
   ADDRESS_ZERO,
   ZERO,
 } from "@utils/constants";
-import { SetToken, GeneralIndexModule, AmmModule, UniswapV2AmmAdapter } from "@utils/contracts";
+import { SetToken, AmmModule, UniswapV2AmmAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
-  ether,
+  ether
 } from "@utils/index";
 import {
   addSnapshotBeforeRestoreAfterEach,
-  cacheBeforeEach,
   getAccounts,
   getSystemFixture,
   getUniswapFixture,
-  getWaffleExpect,
-  getLastBlockTimestamp
+  getWaffleExpect
 } from "@utils/test/index";
 
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
@@ -34,22 +32,13 @@ describe("UniswapV2AmmAdapter", () => {
   let setup: SystemFixture;
   let uniswapSetup: UniswapFixture;
   let ammModule: AmmModule;
-  let positionModule: Account;
 
   let uniswapV2AmmAdapter: UniswapV2AmmAdapter;
   let uniswapV2AmmAdapterName: string;
 
-  let set: SetToken;
-  let indexModule: GeneralIndexModule;
-
-  let setComponents: Address[];
-  let setUnits: BigNumber[];
-
   before(async () => {
     [
       owner,
-      ,
-      positionModule,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -63,43 +52,10 @@ describe("UniswapV2AmmAdapter", () => {
       setup.wbtc.address,
       setup.dai.address
     );
-
-    indexModule = await deployer.modules.deployGeneralIndexModule(
-      setup.controller.address,
-      setup.weth.address
-    );
-    await setup.controller.addModule(indexModule.address);
-    await setup.controller.addModule(positionModule.address);
-
-    uniswapV2AmmAdapter = await deployer.adapters.deployUniswapV2AmmAdapter(uniswapSetup.router.address);
-    uniswapV2AmmAdapterName = "UNISWAPV2AMM";
-
-    ammModule = await deployer.modules.deployAmmModule(setup.controller.address);
-    await setup.controller.addModule(ammModule.address);
-
-    await setup.integrationRegistry.addIntegration(
-      ammModule.address,
-      uniswapV2AmmAdapterName,
-      uniswapV2AmmAdapter.address
-    );
-  });
-
-  cacheBeforeEach(async () => {
-    setComponents = [setup.weth.address, setup.dai.address];
-    setUnits = [ ether(1), ether(3000) ];
-
-    set = await setup.createSetToken(
-      setComponents,
-      setUnits,
-      [setup.issuanceModule.address, ammModule.address, positionModule.address],
-    );
-
-    await setup.issuanceModule.initialize(set.address, ADDRESS_ZERO);
-    await set.connect(positionModule.wallet).initializeModule();
-
-    await setup.weth.connect(owner.wallet).approve(uniswapSetup.router.address, MAX_UINT_256);
-    await setup.dai.connect(owner.wallet).approve(uniswapSetup.router.address, MAX_UINT_256);
-
+    await setup.weth.connect(owner.wallet)
+      .approve(uniswapSetup.router.address, MAX_UINT_256);
+    await setup.dai.connect(owner.wallet)
+      .approve(uniswapSetup.router.address, MAX_UINT_256);
     await uniswapSetup.router.connect(owner.wallet).addLiquidity(
       setup.weth.address,
       setup.dai.address,
@@ -110,25 +66,29 @@ describe("UniswapV2AmmAdapter", () => {
       owner.address,
       MAX_UINT_256
     );
+
+    ammModule = await deployer.modules.deployAmmModule(setup.controller.address);
+    await setup.controller.addModule(ammModule.address);
+
+    uniswapV2AmmAdapter = await deployer.adapters.deployUniswapV2AmmAdapter(uniswapSetup.router.address);
+    uniswapV2AmmAdapterName = "UNISWAPV2AMM";
+
+    await setup.integrationRegistry.addIntegration(
+      ammModule.address,
+      uniswapV2AmmAdapterName,
+      uniswapV2AmmAdapter.address
+    );
   });
 
   addSnapshotBeforeRestoreAfterEach();
 
   describe("constructor", async () => {
-    let subjectUniswapRouter: Address;
-
-    beforeEach(async () => {
-      subjectUniswapRouter = uniswapSetup.router.address;
-    });
-
     async function subject(): Promise<any> {
-      return await deployer.adapters.deployUniswapV2AmmAdapter(subjectUniswapRouter);
+      return await uniswapV2AmmAdapter.router();
     }
 
     it("should have the correct router address", async () => {
-      const deployedUniswapV2AmmAdapter = await subject();
-
-      const actualRouterAddress = await deployedUniswapV2AmmAdapter.router();
+      const actualRouterAddress = await subject();
       expect(actualRouterAddress).to.eq(uniswapSetup.router.address);
     });
   });
@@ -141,14 +101,14 @@ describe("UniswapV2AmmAdapter", () => {
     it("should return the correct spender address", async () => {
       const spender = await subject();
 
-      expect(spender).to.eq(uniswapSetup.router.address);
+      expect(spender).to.eq(uniswapV2AmmAdapter.address);
     });
   });
 
   describe("isValidPool", async () => {
     let poolAddress: Address;
 
-    beforeEach(async () => {
+    before(async () => {
         poolAddress = uniswapSetup.wethDaiPool.address;
     });
 
@@ -162,7 +122,7 @@ describe("UniswapV2AmmAdapter", () => {
     });
 
     describe("when the pool address is invalid", async () => {
-        beforeEach(async () => {
+        before(async () => {
             poolAddress = uniswapSetup.router.address;
         });
 
@@ -203,100 +163,267 @@ describe("UniswapV2AmmAdapter", () => {
   });
 
   describe("getProvideLiquidityCalldata", async () => {
-    let component0: Address;
-    let component1: Address;
-    let component0Quantity: BigNumber;
-    let component1Quantity: BigNumber;
-    let minimumComponent0Quantity: BigNumber;
-    let minimumComponent1Quantity: BigNumber;
-    let liquidity: BigNumber;
+    let subjectAmmPool: Address;
+    let subjectComponents: Address[];
+    let subjectMaxTokensIn: BigNumber[];
+    let subjectMinLiquidity: BigNumber;
 
-    beforeEach(async () => {
-      component0 = await uniswapSetup.wethDaiPool.token0();
-      component1 = await uniswapSetup.wethDaiPool.token1();
-      const [reserve0, reserve1] = await uniswapSetup.wethDaiPool.getReserves();
-      if ( setup.dai.address == component0 ) {
-        component1Quantity = ether(1); // 1 WETH
-        component0Quantity = reserve0.mul(component1Quantity).div(reserve1);
-      }
-      else {
-        component0Quantity = ether(1); // 1 WETH
-        component1Quantity = reserve1.mul(component0Quantity).div(reserve0);
-      }
-      const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-      const component0Liquidity = component0Quantity.mul(totalSupply).div(reserve0);
-      const component1Liquidity = component1Quantity.mul(totalSupply).div(reserve1);
-      liquidity = component0Liquidity < component1Liquidity ? component0Liquidity : component1Liquidity;
-      minimumComponent0Quantity = liquidity.mul(reserve0).div(totalSupply);
-      minimumComponent1Quantity = liquidity.mul(reserve1).div(totalSupply);
+    before(async () => {
+      subjectAmmPool = uniswapSetup.wethDaiPool.address;
+      subjectComponents = [setup.weth.address, setup.dai.address];
+      subjectMaxTokensIn = [ether(1), ether(3000)];
+      subjectMinLiquidity = ether(1);
     });
 
     async function subject(): Promise<any> {
         return await uniswapV2AmmAdapter.getProvideLiquidityCalldata(
-            uniswapSetup.wethDaiPool.address,
-            [component0, component1],
-            [component0Quantity, component1Quantity],
-            liquidity);
+          subjectAmmPool,
+          subjectComponents,
+          subjectMaxTokensIn,
+          subjectMinLiquidity);
     }
 
     it("should return the correct provide liquidity calldata", async () => {
         const calldata = await subject();
-        const callTimestamp = await getLastBlockTimestamp();
 
-        const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("addLiquidity", [
-          component0,
-          component1,
-          component0Quantity,
-          component1Quantity,
-          minimumComponent0Quantity,
-          minimumComponent1Quantity,
-          owner.address,
-          callTimestamp,
+        const expectedCallData = uniswapV2AmmAdapter.interface.encodeFunctionData("addLiquidity", [
+          subjectAmmPool,
+          subjectComponents,
+          subjectMaxTokensIn,
+          subjectMinLiquidity,
         ]);
-        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapV2AmmAdapter.address, ZERO, expectedCallData]));
       });
   });
 
   describe("getRemoveLiquidityCalldata", async () => {
-    let component0: Address;
-    let component1: Address;
-    let component0Quantity: BigNumber;
-    let component1Quantity: BigNumber;
-    let liquidity: BigNumber;
+    let subjectAmmPool: Address;
+    let subjectComponents: Address[];
+    let subjectMaxTokensIn: BigNumber[];
+    let subjectMinLiquidity: BigNumber;
 
-    beforeEach(async () => {
-      component0 = await uniswapSetup.wethDaiPool.token0();
-      component1 = await uniswapSetup.wethDaiPool.token1();
-      liquidity = await uniswapSetup.wethDaiPool.balanceOf(owner.address);
-      const [reserve0, reserve1] = await uniswapSetup.wethDaiPool.getReserves();
-      const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-      component0Quantity = reserve0.mul(liquidity).div(totalSupply);
-      component1Quantity = reserve1.mul(liquidity).div(totalSupply);
+    before(async () => {
+      subjectAmmPool = uniswapSetup.wethDaiPool.address;
+      subjectComponents = [setup.weth.address, setup.dai.address];
+      subjectMaxTokensIn = [ether(1), ether(3000)];
+      subjectMinLiquidity = ether(1);
     });
 
     async function subject(): Promise<any> {
         return await uniswapV2AmmAdapter.getRemoveLiquidityCalldata(
-            uniswapSetup.wethDaiPool.address,
-            [component0, component1],
-            [component0Quantity, component1Quantity],
-            liquidity);
+            subjectAmmPool,
+            subjectComponents,
+            subjectMaxTokensIn,
+            subjectMinLiquidity);
     }
 
     it("should return the correct remove liquidity calldata", async () => {
         const calldata = await subject();
-        const callTimestamp = await getLastBlockTimestamp();
 
-        const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("removeLiquidity", [
-          component0,
-          component1,
-          liquidity,
-          component0Quantity,
-          component1Quantity,
-          owner.address,
-          callTimestamp,
+        const expectedCallData = uniswapV2AmmAdapter.interface.encodeFunctionData("removeLiquidity", [
+          subjectAmmPool,
+          subjectComponents,
+          subjectMaxTokensIn,
+          subjectMinLiquidity,
         ]);
-        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapV2AmmAdapter.address, ZERO, expectedCallData]));
       });
+  });
+
+  context("Add and Remove Liquidity Tests", async () => {
+    let subjectCaller: Account;
+    let subjectSetToken: Address;
+    let subjectIntegrationName: string;
+    let subjectAmmPool: Address;
+
+    let setToken: SetToken;
+
+    context("when there is a deployed SetToken with enabled AmmModule", async () => {
+      before(async () => {
+        // Deploy a standard SetToken with the AMM Module
+        setToken = await setup.createSetToken(
+          [setup.weth.address, setup.dai.address],
+          [ether(1), ether(3000)],
+          [setup.issuanceModule.address, ammModule.address]
+        );
+
+        await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+        await ammModule.initialize(setToken.address);
+
+        // Mint some instances of the SetToken
+        await setup.approveAndIssueSetToken(setToken, ether(1));
+      });
+
+      describe("#addLiquidity", async () => {
+        let subjectComponentsToInput: Address[];
+        let subjectMaxComponentQuantities: BigNumber[];
+        let subjectMinPoolTokensToMint: BigNumber;
+
+        beforeEach(async () => {
+          subjectSetToken = setToken.address;
+          subjectIntegrationName = uniswapV2AmmAdapterName;
+          subjectAmmPool = uniswapSetup.wethDaiPool.address;
+          subjectComponentsToInput = [setup.weth.address, setup.dai.address];
+          subjectMaxComponentQuantities = [ether(1), ether(3000)];
+          subjectCaller = owner;
+          const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+          const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+          const token0 = await uniswapSetup.wethDaiPool.token0();
+          if ( token0 == setup.weth.address ) {
+            const liquidity0 = ether(1).mul(totalSupply).div(reserve0);
+            const liquidity1 = ether(3000).mul(totalSupply).div(reserve1);
+            subjectMinPoolTokensToMint = liquidity0 < liquidity1 ? liquidity0 : liquidity1;
+          }
+          else {
+            const liquidity0 = ether(3000).mul(totalSupply).div(reserve0);
+            const liquidity1 = ether(1).mul(totalSupply).div(reserve1);
+            subjectMinPoolTokensToMint = liquidity0 < liquidity1 ? liquidity0 : liquidity1;
+          }
+        });
+
+        async function subject(): Promise<any> {
+          return await ammModule.connect(subjectCaller.wallet).addLiquidity(
+            subjectSetToken,
+            subjectIntegrationName,
+            subjectAmmPool,
+            subjectMinPoolTokensToMint,
+            subjectComponentsToInput,
+            subjectMaxComponentQuantities,
+          );
+        }
+
+        it("should mint the liquidity token to the caller", async () => {
+          await subject();
+          const liquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+          expect(liquidityTokenBalance).to.eq(subjectMinPoolTokensToMint);
+        });
+
+        it("should update the positions properly", async () => {
+          await subject();
+          const positions = await setToken.getPositions();
+          expect(positions.length).to.eq(1);
+          expect(positions[0].component).to.eq(subjectAmmPool);
+          expect(positions[0].unit).to.eq(subjectMinPoolTokensToMint);
+        });
+
+        describe("when insufficient liquidity tokens are received", async () => {
+          beforeEach(async () => {
+            subjectMinPoolTokensToMint = subjectMinPoolTokensToMint.mul(2);
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("_minLiquidity is too high for amount minimums");
+          });
+        });
+
+        shouldRevertIfPoolIsNotSupported(subject);
+      });
+
+    });
+
+    context("when there is a deployed SetToken with enabled AmmModule", async () => {
+      before(async () => {
+        // Deploy a standard SetToken with the AMM Module
+        setToken = await setup.createSetToken(
+          [uniswapSetup.wethDaiPool.address],
+          [ether(1)],
+          [setup.issuanceModule.address, ammModule.address]
+        );
+
+        await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+        await ammModule.initialize(setToken.address);
+
+        // Mint some instances of the SetToken
+        await setup.approveAndIssueSetToken(setToken, ether(1));
+      });
+
+      describe("#removeLiquidity", async () => {
+        let subjectComponentsToOutput: Address[];
+        let subjectMinComponentQuantities: BigNumber[];
+        let subjectPoolTokens: BigNumber;
+
+        beforeEach(async () => {
+          subjectSetToken = setToken.address;
+          subjectIntegrationName = uniswapV2AmmAdapterName;
+          subjectAmmPool = uniswapSetup.wethDaiPool.address;
+          subjectComponentsToOutput = [setup.weth.address, setup.dai.address];
+          const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+          const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+          subjectPoolTokens = ether(1);
+          const token0 = await uniswapSetup.wethDaiPool.token0();
+          if ( token0 == setup.weth.address ) {
+            const weth = subjectPoolTokens.mul(reserve0).div(totalSupply);
+            const dai = subjectPoolTokens.mul(reserve1).div(totalSupply);
+            subjectMinComponentQuantities = [weth, dai];
+          }
+          else {
+            const dai = subjectPoolTokens.mul(reserve0).div(totalSupply);
+            const weth = subjectPoolTokens.mul(reserve1).div(totalSupply);
+            subjectMinComponentQuantities = [weth, dai];
+          }
+          subjectCaller = owner;
+        });
+
+        async function subject(): Promise<any> {
+          return await ammModule.connect(subjectCaller.wallet).removeLiquidity(
+            subjectSetToken,
+            subjectIntegrationName,
+            subjectAmmPool,
+            subjectPoolTokens,
+            subjectComponentsToOutput,
+            subjectMinComponentQuantities,
+          );
+        }
+
+        it("should reduce the liquidity token of the caller", async () => {
+          const previousLiquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+
+          await subject();
+          const liquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+          const expectedLiquidityBalance = previousLiquidityTokenBalance.sub(subjectPoolTokens);
+          expect(liquidityTokenBalance).to.eq(expectedLiquidityBalance);
+        });
+
+        it("should update the positions properly", async () => {
+          await subject();
+          const positions = await setToken.getPositions();
+
+          expect(positions.length).to.eq(2);
+
+          expect(positions[0].component).to.eq(setup.weth.address);
+          expect(positions[0].unit).to.eq(subjectMinComponentQuantities[0]);
+          expect(positions[1].component).to.eq(setup.dai.address);
+          expect(positions[1].unit).to.eq(subjectMinComponentQuantities[1]);
+        });
+
+        describe("when more underlying tokens are requested than owned", async () => {
+          beforeEach(async () => {
+            subjectMinComponentQuantities = [subjectMinComponentQuantities[0].mul(2),
+              subjectMinComponentQuantities[1]];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("amounts must be <= ownedTokens");
+          });
+        });
+
+        shouldRevertIfPoolIsNotSupported(subject);
+      });
+
+    });
+
+    function shouldRevertIfPoolIsNotSupported(subject: any) {
+      describe("when the pool is not supported on the adapter", async () => {
+        beforeEach(async () => {
+          subjectAmmPool = setup.wbtc.address;
+        });
+
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Pool token must be enabled on the Adapter");
+        });
+      });
+    }
   });
 
 });
