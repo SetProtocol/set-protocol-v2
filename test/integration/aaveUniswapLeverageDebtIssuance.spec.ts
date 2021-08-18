@@ -5,7 +5,7 @@ import { Account } from "@utils/test/types";
 import {
   AaveV2,
   AaveLeverageModule,
-  DebtIssuanceModule,
+  AaveDebtIssuanceModule,
   SetToken,
   UniswapV2ExchangeAdapter,
 } from "@utils/contracts";
@@ -37,10 +37,7 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants"
 
 const expect = getWaffleExpect();
 
-// TODO: The following tests have been skipped due to inconsistent test results as they often revert with "Invalid post transfer balance"
-// in ExplicitERC20#transferFrom function. It might be because aToken interest accrual depends upon block.timestamp and time difference
-// between subsequent invocations of the Aave protocol. It is being further investigated and will be fixed in a different PR.
-describe.skip("AaveUniswapLeverageDebtIssuance", () => {
+describe("AaveUniswapLeverageDebtIssuance", () => {
   let owner: Account;
   let feeRecipient: Account;
   let deployer: DeployHelper;
@@ -50,7 +47,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
   let aaveV2Library: AaveV2;
   let aaveLeverageModule: AaveLeverageModule;
-  let debtIssuanceModule: DebtIssuanceModule;
+  let debtIssuanceModule: AaveDebtIssuanceModule;
   let uniswapExchangeAdapter: UniswapV2ExchangeAdapter;
 
   let aWETH: AaveV2AToken;
@@ -144,7 +141,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       MAX_UINT_256
     );
 
-    debtIssuanceModule = await deployer.modules.deployDebtIssuanceModule(setup.controller.address);
+    debtIssuanceModule = await deployer.modules.deployAaveDebtIssuanceModule(setup.controller.address);
     await setup.controller.addModule(debtIssuanceModule.address);
 
     aaveV2Library = await deployer.libraries.deployAaveV2();
@@ -488,9 +485,6 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
         // ETH increases to $1000 to allow more borrow
         await aaveV2Setup.setAssetPriceInOracle(setup.usdc.address, ether(0.001));  // 1/1000 = .001
-
-        // TODO: Test Increase time
-        // await increaseTimeAsync(BigNumber.from(86400));
       });
 
       beforeEach(() => {
@@ -543,7 +537,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+        expect(newSecondPosition.unit.abs()).to.gte(expectedSecondPositionUnit.abs());  // Debt accrues
         expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
       });
 
@@ -688,7 +682,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
         expect(newThirdPosition.component).to.eq(setup.dai.address);
         expect(newThirdPosition.positionState).to.eq(1); // External
-        expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
+        expect(newThirdPosition.unit.abs()).to.gte(expectedThirdPositionUnit.abs());   // Debt accrues
         expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
 
         expect(newFourthPosition.component).to.eq(setup.usdc.address);
@@ -1226,7 +1220,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPositionNotional).to.eq(previousSecondPositionBalance);
+        expect(newSecondPositionNotional).to.gte(previousSecondPositionBalance);
         expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
       });
 

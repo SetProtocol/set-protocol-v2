@@ -1,3 +1,4 @@
+export { AaveDebtIssuanceModule } from "../../typechain/AaveDebtIssuanceModule";
 export { AaveGovernanceAdapter } from "../../typechain/AaveGovernanceAdapter";
 export { AaveGovernanceV2Adapter } from "../../typechain/AaveGovernanceV2Adapter";
 export { AaveLendingPoolCoreMock } from "../../typechain/AaveLendingPoolCoreMock";

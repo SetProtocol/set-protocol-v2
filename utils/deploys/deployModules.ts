@@ -23,6 +23,7 @@ import {
 } from "../contracts";
 import { Address } from "../types";
 
+import { AaveDebtIssuanceModule__factory } from "../../typechain/factories/AaveDebtIssuanceModule__factory";
 import { AaveLeverageModule__factory } from "../../typechain/factories/AaveLeverageModule__factory";
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
@@ -59,6 +60,10 @@ export default class DeployModules {
 
   public async deployDebtIssuanceModule(controller: Address): Promise<DebtIssuanceModule> {
     return await new DebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
+  }
+
+  public async deployAaveDebtIssuanceModule(controller: Address): Promise<DebtIssuanceModule> {
+    return await new AaveDebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployAmmModule(controller: Address): Promise<AmmModule> {
