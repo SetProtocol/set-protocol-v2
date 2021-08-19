@@ -43,15 +43,15 @@ library IssuanceUtils {
      * @param _setToken         Instance of the SetToken being issued/redeemed
      * @param _component        Address of component being transferred in/out
      * @param _isIssue          True if issuing SetToken, false if redeeming
-     * @param _quantity         Total SetToken quantity with fees being issued. Pass 0 if Set is being redeemed.
+     * @param _issueQuantity    Total SetToken issue quantity with fees. Pass 0 if Set is being redeemed.
      */
-    function validateComponentTransfer(ISetToken _setToken, address _component, bool _isIssue, uint256 _mintQuantity) internal {
+    function validateComponentTransfer(ISetToken _setToken, address _component, bool _isIssue, uint256 _issueQuantity) internal {
         
         uint256 newComponentBalance = IERC20(_component).balanceOf(address(_setToken));    
 
         uint256 positionUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();   
         uint256 newTotalSupply = _isIssue
-            ? _setToken.totalSupply().add(_mintQuantity)    // Mint happens after this function is called
+            ? _setToken.totalSupply().add(_issueQuantity)    // Mint happens after this function is called
             : _setToken.totalSupply();                  // Burn takes place before this function is called
         
         require(

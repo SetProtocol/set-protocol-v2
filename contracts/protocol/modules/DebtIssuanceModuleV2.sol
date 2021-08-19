@@ -26,7 +26,7 @@ import { DebtIssuanceModule } from "./DebtIssuanceModule.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { Invoke } from "../lib/Invoke.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IssuanceUtils } from "../../lib/IssuanceUtils.sol";
+import { IssuanceUtils } from "../lib/IssuanceUtils.sol";
 
 /**
  * @title DebtIssuanceModuleV2
