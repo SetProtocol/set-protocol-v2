@@ -23,7 +23,6 @@ import {
 } from "../contracts";
 import { Address } from "../types";
 
-import { AaveDebtIssuanceModule__factory } from "../../typechain/factories/AaveDebtIssuanceModule__factory";
 import { AaveLeverageModule__factory } from "../../typechain/factories/AaveLeverageModule__factory";
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
@@ -32,6 +31,7 @@ import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__fac
 import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
 import { CustomOracleNavIssuanceModule__factory } from "../../typechain/factories/CustomOracleNavIssuanceModule__factory";
 import { DebtIssuanceModule__factory } from "../../typechain/factories/DebtIssuanceModule__factory";
+import { DebtIssuanceModuleV2__factory } from "../../typechain/factories/DebtIssuanceModuleV2__factory";
 import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIndexModule__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
@@ -62,8 +62,8 @@ export default class DeployModules {
     return await new DebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async deployAaveDebtIssuanceModule(controller: Address): Promise<DebtIssuanceModule> {
-    return await new AaveDebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
+  public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModule> {
+    return await new DebtIssuanceModuleV2__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployAmmModule(controller: Address): Promise<AmmModule> {

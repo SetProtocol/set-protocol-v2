@@ -1,4 +1,3 @@
-export { AaveDebtIssuanceModule } from "../../typechain/AaveDebtIssuanceModule";
 export { AaveGovernanceAdapter } from "../../typechain/AaveGovernanceAdapter";
 export { AaveGovernanceV2Adapter } from "../../typechain/AaveGovernanceV2Adapter";
 export { AaveLendingPoolCoreMock } from "../../typechain/AaveLendingPoolCoreMock";
@@ -36,6 +35,7 @@ export { CustomOracleNavIssuanceModule } from "../../typechain/CustomOracleNavIs
 export { CustomSetValuerMock } from "../../typechain/CustomSetValuerMock";
 export { DebtIssuanceMock } from "../../typechain/DebtIssuanceMock";
 export { DebtIssuanceModule } from "../../typechain/DebtIssuanceModule";
+export { DebtIssuanceModuleV2 } from "../../typechain/DebtIssuanceModuleV2";
 export { DebtModuleMock } from "../../typechain/DebtModuleMock";
 export { DelegateRegistry } from "../../typechain/DelegateRegistry";
 export { ExplicitERC20Mock } from "../../typechain/ExplicitERC20Mock";
