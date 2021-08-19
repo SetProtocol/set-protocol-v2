@@ -19,11 +19,11 @@
 pragma solidity 0.6.10;
 
 /**
- * @title LendingPoolAddressProviderMock
+ * @title LendingPoolAddressesProviderMock
  * @author Set Protocol
- * @notice Mock contract for Aave's LendingPoolAddressProvider
+ * @notice Mock contract for Aave's LendingPoolAddressesProvider
  */
-contract LendingPoolAddressProviderMock {
+contract LendingPoolAddressesProviderMock {
     function getLendingPool() external pure returns (address) {
         return address(0);
     }
