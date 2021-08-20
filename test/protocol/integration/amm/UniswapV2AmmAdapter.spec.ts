@@ -272,12 +272,12 @@ describe("UniswapV2AmmAdapter", () => {
           if ( token0 == setup.weth.address ) {
             const liquidity0 = ether(1).mul(totalSupply).div(reserve0);
             const liquidity1 = ether(3000).mul(totalSupply).div(reserve1);
-            subjectMinPoolTokensToMint = liquidity0 < liquidity1 ? liquidity0 : liquidity1;
+            subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
           }
           else {
             const liquidity0 = ether(3000).mul(totalSupply).div(reserve0);
             const liquidity1 = ether(1).mul(totalSupply).div(reserve1);
-            subjectMinPoolTokensToMint = liquidity0 < liquidity1 ? liquidity0 : liquidity1;
+            subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
           }
         });
 
