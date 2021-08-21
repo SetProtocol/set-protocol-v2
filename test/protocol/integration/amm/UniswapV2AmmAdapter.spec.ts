@@ -239,7 +239,7 @@ describe("UniswapV2AmmAdapter", () => {
     let setToken: SetToken;
 
     context("when there is a deployed SetToken with enabled AmmModule", async () => {
-      before(async () => {
+      beforeEach(async () => {
         // Deploy a standard SetToken with the AMM Module
         setToken = await setup.createSetToken(
           [setup.weth.address, setup.dai.address],
@@ -313,6 +313,92 @@ describe("UniswapV2AmmAdapter", () => {
 
           it("should revert", async () => {
             await expect(subject()).to.be.revertedWith("_minLiquidity is too high for amount minimums");
+          });
+        });
+
+        describe("when extra dai tokens are supplied", async () => {
+          let wethRemaining: BigNumber;
+          let daiRemaining: BigNumber;
+          beforeEach(async () => {
+            wethRemaining = ether(0.5);
+            subjectMaxComponentQuantities = [ether(0.5), ether(1600)];
+            const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+            const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+            const token0 = await uniswapSetup.wethDaiPool.token0();
+            if ( token0 == setup.weth.address ) {
+              const liquidity0 = ether(0.5).mul(totalSupply).div(reserve0);
+              const liquidity1 = ether(1600).mul(totalSupply).div(reserve1);
+              subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
+              daiRemaining = ether(3000).sub(ether(0.5).mul(reserve1).div(reserve0));
+            }
+            else {
+              const liquidity0 = ether(1600).mul(totalSupply).div(reserve0);
+              const liquidity1 = ether(0.5).mul(totalSupply).div(reserve1);
+              subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
+              daiRemaining = ether(3000).sub(ether(0.5).mul(reserve0).div(reserve1));
+            }
+
+          });
+
+          it("should mint the correct amount of liquidity tokens to the caller", async () => {
+            await subject();
+            const liquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+            expect(liquidityTokenBalance).to.eq(subjectMinPoolTokensToMint);
+          });
+
+          it("should have the expected weth, dai, and lp tokens", async () => {
+            await subject();
+            const positions = await setToken.getPositions();
+            expect(positions.length).to.eq(3);
+            expect(positions[0].component).to.eq(setup.weth.address);
+            expect(positions[0].unit).to.eq(wethRemaining);
+            expect(positions[1].component).to.eq(setup.dai.address);
+            expect(positions[1].unit).to.eq(daiRemaining);
+            expect(positions[2].component).to.eq(subjectAmmPool);
+            expect(positions[2].unit).to.eq(subjectMinPoolTokensToMint);
+          });
+        });
+
+        describe("when extra weth tokens are supplied", async () => {
+          let wethRemaining: BigNumber;
+          let daiRemaining: BigNumber;
+          beforeEach(async () => {
+            daiRemaining = ether(1500);
+            subjectMaxComponentQuantities = [ether(0.6), ether(1500)];
+            const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+            const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+            const token0 = await uniswapSetup.wethDaiPool.token0();
+            if ( token0 == setup.weth.address ) {
+              const liquidity0 = ether(0.6).mul(totalSupply).div(reserve0);
+              const liquidity1 = ether(1500).mul(totalSupply).div(reserve1);
+              subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
+              wethRemaining = ether(1).sub(ether(1500).mul(reserve0).div(reserve1));
+            }
+            else {
+              const liquidity0 = ether(1500).mul(totalSupply).div(reserve0);
+              const liquidity1 = ether(0.6).mul(totalSupply).div(reserve1);
+              subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
+              wethRemaining = ether(1).sub(ether(1500).mul(reserve1).div(reserve0));
+            }
+
+          });
+
+          it("should mint the correct amount of liquidity tokens to the caller", async () => {
+            await subject();
+            const liquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+            expect(liquidityTokenBalance).to.eq(subjectMinPoolTokensToMint);
+          });
+
+          it("should have the expected weth, dai, and lp tokens", async () => {
+            await subject();
+            const positions = await setToken.getPositions();
+            expect(positions.length).to.eq(3);
+            expect(positions[0].component).to.eq(setup.weth.address);
+            expect(positions[0].unit).to.eq(wethRemaining);
+            expect(positions[1].component).to.eq(setup.dai.address);
+            expect(positions[1].unit).to.eq(daiRemaining);
+            expect(positions[2].component).to.eq(subjectAmmPool);
+            expect(positions[2].unit).to.eq(subjectMinPoolTokensToMint);
           });
         });
 
