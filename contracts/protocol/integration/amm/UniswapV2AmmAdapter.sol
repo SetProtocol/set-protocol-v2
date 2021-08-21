@@ -215,15 +215,15 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
     function isValidPool(address _pool) external view override returns (bool) {
         address token0;
         address token1;
-        IUniswapV2Pair pair = IUniswapV2Pair(_pool);
-        try pair.token0() returns (address _token0) {
-            token0 = _token0;
-        } catch {
-            return false;
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool token0Success, bytes memory token0ReturnData) = _pool.staticcall(abi.encodeWithSignature("token0()"));
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool token1Success, bytes memory token1ReturnData) = _pool.staticcall(abi.encodeWithSignature("token1()"));
+        if( token0Success && token1Success ) {
+            (token0) = abi.decode(token0ReturnData, (address));
+            (token1) = abi.decode(token1ReturnData, (address));
         }
-        try pair.token1() returns (address _token1) {
-            token1 = _token1;
-        } catch {
+        else {
             return false;
         }
         return factory.getPair(token0, token1) == _pool;
