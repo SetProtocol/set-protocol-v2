@@ -30,6 +30,7 @@ import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IExchangeAdapter } from "../../interfaces/IExchangeAdapter.sol";
 import { ILendingPool } from "../../interfaces/external/aave-v2/ILendingPool.sol";
 import { ILendingPoolAddressesProvider } from "../../interfaces/external/aave-v2/ILendingPoolAddressesProvider.sol";
+import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
 import { IProtocolDataProvider } from "../../interfaces/external/aave-v2/IProtocolDataProvider.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { IVariableDebtToken } from "../../interfaces/external/aave-v2/IVariableDebtToken.sol";
@@ -42,7 +43,7 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  * @dev Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
  * debt when borrowed assets are the same.
  */
-contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
+contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using AaveV2 for ISetToken;
 
     /* ============ Structs ============ */
@@ -667,7 +668,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @dev MODULE ONLY: Hook called prior to issuance to sync positions on SetToken. Only callable by valid module.
      * @param _setToken             Instance of the SetToken
      */
-    function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
+    function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external override onlyModule(_setToken) {
         sync(_setToken);
     }
 
@@ -676,7 +677,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * balance after interest accrual. Only callable by valid module.
      * @param _setToken             Instance of the SetToken
      */
-    function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
+    function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external override onlyModule(_setToken) {
         sync(_setToken);
     }
 
@@ -687,7 +688,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external onlyModule(_setToken) {
+    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external override onlyModule(_setToken) {
         int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
         require(componentDebt < 0, "Component must be negative");
@@ -703,7 +704,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external onlyModule(_setToken) {
+    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external override onlyModule(_setToken) {
         int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
         require(componentDebt < 0, "Component must be negative");
