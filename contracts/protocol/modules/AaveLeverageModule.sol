@@ -186,13 +186,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
     // We use this variable along with AaveV2 library contract to invoke those actions on SetToken
-    ILendingPool public lendingPool;
+    ILendingPool immutable lendingPool;
     
     // Used to fetch reserves and user data from AaveV2
-    IProtocolDataProvider public protocolDataProvider;
+    IProtocolDataProvider immutable protocolDataProvider;
     
     // Used to fetch lendingPool address. This contract is immutable and its address will never change.
-    ILendingPoolAddressesProvider public lendingPoolAddressesProvider;
+    ILendingPoolAddressesProvider immutable lendingPoolAddressesProvider;
     
     // Mapping to efficiently check if collateral asset is enabled in SetToken
     mapping(ISetToken => mapping(IERC20 => bool)) public collateralAssetEnabled;
@@ -230,9 +230,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         lendingPool = ILendingPool(_lendingPoolAddressesProvider.getLendingPool());
         
-        IProtocolDataProvider.TokenData[] memory reserveTokens = protocolDataProvider.getAllReservesTokens();
+        IProtocolDataProvider.TokenData[] memory reserveTokens = _protocolDataProvider.getAllReservesTokens();
         for(uint256 i = 0; i < reserveTokens.length; i++) {
-            _addUnderlyingToReserveTokensMapping(IERC20(reserveTokens[i].tokenAddress));
+            (address aToken, , address variableDebtToken) = _protocolDataProvider.getReserveTokensAddresses(reserveTokens[i].tokenAddress);
+            underlyingToReserveTokens[IERC20(reserveTokens[i].tokenAddress)] = ReserveTokens(IAToken(aToken), IVariableDebtToken(variableDebtToken));
         }
     }
     
