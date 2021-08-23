@@ -186,13 +186,13 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
     // We use this variable along with AaveV2 library contract to invoke those actions on SetToken
-    ILendingPool immutable lendingPool;
+    ILendingPool public immutable lendingPool;
     
     // Used to fetch reserves and user data from AaveV2
-    IProtocolDataProvider immutable protocolDataProvider;
+    IProtocolDataProvider public immutable protocolDataProvider;
     
     // Used to fetch lendingPool address. This contract is immutable and its address will never change.
-    ILendingPoolAddressesProvider immutable lendingPoolAddressesProvider;
+    ILendingPoolAddressesProvider public immutable lendingPoolAddressesProvider;
     
     // Mapping to efficiently check if collateral asset is enabled in SetToken
     mapping(ISetToken => mapping(IERC20 => bool)) public collateralAssetEnabled;
@@ -215,17 +215,16 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * @dev Instantiate addresses. Underlying to reserve tokens mapping is created.
      * @param _controller                       Address of controller contract
      * @param _lendingPoolAddressesProvider     Address of Aave LendingPoolAddressProvider
-     * @param _protocolDataProvider             Address of Aave ProtocolDataProvider
      */
     constructor(
         IController _controller,
-        ILendingPoolAddressesProvider _lendingPoolAddressesProvider,
-        IProtocolDataProvider _protocolDataProvider
+        ILendingPoolAddressesProvider _lendingPoolAddressesProvider
     )
         public
         ModuleBase(_controller)
     {
         lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
+        IProtocolDataProvider _protocolDataProvider = IProtocolDataProvider(_lendingPoolAddressesProvider.getAddress(bytes32("0x1")));
         protocolDataProvider = _protocolDataProvider;
 
         lendingPool = ILendingPool(_lendingPoolAddressesProvider.getLendingPool());

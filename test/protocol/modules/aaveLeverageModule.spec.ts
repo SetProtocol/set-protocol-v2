@@ -122,7 +122,6 @@ describe("AaveLeverageModule", () => {
     aaveLeverageModule = await deployer.modules.deployAaveLeverageModule(
       setup.controller.address,
       aaveSetup.lendingPoolAddressesProvider.address,
-      aaveSetup.protocolDataProvider.address,
       "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
       aaveV2Library.address,
     );
@@ -221,19 +220,16 @@ describe("AaveLeverageModule", () => {
   describe("#constructor", async () => {
     let subjectController: Address;
     let subjectLendingPoolAddressesProvider: Address;
-    let subjectProtocolDataProvider: Address;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
       subjectLendingPoolAddressesProvider = aaveSetup.lendingPoolAddressesProvider.address;
-      subjectProtocolDataProvider = aaveSetup.protocolDataProvider.address;
     });
 
     async function subject(): Promise<AaveLeverageModule> {
       return deployer.modules.deployAaveLeverageModule(
         subjectController,
         subjectLendingPoolAddressesProvider,
-        subjectProtocolDataProvider,
         "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
         aaveV2Library.address
       );

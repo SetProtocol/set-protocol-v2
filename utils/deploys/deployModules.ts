@@ -168,7 +168,6 @@ export default class DeployModules {
   public async deployAaveLeverageModule(
     controller: Address,
     lendingPoolAddressesProvider: Address,
-    protocolDataProvider: Address,
     libraryName: string,
     libraryAddress: Address
   ): Promise<AaveLeverageModule> {
@@ -182,8 +181,7 @@ export default class DeployModules {
       this._deployerSigner
     ).deploy(
       controller,
-      lendingPoolAddressesProvider,
-      protocolDataProvider
+      lendingPoolAddressesProvider
     );
   }
 
