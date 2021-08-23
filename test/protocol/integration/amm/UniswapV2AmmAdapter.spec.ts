@@ -1121,6 +1121,88 @@ describe("UniswapV2AmmAdapter", () => {
     });
 
     context("when there is a deployed SetToken with enabled AmmModule", async () => {
+      beforeEach(async () => {
+        // Deploy a standard SetToken with the AMM Module
+        setToken = await setup.createSetToken(
+          [setup.weth.address],
+          [ether(1)],
+          [setup.issuanceModule.address, ammModule.address]
+        );
+
+        await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+        await ammModule.initialize(setToken.address);
+
+        // Mint some instances of the SetToken
+        await setup.approveAndIssueSetToken(setToken, ether(1));
+      });
+
+      describe("#addLiquiditySingleAsset", async () => {
+        let subjectComponentToInput: Address;
+        let subjectMaxComponentQuantity: BigNumber;
+        let subjectMinPoolTokensToMint: BigNumber;
+        let tokensAdded: BigNumber;
+
+        beforeEach(async () => {
+          subjectSetToken = setToken.address;
+          subjectIntegrationName = uniswapV2AmmAdapterName;
+          subjectAmmPool = uniswapSetup.wethDaiPool.address;
+          subjectComponentToInput = setup.weth.address;
+          subjectMaxComponentQuantity = ether(1);
+          subjectCaller = owner;
+          const amountToSwap = subjectMaxComponentQuantity.div(2);
+          const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+          const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+          const token0 = await uniswapSetup.wethDaiPool.token0();
+          if ( token0 == setup.weth.address ) {
+            const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve0, reserve1);
+            const quote = await uniswapSetup.router.quote(amountOut, reserve1.sub(amountOut), reserve0.add(amountToSwap));
+            tokensAdded = amountToSwap.add(quote);
+            const liquidity0 = quote.mul(totalSupply).div(reserve0.add(amountToSwap));
+            const liquidity1 = amountOut.mul(totalSupply).div(reserve1.sub(amountOut));
+            subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
+          }
+          else {
+            const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve1, reserve0);
+            const quote = await uniswapSetup.router.quote(amountOut, reserve0.sub(amountOut), reserve1.add(amountToSwap));
+            tokensAdded = amountToSwap.add(quote);
+            const liquidity0 = amountOut.mul(totalSupply).div(reserve0.sub(amountOut));
+            const liquidity1 = quote.mul(totalSupply).div(reserve1.add(amountToSwap));
+            subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
+          }
+        });
+
+        async function subject(): Promise<any> {
+          return await ammModule.connect(subjectCaller.wallet).addLiquiditySingleAsset(
+            subjectSetToken,
+            subjectIntegrationName,
+            subjectAmmPool,
+            subjectMinPoolTokensToMint,
+            subjectComponentToInput,
+            subjectMaxComponentQuantity,
+          );
+        }
+
+        it("should mint the liquidity token to the caller", async () => {
+          await subject();
+          const liquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+          expect(liquidityTokenBalance).to.eq(subjectMinPoolTokensToMint);
+        });
+
+        it("should update the positions properly", async () => {
+          await subject();
+          const positions = await setToken.getPositions();
+          expect(positions.length).to.eq(2);
+          expect(positions[0].component).to.eq(setup.weth.address);
+          expect(positions[0].unit).to.eq(subjectMaxComponentQuantity.sub(tokensAdded));
+          expect(positions[1].component).to.eq(subjectAmmPool);
+          expect(positions[1].unit).to.eq(subjectMinPoolTokensToMint);
+        });
+
+      });
+
+    });
+
+    context("when there is a deployed SetToken with enabled AmmModule", async () => {
       before(async () => {
         // Deploy a standard SetToken with the AMM Module
         setToken = await setup.createSetToken(
@@ -1207,6 +1289,82 @@ describe("UniswapV2AmmAdapter", () => {
         });
 
         shouldRevertIfPoolIsNotSupported(subject);
+      });
+
+    });
+
+    context("when there is a deployed SetToken with enabled AmmModule", async () => {
+      before(async () => {
+        // Deploy a standard SetToken with the AMM Module
+        setToken = await setup.createSetToken(
+          [uniswapSetup.wethDaiPool.address],
+          [ether(1)],
+          [setup.issuanceModule.address, ammModule.address]
+        );
+
+        await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+        await ammModule.initialize(setToken.address);
+
+        // Mint some instances of the SetToken
+        await setup.approveAndIssueSetToken(setToken, ether(1));
+      });
+
+      describe("#removeLiquiditySingleAsset", async () => {
+        let subjectComponentToOutput: Address;
+        let subjectMinComponentQuantity: BigNumber;
+        let subjectPoolTokens: BigNumber;
+
+        beforeEach(async () => {
+          subjectSetToken = setToken.address;
+          subjectIntegrationName = uniswapV2AmmAdapterName;
+          subjectAmmPool = uniswapSetup.wethDaiPool.address;
+          subjectComponentToOutput = setup.weth.address;
+          subjectPoolTokens = ether(1);
+          const token0 = await uniswapSetup.wethDaiPool.token0();
+          const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+          const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+          const token0Amount = subjectPoolTokens.mul(reserve0).div(totalSupply);
+          const token1Amount = subjectPoolTokens.mul(reserve1).div(totalSupply);
+          if ( token0 == setup.weth.address ) {
+            const receivedAmount = await uniswapSetup.router.getAmountOut(token1Amount,
+              reserve1.sub(token1Amount), reserve0.sub(token0Amount));
+            subjectMinComponentQuantity = token0Amount.add(receivedAmount);
+          }
+          else {
+            const receivedAmount = await uniswapSetup.router.getAmountOut(token0Amount,
+              reserve0.sub(token0Amount), reserve1.sub(token1Amount));
+            subjectMinComponentQuantity = token1Amount.add(receivedAmount);
+          }
+          subjectCaller = owner;
+        });
+
+        async function subject(): Promise<any> {
+          return await ammModule.connect(subjectCaller.wallet).removeLiquiditySingleAsset(
+            subjectSetToken,
+            subjectIntegrationName,
+            subjectAmmPool,
+            subjectPoolTokens,
+            subjectComponentToOutput,
+            subjectMinComponentQuantity,
+          );
+        }
+
+        it("should reduce the liquidity token of the caller", async () => {
+          const previousLiquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+          await subject();
+          const liquidityTokenBalance = await uniswapSetup.wethDaiPool.balanceOf(subjectSetToken);
+          const expectedLiquidityBalance = previousLiquidityTokenBalance.sub(subjectPoolTokens);
+          expect(liquidityTokenBalance).to.eq(expectedLiquidityBalance);
+        });
+
+        it("should update the positions properly", async () => {
+          await subject();
+          const positions = await setToken.getPositions();
+          expect(positions.length).to.eq(1);
+          expect(positions[0].component).to.eq(setup.weth.address);
+          expect(positions[0].unit).to.eq(subjectMinComponentQuantity);
+        });
+
       });
 
     });
