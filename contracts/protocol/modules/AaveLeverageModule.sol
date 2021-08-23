@@ -365,7 +365,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
      * Repays received _repayAsset to Aave which burns corresponding debt tokens. Any extra received borrow asset is .
      * updated as equity. No protocol fee is charged.
      * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
-     * The function reverts if not enough collateral asset is redeemed to buy required minimum amount of _repayAsset.
+     * The function reverts if not enough collateral asset is redeemed to buy the required minimum amount of _repayAsset.
      * @param _setToken             Instance of the SetToken
      * @param _collateralAsset      Address of underlying collateral asset being redeemed
      * @param _repayAsset           Address of underlying asset being repaid
@@ -551,7 +551,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev MANAGER ONLY: Add registration of this module on debt issuance module for the SetToken. 
+     * @dev MANAGER ONLY: Add registration of this module on the debt issuance module for the SetToken. 
      * Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function
      * needs to be called if the debt issuance module is later added and initialized to prevent state inconsistencies
      * @param _setToken             Instance of the SetToken
@@ -581,7 +581,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev MANAGER ONLY: Add collateral assets. aTokens corresponding to collateral assets are tracked for syncing positions.
-     * Note: Reverts with "Borrow already enabled" if there are duplicate assets in the passed _newBorrowAssets array.
+     * Note: Reverts with "Collateral already enabled" if there are duplicate assets in the passed _newCollateralAssets array.
      * 
      * NOTE: ALL ADDED COLLATERAL ASSETS CAN BE ADDED AS A POSITION ON THE SET TOKEN WITHOUT MANAGER'S EXPLICIT PERMISSION.
      * UNWANTED EXTRA POSITIONS CAN BREAK EXTERNAL LOGIC, INCREASE COST OF MINT/REDEEM OF SET TOKEN, AMONG OTHER POTENTIAL UNINTENDED CONSEQUENCES.
@@ -595,7 +595,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
    
     /**
-     * @dev MANAGER ONLY: Remove collateral asset. Disable deposited assets to be used as collateral on Aave market.
+     * @dev MANAGER ONLY: Remove collateral assets. Disable deposited assets to be used as collateral on Aave market.
      * @param _setToken             Instance of the SetToken
      * @param _collateralAssets     Addresses of collateral underlying assets to remove
      */
@@ -624,7 +624,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev MANAGER ONLY: Remove borrow asset.
+     * @dev MANAGER ONLY: Remove borrow assets.
      * Note: If there is a borrow balance, borrow asset cannot be removed
      * @param _setToken             Instance of the SetToken
      * @param _borrowAssets         Addresses of borrow underlying assets to remove
@@ -698,7 +698,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable {
 
     /**
      * @dev MODULE ONLY: Hook called prior to looping through each component on redemption. Invokes repay after 
-     * issuance module transfers debt from issuer. Only callable by valid module.
+     * the issuance module transfers debt from the issuer. Only callable by valid module.
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
