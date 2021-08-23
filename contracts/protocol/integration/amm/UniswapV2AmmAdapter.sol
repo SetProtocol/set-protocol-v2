@@ -47,10 +47,13 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
     IUniswapV2Router public immutable router;
     IUniswapV2Factory public immutable factory;
 
-    // Uniswap router function string for adding liquidity
+    // Internal function string for adding liquidity
     string internal constant ADD_LIQUIDITY =
         "addLiquidity(address,address[],uint256[],uint256)";
-    // Uniswap router function string for removing liquidity
+    // Internal function string for adding liquidity with a single asset
+    string internal constant ADD_LIQUIDITY_SINGLE_ASSET =
+        "addLiquiditySingleAsset(address,address,uint256,uint256)";
+    // Internal function string for removing liquidity
     string internal constant REMOVE_LIQUIDITY =
         "removeLiquidity(address,address[],uint256[],uint256)";
 
@@ -94,6 +97,54 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
                 Position(IERC20(_token1), _amount1, IERC20(_token0), _amount0);
     }
 
+    /**
+     * Performs a swap via the Uniswap V2 Router
+     *
+     * @param  pair                     Uniswap V2 Pair
+     * @param  token                    Address of the token to swap
+     * @param  token0                   Address of pair token0
+     * @param  token1                   Address of pair token1
+     * @param  amount                   Amount of the token to swap
+     */
+    function performSwap(
+        IUniswapV2Pair pair,
+        address token,
+        address token0,
+        address token1,
+        uint256 amount
+    )
+        internal
+        returns (
+            Position memory position
+        )
+    {
+
+        // Use half of the provided amount in the swap
+        uint256 amountToSwap = amount.div(2);
+
+        // Approve the router to spend the tokens
+        IERC20(token).approve(address(router), amountToSwap);
+
+        // Determine the amount of the other token to get
+        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+        uint256 amountOut = router.getAmountOut(amountToSwap, token0 == token ? reserve0 : reserve1,
+            token0 == token ? reserve1 : reserve0);
+
+        address[] memory path = new address[](2);
+        path[0] = token;
+        path[1] = token == token0 ? token1 : token0;
+        uint[] memory amounts = router.swapExactTokensForTokens(
+            amountToSwap,
+            amountOut,
+            path,
+            address(this),
+            block.timestamp // solhint-disable-line not-rely-on-time
+        );
+
+        position = getPosition(pair, path[0], amount.sub(amountToSwap), path[1], amounts[1]);
+
+    }
+
     /* ============ External Getter Functions ============ */
 
     /**
@@ -130,22 +181,38 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         );
     }
 
+    /**
+     * Return calldata for the add liquidity call for a single asset
+     *
+     * @param  _pool                    Address of liquidity token
+     * @param  _component               Address of the token used to add liquidity
+     * @param  _maxTokenIn              AmountsIn desired to add liquidity
+     * @param  _minLiquidity            Min liquidity amount to add
+     */
     function getProvideLiquiditySingleAssetCalldata(
-        address,
-        address,
-        uint256,
-        uint256
+        address _pool,
+        address _component,
+        uint256 _maxTokenIn,
+        uint256 _minLiquidity
     )
         external
         view
         override
         returns (
-            address,
-            uint256,
-            bytes memory
+            address _target,
+            uint256 _value,
+            bytes memory _calldata
         )
     {
-        revert("Single asset liquidity addition not supported");
+        _target = address(this);
+        _value = 0;
+        _calldata = abi.encodeWithSignature(
+            ADD_LIQUIDITY_SINGLE_ASSET,
+            _pool,
+            _component,
+            _maxTokenIn,
+            _minLiquidity
+        );
     }
 
     /**
@@ -270,6 +337,7 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
             "_pool doesn't match the components");
         require(_maxTokensIn[0] > 0, "supplied token0 must be greater than 0");
         require(_maxTokensIn[1] > 0, "supplied token1 must be greater than 0");
+        require(_minLiquidity > 0, "_minLiquidity must be greater than 0");
 
         Position memory position =
              getPosition(pair, _components[0], _maxTokensIn[0], _components[1], _maxTokensIn[1]);
@@ -282,11 +350,86 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         uint256 amount1Min = reserve1.mul(_minLiquidity).div(lpTotalSupply);
 
         require(amount0Min <= position.amount0 && amount1Min <= position.amount1, 
-            "_minLiquidity is too high for amount minimums");
+            "_minLiquidity is too high for amount maximums");
 
         // Bring the tokens to this contract so we can use the Uniswap Router
         position.token0.transferFrom(msg.sender, address(this), position.amount0);
         position.token1.transferFrom(msg.sender, address(this), position.amount1);
+
+        // Approve the router to spend the tokens
+        position.token0.approve(address(router), position.amount0);
+        position.token1.approve(address(router), position.amount1);
+
+        // Add the liquidity
+        (amountA, amountB, liquidity) = router.addLiquidity(
+            address(position.token0),
+            address(position.token1),
+            position.amount0,
+            position.amount1,
+            amount0Min,
+            amount1Min,
+            msg.sender,
+            block.timestamp // solhint-disable-line not-rely-on-time
+        );
+
+        // If there is token0 left, send it back
+        if( amountA < position.amount0 ) {
+            position.token0.transfer(msg.sender, position.amount0.sub(amountA) );
+        }
+
+        // If there is token1 left, send it back
+        if( amountB < position.amount1 ) {
+            position.token1.transfer(msg.sender, position.amount1.sub(amountB) );
+        }
+
+    }
+
+    /**
+     * Adds liquidity via the Uniswap V2 Router, swapping first to get both tokens
+     *
+     * @param  _pool                    Address of liquidity token
+     * @param  _component               Address array required to add liquidity
+     * @param  _maxTokenIn              AmountsIn desired to add liquidity
+     * @param  _minLiquidity            Min liquidity amount to add
+     */
+    function addLiquiditySingleAsset(
+        address _pool,
+        address _component,
+        uint256 _maxTokenIn,
+        uint256 _minLiquidity
+    )
+        external
+        returns (
+            uint amountA,
+            uint amountB,
+            uint liquidity
+        )
+    {
+
+        IUniswapV2Pair pair = IUniswapV2Pair(_pool);
+        require(factory == IUniswapV2Factory(pair.factory()), "_pool factory doesn't match the router factory");
+
+        address token0 = pair.token0();
+        address token1 = pair.token1();
+        require(token0 == _component || token1 == _component, "_pool doesn't contain the _component");
+        require(_maxTokenIn > 0, "supplied _maxTokenIn must be greater than 0");
+        require(_minLiquidity > 0, "supplied _minLiquidity must be greater than 0");
+
+        uint256 lpTotalSupply = pair.totalSupply();
+        require(lpTotalSupply > 0, "_pool totalSupply must be > 0");
+
+        // Bring the tokens to this contract so we can use the Uniswap Router
+        IERC20(_component).transferFrom(msg.sender, address(this), _maxTokenIn);
+
+        // Execute the swap
+        Position memory position = performSwap(pair, _component, token0, token1, _maxTokenIn);
+
+        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+        uint256 amount0Min = reserve0.mul(_minLiquidity).div(lpTotalSupply);
+        uint256 amount1Min = reserve1.mul(_minLiquidity).div(lpTotalSupply);
+
+        require(amount0Min <= position.amount0 && amount1Min <= position.amount1,
+            "_minLiquidity is too high for amount maximum");
 
         // Approve the router to spend the tokens
         position.token0.approve(address(router), position.amount0);
@@ -344,6 +487,7 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
             "_pool doesn't match the components");
         require(_minTokensOut[0] > 0, "requested token0 must be greater than 0");
         require(_minTokensOut[1] > 0, "requested token1 must be greater than 0");
+        require(_liquidity > 0, "_liquidity must be greater than 0");
 
         Position memory position =
              getPosition(pair, _components[0], _minTokensOut[0], _components[1], _minTokensOut[1]);
