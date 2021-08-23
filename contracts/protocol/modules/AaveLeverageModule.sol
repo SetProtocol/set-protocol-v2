@@ -688,13 +688,15 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external override onlyModule(_setToken) {
-        int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
+    function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool _isEquity) external override onlyModule(_setToken) {
+        if (!_isEquity) {
+            int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
-        require(componentDebt < 0, "Component must be negative");
+            require(componentDebt < 0, "Component must be negative");
 
-        uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
-        _borrow(_setToken, _component, notionalDebt);
+            uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
+            _borrow(_setToken, _component, notionalDebt);
+        }
     }
 
     /**
@@ -704,13 +706,15 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * @param _setTokenQuantity     Quantity of SetToken
      * @param _component            Address of component
      */
-    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool /* _isEquity */) external override onlyModule(_setToken) {
-        int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
+    function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool _isEquity) external override onlyModule(_setToken) {
+        if (!_isEquity) {
+            int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
-        require(componentDebt < 0, "Component must be negative");
+            require(componentDebt < 0, "Component must be negative");
 
-        uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
-        _repayBorrow(_setToken, _component, notionalDebt);
+            uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
+            _repayBorrow(_setToken, _component, notionalDebt);
+        }
     }
     
     /* ============ External Getter Functions ============ */

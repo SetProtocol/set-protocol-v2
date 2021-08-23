@@ -3048,7 +3048,7 @@ describe("AaveLeverageModule", () => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
-        subjectIsEquity = true;           // Unused by module
+        subjectIsEquity = false;
         subjectCaller = mockModule;
       });
 
@@ -3072,13 +3072,30 @@ describe("AaveLeverageModule", () => {
         expect(currentDaiBalance).to.eq(preciseMul(borrowQuantity, subjectSetQuantity));
       });
 
-      describe("when component has positive unit", async () => {
+      describe("when isEquity is false and component has positive unit (should not happen)", async () => {
         beforeEach(async () => {
           subjectComponent = aWETH.address;
         });
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Component must be negative");
+        });
+      });
+
+      describe("when isEquity is true", async () => {
+        beforeEach(async () => {
+          subjectIsEquity = true;
+        });
+
+        it("should NOT increase borrowed quantity on the SetToken", async () => {
+          const previousDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          await subject();
+
+          const currentDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          expect(previousDaiBalance).to.eq(ZERO);
+          expect(currentDaiBalance).to.eq(ZERO);
         });
       });
 
@@ -3199,7 +3216,7 @@ describe("AaveLeverageModule", () => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
-        subjectIsEquity = true;           // Unused by module
+        subjectIsEquity = false;
         subjectCaller = mockModule;
       });
 
@@ -3223,13 +3240,30 @@ describe("AaveLeverageModule", () => {
         expect(currentDaiBalance).to.eq(ZERO);
       });
 
-      describe("when component has positive unit", async () => {
+      describe("when _isEquity is false and component has positive unit", async () => {
         beforeEach(async () => {
           subjectComponent = aWETH.address;
         });
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Component must be negative");
+        });
+      });
+
+      describe("when isEquity is true", async () => {
+        beforeEach(async () => {
+          subjectIsEquity = true;
+        });
+
+        it("should NOT decrease borrowed quantity on the SetToken", async () => {
+          const previousDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          await subject();
+
+          const currentDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          expect(previousDaiBalance).to.eq(repayQuantity);
+          expect(currentDaiBalance).to.eq(repayQuantity);
         });
       });
 
