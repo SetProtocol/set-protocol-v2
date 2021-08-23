@@ -275,7 +275,7 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
              getPosition(pair, _components[0], _maxTokensIn[0], _components[1], _maxTokensIn[1]);
 
         uint256 lpTotalSupply = pair.totalSupply();
-        require(lpTotalSupply >= 0, "_pool totalSupply must be > 0");
+        require(lpTotalSupply > 0, "_pool totalSupply must be > 0");
 
         (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
         uint256 amount0Min = reserve0.mul(_minLiquidity).div(lpTotalSupply);
