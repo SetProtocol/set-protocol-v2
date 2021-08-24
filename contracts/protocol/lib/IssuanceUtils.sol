@@ -25,7 +25,6 @@ import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
-
 /**
  * @title IssuanceUtils
  * @author Set Protocol
@@ -38,24 +37,66 @@ library IssuanceUtils {
     using PreciseUnitMath for uint256;
 
     /**
-     * Validates the component token transfer to/from SetToken during issuance/redemption. Reverts if Set is undercollateralized post transfer.
+     * Validates component transfer IN to SetToken during issuance/redemption. Reverts if Set is undercollateralized post transfer.
+     * NOTE: Call this function immediately after transfer IN but before calling external hooks (if any).
+     *
+     * @param _setToken             Instance of the SetToken being issued/redeemed
+     * @param _component            Address of component being transferred in/out
+     * @param _componentQuantity    Amount of component transferred into SetToken
+     * @param _isIssue              True if issuing SetToken, false if redeeming
+     * @param _setQuantity          Amount of SetToken being issued/redeemed with/net fees
+     */
+    function validateCollateralizationPostTransferInPreHook(
+        ISetToken _setToken, 
+        address _component, 
+        uint256 _componentQuantity, 
+        bool _isIssue, 
+        uint256 _setQuantity
+    )
+        internal
+        view
+    {
+        uint256 newComponentBalance = IERC20(_component).balanceOf(address(_setToken));
+
+        uint256 defaultPositionUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
+        uint256 currentTotalSupply = _isIssue
+            ? _setToken.totalSupply()                         // Mint happens after this function is called
+            : _setToken.totalSupply().add(_setQuantity);      // Burn happens before this function is called
+
+        require(
+            // Use preciseMulCeil to increase the lower bound and maintain over-collateralization
+            newComponentBalance >= currentTotalSupply.preciseMulCeil(defaultPositionUnit).add(_componentQuantity),
+            "Invalid transfer. Results in undercollateralization"
+        );
+    }
+
+    /**
+     * Validates component transfer OUT of SetToken during issuance/redemption. Reverts if Set is undercollateralized post transfer.
      *
      * @param _setToken         Instance of the SetToken being issued/redeemed
      * @param _component        Address of component being transferred in/out
      * @param _isIssue          True if issuing SetToken, false if redeeming
-     * @param _issueQuantity    Total SetToken issue quantity with fees. Pass 0 if Set is being redeemed.
+     * @param _setQuantity      Amount of SetToken being issued/redeemed with/net fees
      */
-    function validateComponentTransfer(ISetToken _setToken, address _component, bool _isIssue, uint256 _issueQuantity) internal {
-        
-        uint256 newComponentBalance = IERC20(_component).balanceOf(address(_setToken));    
+    function validateCollateralizationPostTransferOut(
+        ISetToken _setToken, 
+        address _component, 
+        bool _isIssue, 
+        uint256 _setQuantity
+    ) 
+        internal 
+        view 
+    {   
+        uint256 newComponentBalance = IERC20(_component).balanceOf(address(_setToken));
 
-        uint256 positionUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();   
+        uint256 defaultPositionUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
         uint256 newTotalSupply = _isIssue
-            ? _setToken.totalSupply().add(_issueQuantity)    // Mint happens after this function is called
-            : _setToken.totalSupply();                  // Burn takes place before this function is called
-        
+            ? _setToken.totalSupply().add(_setQuantity)       // Mint happens after this function is called
+            : _setToken.totalSupply();                        // Burn happens before this function is called
+
         require(
-            newComponentBalance >= newTotalSupply.preciseMul(positionUnit),
+            // Use preciseMulCeil to increase lower bound and maintain over-collateralization
+            newComponentBalance >= newTotalSupply.preciseMulCeil(defaultPositionUnit),
             "Invalid transfer. Results in undercollateralization"
         );
     }
