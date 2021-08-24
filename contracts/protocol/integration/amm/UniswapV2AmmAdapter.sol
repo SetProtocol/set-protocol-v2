@@ -23,6 +23,7 @@ import "../../../interfaces/external/IUniswapV2Pair.sol";
 import "../../../interfaces/external/IUniswapV2Factory.sol";
 import "../../../interfaces/IAmmAdapter.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 struct Position {
@@ -47,6 +48,10 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
     IUniswapV2Router public immutable router;
     IUniswapV2Factory public immutable factory;
 
+    // Fee settings for the AMM
+    uint256 internal immutable feeNumerator;
+    uint256 internal immutable feeDenominator;
+
     // Internal function string for adding liquidity
     string internal constant ADD_LIQUIDITY =
         "addLiquidity(address,address[],uint256[],uint256)";
@@ -65,11 +70,15 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
     /**
      * Set state variables
      *
-     * @param _router       Address of Uniswap V2 Router contract
+     * @param _router          Address of Uniswap V2 Router contract
+     * @param _feeNumerator    Numerator of the fee component (usually 997)
+     * @param _feeDenominator  Denominator of the fee component (usually 1000)
      */
-    constructor(address _router) public {
+    constructor(address _router, uint256 _feeNumerator, uint256 _feeDenominator) public {
         router = IUniswapV2Router(_router);
         factory = IUniswapV2Factory(IUniswapV2Router(_router).factory());
+        feeNumerator = _feeNumerator;
+        feeDenominator = _feeDenominator;
     }
 
     /* ============ Internal Functions =================== */
@@ -122,17 +131,20 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         )
     {
 
+        // Get the reserves of the pair
+        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+
         // Use half of the provided amount in the swap
-        uint256 amountToSwap = amount.div(2);
+        uint256 amountToSwap = this.calculateSwapAmount(amount, token == token0 ? reserve0 : reserve1);
 
         // Approve the router to spend the tokens
         IERC20(token).approve(address(router), amountToSwap);
 
-        // Determine the amount of the other token to get
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+        // Determine how much we should expect of token1
         uint256 amountOut = router.getAmountOut(amountToSwap, token0 == token ? reserve0 : reserve1,
             token0 == token ? reserve1 : reserve0);
 
+        // Perform the swap
         address[] memory path = new address[](2);
         path[0] = token;
         path[1] = token == token0 ? token1 : token0;
@@ -144,11 +156,53 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
             block.timestamp // solhint-disable-line not-rely-on-time
         );
 
-        position = getPosition(pair, path[0], amount.sub(amountToSwap), path[1], amounts[1]);
+        // How much token do we have left?
+        uint256 remaining = amount.sub(amountToSwap);
+
+        position = getPosition(pair, path[0], remaining, path[1], amounts[1]);
 
     }
 
     /* ============ External Getter Functions ============ */
+
+    /**
+     * Returns the amount of tokenA to swap
+     *
+     * @param  amountA                  The amount of tokenA being supplied
+     * @param  reserveA                 The reserve of tokenA in the pool
+     */
+    function calculateSwapAmount(
+        uint256 amountA,
+        uint256 reserveA
+    )
+        external
+        view
+        returns (
+            uint256 swapAmount
+        )
+    {
+        // Solves the following system of equations to find the ideal swapAmount
+        // eq1: amountA = swapAmount + amountALP
+        // eq2: amountBLP = swapAmount * feeNumerator * reserveB / (reserveA * feeDenominator + swapAmount * feeNumerator)
+        // eq3: amountALP = amountBLP * (reserveA + swapAmount) / (reserveB - amountBLP)
+        // Substitution: swapAmount^2 * feeNumerator + swapAmount * reserveA * (feeNumerator + feeDenominator) - amountA * reserveA * feeDenominator = 0
+        // Solution: swapAmount = (-b +/- sqrt(b^2-4ac))/(2a)
+        // a = feeNumerator
+        // b = reserveA * (feeNumerator + feeDenominator)
+        // c = -amountA * reserveA * feeDenominator
+        // Note: a is always positive. b is always positive. The solved
+        // equation has a negative multiplier on c but that is ignored here because the
+        // negative in front of the 4ac in the quadratic solution would cancel it out,
+        // making it an addition. Since b is always positive, we never want to take
+        // the negative square root solution since that would always cause a negative
+        // swapAmount, which doesn't make sense. Therefore, we only use the positive
+        // square root value as the solution.
+        uint256 b = reserveA.mul(feeNumerator.add(feeDenominator));
+        uint256 c = amountA.mul(feeDenominator).mul(reserveA);
+
+        swapAmount = Babylonian.sqrt(b.mul(b).add(feeNumerator.mul(c).mul(4)))
+            .sub(b).div(feeNumerator.mul(2));
+    }
 
     /**
      * Return calldata for the add liquidity call

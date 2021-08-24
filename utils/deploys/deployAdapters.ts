@@ -34,6 +34,7 @@ import {
 } from "../contracts";
 import { convertLibraryNameToLinkId } from "../common";
 import { Address, Bytes } from "./../types";
+import { BigNumber } from "@ethersproject/bignumber";
 
 import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
@@ -88,8 +89,12 @@ export default class DeployAdapters {
     );
   }
 
-  public async deployUniswapV2AmmAdapter(uniswapV2Router: Address): Promise<UniswapV2AmmAdapter> {
-    return await new UniswapV2AmmAdapter__factory(this._deployerSigner).deploy(uniswapV2Router);
+  public async deployUniswapV2AmmAdapter(
+    uniswapV2Router: Address,
+    feeNumerator: BigNumber,
+    feeDenominator: BigNumber
+    ): Promise<UniswapV2AmmAdapter> {
+    return await new UniswapV2AmmAdapter__factory(this._deployerSigner).deploy(uniswapV2Router, feeNumerator, feeDenominator);
   }
 
   public async deployUniswapV2ExchangeAdapter(uniswapV2Router: Address): Promise<UniswapV2ExchangeAdapter> {
