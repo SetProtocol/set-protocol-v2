@@ -582,6 +582,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256[] memory _componentDebtQuantities
     )
         internal
+        virtual
     {
         for (uint256 i = 0; i < _components.length; i++) {
             address component = _components[i];

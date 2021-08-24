@@ -37,7 +37,12 @@ import { IssuanceUtils } from "../lib/IssuanceUtils.sol";
  * level hooks are added to ensure positions are replicated correctly. The manager can define arbitrary issuance logic
  * in the manager hook, as well as specify issue and redeem fees.
  * 
- * NOTE: This module supports issuing/redeeming SetTokens which hold one or more aTokens as components.
+ * NOTE: 
+ * DebtIssuanceModule contract confirmed increase/decrease in balance of component held by the SetToken after every transfer in/out
+ * for each component during issuance/redemption. This contract replaces those strict checks with slightly looser checks which 
+ * ensure that the SetToken remains collateralized after every transfer in/out for each component during issuance/redemption.
+ * This module should be used to issue/redeem SetToken whose one or more components return a balance value with +/-1 wei error.
+ * For example, this module can be used to issue/redeem SetTokens which has one or more aTokens as its components.
  */
 contract DebtIssuanceModuleV2 is DebtIssuanceModule {
     
@@ -53,9 +58,9 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
      * On redemption all external positions are recalled by the external position hook, then those position plus any default position are
      * transferred back to the _to address.
      *
-     * NOTE: Overrides DebtIssuanceModule#_resolveEquityPositions internal function and adds the undercollateralization checks in place of 
-     * the default strict token balances checks. The undercollateralization checks implemented in IssuanceUtils#validateComponentTransfer revert
-     * upon undercollateralization of the SetToken post transfer.
+     * NOTE: Overrides DebtIssuanceModule#_resolveEquityPositions internal function and adds undercollateralization checks in place of the
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
+     * undercollateralization of the SetToken post component transfer.
      */
     function _resolveEquityPositions(
         ISetToken _setToken,
@@ -73,21 +78,71 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
             uint256 componentQuantity = _componentEquityQuantities[i];
             if (componentQuantity > 0) {
                 if (_isIssue) {
+                    // Call SafeERC20#safeTransferFrom instead of ExplicitERC20#transferFrom
                     SafeERC20.safeTransferFrom(
                         IERC20(component),
                         msg.sender,
                         address(_setToken),
                         componentQuantity
                     );
-                    IssuanceUtils.validateComponentTransfer(_setToken, component, _isIssue, _quantity);
+
+                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, componentQuantity, _isIssue, _quantity);
 
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), true, true);
                 } else {
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), false, true);
 
-                    Invoke.invokeTransfer(_setToken, component, _to, componentQuantity);
+                    // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
+                    _setToken.invokeTransfer(component, _to, componentQuantity);
 
-                    IssuanceUtils.validateComponentTransfer(_setToken, component, _isIssue, 0);
+                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _isIssue, _quantity);
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolve debt positions associated with SetToken. On issuance, debt positions are entered into by calling the external position hook. The
+     * resulting debt is then returned to the calling address. On redemption, the module transfers in the required debt amount from the caller
+     * and uses those funds to repay the debt on behalf of the SetToken.
+     *
+     * NOTE: Overrides DebtIssuanceModule#_resolveDebtPositions internal function and adds undercollateralization checks in place of the
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
+     * undercollateralization of the SetToken post component transfer.
+     */
+    function _resolveDebtPositions(
+        ISetToken _setToken,
+        uint256 _quantity,
+        bool _isIssue,
+        address[] memory _components,
+        uint256[] memory _componentDebtQuantities
+    )
+        internal
+        override
+    {
+        for (uint256 i = 0; i < _components.length; i++) {
+            address component = _components[i];
+            uint256 componentQuantity = _componentDebtQuantities[i];
+            if (componentQuantity > 0) {
+                if (_isIssue) {
+                    _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), true, false);
+                    
+                    // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
+                    _setToken.invokeTransfer(component, msg.sender, componentQuantity);
+
+                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _isIssue, _quantity);
+                } else {
+                    // Call SafeERC20#safeTransferFrom instead of ExplicitERC20#transferFrom
+                    SafeERC20.safeTransferFrom(
+                        IERC20(component),
+                        msg.sender,
+                        address(_setToken),
+                        componentQuantity
+                    );
+
+                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, componentQuantity, _isIssue, _quantity);
+
+                    _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), false, false);
                 }
             }
         }
