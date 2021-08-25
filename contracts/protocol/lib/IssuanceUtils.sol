@@ -44,7 +44,7 @@ library IssuanceUtils {
      * @param _component            Address of component being transferred in/out
      * @param _componentQuantity    Amount of component transferred into SetToken
      * @param _isIssue              True if issuing SetToken, false if redeeming
-     * @param _setQuantity          Amount of SetToken being issued/redeemed with/net fees
+     * @param _setQuantity          Amount of SetToken burnt in this transaction. If being issued, pass 0.
      */
     function validateCollateralizationPostTransferInPreHook(
         ISetToken _setToken, 
@@ -76,7 +76,7 @@ library IssuanceUtils {
      * @param _setToken         Instance of the SetToken being issued/redeemed
      * @param _component        Address of component being transferred in/out
      * @param _isIssue          True if issuing SetToken, false if redeeming
-     * @param _setQuantity      Amount of SetToken being issued/redeemed with/net fees
+     * @param _setQuantity      Amount of SetToken being issued in this transaction. If being redeemed, pass 0.
      */
     function validateCollateralizationPostTransferOut(
         ISetToken _setToken, 

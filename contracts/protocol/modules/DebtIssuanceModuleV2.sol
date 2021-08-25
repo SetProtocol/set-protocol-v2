@@ -86,7 +86,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                         componentQuantity
                     );
 
-                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, componentQuantity, _isIssue, _quantity);
+                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, componentQuantity, _isIssue, 0);
 
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), true, true);
                 } else {
@@ -95,7 +95,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                     // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
                     _setToken.invokeTransfer(component, _to, componentQuantity);
 
-                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _isIssue, _quantity);
+                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _isIssue, 0);
                 }
             }
         }
