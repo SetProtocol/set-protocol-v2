@@ -286,6 +286,9 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
         _handleAirdropPosition(_setToken, _token);
     }
 
+    /**
+     * Loop through array of tokens and handle airdropped positions.
+     */
     function _batchAbsorb(ISetToken _setToken, address[] memory _tokens) internal {
         for (uint256 i = 0; i < _tokens.length; i++) {
             _absorb(_setToken, IERC20(_tokens[i]));
@@ -336,12 +339,12 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
         if (airdropFee > 0) {
             totalFees = _amountAirdropped.preciseMul(airdropFee);
             
-            protocolTake = ModuleBase.getModuleFee(AIRDROP_MODULE_PROTOCOL_FEE_INDEX, totalFees);
+            protocolTake = getModuleFee(AIRDROP_MODULE_PROTOCOL_FEE_INDEX, totalFees);
             netManagerTake = totalFees.sub(protocolTake);
 
             _setToken.strictInvokeTransfer(address(_component), airdropSettings[_setToken].feeRecipient, netManagerTake);
             
-            ModuleBase.payProtocolFeeFromSetToken(_setToken, address(_component), protocolTake);
+            payProtocolFeeFromSetToken(_setToken, address(_component), protocolTake);
 
             return (netManagerTake, protocolTake, totalFees);
         } else {
@@ -356,8 +359,11 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
         ISetToken _setToken,
         uint256 _totalComponentBalance,
         uint256 _totalFeesPaid
-
-    ) internal view returns(uint256) {
+    )
+        internal
+        view
+        returns(uint256)
+    {
         uint256 totalSupply = _setToken.totalSupply();
         return totalSupply.getDefaultPositionUnit(_totalComponentBalance.sub(_totalFeesPaid));
     }
