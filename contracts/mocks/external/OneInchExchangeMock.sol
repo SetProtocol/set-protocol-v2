@@ -50,6 +50,14 @@ contract OneInchExchangeMock {
         setTokenAddress = _setTokenAddress;
     }
 
+    function updateSendAmount(uint256 _newSendAmount) external {
+        mockSendAmount = _newSendAmount;
+    }
+
+    function updateReceiveAmount(uint256 _newReceiveAmount) external {
+        mockReceiveAmount = _newReceiveAmount;
+    }
+
     // Conform to 1Inch Swap interface
     function swap(
         address _fromToken,

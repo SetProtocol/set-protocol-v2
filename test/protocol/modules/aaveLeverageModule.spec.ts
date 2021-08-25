@@ -1315,6 +1315,89 @@ describe("AaveLeverageModule", () => {
         });
       });
 
+      describe("when used to delever to zero", async () => {
+
+        beforeEach(async () => {
+          subjectMinRepayQuantity = ether(1001);
+          await oneInchExchangeMockFromWeth.updateReceiveAmount(subjectMinRepayQuantity);
+
+          subjectTradeData = oneInchExchangeMockFromWeth.interface.encodeFunctionData("swap", [
+            setup.weth.address, // Send token
+            setup.dai.address, // Receive token
+            subjectRedeemQuantity, // Send quantity
+            subjectMinRepayQuantity, // Min receive quantity
+            ZERO,
+            ADDRESS_ZERO,
+            [ADDRESS_ZERO],
+            EMPTY_BYTES,
+            [ZERO],
+            [ZERO],
+          ]);
+        });
+
+        it("should transfer the correct components to the exchange", async () => {
+          const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+
+          await subject();
+          const totalSourceQuantity = subjectRedeemQuantity;
+          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+          const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+        });
+
+        it("should update the collateral position on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+
+          const newUnits = subjectRedeemQuantity;
+          const expectedFirstPositionUnit = initialPositions[0].unit.sub(newUnits);
+
+          expect(initialPositions.length).to.eq(2);
+          expect(currentPositions.length).to.eq(2);
+          expect(newFirstPosition.component).to.eq(aWETH.address);
+          expect(newFirstPosition.positionState).to.eq(0); // Default
+          expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        it("should update the borrow position on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          const currentPositions = await setToken.getPositions();
+          const newSecondPosition = (await setToken.getPositions())[1];
+
+          const expectedSecondPositionUnit = await setup.dai.balanceOf(setToken.address);
+
+          expect(initialPositions.length).to.eq(2);
+          expect(currentPositions.length).to.eq(2);
+          expect(newSecondPosition.component).to.eq(setup.dai.address);
+          expect(newSecondPosition.positionState).to.eq(0); // Default since we traded for more Dai than outstannding debt
+          expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        it("should emit the correct LeverageDecreased event", async () => {
+          const totalCollateralQuantity = subjectRedeemQuantity;
+          const totalRepayQuantity = subjectMinRepayQuantity;
+
+          await expect(subject()).to.emit(aaveLeverageModule, "LeverageDecreased").withArgs(
+            setToken.address,
+            subjectCollateralAsset,
+            subjectRepayAsset,
+            oneInchExchangeAdapterFromWeth.address,
+            totalCollateralQuantity,
+            totalRepayQuantity,
+            ZERO
+          );
+        });
+      });
+
       describe("when the exchange is not valid", async () => {
         beforeEach(async () => {
           subjectTradeAdapterName = "UNISWAP";

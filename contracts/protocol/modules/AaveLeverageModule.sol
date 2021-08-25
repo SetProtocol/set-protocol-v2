@@ -347,7 +347,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         _repayBorrow(deleverInfo.setToken, _repayAsset, repayQuantity);
 
-        _updateLeverPositions(deleverInfo, _repayAsset);
+        _updateDeleverPositions(deleverInfo, _repayAsset);
 
         emit LeverageDecreased(
             _setToken,
@@ -412,14 +412,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         _repayBorrow(deleverInfo.setToken, _repayAsset, notionalRepayQuantity);
 
-        // Update default position first to save gas on editing borrow position
-        _setToken.calculateAndEditDefaultPosition(
-            address(_repayAsset),
-            deleverInfo.setTotalSupply,
-            deleverInfo.preTradeReceiveTokenBalance
-        );
-
-        _updateLeverPositions(deleverInfo, _repayAsset);
+        _updateDeleverPositions(deleverInfo, _repayAsset);
 
         emit LeverageDecreased(
             _setToken,
@@ -824,27 +817,42 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     /**
      * @dev Updates the collateral (aToken held) and borrow position (variableDebtToken held) of the SetToken
      */
-    function _updateLeverPositions(ActionInfo memory actionInfo, IERC20 _borrowAsset) internal {
-        IAToken aToken = underlyingToReserveTokens[actionInfo.collateralAsset].aToken;
+    function _updateLeverPositions(ActionInfo memory _actionInfo, IERC20 _borrowAsset) internal {
+        IAToken aToken = underlyingToReserveTokens[_actionInfo.collateralAsset].aToken;
         _updateCollateralPosition(
-            actionInfo.setToken,
+            _actionInfo.setToken,
             aToken,
             _getCollateralPosition(
-                actionInfo.setToken,
+                _actionInfo.setToken,
                 aToken,
-                actionInfo.setTotalSupply
+                _actionInfo.setTotalSupply
             )
         );
 
         _updateBorrowPosition(
-            actionInfo.setToken,
+            _actionInfo.setToken,
             _borrowAsset,
             _getBorrowPosition(
-                actionInfo.setToken,
+                _actionInfo.setToken,
                 _borrowAsset,
-                actionInfo.setTotalSupply
+                _actionInfo.setTotalSupply
             )
         );
+    }
+
+    /**
+     * @dev Updates positions as per _updateLeverPositions and updates Default position for borrow asset in case Set is
+     * delevered all the way to zero any remaining borrow asset after the debt is paid can be added as a position.
+     */
+    function _updateDeleverPositions(ActionInfo memory _actionInfo, IERC20 _repayAsset) internal {
+        // Update default position first to save gas on editing borrow position
+        _actionInfo.setToken.calculateAndEditDefaultPosition(
+            address(_repayAsset),
+            _actionInfo.setTotalSupply,
+            _actionInfo.preTradeReceiveTokenBalance
+        );
+
+        _updateLeverPositions(_actionInfo, _repayAsset);
     }
      
     /**
