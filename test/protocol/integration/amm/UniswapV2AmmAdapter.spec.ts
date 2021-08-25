@@ -9,7 +9,7 @@ import {
   ADDRESS_ZERO,
   ZERO,
 } from "@utils/constants";
-import { SetToken, AmmModule, UniswapV2AmmAdapter } from "@utils/contracts";
+import { SetToken, AmmModule, UniswapV2AmmAdapter, UniswapV2Pair } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether
@@ -26,6 +26,12 @@ import {
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
+
+async function getReserves(pair: UniswapV2Pair, token: string): Promise<[BigNumber, BigNumber]> {
+  const token0 = await pair.token0();
+  const [reserve0, reserve1, ] = await pair.getReserves();
+  return token0 == token ? [reserve0, reserve1] : [reserve1, reserve0];
+}
 
 describe("UniswapV2AmmAdapter", () => {
   let owner: Account;
@@ -421,35 +427,19 @@ describe("UniswapV2AmmAdapter", () => {
       subjectAmmPool = uniswapSetup.wethDaiPool.address;
       subjectComponent = setup.weth.address;
       subjectMaxTokenIn = ether(1);
-      const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+      const [reserveA, reserveB] = await getReserves(uniswapSetup.wethDaiPool, subjectComponent);
       const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-      const token0 = await uniswapSetup.wethDaiPool.token0();
-      if ( token0 == setup.weth.address ) {
-        const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxTokenIn, reserve0);
-        const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve0, reserve1);
-        const remaining = subjectMaxTokenIn.sub(amountToSwap);
-        const quote0 = await uniswapSetup.router.quote(remaining, reserve0.add(amountToSwap), reserve1.sub(amountOut) );
-        const quote1 = await uniswapSetup.router.quote(amountOut, reserve1.sub(amountOut), reserve0.add(amountToSwap) );
-        const amount0 = quote0 <= amountOut ? remaining : quote1;
-        const amount1 = quote0 <= amountOut ? quote0 : amountOut;
-        tokensAdded = amountToSwap.add(amount0);
-        const liquidity0 = amount0.mul(totalSupply).div(reserve0.add(amountToSwap));
-        const liquidity1 = amount1.mul(totalSupply).div(reserve1.sub(amountOut));
-        subjectMinLiquidity = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
-      }
-      else {
-        const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxTokenIn, reserve1);
-        const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve1, reserve0);
-        const remaining = subjectMaxTokenIn.sub(amountToSwap);
-        const quote0 = await uniswapSetup.router.quote(amountOut, reserve0.sub(amountOut), reserve1.add(amountToSwap));
-        const quote1 = await uniswapSetup.router.quote(remaining, reserve1.add(amountToSwap), reserve0.sub(amountOut) );
-        const amount0 = quote0 <= remaining ? amountOut : quote1;
-        const amount1 = quote0 <= remaining ? quote0 : remaining;
-        tokensAdded = amountToSwap.add(amount1);
-        const liquidity0 = amount0.mul(totalSupply).div(reserve0.sub(amountOut));
-        const liquidity1 = amount1.mul(totalSupply).div(reserve1.add(amountToSwap));
-        subjectMinLiquidity = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
-      }
+      const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxTokenIn, reserveA);
+      const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserveA, reserveB);
+      const remaining = subjectMaxTokenIn.sub(amountToSwap);
+      const quote0 = await uniswapSetup.router.quote(remaining, reserveA.add(amountToSwap), reserveB.sub(amountOut) );
+      const quote1 = await uniswapSetup.router.quote(amountOut, reserveB.sub(amountOut), reserveA.add(amountToSwap) );
+      const amount0 = quote0 <= amountOut ? remaining : quote1;
+      const amount1 = quote0 <= amountOut ? quote0 : amountOut;
+      tokensAdded = amountToSwap.add(amount0);
+      const liquidity0 = amount0.mul(totalSupply).div(reserveA.add(amountToSwap));
+      const liquidity1 = amount1.mul(totalSupply).div(reserveB.sub(amountOut));
+      subjectMinLiquidity = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
       await setup.weth.connect(owner.wallet)
         .approve(uniswapV2AmmAdapter.address, MAX_UINT_256);
     });
@@ -464,20 +454,13 @@ describe("UniswapV2AmmAdapter", () => {
 
     it("should add the correct liquidity with weth", async () => {
         const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-        const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+        const [reserveA, reserveB, ] = await getReserves(uniswapSetup.wethDaiPool, subjectComponent);
         await subject();
         const updatedTotalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-        const [updatedReserve0, updatedReserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+        const [updatedReserveA, updatedReserveB, ] = await getReserves(uniswapSetup.wethDaiPool, subjectComponent);
         expect(updatedTotalSupply).to.eq(totalSupply.add(subjectMinLiquidity));
-        const token0 = await uniswapSetup.wethDaiPool.token0();
-        if ( token0 == setup.weth.address ) {
-          expect(updatedReserve0).to.eq(reserve0.add(tokensAdded));
-          expect(updatedReserve1).to.eq(reserve1);
-        }
-        else {
-          expect(updatedReserve0).to.eq(reserve0);
-          expect(updatedReserve1).to.eq(reserve1.add(tokensAdded));
-        }
+        expect(updatedReserveA).to.eq(reserveA.add(tokensAdded));
+        expect(updatedReserveB).to.eq(reserveB);
         const wethBalance = await setup.weth.balanceOf(uniswapV2AmmAdapter.address);
         const daiBalance = await setup.dai.balanceOf(uniswapV2AmmAdapter.address);
         const lpBalance = await uniswapSetup.wethDaiPool.balanceOf(uniswapV2AmmAdapter.address);
@@ -489,55 +472,32 @@ describe("UniswapV2AmmAdapter", () => {
     describe("when providing dai", async () => {
       beforeEach(async () => {
         subjectComponent = setup.dai.address;
-        const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+        const [reserveA, reserveB] = await getReserves(uniswapSetup.wethDaiPool, subjectComponent);
         const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-        const token0 = await uniswapSetup.wethDaiPool.token0();
-        if ( token0 == setup.dai.address ) {
-          const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxTokenIn, reserve0);
-          const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve0, reserve1);
-          const remaining = subjectMaxTokenIn.sub(amountToSwap);
-          const quote0 = await uniswapSetup.router.quote(remaining, reserve0.add(amountToSwap), reserve1.sub(amountOut) );
-          const quote1 = await uniswapSetup.router.quote(amountOut, reserve1.sub(amountOut), reserve0.add(amountToSwap) );
-          const amount0 = quote0 <= amountOut ? remaining : quote1;
-          const amount1 = quote0 <= amountOut ? quote0 : amountOut;
-          tokensAdded = amountToSwap.add(amount0);
-          const liquidity0 = amount0.mul(totalSupply).div(reserve0.add(amountToSwap));
-          const liquidity1 = amount1.mul(totalSupply).div(reserve1.sub(amountOut));
-          subjectMinLiquidity = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
-        }
-        else {
-          const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxTokenIn, reserve1);
-          const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve1, reserve0);
-          const remaining = subjectMaxTokenIn.sub(amountToSwap);
-          const quote0 = await uniswapSetup.router.quote(amountOut, reserve0.sub(amountOut), reserve1.add(amountToSwap));
-          const quote1 = await uniswapSetup.router.quote(remaining, reserve1.add(amountToSwap), reserve0.sub(amountOut) );
-          const amount0 = quote0 <= remaining ? amountOut : quote1;
-          const amount1 = quote0 <= remaining ? quote0 : remaining;
-          tokensAdded = amountToSwap.add(amount1);
-          const liquidity0 = amount0.mul(totalSupply).div(reserve0.sub(amountOut));
-          const liquidity1 = amount1.mul(totalSupply).div(reserve1.add(amountToSwap));
-          subjectMinLiquidity = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
-        }
+        const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxTokenIn, reserveA);
+        const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserveA, reserveB);
+        const remaining = subjectMaxTokenIn.sub(amountToSwap);
+        const quote0 = await uniswapSetup.router.quote(remaining, reserveA.add(amountToSwap), reserveB.sub(amountOut) );
+        const quote1 = await uniswapSetup.router.quote(amountOut, reserveB.sub(amountOut), reserveA.add(amountToSwap) );
+        const amount0 = quote0 <= amountOut ? remaining : quote1;
+        const amount1 = quote0 <= amountOut ? quote0 : amountOut;
+        tokensAdded = amountToSwap.add(amount0);
+        const liquidity0 = amount0.mul(totalSupply).div(reserveA.add(amountToSwap));
+        const liquidity1 = amount1.mul(totalSupply).div(reserveB.sub(amountOut));
+        subjectMinLiquidity = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
         await setup.dai.connect(owner.wallet)
           .approve(uniswapV2AmmAdapter.address, MAX_UINT_256);
       });
 
       it("should add the correct liquidity", async () => {
         const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-        const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+        const [reserveA, reserveB, ] = await getReserves(uniswapSetup.wethDaiPool, subjectComponent);
         await subject();
         const updatedTotalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-        const [updatedReserve0, updatedReserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+        const [updatedReserveA, updatedReserveB, ] = await getReserves(uniswapSetup.wethDaiPool, subjectComponent);
         expect(updatedTotalSupply).to.eq(totalSupply.add(subjectMinLiquidity));
-        const token0 = await uniswapSetup.wethDaiPool.token0();
-        if ( token0 == setup.dai.address ) {
-          expect(updatedReserve0).to.eq(reserve0.add(tokensAdded));
-          expect(updatedReserve1).to.eq(reserve1);
-        }
-        else {
-          expect(updatedReserve0).to.eq(reserve0);
-          expect(updatedReserve1).to.eq(reserve1.add(tokensAdded));
-        }
+        expect(updatedReserveA).to.eq(reserveA.add(tokensAdded));
+        expect(updatedReserveB).to.eq(reserveB);
         const wethBalance = await setup.weth.balanceOf(uniswapV2AmmAdapter.address);
         const daiBalance = await setup.dai.balanceOf(uniswapV2AmmAdapter.address);
         const lpBalance = await uniswapSetup.wethDaiPool.balanceOf(uniswapV2AmmAdapter.address);
@@ -545,6 +505,7 @@ describe("UniswapV2AmmAdapter", () => {
         expect(daiBalance).to.eq(ZERO);
         expect(lpBalance).to.eq(ZERO);
       });
+
     });
 
     describe("when the pool address is invalid", async () => {
@@ -1168,35 +1129,19 @@ describe("UniswapV2AmmAdapter", () => {
           subjectComponentToInput = setup.weth.address;
           subjectMaxComponentQuantity = ether(1);
           subjectCaller = owner;
-          const [reserve0, reserve1, ] = await uniswapSetup.wethDaiPool.getReserves();
+          const [reserveA, reserveB] = await getReserves(uniswapSetup.wethDaiPool, subjectComponentToInput);
           const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-          const token0 = await uniswapSetup.wethDaiPool.token0();
-          if ( token0 == setup.weth.address ) {
-            const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxComponentQuantity, reserve0);
-            const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve0, reserve1);
-            const remaining = subjectMaxComponentQuantity.sub(amountToSwap);
-            const quote0 = await uniswapSetup.router.quote(remaining, reserve0.add(amountToSwap), reserve1.sub(amountOut) );
-            const quote1 = await uniswapSetup.router.quote(amountOut, reserve1.sub(amountOut), reserve0.add(amountToSwap) );
-            const amount0 = quote0 <= amountOut ? remaining : quote1;
-            const amount1 = quote0 <= amountOut ? quote0 : amountOut;
-            tokensAdded = amountToSwap.add(amount0);
-            const liquidity0 = amount0.mul(totalSupply).div(reserve0.add(amountToSwap));
-            const liquidity1 = amount1.mul(totalSupply).div(reserve1.sub(amountOut));
-            subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
-          }
-          else {
-            const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxComponentQuantity, reserve1);
-            const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserve1, reserve0);
-            const remaining = subjectMaxComponentQuantity.sub(amountToSwap);
-            const quote0 = await uniswapSetup.router.quote(amountOut, reserve0.sub(amountOut), reserve1.add(amountToSwap));
-            const quote1 = await uniswapSetup.router.quote(remaining, reserve1.add(amountToSwap), reserve0.sub(amountOut) );
-            const amount0 = quote0 <= remaining ? amountOut : quote1;
-            const amount1 = quote0 <= remaining ? quote0 : remaining;
-            tokensAdded = amountToSwap.add(amount1);
-            const liquidity0 = amount0.mul(totalSupply).div(reserve0.sub(amountOut));
-            const liquidity1 = amount1.mul(totalSupply).div(reserve1.add(amountToSwap));
-            subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
-          }
+          const amountToSwap = await uniswapV2AmmAdapter.calculateSwapAmount(subjectMaxComponentQuantity, reserveA);
+          const amountOut = await uniswapSetup.router.getAmountOut(amountToSwap, reserveA, reserveB);
+          const remaining = subjectMaxComponentQuantity.sub(amountToSwap);
+          const quote0 = await uniswapSetup.router.quote(remaining, reserveA.add(amountToSwap), reserveB.sub(amountOut) );
+          const quote1 = await uniswapSetup.router.quote(amountOut, reserveB.sub(amountOut), reserveA.add(amountToSwap) );
+          const amount0 = quote0 <= amountOut ? remaining : quote1;
+          const amount1 = quote0 <= amountOut ? quote0 : amountOut;
+          tokensAdded = amountToSwap.add(amount0);
+          const liquidity0 = amount0.mul(totalSupply).div(reserveA.add(amountToSwap));
+          const liquidity1 = amount1.mul(totalSupply).div(reserveB.sub(amountOut));
+          subjectMinPoolTokensToMint = liquidity0.lt(liquidity1) ? liquidity0 : liquidity1;
         });
 
         async function subject(): Promise<any> {
@@ -1220,7 +1165,7 @@ describe("UniswapV2AmmAdapter", () => {
           await subject();
           const positions = await setToken.getPositions();
           expect(positions.length).to.eq(2);
-          expect(positions[0].component).to.eq(setup.weth.address);
+          expect(positions[0].component).to.eq(subjectComponentToInput);
           expect(positions[0].unit).to.eq(subjectMaxComponentQuantity.sub(tokensAdded));
           expect(positions[1].component).to.eq(subjectAmmPool);
           expect(positions[1].unit).to.eq(subjectMinPoolTokensToMint);

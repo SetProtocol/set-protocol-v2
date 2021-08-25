@@ -22,6 +22,7 @@ import "../../../interfaces/external/IUniswapV2Router.sol";
 import "../../../interfaces/external/IUniswapV2Pair.sol";
 import "../../../interfaces/external/IUniswapV2Factory.sol";
 import "../../../interfaces/IAmmAdapter.sol";
+import "../../../../external/contracts/uniswap/v2/lib/UniswapV2Library.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@uniswap/lib/contracts/libraries/Babylonian.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -112,43 +113,38 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
     /**
      * Performs a swap via the Uniswap V2 Router
      *
-     * @param  pair                     Uniswap V2 Pair
-     * @param  token                    Address of the token to swap
-     * @param  token0                   Address of pair token0
-     * @param  token1                   Address of pair token1
+     * @param  tokenA                   Address of the token to swap
+     * @param  tokenB                   Address of pair token0
      * @param  amount                   Amount of the token to swap
      */
     function performSwap(
-        IUniswapV2Pair pair,
-        address token,
-        address token0,
-        address token1,
+        address tokenA,
+        address tokenB,
         uint256 amount
     )
         internal
         returns (
-            Position memory position
+            uint[] memory amounts
         )
     {
 
         // Get the reserves of the pair
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+        (uint256 reserveA, uint256 reserveB) = UniswapV2Library.getReserves(address(factory), tokenA, tokenB);
 
         // Use half of the provided amount in the swap
-        uint256 amountToSwap = this.calculateSwapAmount(amount, token == token0 ? reserve0 : reserve1);
+        uint256 amountToSwap = this.calculateSwapAmount(amount, reserveA);
 
         // Approve the router to spend the tokens
-        IERC20(token).approve(address(router), amountToSwap);
+        IERC20(tokenA).approve(address(router), amountToSwap);
 
         // Determine how much we should expect of token1
-        uint256 amountOut = router.getAmountOut(amountToSwap, token0 == token ? reserve0 : reserve1,
-            token0 == token ? reserve1 : reserve0);
+        uint256 amountOut = router.getAmountOut(amountToSwap, reserveA, reserveB);
 
         // Perform the swap
         address[] memory path = new address[](2);
-        path[0] = token;
-        path[1] = token == token0 ? token1 : token0;
-        uint[] memory amounts = router.swapExactTokensForTokens(
+        path[0] = tokenA;
+        path[1] = tokenB;
+        amounts = router.swapExactTokensForTokens(
             amountToSwap,
             amountOut,
             path,
@@ -157,9 +153,7 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         );
 
         // How much token do we have left?
-        uint256 remaining = amount.sub(amountToSwap);
-
-        position = getPosition(pair, path[0], remaining, path[1], amounts[1]);
+        amounts[0] = amount.sub(amountToSwap);
 
     }
 
@@ -482,52 +476,58 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         IUniswapV2Pair pair = IUniswapV2Pair(_pool);
         require(factory == IUniswapV2Factory(pair.factory()), "_pool factory doesn't match the router factory");
 
-        address token0 = pair.token0();
-        address token1 = pair.token1();
-        require(token0 == _component || token1 == _component, "_pool doesn't contain the _component");
+        address tokenA = pair.token0();
+        address tokenB = pair.token1();
+        require(tokenA == _component || tokenB == _component, "_pool doesn't contain the _component");
         require(_maxTokenIn > 0, "supplied _maxTokenIn must be greater than 0");
         require(_minLiquidity > 0, "supplied _minLiquidity must be greater than 0");
+
+        // Swap them if needed
+        if( tokenB == _component ) {
+            tokenB = tokenA;
+            tokenA = _component;
+        }
 
         uint256 lpTotalSupply = pair.totalSupply();
         require(lpTotalSupply > 0, "_pool totalSupply must be > 0");
 
         // Bring the tokens to this contract so we can use the Uniswap Router
-        IERC20(_component).transferFrom(msg.sender, address(this), _maxTokenIn);
+        IERC20(tokenA).transferFrom(msg.sender, address(this), _maxTokenIn);
 
         // Execute the swap
-        Position memory position = performSwap(pair, _component, token0, token1, _maxTokenIn);
+        uint[] memory amounts = performSwap(tokenA, tokenB, _maxTokenIn);
 
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
-        uint256 amount0Min = reserve0.mul(_minLiquidity).div(lpTotalSupply);
-        uint256 amount1Min = reserve1.mul(_minLiquidity).div(lpTotalSupply);
+        (uint256 reserveA, uint256 reserveB) = UniswapV2Library.getReserves(address(factory), tokenA, tokenB);
+        uint256 amountAMin = reserveA.mul(_minLiquidity).div(lpTotalSupply);
+        uint256 amountBMin = reserveB.mul(_minLiquidity).div(lpTotalSupply);
 
-        require(amount0Min <= position.amount0 && amount1Min <= position.amount1,
+        require(amountAMin <= amounts[0] && amountBMin <= amounts[1],
             "_minLiquidity is too high for amount maximum");
 
         // Approve the router to spend the tokens
-        position.token0.approve(address(router), position.amount0);
-        position.token1.approve(address(router), position.amount1);
+        IERC20(tokenA).approve(address(router), amounts[0]);
+        IERC20(tokenB).approve(address(router), amounts[1]);
 
         // Add the liquidity
         (amountA, amountB, liquidity) = router.addLiquidity(
-            address(position.token0),
-            address(position.token1),
-            position.amount0,
-            position.amount1,
-            amount0Min,
-            amount1Min,
+            address(tokenA),
+            address(tokenB),
+            amounts[0],
+            amounts[1],
+            amountAMin,
+            amountBMin,
             msg.sender,
             block.timestamp // solhint-disable-line not-rely-on-time
         );
 
         // If there is token0 left, send it back
-        if( amountA < position.amount0 ) {
-            position.token0.transfer(msg.sender, position.amount0.sub(amountA) );
+        if( amountA < amounts[0] ) {
+            IERC20(tokenA).transfer(msg.sender, amounts[0].sub(amountA) );
         }
 
         // If there is token1 left, send it back
-        if( amountB < position.amount1 ) {
-            position.token1.transfer(msg.sender, position.amount1.sub(amountB) );
+        if( amountB < amounts[1] ) {
+            IERC20(tokenB).transfer(msg.sender, amounts[1].sub(amountB) );
         }
 
     }
@@ -616,30 +616,34 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         IUniswapV2Pair pair = IUniswapV2Pair(_pool);
         require(factory == IUniswapV2Factory(pair.factory()), "_pool factory doesn't match the router factory");
 
-        address token0 = pair.token0();
-        address token1 = pair.token1();
-        require(token0 == _component || token1 == _component, "_pool doesn't contain the _component");
+        address tokenA = pair.token0();
+        address tokenB = pair.token1();
+        require(tokenA == _component || tokenB == _component, "_pool doesn't contain the _component");
         require(_minTokenOut > 0, "requested token must be greater than 0");
         require(_liquidity > 0, "_liquidity must be greater than 0");
 
         require(_liquidity <= pair.balanceOf(msg.sender),
             "_liquidity must be <= to current balance");
 
+        // Swap them if needed
+        if( tokenB == _component ) {
+            tokenB = tokenA;
+            tokenA = _component;
+        }
+
         // Determine if enough of the token will be received
-        bool isToken0 = token0 == _component ? true : false;
         uint256 totalSupply = pair.totalSupply();
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+        (uint256 reserveA, uint256 reserveB) = UniswapV2Library.getReserves(address(factory), tokenA, tokenB);
         uint[] memory receivedTokens = new uint[](2);
-        receivedTokens[0] = reserve0.mul(_liquidity).div(totalSupply);
-        receivedTokens[1] = reserve1.mul(_liquidity).div(totalSupply);
+        receivedTokens[0] = reserveA.mul(_liquidity).div(totalSupply);
+        receivedTokens[1] = reserveB.mul(_liquidity).div(totalSupply);
         uint256 amountReceived = router.getAmountOut(
-            isToken0 ? receivedTokens[1] : receivedTokens[0],
-            isToken0 ? reserve1.sub(receivedTokens[1]) : reserve0.sub(receivedTokens[0]),
-            isToken0 ? reserve0.sub(receivedTokens[0]) : reserve1.sub(receivedTokens[1])
+            receivedTokens[1],
+            reserveB.sub(receivedTokens[1]),
+            reserveA.sub(receivedTokens[0])
         );
 
-        require( (isToken0 ? receivedTokens[0].add(amountReceived) :
-            receivedTokens[1].add(amountReceived)) >= _minTokenOut,
+        require( receivedTokens[0].add(amountReceived) >= _minTokenOut,
             "_minTokenOut is too high for amount received");
 
         // Bring the lp token to this contract so we can use the Uniswap Router
@@ -650,8 +654,8 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
 
         // Remove the liquidity
         (receivedTokens[0], receivedTokens[1]) = router.removeLiquidity(
-            token0,
-            token1,
+            tokenA,
+            tokenB,
             _liquidity,
             receivedTokens[0],
             receivedTokens[1],
@@ -660,15 +664,14 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         );
 
         // Approve the router to spend the swap tokens
-        IERC20(isToken0 ? token1 : token0).approve(address(router),
-            isToken0 ? receivedTokens[1] : receivedTokens[0]);
+        IERC20(tokenB).approve(address(router), receivedTokens[1]);
 
         // Swap the other token for _component
         address[] memory path = new address[](2);
-        path[0] = isToken0 ? token1 : token0;
-        path[1] = _component;
+        path[0] = tokenB;
+        path[1] = tokenA;
         amounts = router.swapExactTokensForTokens(
-            isToken0 ? receivedTokens[1] : receivedTokens[0],
+            receivedTokens[1],
             amountReceived,
             path,
             address(this),
@@ -676,8 +679,7 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         );
 
         // Send the tokens back to the caller
-        IERC20(_component).transfer(msg.sender,
-            (isToken0 ? receivedTokens[0] : receivedTokens[1]).add(amounts[1]));
+        IERC20(tokenA).transfer(msg.sender, receivedTokens[0].add(amounts[1]));
 
     }
 }
