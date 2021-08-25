@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -83,10 +83,10 @@ library IssuanceUtils {
         address _component, 
         bool _isIssue, 
         uint256 _setQuantity
-    ) 
+    )
         internal 
         view 
-    {   
+    {
         uint256 newComponentBalance = IERC20(_component).balanceOf(address(_setToken));
 
         uint256 defaultPositionUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
