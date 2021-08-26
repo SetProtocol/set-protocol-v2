@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { SetToken, StandardTokenWithRoundingErrorMock, DebtIssuanceModuleV2 } from "@utils/contracts";
+import { SetToken, DebtModuleMock, StandardTokenWithRoundingErrorMock, DebtIssuanceModuleV2 } from "@utils/contracts";
 import { ADDRESS_ZERO, ONE, ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
@@ -26,6 +26,7 @@ describe("DebtIssuanceModuleV2", async () => {
   let setup: SystemFixture;
 
   let debtIssuanceModule: DebtIssuanceModuleV2;
+  let debtModule: DebtModuleMock;
   let setToken: SetToken;
   let tokenWithRoundingError: StandardTokenWithRoundingErrorMock;
 
@@ -43,13 +44,22 @@ describe("DebtIssuanceModuleV2", async () => {
     debtIssuanceModule = await deployer.modules.deployDebtIssuanceModuleV2(setup.controller.address);
     await setup.controller.addModule(debtIssuanceModule.address);
 
+    debtModule = await deployer.mocks.deployDebtModuleMock(setup.controller.address, debtIssuanceModule.address);
+    await setup.controller.addModule(debtModule.address);
+
     setToken = await setup.createSetToken(
       [tokenWithRoundingError.address],
       [ether(1)],
-      [debtIssuanceModule.address]
+      [debtIssuanceModule.address, debtModule.address]
     );
 
     await debtIssuanceModule.initialize(setToken.address, ZERO, ZERO, ZERO, ADDRESS_ZERO, ADDRESS_ZERO);
+    await debtModule.initialize(setToken.address);
+
+    // Add external debt position to SetToken
+    const debtUnits: BigNumber = ether(100);
+    await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
+    await setup.dai.transfer(debtModule.address, ether(100.5));
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -133,7 +143,14 @@ describe("DebtIssuanceModuleV2", async () => {
 
     beforeEach(async () => {
       await tokenWithRoundingError.connect(owner.wallet).approve(debtIssuanceModule.address, ether(100));
+
+      // Add debt to DebtModule to be transferred back to issuer
+      await setup.dai.transfer(debtModule.address, ether(200.5));
+
       await debtIssuanceModule.issue(setToken.address, ether(2), owner.address);
+
+      // Approve debt to be returned
+      await setup.dai.connect(owner.wallet).approve(debtIssuanceModule.address, ether(100));
 
       subjectSetToken = setToken.address;
       subjectQuantity = ether(1);
