@@ -42,16 +42,14 @@ library IssuanceUtils {
      *
      * @param _setToken             Instance of the SetToken being issued/redeemed
      * @param _component            Address of component being transferred in/out
+     * @param _initialSetSupply     Initial SetToken supply before issuance/redemption
      * @param _componentQuantity    Amount of component transferred into SetToken
-     * @param _isIssue              True if issuing SetToken, false if redeeming
-     * @param _setQuantity          Amount of SetToken burnt in this transaction. If being issued, pass 0.
      */
     function validateCollateralizationPostTransferInPreHook(
         ISetToken _setToken, 
         address _component, 
-        uint256 _componentQuantity, 
-        bool _isIssue, 
-        uint256 _setQuantity
+        uint256 _initialSetSupply,
+        uint256 _componentQuantity
     )
         internal
         view
@@ -59,13 +57,10 @@ library IssuanceUtils {
         uint256 newComponentBalance = IERC20(_component).balanceOf(address(_setToken));
 
         uint256 defaultPositionUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
-        uint256 currentTotalSupply = _isIssue
-            ? _setToken.totalSupply()                         // Mint happens after this function is called
-            : _setToken.totalSupply().add(_setQuantity);      // Burn happens before this function is called
-
+        
         require(
             // Use preciseMulCeil to increase the lower bound and maintain over-collateralization
-            newComponentBalance >= currentTotalSupply.preciseMulCeil(defaultPositionUnit).add(_componentQuantity),
+            newComponentBalance >= _initialSetSupply.preciseMulCeil(defaultPositionUnit).add(_componentQuantity),
             "Invalid transfer. Results in undercollateralization"
         );
     }
@@ -75,14 +70,12 @@ library IssuanceUtils {
      *
      * @param _setToken         Instance of the SetToken being issued/redeemed
      * @param _component        Address of component being transferred in/out
-     * @param _isIssue          True if issuing SetToken, false if redeeming
-     * @param _setQuantity      Amount of SetToken being issued in this transaction. If being redeemed, pass 0.
+     * @param _finalSetSupply   Final SetToken supply after issuance/redemption
      */
     function validateCollateralizationPostTransferOut(
         ISetToken _setToken, 
         address _component, 
-        bool _isIssue, 
-        uint256 _setQuantity
+        uint256 _finalSetSupply
     )
         internal 
         view 
@@ -90,13 +83,10 @@ library IssuanceUtils {
         uint256 newComponentBalance = IERC20(_component).balanceOf(address(_setToken));
 
         uint256 defaultPositionUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256();
-        uint256 newTotalSupply = _isIssue
-            ? _setToken.totalSupply().add(_setQuantity)       // Mint happens after this function is called
-            : _setToken.totalSupply();                        // Burn happens before this function is called
 
         require(
             // Use preciseMulCeil to increase lower bound and maintain over-collateralization
-            newComponentBalance >= newTotalSupply.preciseMulCeil(defaultPositionUnit),
+            newComponentBalance >= _finalSetSupply.preciseMulCeil(defaultPositionUnit),
             "Invalid transfer. Results in undercollateralization"
         );
     }

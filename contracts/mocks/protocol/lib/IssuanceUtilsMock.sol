@@ -27,9 +27,8 @@ contract IssuanceUtilsMock {
     function testValidateCollateralizationPostTransferInPreHook(
         ISetToken _setToken, 
         address _component, 
-        uint256 _componentQuantity, 
-        bool _isIssue, 
-        uint256 _setQuantity
+        uint256 _initialSetSupply,
+        uint256 _componentQuantity
     )
         external
         view
@@ -37,17 +36,15 @@ contract IssuanceUtilsMock {
         IssuanceUtils.validateCollateralizationPostTransferInPreHook(
             _setToken, 
             _component, 
-            _componentQuantity, 
-            _isIssue, 
-            _setQuantity
+            _initialSetSupply,
+            _componentQuantity
         );
     }
 
     function testValidateCollateralizationPostTransferOut(
         ISetToken _setToken, 
-        address _component, 
-        bool _isIssue, 
-        uint256 _setQuantity
+        address _component,
+        uint256 _finalSetSupply
     ) 
         external
         view
@@ -55,8 +52,7 @@ contract IssuanceUtilsMock {
         IssuanceUtils.validateCollateralizationPostTransferOut(
             _setToken, 
             _component, 
-            _isIssue, 
-            _setQuantity
+            _finalSetSupply
         );
     }
 }

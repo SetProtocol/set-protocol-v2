@@ -50,6 +50,137 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
     
     constructor(IController _controller) public DebtIssuanceModule(_controller) {}
 
+    /* ============ External Functions ============ */
+
+    /**
+     * Deposits components to the SetToken, replicates any external module component positions and mints 
+     * the SetToken. If the token has a debt position all collateral will be transferred in first then debt
+     * will be returned to the minting address. If specified, a fee will be charged on issuance.
+     *     
+     * NOTE: Overrides DebtIssuanceModule#issue external function and adds undercollateralization checks in place of the
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
+     * undercollateralization of the SetToken post component transfer.
+     *
+     * @param _setToken         Instance of the SetToken to issue
+     * @param _quantity         Quantity of SetToken to issue
+     * @param _to               Address to mint SetToken to
+     */
+    function issue(
+        ISetToken _setToken,
+        uint256 _quantity,
+        address _to
+    )
+        external
+        override
+        nonReentrant
+        onlyValidAndInitializedSet(_setToken)
+    {
+        require(_quantity > 0, "Issue quantity must be > 0");
+
+        address hookContract = _callManagerPreIssueHooks(_setToken, _quantity, msg.sender, _to);
+
+        _callModulePreIssueHooks(_setToken, _quantity);
+
+        
+        uint256 initialSetSupply = _setToken.totalSupply();
+
+        (
+            uint256 quantityWithFees,
+            uint256 managerFee,
+            uint256 protocolFee
+        ) = calculateTotalFees(_setToken, _quantity, true);
+
+        // Prevent stack too deep
+        {       
+            (
+                address[] memory components,
+                uint256[] memory equityUnits,
+                uint256[] memory debtUnits
+            ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityWithFees, true);
+
+            uint256 finalSetSupply = initialSetSupply.add(quantityWithFees);
+
+            _resolveEquityPositions(_setToken, quantityWithFees, _to, true, components, equityUnits, initialSetSupply, finalSetSupply);
+            _resolveDebtPositions(_setToken, quantityWithFees, true, components, debtUnits, initialSetSupply, finalSetSupply);
+            _resolveFees(_setToken, managerFee, protocolFee);
+        }
+        
+        _setToken.mint(_to, _quantity);
+
+        emit SetTokenIssued(
+            _setToken,
+            msg.sender,
+            _to,
+            hookContract,
+            _quantity,
+            managerFee,
+            protocolFee
+        );
+    }
+
+    /**
+     * Returns components from the SetToken, unwinds any external module component positions and burns 
+     * the SetToken. If the token has a debt position all debt will be paid down first then equity positions
+     * will be returned to the minting address. If specified, a fee will be charged on redeem.
+     *
+     * NOTE: Overrides DebtIssuanceModule#redeem internal function and adds undercollateralization checks in place of the
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
+     * undercollateralization of the SetToken post component transfer.
+     *
+     * @param _setToken         Instance of the SetToken to redeem
+     * @param _quantity         Quantity of SetToken to redeem
+     * @param _to               Address to send collateral to
+     */
+    function redeem(
+        ISetToken _setToken,
+        uint256 _quantity,
+        address _to
+    )
+        external
+        override        
+        nonReentrant
+        onlyValidAndInitializedSet(_setToken)
+    {
+        require(_quantity > 0, "Redeem quantity must be > 0");
+
+        _callModulePreRedeemHooks(_setToken, _quantity);
+
+        uint256 initialSetSupply = _setToken.totalSupply();
+
+        // Place burn after pre-redeem hooks because burning tokens may lead to false accounting of synced positions
+        _setToken.burn(msg.sender, _quantity);
+
+        (
+            uint256 quantityNetFees,
+            uint256 managerFee,
+            uint256 protocolFee
+        ) = calculateTotalFees(_setToken, _quantity, false);
+
+        // Prevent stack too deep
+        {
+            (
+                address[] memory components,
+                uint256[] memory equityUnits,
+                uint256[] memory debtUnits
+            ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityNetFees, false);
+
+            uint256 finalSetSupply = initialSetSupply.sub(quantityNetFees);
+
+            _resolveDebtPositions(_setToken, quantityNetFees, false, components, debtUnits, initialSetSupply, finalSetSupply);
+            _resolveEquityPositions(_setToken, quantityNetFees, _to, false, components, equityUnits, initialSetSupply, finalSetSupply);
+            _resolveFees(_setToken, managerFee, protocolFee);
+        }
+
+        emit SetTokenRedeemed(
+            _setToken,
+            msg.sender,
+            _to,
+            _quantity,
+            managerFee,
+            protocolFee
+        );
+    }
+
     /* ============ Internal Functions ============ */
     
     /**
@@ -57,10 +188,6 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
      * positions) is transferred in. Then any external position hooks are called to transfer the external positions to their necessary place.
      * On redemption all external positions are recalled by the external position hook, then those position plus any default position are
      * transferred back to the _to address.
-     *
-     * NOTE: Overrides DebtIssuanceModule#_resolveEquityPositions internal function and adds undercollateralization checks in place of the
-     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
-     * undercollateralization of the SetToken post component transfer.
      */
     function _resolveEquityPositions(
         ISetToken _setToken,
@@ -68,10 +195,11 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
         address _to,
         bool _isIssue,
         address[] memory _components,
-        uint256[] memory _componentEquityQuantities
+        uint256[] memory _componentEquityQuantities,
+        uint256 _initialSetSupply,
+        uint256 _finalSetSupply
     )
         internal
-        override
     {
         for (uint256 i = 0; i < _components.length; i++) {
             address component = _components[i];
@@ -86,7 +214,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                         componentQuantity
                     );
 
-                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, componentQuantity, _isIssue, 0);
+                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, _initialSetSupply, componentQuantity);
 
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), true, true);
                 } else {
@@ -95,7 +223,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                     // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
                     _setToken.invokeTransfer(component, _to, componentQuantity);
 
-                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _isIssue, 0);
+                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _finalSetSupply);
                 }
             }
         }
@@ -105,20 +233,17 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
      * Resolve debt positions associated with SetToken. On issuance, debt positions are entered into by calling the external position hook. The
      * resulting debt is then returned to the calling address. On redemption, the module transfers in the required debt amount from the caller
      * and uses those funds to repay the debt on behalf of the SetToken.
-     *
-     * NOTE: Overrides DebtIssuanceModule#_resolveDebtPositions internal function and adds undercollateralization checks in place of the
-     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
-     * undercollateralization of the SetToken post component transfer.
      */
     function _resolveDebtPositions(
         ISetToken _setToken,
         uint256 _quantity,
         bool _isIssue,
         address[] memory _components,
-        uint256[] memory _componentDebtQuantities
+        uint256[] memory _componentDebtQuantities,
+        uint256 _initialSetSupply,
+        uint256 _finalSetSupply
     )
         internal
-        override
     {
         for (uint256 i = 0; i < _components.length; i++) {
             address component = _components[i];
@@ -130,7 +255,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                     // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
                     _setToken.invokeTransfer(component, msg.sender, componentQuantity);
 
-                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _isIssue, _quantity);
+                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _finalSetSupply);
                 } else {
                     // Call SafeERC20#safeTransferFrom instead of ExplicitERC20#transferFrom
                     SafeERC20.safeTransferFrom(
@@ -140,7 +265,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                         componentQuantity
                     );
 
-                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, componentQuantity, _isIssue, _quantity);
+                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, _initialSetSupply, componentQuantity);
 
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), false, false);
                 }

@@ -112,6 +112,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         address _to
     )
         external
+        virtual
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
@@ -164,7 +165,8 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256 _quantity,
         address _to
     )
-        external        
+        external
+        virtual        
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
@@ -541,7 +543,6 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256[] memory _componentEquityQuantities
     )
         internal
-        virtual
     {
         for (uint256 i = 0; i < _components.length; i++) {
             address component = _components[i];
@@ -582,7 +583,6 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         uint256[] memory _componentDebtQuantities
     )
         internal
-        virtual
     {
         for (uint256 i = 0; i < _components.length; i++) {
             address component = _components[i];
