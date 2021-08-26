@@ -122,7 +122,6 @@ describe("AaveLeverageModule", () => {
     aaveLeverageModule = await deployer.modules.deployAaveLeverageModule(
       setup.controller.address,
       aaveSetup.lendingPoolAddressesProvider.address,
-      aaveSetup.protocolDataProvider.address,
       "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
       aaveV2Library.address,
     );
@@ -221,19 +220,16 @@ describe("AaveLeverageModule", () => {
   describe("#constructor", async () => {
     let subjectController: Address;
     let subjectLendingPoolAddressesProvider: Address;
-    let subjectProtocolDataProvider: Address;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
       subjectLendingPoolAddressesProvider = aaveSetup.lendingPoolAddressesProvider.address;
-      subjectProtocolDataProvider = aaveSetup.protocolDataProvider.address;
     });
 
     async function subject(): Promise<AaveLeverageModule> {
       return deployer.modules.deployAaveLeverageModule(
         subjectController,
         subjectLendingPoolAddressesProvider,
-        subjectProtocolDataProvider,
         "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
         aaveV2Library.address
       );
@@ -249,11 +245,9 @@ describe("AaveLeverageModule", () => {
     it("should set the correct Aave contracts", async () => {
       const aaveLeverageModule = await subject();
 
-      const lendingPool = await aaveLeverageModule.lendingPool();
       const lendingPoolAddressesProvider = await aaveLeverageModule.lendingPoolAddressesProvider();
       const protocolDataProvider = await aaveLeverageModule.protocolDataProvider();
 
-      expect(lendingPool).to.eq(aaveSetup.lendingPool.address);
       expect(lendingPoolAddressesProvider).to.eq(aaveSetup.lendingPoolAddressesProvider.address);
       expect(protocolDataProvider).to.eq(aaveSetup.protocolDataProvider.address);
     });
@@ -1315,6 +1309,89 @@ describe("AaveLeverageModule", () => {
             totalCollateralQuantity,
             totalRepayQuantity.sub(totalProtocolFee),
             totalProtocolFee
+          );
+        });
+      });
+
+      describe("when used to delever to zero", async () => {
+
+        beforeEach(async () => {
+          subjectMinRepayQuantity = ether(1001);
+          await oneInchExchangeMockFromWeth.updateReceiveAmount(subjectMinRepayQuantity);
+
+          subjectTradeData = oneInchExchangeMockFromWeth.interface.encodeFunctionData("swap", [
+            setup.weth.address, // Send token
+            setup.dai.address, // Receive token
+            subjectRedeemQuantity, // Send quantity
+            subjectMinRepayQuantity, // Min receive quantity
+            ZERO,
+            ADDRESS_ZERO,
+            [ADDRESS_ZERO],
+            EMPTY_BYTES,
+            [ZERO],
+            [ZERO],
+          ]);
+        });
+
+        it("should transfer the correct components to the exchange", async () => {
+          const oldSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+
+          await subject();
+          const totalSourceQuantity = subjectRedeemQuantity;
+          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+          const newSourceTokenBalance = await setup.weth.balanceOf(oneInchExchangeMockFromWeth.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+        });
+
+        it("should update the collateral position on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+
+          const newUnits = subjectRedeemQuantity;
+          const expectedFirstPositionUnit = initialPositions[0].unit.sub(newUnits);
+
+          expect(initialPositions.length).to.eq(2);
+          expect(currentPositions.length).to.eq(2);
+          expect(newFirstPosition.component).to.eq(aWETH.address);
+          expect(newFirstPosition.positionState).to.eq(0); // Default
+          expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        it("should update the borrow position on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          const currentPositions = await setToken.getPositions();
+          const newSecondPosition = (await setToken.getPositions())[1];
+
+          const expectedSecondPositionUnit = await setup.dai.balanceOf(setToken.address);
+
+          expect(initialPositions.length).to.eq(2);
+          expect(currentPositions.length).to.eq(2);
+          expect(newSecondPosition.component).to.eq(setup.dai.address);
+          expect(newSecondPosition.positionState).to.eq(0); // Default since we traded for more Dai than outstannding debt
+          expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        it("should emit the correct LeverageDecreased event", async () => {
+          const totalCollateralQuantity = subjectRedeemQuantity;
+          const totalRepayQuantity = subjectMinRepayQuantity;
+
+          await expect(subject()).to.emit(aaveLeverageModule, "LeverageDecreased").withArgs(
+            setToken.address,
+            subjectCollateralAsset,
+            subjectRepayAsset,
+            oneInchExchangeAdapterFromWeth.address,
+            totalCollateralQuantity,
+            totalRepayQuantity,
+            ZERO
           );
         });
       });
@@ -3052,7 +3129,7 @@ describe("AaveLeverageModule", () => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
-        subjectIsEquity = true;           // Unused by module
+        subjectIsEquity = false;
         subjectCaller = mockModule;
       });
 
@@ -3076,13 +3153,30 @@ describe("AaveLeverageModule", () => {
         expect(currentDaiBalance).to.eq(preciseMul(borrowQuantity, subjectSetQuantity));
       });
 
-      describe("when component has positive unit", async () => {
+      describe("when isEquity is false and component has positive unit (should not happen)", async () => {
         beforeEach(async () => {
           subjectComponent = aWETH.address;
         });
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Component must be negative");
+        });
+      });
+
+      describe("when isEquity is true", async () => {
+        beforeEach(async () => {
+          subjectIsEquity = true;
+        });
+
+        it("should NOT increase borrowed quantity on the SetToken", async () => {
+          const previousDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          await subject();
+
+          const currentDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          expect(previousDaiBalance).to.eq(ZERO);
+          expect(currentDaiBalance).to.eq(ZERO);
         });
       });
 
@@ -3203,7 +3297,7 @@ describe("AaveLeverageModule", () => {
         subjectSetToken = setToken.address;
         subjectSetQuantity = issueQuantity;
         subjectComponent = setup.dai.address;
-        subjectIsEquity = true;           // Unused by module
+        subjectIsEquity = false;
         subjectCaller = mockModule;
       });
 
@@ -3227,13 +3321,30 @@ describe("AaveLeverageModule", () => {
         expect(currentDaiBalance).to.eq(ZERO);
       });
 
-      describe("when component has positive unit", async () => {
+      describe("when _isEquity is false and component has positive unit", async () => {
         beforeEach(async () => {
           subjectComponent = aWETH.address;
         });
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Component must be negative");
+        });
+      });
+
+      describe("when isEquity is true", async () => {
+        beforeEach(async () => {
+          subjectIsEquity = true;
+        });
+
+        it("should NOT decrease borrowed quantity on the SetToken", async () => {
+          const previousDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          await subject();
+
+          const currentDaiBalance = await setup.dai.balanceOf(setToken.address);
+
+          expect(previousDaiBalance).to.eq(repayQuantity);
+          expect(currentDaiBalance).to.eq(repayQuantity);
         });
       });
 

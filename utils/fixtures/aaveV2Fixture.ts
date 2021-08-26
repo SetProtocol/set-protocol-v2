@@ -1,5 +1,5 @@
 import DeployHelper from "../deploys";
-import { Signer } from "ethers";
+import { ethers , Signer } from "ethers";
 import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { Address } from "../types";
 import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
@@ -107,6 +107,7 @@ export class AaveV2Fixture {
     await this.lendingPoolAddressesProvider.setLendingRateOracle(this.lendingRateOracle.address);
     await this.lendingPoolAddressesProvider.setPoolAdmin(await this._ownerSigner.getAddress());
     await this.lendingPoolAddressesProvider.setLendingPoolCollateralManager(this.lendingPoolCollateralManager.address);
+    await this.lendingPoolAddressesProvider.setAddress(ethers.utils.formatBytes32String("0x1"), this.protocolDataProvider.address);
 
     // LendingPoolAddressProvider creates a new proxy contract and sets the passed in address as the implementation.
     // We then fetch the proxy's address and attach it to the contract object, which allows us to use the contract object
