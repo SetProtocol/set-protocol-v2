@@ -55,6 +55,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     struct ActionInfo {
         ISetToken setToken;                      // SetToken instance
+        ILendingPool lendingPool;                // Lending pool instance, we grab this everytime since it's best practice not to store
         IExchangeAdapter exchangeAdapter;        // Exchange adapter instance
         uint256 setTotalSupply;                  // Total supply of SetToken
         uint256 notionalSendQuantity;            // Total notional quantity sent to exchange
@@ -184,10 +185,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     // Note: For an underlying asset to be enabled as collateral/borrow asset on SetToken, it must be added to this mapping first.
     mapping(IERC20 => ReserveTokens) public underlyingToReserveTokens;
 
-    // AaveV2 LendingPool contract exposes all user-oriented actions such as deposit, borrow, withdraw and repay
-    // We use this variable along with AaveV2 library contract to invoke those actions on SetToken
-    ILendingPool public immutable lendingPool;
-    
     // Used to fetch reserves and user data from AaveV2
     IProtocolDataProvider public immutable protocolDataProvider;
     
@@ -226,8 +223,6 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
         IProtocolDataProvider _protocolDataProvider = IProtocolDataProvider(_lendingPoolAddressesProvider.getAddress(bytes32("0x1")));
         protocolDataProvider = _protocolDataProvider;
-
-        lendingPool = ILendingPool(_lendingPoolAddressesProvider.getLendingPool());
         
         IProtocolDataProvider.TokenData[] memory reserveTokens = _protocolDataProvider.getAllReservesTokens();
         for(uint256 i = 0; i < reserveTokens.length; i++) {
@@ -276,7 +271,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             true
         );
 
-        _borrow(leverInfo.setToken, leverInfo.borrowAsset, leverInfo.notionalSendQuantity);
+        _borrow(leverInfo.setToken, leverInfo.lendingPool, leverInfo.borrowAsset, leverInfo.notionalSendQuantity);
 
         uint256 postTradeReceiveQuantity = _executeTrade(leverInfo, _borrowAsset, _collateralAsset, _tradeData);
 
@@ -284,7 +279,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         uint256 postTradeCollateralQuantity = postTradeReceiveQuantity.sub(protocolFee);
 
-        _deposit(leverInfo.setToken, _collateralAsset, postTradeCollateralQuantity);
+        _deposit(leverInfo.setToken, leverInfo.lendingPool, _collateralAsset, postTradeCollateralQuantity);
 
         _updateLeverPositions(leverInfo, _borrowAsset);
 
@@ -337,7 +332,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             false
         );
 
-        _withdraw(deleverInfo.setToken, _collateralAsset, deleverInfo.notionalSendQuantity);
+        _withdraw(deleverInfo.setToken, deleverInfo.lendingPool, _collateralAsset, deleverInfo.notionalSendQuantity);
 
         uint256 postTradeReceiveQuantity = _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
 
@@ -345,7 +340,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         uint256 repayQuantity = postTradeReceiveQuantity.sub(protocolFee);
 
-        _repayBorrow(deleverInfo.setToken, _repayAsset, repayQuantity);
+        _repayBorrow(deleverInfo.setToken, deleverInfo.lendingPool, _repayAsset, repayQuantity);
 
         _updateDeleverPositions(deleverInfo, _repayAsset);
 
@@ -406,11 +401,11 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             setTotalSupply
         );
 
-        _withdraw(deleverInfo.setToken, _collateralAsset, deleverInfo.notionalSendQuantity);
+        _withdraw(deleverInfo.setToken, deleverInfo.lendingPool, _collateralAsset, deleverInfo.notionalSendQuantity);
 
         _executeTrade(deleverInfo, _collateralAsset, _repayAsset, _tradeData);
 
-        _repayBorrow(deleverInfo.setToken, _repayAsset, notionalRepayQuantity);
+        _repayBorrow(deleverInfo.setToken, deleverInfo.lendingPool, _repayAsset, notionalRepayQuantity);
 
         _updateDeleverPositions(deleverInfo, _repayAsset);
 
@@ -690,7 +685,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             require(componentDebt < 0, "Component must be negative");
 
             uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
-            _borrow(_setToken, _component, notionalDebt);
+            _borrowForHook(_setToken, _component, notionalDebt);
         }
     }
 
@@ -710,7 +705,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             require(componentDebt < 0, "Component must be negative");
 
             uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
-            _repayBorrow(_setToken, _component, notionalDebt);
+            _repayBorrowForHook(_setToken, _component, notionalDebt);
         }
     }
     
@@ -733,31 +728,47 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     /**
      * @dev Invoke deposit from SetToken using AaveV2 library. Mints aTokens for SetToken.
      */
-    function _deposit(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
-        _setToken.invokeDeposit(lendingPool, address(_asset), _notionalQuantity);
+    function _deposit(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+        _setToken.invokeApprove(address(_asset), address(_lendingPool), _notionalQuantity);
+        _setToken.invokeDeposit(_lendingPool, address(_asset), _notionalQuantity);
     }
 
     /**
      * @dev Invoke withdraw from SetToken using AaveV2 library. Burns aTokens and returns underlying to SetToken.
      */
-    function _withdraw(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeWithdraw(lendingPool, address(_asset), _notionalQuantity);
+    function _withdraw(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+        _setToken.invokeWithdraw(_lendingPool, address(_asset), _notionalQuantity);
     }
 
     /**
      * @dev Invoke repay from SetToken using AaveV2 library. Burns DebtTokens for SetToken.
      */
-    function _repayBorrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeApprove(address(_asset), address(lendingPool), _notionalQuantity);
-        _setToken.invokeRepay(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
+    function _repayBorrow(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+        _setToken.invokeApprove(address(_asset), address(_lendingPool), _notionalQuantity);
+        _setToken.invokeRepay(_lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
+    }
+
+    /**
+     * @dev Invoke borrow from the SetToken during issuance hook. Since we only need to interact with AAVE once we fetch the
+     * lending pool in this function to optimize vs forcing a fetch twice during lever/delever.
+     */
+    function _repayBorrowForHook(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
+        _repayBorrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getLendingPool()), _asset, _notionalQuantity);
     }
 
     /**
      * @dev Invoke borrow from the SetToken using AaveV2 library. Mints DebtTokens for SetToken.
      */
-    function _borrow(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeBorrow(lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
+    function _borrow(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+        _setToken.invokeBorrow(_lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
+    }
+
+    /**
+     * @dev Invoke borrow from the SetToken during issuance hook. Since we only need to interact with AAVE once we fetch the
+     * lending pool in this function to optimize vs forcing a fetch twice during lever/delever.
+     */
+    function _borrowForHook(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
+        _borrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getLendingPool()), _asset, _notionalQuantity);
     }
     
     /**
@@ -927,6 +938,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     {
         ActionInfo memory actionInfo = ActionInfo ({
             exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
+            lendingPool: ILendingPool(lendingPoolAddressesProvider.getLendingPool()),
             setToken: _setToken,
             collateralAsset: _isLever ? _receiveToken : _sendToken,
             borrowAsset: _isLever ? _sendToken : _receiveToken,
@@ -1049,7 +1061,11 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             usageAsCollateralEnabled != _useAsCollateral
             && underlyingToReserveTokens[_asset].aToken.balanceOf(address(_setToken)) > 0
         ) {
-            _setToken.invokeSetUserUseReserveAsCollateral(lendingPool, address(_asset), _useAsCollateral);
+            _setToken.invokeSetUserUseReserveAsCollateral(
+                ILendingPool(lendingPoolAddressesProvider.getLendingPool()),
+                address(_asset),
+                _useAsCollateral
+            );
         }
     }
 
