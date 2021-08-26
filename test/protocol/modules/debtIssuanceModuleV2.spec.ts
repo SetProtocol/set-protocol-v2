@@ -133,6 +133,16 @@ describe("DebtIssuanceModuleV2", async () => {
         });
       });
     });
+
+    describe("when issue quantity is 0", async () => {
+      beforeEach(async () => {
+        subjectQuantity = ZERO;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Issue quantity must be > 0");
+      });
+    });
   });
 
   describe("#redeem", async () => {
@@ -209,6 +219,16 @@ describe("DebtIssuanceModuleV2", async () => {
         it("should not revert", async () => {
           await expect(subject()).to.not.be.reverted;
         });
+      });
+    });
+
+    describe("when redeem quantity is 0", async () => {
+      beforeEach(async () => {
+        subjectQuantity = ZERO;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Redeem quantity must be > 0");
       });
     });
   });
