@@ -54,6 +54,7 @@ describe("AirdropModule", () => {
     let airdrops: Address[];
     let airdropFee: BigNumber;
     let anyoneAbsorb: boolean;
+    let airdropFeeRecipient: Address;
 
     let subjectSetToken: Address;
     let subjectAirdropSettings: AirdropSettings;
@@ -63,6 +64,7 @@ describe("AirdropModule", () => {
       airdrops = [setup.usdc.address, setup.weth.address];
       airdropFee = ether(.2);
       anyoneAbsorb = true;
+      airdropFeeRecipient = feeRecipient.address;
     });
 
     beforeEach(async () => {
@@ -75,7 +77,7 @@ describe("AirdropModule", () => {
       subjectSetToken = setToken.address;
       subjectAirdropSettings = {
         airdrops,
-        feeRecipient: feeRecipient.address,
+        feeRecipient: airdropFeeRecipient,
         airdropFee,
         anyoneAbsorb,
       } as AirdropSettings;
@@ -98,6 +100,16 @@ describe("AirdropModule", () => {
       expect(airdropSettings.anyoneAbsorb).to.eq(anyoneAbsorb);
     });
 
+    it("should set the correct isAirdrop state", async () => {
+      await subject();
+
+      const wethIsAirdrop = await airdropModule.isAirdrop(subjectSetToken, setup.weth.address);
+      const usdcIsAirdrop = await airdropModule.isAirdrop(subjectSetToken, setup.usdc.address);
+
+      expect(wethIsAirdrop).to.be.true;
+      expect(usdcIsAirdrop).to.be.true;
+    });
+
     describe("when the airdrops array is empty", async () => {
       before(async () => {
         airdrops = [];
@@ -107,8 +119,26 @@ describe("AirdropModule", () => {
         airdrops = [setup.usdc.address, setup.weth.address];
       });
 
+      it("should set the airdrops with an empty array", async () => {
+        await subject();
+
+        const airdrops = await airdropModule.getAirdrops(subjectSetToken);
+
+        expect(airdrops).to.be.empty;
+      });
+    });
+
+    describe("when there are duplicate components in the airdrops array", async () => {
+      before(async () => {
+        airdrops = [setup.weth.address, setup.weth.address];
+      });
+
+      after(async () => {
+        airdrops = [setup.usdc.address, setup.weth.address];
+      });
+
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("At least one token must be passed.");
+        await expect(subject()).to.be.revertedWith("Duplicate airdrop token passed");
       });
     });
 
@@ -123,6 +153,20 @@ describe("AirdropModule", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Fee must be <= 100%.");
+      });
+    });
+
+    describe("when the fee recipient is the ZERO_ADDRESS", async () => {
+      before(async () => {
+        airdropFeeRecipient = ADDRESS_ZERO;
+      });
+
+      after(async () => {
+        airdropFeeRecipient = feeRecipient.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Zero fee address passed");
       });
     });
 
@@ -937,6 +981,16 @@ describe("AirdropModule", () => {
       expect(airdropSettings.airdropFee).to.eq(ZERO);
       expect(airdropSettings.anyoneAbsorb).to.be.false;
     });
+
+    it("should reset the isAirdrop mapping", async () => {
+      await subject();
+
+      const wethIsAirdrop = await airdropModule.isAirdrop(subjectModule, setup.weth.address);
+      const usdcIsAirdrop = await airdropModule.isAirdrop(subjectModule, setup.usdc.address);
+
+      expect(wethIsAirdrop).to.be.false;
+      expect(usdcIsAirdrop).to.be.false;
+    });
   });
 
   describe("CONTEXT: Airdrop add/remove", async () => {
@@ -989,7 +1043,16 @@ describe("AirdropModule", () => {
         await subject();
 
         const airdrops = await airdropModule.getAirdrops(setToken.address);
+        const isAirdrop = await airdropModule.isAirdrop(subjectSetToken, subjectAirdrop);
         expect(airdrops[2]).to.eq(subjectAirdrop);
+        expect(isAirdrop).to.be.true;
+      });
+
+      it("should emit the correct AirdropComponentAdded event", async () => {
+        await expect(subject()).to.emit(airdropModule, "AirdropComponentAdded").withArgs(
+          subjectSetToken,
+          subjectAirdrop
+        );
       });
 
       describe("when airdrop has already been added", async () => {
@@ -1049,7 +1112,16 @@ describe("AirdropModule", () => {
         await subject();
 
         const airdrops = await airdropModule.getAirdrops(setToken.address);
+        const isAirdrop = await airdropModule.isAirdrop(subjectSetToken, subjectAirdrop);
         expect(airdrops).to.not.contain(subjectAirdrop);
+        expect(isAirdrop).to.be.false;
+      });
+
+      it("should emit the correct AirdropComponentRemoved event", async () => {
+        await expect(subject()).to.emit(airdropModule, "AirdropComponentRemoved").withArgs(
+          subjectSetToken,
+          subjectAirdrop
+        );
       });
 
       describe("when airdrop is not in the airdrops array", async () => {
@@ -1170,6 +1242,13 @@ describe("AirdropModule", () => {
       expect(airdropSettings.airdropFee).to.eq(subjectNewFee);
     });
 
+    it("should emit the correct AirdropFeeUpdated event", async () => {
+      await expect(subject()).to.emit(airdropModule, "AirdropFeeUpdated").withArgs(
+        subjectSetToken,
+        subjectNewFee
+      );
+    });
+
     describe("when new fee exceeds 100%", async () => {
       beforeEach(async () => {
         subjectNewFee = ether(1.1);
@@ -1216,6 +1295,7 @@ describe("AirdropModule", () => {
     let isInitialized: boolean;
 
     let subjectSetToken: Address;
+    let subjectAnyoneAbsorb: boolean;
     let subjectCaller: Account;
 
     before(async () => {
@@ -1231,7 +1311,7 @@ describe("AirdropModule", () => {
 
       const airdrops = [setup.usdc.address, setup.weth.address];
       const airdropFee = ether(.2);
-      const anyoneAbsorb = true;
+      const anyoneAbsorb = false;
 
       if (isInitialized) {
         const airdropSettings = {
@@ -1244,19 +1324,27 @@ describe("AirdropModule", () => {
       }
 
       subjectSetToken = setToken.address;
+      subjectAnyoneAbsorb = true;
       subjectCaller = owner;
     });
 
     async function subject(): Promise<any> {
       airdropModule = airdropModule.connect(subjectCaller.wallet);
-      return airdropModule.updateAnyoneAbsorb(subjectSetToken);
+      return airdropModule.updateAnyoneAbsorb(subjectSetToken, subjectAnyoneAbsorb);
     }
 
     it("should flip the anyoneAbsorb indicator", async () => {
       await subject();
 
       const airdropSettings = await airdropModule.airdropSettings(setToken.address);
-      expect(airdropSettings.anyoneAbsorb).to.be.false;
+      expect(airdropSettings.anyoneAbsorb).to.be.true;
+    });
+
+    it("should emit the correct AnyoneAbsorbUpdated event", async () => {
+      await expect(subject()).to.emit(airdropModule, "AnyoneAbsorbUpdated").withArgs(
+        subjectSetToken,
+        subjectAnyoneAbsorb
+      );
     });
 
     describe("when module is not initialized", async () => {
@@ -1338,6 +1426,13 @@ describe("AirdropModule", () => {
 
       const airdropSettings = await airdropModule.airdropSettings(setToken.address);
       expect(airdropSettings.feeRecipient).to.eq(subjectNewFeeRecipient);
+    });
+
+    it("should emit the correct FeeRecipientUpdated event", async () => {
+      await expect(subject()).to.emit(airdropModule, "FeeRecipientUpdated").withArgs(
+        subjectSetToken,
+        subjectNewFeeRecipient
+      );
     });
 
     describe("when passed address is zero", async () => {
