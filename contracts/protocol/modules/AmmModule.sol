@@ -233,7 +233,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         _setToken.invokeApprove(
             _ammPool,
             actionInfo.ammAdapter.getSpenderAddress(_ammPool),
-            _poolTokenPositionUnits
+            actionInfo.liquidityQuantity
         );
 
         _executeRemoveLiquidity(actionInfo);
@@ -291,7 +291,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         _setToken.invokeApprove(
             _ammPool,
             actionInfo.ammAdapter.getSpenderAddress(_ammPool),
-            _poolTokenPositionUnits
+            actionInfo.liquidityQuantity
         );
 
         _executeRemoveLiquiditySingleAsset(actionInfo);
