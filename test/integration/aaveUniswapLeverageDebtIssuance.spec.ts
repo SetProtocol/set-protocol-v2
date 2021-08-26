@@ -37,7 +37,7 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants"
 
 const expect = getWaffleExpect();
 
-describe("AaveUniswapLeverageDebtIssuance", () => {
+describe.skip("AaveUniswapLeverageDebtIssuance", () => {
   let owner: Account;
   let feeRecipient: Account;
   let deployer: DeployHelper;
