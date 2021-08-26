@@ -245,11 +245,9 @@ describe("AaveLeverageModule", () => {
     it("should set the correct Aave contracts", async () => {
       const aaveLeverageModule = await subject();
 
-      const lendingPool = await aaveLeverageModule.lendingPool();
       const lendingPoolAddressesProvider = await aaveLeverageModule.lendingPoolAddressesProvider();
       const protocolDataProvider = await aaveLeverageModule.protocolDataProvider();
 
-      expect(lendingPool).to.eq(aaveSetup.lendingPool.address);
       expect(lendingPoolAddressesProvider).to.eq(aaveSetup.lendingPoolAddressesProvider.address);
       expect(protocolDataProvider).to.eq(aaveSetup.protocolDataProvider.address);
     });
