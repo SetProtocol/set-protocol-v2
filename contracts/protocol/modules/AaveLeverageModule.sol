@@ -682,6 +682,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * @param _component            Address of component
      */
     function componentIssueHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool _isEquity) external override onlyModule(_setToken) {
+        // Check hook not being called for an equity position. If hook is called with equity position and outstanding borrow position
+        // exists the loan would be taken out twice potentially leading to liquidation
         if (!_isEquity) {
             int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
@@ -700,6 +702,8 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * @param _component            Address of component
      */
     function componentRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity, IERC20 _component, bool _isEquity) external override onlyModule(_setToken) {
+        // Check hook not being called for an equity position. If hook is called with equity position and outstanding borrow position
+        // exists the loan would be paid down twice, decollateralizing the Set
         if (!_isEquity) {
             int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
