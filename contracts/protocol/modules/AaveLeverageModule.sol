@@ -845,12 +845,15 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * delevered all the way to zero any remaining borrow asset after the debt is paid can be added as a position.
      */
     function _updateDeleverPositions(ActionInfo memory _actionInfo, IERC20 _repayAsset) internal {
-        // Update default position first to save gas on editing borrow position
-        _actionInfo.setToken.calculateAndEditDefaultPosition(
-            address(_repayAsset),
-            _actionInfo.setTotalSupply,
-            _actionInfo.preTradeReceiveTokenBalance
-        );
+        // if amount of tokens traded for exceeds debt, update default position first to save gas on editing borrow position
+        uint256 repayAssetBalance = _repayAsset.balanceOf(address(_actionInfo.setToken));
+        if (repayAssetBalance != _actionInfo.preTradeReceiveTokenBalance) {
+            _actionInfo.setToken.calculateAndEditDefaultPosition(
+                address(_repayAsset),
+                _actionInfo.setTotalSupply,
+                _actionInfo.preTradeReceiveTokenBalance
+            );
+        }
 
         _updateLeverPositions(_actionInfo, _repayAsset);
     }
