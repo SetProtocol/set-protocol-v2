@@ -71,7 +71,7 @@
     "coveralls": "^3.0.1",
     "dotenv": "^8.2.0",
     "ethereum-waffle": "^3.2.1",
-    "hardhat": "2.2.1",
+    "hardhat": "^2.6.1",
     "hardhat-deploy": "^0.7.0-beta.39",
     "hardhat-typechain": "^0.3.4",
     "husky": "^4.2.5",
