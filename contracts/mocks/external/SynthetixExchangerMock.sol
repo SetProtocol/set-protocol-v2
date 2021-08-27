@@ -58,11 +58,11 @@ contract SynthetixExchangerMock {
     }
 
     function exchange(
-        address from,
+        address /* from */,
         bytes32 sourceCurrencyKey,
         uint256 sourceAmount,
         bytes32 destinationCurrencyKey,
-        address destinationAddress
+        address /* destinationAddress */
     )
         external
         returns (uint256 amountReceived)

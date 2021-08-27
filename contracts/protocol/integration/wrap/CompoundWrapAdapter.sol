@@ -75,7 +75,6 @@ contract CompoundWrapAdapter {
     /**
      * Generates the calldata to unwrap a wrapped asset into its underlying.
      *
-     * @param _underlyingToken      Address of the underlying asset
      * @param _wrappedToken         Address of the component to be unwrapped
      * @param _wrappedTokenUnits    Total quantity of wrapped token units to unwrap
      *
@@ -84,7 +83,7 @@ contract CompoundWrapAdapter {
      * @return bytes                Unwrap calldata
      */
     function getUnwrapCallData(
-        address _underlyingToken,
+        address /* _underlyingToken */,
         address _wrappedToken,
         uint256 _wrappedTokenUnits
     )

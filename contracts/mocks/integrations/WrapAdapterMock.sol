@@ -79,7 +79,7 @@ contract WrapAdapterMock is ERC20 {
 
     function getUnwrapCallData(
         address _underlyingToken,
-        address _wrappedToken,
+        address /* _wrappedToken */,
         uint256 _wrappedTokenUnits
     ) external view returns (address _subject, uint256 _value, bytes memory _calldata) {
         bytes memory callData = abi.encodeWithSignature("withdraw(address,uint256)", _underlyingToken, _wrappedTokenUnits);
