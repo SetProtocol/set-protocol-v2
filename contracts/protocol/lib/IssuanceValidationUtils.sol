@@ -61,7 +61,7 @@ library IssuanceValidationUtils {
         require(
             // Use preciseMulCeil to increase the lower bound and maintain over-collateralization
             newComponentBalance >= _initialSetSupply.preciseMulCeil(defaultPositionUnit).add(_componentQuantity),
-            "Invalid transfer. Results in undercollateralization"
+            "Invalid transfer in. Results in undercollateralization"
         );
     }
 
@@ -87,7 +87,7 @@ library IssuanceValidationUtils {
         require(
             // Use preciseMulCeil to increase lower bound and maintain over-collateralization
             newComponentBalance >= _finalSetSupply.preciseMulCeil(defaultPositionUnit),
-            "Invalid transfer. Results in undercollateralization"
+            "Invalid transfer out. Results in undercollateralization"
         );
     }
 }
