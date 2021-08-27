@@ -203,7 +203,7 @@ describe("UniswapV2AmmAdapter", () => {
       return await uniswapV2AmmAdapter.getRemoveLiquiditySingleAssetCalldata(
         owner.address,
         subjectAmmPool,
-        subjectComponent[0],
+        subjectComponent,
         subjectMinTokenOut,
         subjectLiquidity);
     }
