@@ -447,6 +447,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getProvideLiquidityCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components,
             _actionInfo.totalNotionalComponents,
@@ -460,6 +461,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getProvideLiquiditySingleAssetCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components[0],
             _actionInfo.totalNotionalComponents[0],
@@ -473,6 +475,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getRemoveLiquidityCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components,
             _actionInfo.totalNotionalComponents,
@@ -486,6 +489,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getRemoveLiquiditySingleAssetCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components[0],
             _actionInfo.totalNotionalComponents[0],
