@@ -84,28 +84,28 @@ contract AaveGovernanceAdapter {
     /**
      * Reverts as AAVE currently does not have a delegation mechanism in governance
      */
-    function getDelegateCalldata(address /* _delegatee */) external view returns (address, uint256, bytes memory) {
+    function getDelegateCalldata(address /* _delegatee */) external pure returns (address, uint256, bytes memory) {
         revert("No delegation available in AAVE governance");
     }
 
     /**
      * Reverts as AAVE currently does not have a register mechanism in governance
      */
-    function getRegisterCalldata(address /* _setToken */) external view returns (address, uint256, bytes memory) {
+    function getRegisterCalldata(address /* _setToken */) external pure returns (address, uint256, bytes memory) {
         revert("No register available in AAVE governance");
     }
 
     /**
      * Reverts as AAVE currently does not have a revoke mechanism in governance
      */
-    function getRevokeCalldata() external view returns (address, uint256, bytes memory) {
+    function getRevokeCalldata() external pure returns (address, uint256, bytes memory) {
         revert("No revoke available in AAVE governance");
     }
 
     /**
      * Reverts as creating a proposal is only available to AAVE genesis team
      */
-    function getProposeCalldata(bytes memory /* _proposalData */) external view returns (address, uint256, bytes memory) {
+    function getProposeCalldata(bytes memory /* _proposalData */) external pure returns (address, uint256, bytes memory) {
         revert("Creation of new proposal only available to AAVE genesis team");
     }
 }

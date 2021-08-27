@@ -56,7 +56,7 @@ contract CompoundWrapAdapter {
         uint256 _underlyingUnits
     )
         external
-        view
+        pure
         returns (address, uint256, bytes memory)
     {
         uint256 value;
@@ -88,7 +88,7 @@ contract CompoundWrapAdapter {
         uint256 _wrappedTokenUnits
     )
         external
-        view
+        pure
         returns (address, uint256, bytes memory)
     {
         ( , , bytes memory callData) = ICErc20(_wrappedToken).getRedeemCalldata(_wrappedTokenUnits);
@@ -100,7 +100,7 @@ contract CompoundWrapAdapter {
      * @param _wrappedToken         Address of the wrapped token
      * @return address              Address of the contract to approve tokens to
      */
-     function getSpenderAddress(address /* _underlyingToken */, address _wrappedToken) external view returns(address) {
+     function getSpenderAddress(address /* _underlyingToken */, address _wrappedToken) external pure returns(address) {
          return address(_wrappedToken);
      }
 

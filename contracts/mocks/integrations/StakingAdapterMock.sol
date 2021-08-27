@@ -66,7 +66,7 @@ contract StakingAdapterMock {
         uint256 _notionalAmount
     )
         external
-        view 
+        pure
         returns(address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature("stake(uint256)", _notionalAmount);
@@ -78,7 +78,7 @@ contract StakingAdapterMock {
         uint256 _notionalAmount
     )
         external
-        view 
+        pure
         returns(address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature("unstake(uint256)", _notionalAmount);

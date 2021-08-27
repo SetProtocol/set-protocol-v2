@@ -100,7 +100,7 @@ contract YearnWrapAdapter {
      *
      * @return address        Address of the contract to approve tokens to
      */
-    function getSpenderAddress(address /* _underlyingToken */, address  _wrappedToken) external view returns(address) {
+    function getSpenderAddress(address /* _underlyingToken */, address  _wrappedToken) external pure returns(address) {
         return address(_wrappedToken);
     }
 

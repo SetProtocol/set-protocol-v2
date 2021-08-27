@@ -34,14 +34,14 @@ import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter
 contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
 
     using BytesLib for bytes;
-    
+
     /* ============ Constants ============ */
 
     // Uniswap router function string for swapping exact amount of input tokens for a minimum of output tokens
     string internal constant SWAP_EXACT_INPUT = "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))";
     // Uniswap router function string for swapping max amoutn of input tokens for an exact amount of output tokens
     string internal constant SWAP_EXACT_OUTPUT = "exactOutputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))";
-    
+
     /* ============ State Variables ============ */
 
     // Address of Uniswap V3 SwapRouter contract
@@ -61,16 +61,16 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Return calldata for trading with Uniswap V3 SwapRouter. Trade paths are created from _sourceToken, 
-     * _destinationToken and pool fees (which is encoded in _data). 
+     * Return calldata for trading with Uniswap V3 SwapRouter. Trade paths are created from _sourceToken,
+     * _destinationToken and pool fees (which is encoded in _data).
      *
      * ---------------------------------------------------------------------------------------------------------------
      *   _isSendTokenFixed   |     Parameter             |       Amount                                              |
      * ---------------------------------------------------------------------------------------------------------------
-     *      True             |   _sourceQuantity         |   Fixed amount of _sourceToken to trade                   |        
+     *      True             |   _sourceQuantity         |   Fixed amount of _sourceToken to trade                   |
      *                       |   _destinationQuantity    |   Minimum amount of _destinationToken willing to receive  |
      * ---------------------------------------------------------------------------------------------------------------
-     *      False            |   _sourceQuantity         |   Maximum amount of _sourceToken to trade                 |        
+     *      False            |   _sourceQuantity         |   Maximum amount of _sourceToken to trade                 |
      *                       |   _destinationQuantity    |   Fixed amount of _destinationToken want to receive       |
      * ---------------------------------------------------------------------------------------------------------------
      *
@@ -80,11 +80,11 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      * @param _isSendTokenFixed         Boolean indicating if the send quantity is fixed, used to determine correct trade interface
      * @param _sourceQuantity           Fixed/Max amount of source token to sell
      * @param _destinationQuantity      Min/Fixed amount of destination token to buy
-     * @param _data                     Arbitrary bytes containing fees value, expressed in hundredths of a bip, 
+     * @param _data                     Arbitrary bytes containing fees value, expressed in hundredths of a bip,
      *                                  used to determine the pool to trade among similar asset pools on Uniswap V3.
-     *                                  Note: SetToken manager must set the appropriate pool fees via `setExchangeData` in GeneralIndexModule 
-     *                                  for each component that needs to be traded on UniswapV3. This is different from UniswapV3ExchangeAdapter, 
-     *                                  where `_data` represents UniswapV3 trade path vs just the pool fees percentage. 
+     *                                  Note: SetToken manager must set the appropriate pool fees via `setExchangeData` in GeneralIndexModule
+     *                                  for each component that needs to be traded on UniswapV3. This is different from UniswapV3ExchangeAdapter,
+     *                                  where `_data` represents UniswapV3 trade path vs just the pool fees percentage.
      *
      * @return address                  Target contract address
      * @return uint256                  Call value
@@ -103,36 +103,36 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
         view
         override
         returns (address, uint256, bytes memory)
-    {   
+    {
         uint24 fee = _data.toUint24(0);
-        
+
         bytes memory callData = _isSendTokenFixed
             ? abi.encodeWithSignature(
                 SWAP_EXACT_INPUT,
                 ISwapRouter.ExactInputSingleParams(
-                    _sourceToken, 
-                    _destinationToken, 
-                    fee, 
-                    _destinationAddress, 
-                    block.timestamp, 
-                    _sourceQuantity, 
-                    _destinationQuantity, 
+                    _sourceToken,
+                    _destinationToken,
+                    fee,
+                    _destinationAddress,
+                    block.timestamp,
+                    _sourceQuantity,
+                    _destinationQuantity,
                     0
                 )
             ) : abi.encodeWithSignature(
-                SWAP_EXACT_OUTPUT,                
+                SWAP_EXACT_OUTPUT,
                 ISwapRouter.ExactOutputSingleParams(
-                    _sourceToken, 
-                    _destinationToken, 
-                    fee, 
+                    _sourceToken,
+                    _destinationToken,
+                    fee,
                     _destinationAddress,
                     block.timestamp,
-                    _destinationQuantity, 
+                    _destinationQuantity,
                     _sourceQuantity,
                     0
                 )
             );
-        
+
         return (router, 0, callData);
     }
 
@@ -152,7 +152,7 @@ contract UniswapV3IndexExchangeAdapter is IIndexExchangeAdapter {
      *
      * @return bytes               Encoded fee value
      */
-    function getEncodedFeeData(uint24 fee) external view returns (bytes memory) {
+    function getEncodedFeeData(uint24 fee) external pure returns (bytes memory) {
         return abi.encodePacked(fee);
     }
-} 
+}

@@ -65,6 +65,7 @@ contract SynthetixExchangerMock {
         address /* destinationAddress */
     )
         external
+        view
         returns (uint256 amountReceived)
     {
 
@@ -87,6 +88,7 @@ contract SynthetixExchangerMock {
         bytes32 _destinationCurrencyKey
     )
         public
+        view
         returns (
             uint256 amountReceived,
             uint256 fee,
