@@ -136,16 +136,16 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
      * Return calldata for the add liquidity call for a single asset
      */
     function getProvideLiquiditySingleAssetCalldata(
-        address,
-        address,
-        address,
-        uint256,
-        uint256
+        address /* _setToken */,
+        address /*_pool*/,
+        address /*_component*/,
+        uint256 /*_maxTokenIn*/,
+        uint256 /*_minLiquidity*/
     )
         external
         view
         override
-        returns (address, uint256, bytes memory)
+        returns (address /*target*/, uint256 /*value*/, bytes memory /*data*/)
     {
         revert("Uniswap V2 single asset addition is not supported");
     }
@@ -212,16 +212,16 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
      * Return calldata for the remove liquidity single asset call
      */
     function getRemoveLiquiditySingleAssetCalldata(
-        address,
-        address,
-        address,
-        uint256,
-        uint256
+        address /* _setToken */,
+        address /*_pool*/,
+        address /*_component*/,
+        uint256 /*_minTokenOut*/,
+        uint256 /*_liquidity*/
     )
         external
         view
         override
-        returns (address, uint256, bytes memory)
+        returns (address /*target*/, uint256 /*value*/, bytes memory /*data*/)
     {
         revert("Uniswap V2 single asset removal is not supported");
     }
