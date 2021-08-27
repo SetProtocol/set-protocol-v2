@@ -26,12 +26,12 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
 /**
- * @title IssuanceUtils
+ * @title IssuanceValidationUtils
  * @author Set Protocol
  *
  * A collection of utility functions to help during issuance/redemption of SetToken.
  */
-library IssuanceUtils {
+library IssuanceValidationUtils {
     using SafeMath for uint256;
     using SafeCast for int256;
     using PreciseUnitMath for uint256;

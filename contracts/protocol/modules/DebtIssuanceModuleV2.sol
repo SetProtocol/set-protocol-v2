@@ -26,7 +26,7 @@ import { DebtIssuanceModule } from "./DebtIssuanceModule.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { Invoke } from "../lib/Invoke.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IssuanceUtils } from "../lib/IssuanceUtils.sol";
+import { IssuanceValidationUtils } from "../lib/IssuanceValidationUtils.sol";
 
 /**
  * @title DebtIssuanceModuleV2
@@ -58,8 +58,8 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
      * will be returned to the minting address. If specified, a fee will be charged on issuance.
      *     
      * NOTE: Overrides DebtIssuanceModule#issue external function and adds undercollateralization checks in place of the
-     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
-     * undercollateralization of the SetToken post component transfer.
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceValidationUtils library and they 
+     * revert upon undercollateralization of the SetToken post component transfer.
      *
      * @param _setToken         Instance of the SetToken to issue
      * @param _quantity         Quantity of SetToken to issue
@@ -124,8 +124,8 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
      * will be returned to the minting address. If specified, a fee will be charged on redeem.
      *
      * NOTE: Overrides DebtIssuanceModule#redeem internal function and adds undercollateralization checks in place of the
-     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceUtils library and they revert upon
-     * undercollateralization of the SetToken post component transfer.
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceValidationUtils library 
+     * and they revert upon undercollateralization of the SetToken post component transfer.
      *
      * @param _setToken         Instance of the SetToken to redeem
      * @param _quantity         Quantity of SetToken to redeem
@@ -214,7 +214,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                         componentQuantity
                     );
 
-                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, _initialSetSupply, componentQuantity);
+                    IssuanceValidationUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, _initialSetSupply, componentQuantity);
 
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), true, true);
                 } else {
@@ -223,7 +223,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                     // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
                     _setToken.invokeTransfer(component, _to, componentQuantity);
 
-                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _finalSetSupply);
+                    IssuanceValidationUtils.validateCollateralizationPostTransferOut(_setToken, component, _finalSetSupply);
                 }
             }
         }
@@ -255,7 +255,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                     // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
                     _setToken.invokeTransfer(component, msg.sender, componentQuantity);
 
-                    IssuanceUtils.validateCollateralizationPostTransferOut(_setToken, component, _finalSetSupply);
+                    IssuanceValidationUtils.validateCollateralizationPostTransferOut(_setToken, component, _finalSetSupply);
                 } else {
                     // Call SafeERC20#safeTransferFrom instead of ExplicitERC20#transferFrom
                     SafeERC20.safeTransferFrom(
@@ -265,7 +265,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
                         componentQuantity
                     );
 
-                    IssuanceUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, _initialSetSupply, componentQuantity);
+                    IssuanceValidationUtils.validateCollateralizationPostTransferInPreHook(_setToken, component, _initialSetSupply, componentQuantity);
 
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), false, false);
                 }

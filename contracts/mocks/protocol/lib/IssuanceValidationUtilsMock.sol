@@ -19,9 +19,9 @@
 pragma solidity 0.6.10;
 
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
-import { IssuanceUtils } from "../../../protocol/lib/IssuanceUtils.sol";
+import { IssuanceValidationUtils } from "../../../protocol/lib/IssuanceValidationUtils.sol";
 
-contract IssuanceUtilsMock {
+contract IssuanceValidationUtilsMock {
     /* ============ External Functions ============ */
 
     function testValidateCollateralizationPostTransferInPreHook(
@@ -33,7 +33,7 @@ contract IssuanceUtilsMock {
         external
         view
     {
-        IssuanceUtils.validateCollateralizationPostTransferInPreHook(
+        IssuanceValidationUtils.validateCollateralizationPostTransferInPreHook(
             _setToken, 
             _component, 
             _initialSetSupply,
@@ -49,7 +49,7 @@ contract IssuanceUtilsMock {
         external
         view
     {
-        IssuanceUtils.validateCollateralizationPostTransferOut(
+        IssuanceValidationUtils.validateCollateralizationPostTransferOut(
             _setToken, 
             _component, 
             _finalSetSupply
