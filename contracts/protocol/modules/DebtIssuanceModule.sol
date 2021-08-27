@@ -152,8 +152,9 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Returns components from the SetToken, unwinds any external module component positions and burns 
-     * the SetToken. If the token has a debt position all debt will be paid down first then equity positions
+     * Returns components from the SetToken, unwinds any external module component positions and burns the SetToken.
+     * If the token has debt positions, the module transfers in the required debt amounts from the caller and uses
+     * those funds to repay the debts on behalf of the SetToken. All debt will be paid down first then equity positions
      * will be returned to the minting address. If specified, a fee will be charged on redeem.
      *
      * @param _setToken         Instance of the SetToken to redeem
