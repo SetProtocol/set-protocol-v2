@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2021 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -22,21 +22,8 @@ import "../../../interfaces/external/IUniswapV2Router.sol";
 import "../../../interfaces/external/IUniswapV2Pair.sol";
 import "../../../interfaces/external/IUniswapV2Factory.sol";
 import "../../../interfaces/IAmmAdapter.sol";
+import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-
-struct Position {
-  address setToken;
-  address tokenA;
-  uint256 amountA;
-  address tokenB;
-  uint256 amountB;
-  uint256 balance;
-  uint256 totalSupply;
-  uint256 reserveA;
-  uint256 reserveB;
-  uint256 calculatedAmountA;
-  uint256 calculatedAmountB;
-}
 
 /**
  * @title UniswapV2AmmAdapter
@@ -95,39 +82,53 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         override
         returns (address target, uint256 value, bytes memory data)
     {
+        address setToken = _setToken;
         IUniswapV2Pair pair = IUniswapV2Pair(_pool);
-        require(factory == IUniswapV2Factory(pair.factory()), "_pool factory doesn't match the router factory");
-        require(_components.length == 2, "_components length is invalid");
-        require(_maxTokensIn.length == 2, "_maxTokensIn length is invalid");
-        require(factory.getPair(_components[0], _components[1]) == _pool,
-            "_pool doesn't match the components");
-        require(_maxTokensIn[0] > 0, "supplied token0 must be greater than 0");
-        require(_maxTokensIn[1] > 0, "supplied token1 must be greater than 0");
-        require(_minLiquidity > 0, "_minLiquidity must be greater than 0");
 
-        Position memory position = Position(_setToken, _components[0], _maxTokensIn[0], _components[1], _maxTokensIn[1],
-            0, pair.totalSupply(), 0, 0, 0, 0);
-        require(position.totalSupply > 0, "_pool totalSupply must be > 0");
+        require(_maxTokensIn[0] > 0 && _maxTokensIn[1] > 0, "Component quantity must be nonzero");
 
-        // Determine how much of each token the _minLiquidity would return
-        (position.reserveA, position.reserveB) = _getReserves(pair, position.tokenA);
-        position.calculatedAmountA = position.reserveA.mul(_minLiquidity).div(position.totalSupply);
-        position.calculatedAmountB = position.reserveB.mul(_minLiquidity).div(position.totalSupply);
+        // We expect the totalSupply to be greater than 0 because the isValidPool would
+        // have passed by this point, meaning a pool for these tokens exist, which also
+        // means there is at least MINIMUM_LIQUIDITY liquidity tokens in the pool
+        // https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2Pair.sol#L121
+        require(pair.totalSupply() > 0, "_pool totalSupply must be nonzero");
 
-        require(position.calculatedAmountA  <= position.amountA && position.calculatedAmountB <= position.amountB,
-            "_minLiquidity is too high for input token limit");
+        // As mentioned above, the totalSupply of the pool should be greater than 0, and if
+        // this is the case, we know the liquidity returned from the pool is equal to the minimum
+        // of the given supplied token multiplied by the totalSupply of liquidity tokens divided by
+        // the pool reserves of that token.
+        // https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2Pair.sol#L123
+        uint[] memory reserves = new uint[](2);
+        (reserves[0], reserves[1]) = _getReserves(pair, _components[0]);
+        uint256 liquidityExpectedFromSuppliedTokens = Math.min(
+            _maxTokensIn[0].mul(pair.totalSupply()).div(reserves[0]),
+            _maxTokensIn[1].mul(pair.totalSupply()).div(reserves[1])
+        );
+
+        require(
+            _minLiquidity <= liquidityExpectedFromSuppliedTokens,
+            "_minLiquidity is too high for input token limit"
+        );
+
+        // Now that we know the minimum expected liquidity to receive for the amount of tokens
+        // that are being supplied, we can reverse the above equations in the min function to
+        // determine how much actual tokens are supplied to the pool, therefore setting our
+        // amountAMin and amountBMin of the addLiquidity call to the expected amounts.
+        uint[] memory minTokensIn = new uint[](2);
+        minTokensIn[0] = liquidityExpectedFromSuppliedTokens.mul(reserves[0]).div(pair.totalSupply());
+        minTokensIn[1] = liquidityExpectedFromSuppliedTokens.mul(reserves[1]).div(pair.totalSupply());
 
         target = router;
         value = 0;
         data = abi.encodeWithSignature(
             ADD_LIQUIDITY,
-            position.tokenA,
-            position.tokenB,
-            position.amountA,
-            position.amountB,
-            position.calculatedAmountA,
-            position.calculatedAmountB,
-            position.setToken,
+            _components[0],
+            _components[1],
+            _maxTokensIn[0],
+            _maxTokensIn[1],
+            minTokensIn[0],
+            minTokensIn[1],
+            setToken,
             block.timestamp // solhint-disable-line not-rely-on-time
         );
     }
@@ -171,39 +172,42 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         override
         returns (address target, uint256 value, bytes memory data)
     {
+        address setToken = _setToken;
         IUniswapV2Pair pair = IUniswapV2Pair(_pool);
-        require(factory == IUniswapV2Factory(pair.factory()), "_pool factory doesn't match the router factory");
-        require(_components.length == 2, "_components length is invalid");
-        require(_minTokensOut.length == 2, "_minTokensOut length is invalid");
-        require(factory.getPair(_components[0], _components[1]) == _pool,
-            "_pool doesn't match the components");
-        require(_minTokensOut[0] > 0, "requested token0 must be greater than 0");
-        require(_minTokensOut[1] > 0, "requested token1 must be greater than 0");
-        require(_liquidity > 0, "_liquidity must be greater than 0");
 
-        Position memory position = Position(_setToken, _components[0], _minTokensOut[0], _components[1], _minTokensOut[1],
-            pair.balanceOf(_setToken), pair.totalSupply(), 0, 0, 0, 0);
+        // Make sure that only up the amount of liquidity tokens owned by the Set Token are redeemed
+        uint256 setTokenLiquidityBalance = pair.balanceOf(setToken);
+        require(_liquidity <= setTokenLiquidityBalance, "_liquidity must be <= to current balance");
 
-        require(_liquidity <= position.balance, "_liquidity must be <= to current balance");
+        // For a given Uniswap V2 Liquidity Pool, an owner of a liquidity token is able to claim
+        // a portion of the reserves of that pool based on the percentage of liquidity tokens that
+        // they own in relation to the total supply of the liquidity tokens. So if a user owns 25%
+        // of the pool tokens, they would in effect own 25% of both reserveA and reserveB contained
+        // within the pool. Therefore, given the value of _liquidity we can calculate how much of the
+        // reserves the caller is requesting and can then validate that the _minTokensOut values are
+        // less than or equal to that amount. If not, they are requesting too much of the _components
+        // relative to the amount of liquidty that they are redeeming.
+        uint[] memory reserves = new uint[](2);
+        uint[] memory reservesOwnedByLiquidity = new uint[](2);
+        (reserves[0], reserves[1]) = _getReserves(pair, _components[0]);
+        reservesOwnedByLiquidity[0] = reserves[0].mul(_liquidity).div(pair.totalSupply());
+        reservesOwnedByLiquidity[1] = reserves[1].mul(_liquidity).div(pair.totalSupply());
 
-        // Calculate how many tokens are owned by the liquidity
-        (position.reserveA, position.reserveB) = _getReserves(pair, position.tokenA);
-        position.calculatedAmountA = position.reserveA.mul(position.balance).div(position.totalSupply);
-        position.calculatedAmountB = position.reserveB.mul(position.balance).div(position.totalSupply);
-
-        require(position.amountA <= position.calculatedAmountA && position.amountB <= position.calculatedAmountB,
-            "amounts must be <= ownedTokens");
+        require(
+            _minTokensOut[0] <= reservesOwnedByLiquidity[0] && _minTokensOut[1] <= reservesOwnedByLiquidity[1],
+            "amounts must be <= ownedTokens"
+        );
 
         target = router;
         value = 0;
         data = abi.encodeWithSignature(
             REMOVE_LIQUIDITY,
-            position.tokenA,
-            position.tokenB,
+            _components[0],
+            _components[1],
             _liquidity,
-            position.amountA,
-            position.amountB,
-            position.setToken,
+            _minTokensOut[0],
+            _minTokensOut[1],
+            setToken,
             block.timestamp // solhint-disable-line not-rely-on-time
         );
     }
@@ -228,54 +232,47 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
 
     /**
      * Returns the address of the spender
-     *
-     * @param  _pool       Address of liquidity token
      */
-    function getSpenderAddress(address _pool)
+    function getSpenderAddress(address /*_pool*/)
         external
         view
         override
         returns (address spender)
     {
-        IUniswapV2Pair pair = IUniswapV2Pair(_pool);
-        require(factory == IUniswapV2Factory(pair.factory()), "_pool factory doesn't match the router factory");
-
         spender = router;
     }
 
     /**
-     * Verifies that this is a valid Uniswap V2 _pool
+     * Verifies that this is a valid Uniswap V2 pool
      *
-     * @param  _pool       Address of liquidity token
+     * @param  _pool          Address of liquidity token
+     * @param  _components    Address array of supplied/requested tokens
      */
-    function isValidPool(address _pool)
+    function isValidPool(address _pool, address[] memory _components)
         external
         view
         override
-        returns (bool isValid) {
-        address token0;
-        address token1;
-        bool success = true;
-        IUniswapV2Pair pair = IUniswapV2Pair(_pool);
-
-        try pair.token0() returns (address _token0) {
-            token0 = _token0;
+        returns (bool) {
+        // Attempt to get the factory of the provided pool
+        IUniswapV2Factory poolFactory;
+        try IUniswapV2Pair(_pool).factory() returns (address _factory) {
+            poolFactory = IUniswapV2Factory(_factory);
         } catch {
-            success = false;
-        }
-
-        try pair.token1() returns (address _token1) {
-            token1 = _token1;
-        } catch {
-            success = false;
-        }
-
-        if( success ) {
-            isValid = factory.getPair(token0, token1) == _pool;
-        }
-        else {
             return false;
         }
+
+        // Make sure the pool factory is the expected value, that we have the
+        // two required components, and that the pair address returned
+        // by the factory matches the supplied _pool value
+        if(
+            factory != poolFactory ||
+            _components.length != 2 ||
+            factory.getPair(_components[0], _components[1]) != _pool
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
     /* ============ Internal Functions =================== */

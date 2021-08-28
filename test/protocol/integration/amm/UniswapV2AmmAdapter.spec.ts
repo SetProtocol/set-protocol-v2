@@ -19,7 +19,6 @@ import {
   getAccounts,
   getSystemFixture,
   getUniswapFixture,
-  getUniswapV3Fixture,
   getWaffleExpect,
   getLastBlockTimestamp
 } from "@utils/test/index";
@@ -117,28 +116,19 @@ describe("UniswapV2AmmAdapter", () => {
       expect(spender).to.eq(uniswapSetup.router.address);
     });
 
-    describe("when the pool address is invalid", async () => {
-      before(async () => {
-          const uniswapV3Setup = getUniswapV3Fixture(owner.address);
-          await uniswapV3Setup.initialize(owner, setup.weth, 3000.0, setup.wbtc, 40000.0, setup.dai);
-          poolAddress = uniswapV3Setup.swapRouter.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_pool factory doesn't match the router factory");
-      });
-    });
   });
 
   describe("isValidPool", async () => {
-    let poolAddress: Address;
+    let subjectAmmPool: Address;
+    let subjectComponents: Address[];
 
-    before(async () => {
-        poolAddress = uniswapSetup.wethDaiPool.address;
+    beforeEach(async () => {
+      subjectAmmPool = uniswapSetup.wethDaiPool.address;
+      subjectComponents = [setup.weth.address, setup.dai.address];
     });
 
     async function subject(): Promise<any> {
-      return await uniswapV2AmmAdapter.isValidPool(poolAddress);
+      return await uniswapV2AmmAdapter.isValidPool(subjectAmmPool, subjectComponents);
     }
 
     it("should be a valid pool", async () => {
@@ -147,14 +137,49 @@ describe("UniswapV2AmmAdapter", () => {
     });
 
     describe("when the pool address is invalid", async () => {
-        before(async () => {
-            poolAddress = uniswapSetup.router.address;
-        });
+      beforeEach(async () => {
+        subjectAmmPool = setup.weth.address;
+      });
 
-        it("should be an invalid pool", async () => {
-          const status = await subject();
-          expect(status).to.be.false;
-        });
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
+    });
+
+    describe("when the components don't match", async () => {
+      beforeEach(async () => {
+        subjectComponents = [setup.weth.address, setup.wbtc.address];
+      });
+
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
+    });
+
+    describe("when the number of components is incorrect", async () => {
+      beforeEach(async () => {
+        subjectComponents = [setup.weth.address];
+      });
+
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
+    });
+
+    describe("when the router doesn't match", async () => {
+      beforeEach(async () => {
+        const otherUniswapSetup = getUniswapFixture(owner.address);
+        await otherUniswapSetup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
+        subjectAmmPool = otherUniswapSetup.wethDaiPool.address;
+      });
+
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
     });
 
   });
@@ -262,68 +287,6 @@ describe("UniswapV2AmmAdapter", () => {
       expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
     });
 
-    describe("when the pool address is invalid", async () => {
-      beforeEach(async () => {
-        const uniswapV3Setup = getUniswapV3Fixture(owner.address);
-        await uniswapV3Setup.initialize(owner, setup.weth, 3000.0, setup.wbtc, 40000.0, setup.dai);
-        subjectAmmPool = uniswapV3Setup.swapRouter.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_pool factory doesn't match the router factory");
-      });
-    });
-
-    describe("when the _components length is invalid", async () => {
-      beforeEach(async () => {
-        subjectComponents = [setup.weth.address];
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_components length is invalid");
-      });
-    });
-
-    describe("when the _maxTokensIn length is invalid", async () => {
-      beforeEach(async () => {
-        subjectMaxTokensIn = [ether(1)];
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_maxTokensIn length is invalid");
-      });
-    });
-
-    describe("when the _pool doesn't match the _components", async () => {
-      beforeEach(async () => {
-        subjectComponents = [setup.weth.address, setup.wbtc.address];
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_pool doesn't match the components");
-      });
-    });
-
-    describe("when the _maxTokensIn[0] is 0", async () => {
-      beforeEach(async () => {
-        subjectMaxTokensIn = [ether(0), ether(3000)];
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("supplied token0 must be greater than 0");
-      });
-    });
-
-    describe("when the _maxTokensIn[1] is 0", async () => {
-      beforeEach(async () => {
-        subjectMaxTokensIn = [ether(1), ether(0)];
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("supplied token1 must be greater than 0");
-      });
-    });
-
     describe("when the _pool totalSupply is 0", async () => {
       beforeEach(async () => {
         subjectAmmPool = uniswapSetup.wethWbtcPool.address;
@@ -331,17 +294,7 @@ describe("UniswapV2AmmAdapter", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_pool totalSupply must be > 0");
-      });
-    });
-
-    describe("when the _minLiquidity is 0", async () => {
-      beforeEach(async () => {
-        subjectMinLiquidity = ZERO;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_minLiquidity must be greater than 0");
+        await expect(subject()).to.be.revertedWith("_pool totalSupply must be nonzero");
       });
     });
 
@@ -365,8 +318,15 @@ describe("UniswapV2AmmAdapter", () => {
     beforeEach(async () => {
       subjectAmmPool = uniswapSetup.wethDaiPool.address;
       subjectComponents = [setup.weth.address, setup.dai.address];
-      subjectMinTokensOut = [ether(1), ether(3000)];
       subjectLiquidity = ether(1);
+
+      // Determine how much of each token the subjectLiquidity should return
+      const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+      const [reserveA, reserveB] = await getReserves(uniswapSetup.wethDaiPool, setup.weth.address);
+      const amountAMin = reserveA.mul(subjectLiquidity).div(totalSupply);
+      const amountBMin = reserveB.mul(subjectLiquidity).div(totalSupply);
+
+      subjectMinTokensOut = [amountAMin, amountBMin];
     });
 
     async function subject(): Promise<any> {
@@ -392,78 +352,6 @@ describe("UniswapV2AmmAdapter", () => {
           blockTimestamp,
         ]);
         expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
-      });
-
-      describe("when the pool address is invalid", async () => {
-        beforeEach(async () => {
-          const uniswapV3Setup = getUniswapV3Fixture(owner.address);
-          await uniswapV3Setup.initialize(owner, setup.weth, 3000.0, setup.wbtc, 40000.0, setup.dai);
-          subjectAmmPool = uniswapV3Setup.swapRouter.address;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("_pool factory doesn't match the router factory");
-        });
-      });
-
-      describe("when the _components length is invalid", async () => {
-        beforeEach(async () => {
-          subjectComponents = [setup.weth.address];
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("_components length is invalid");
-        });
-      });
-
-      describe("when the _minTokensOut length is invalid", async () => {
-        beforeEach(async () => {
-          subjectMinTokensOut = [ether(1)];
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("_minTokensOut length is invalid");
-        });
-      });
-
-      describe("when the _pool doesn't match the _components", async () => {
-        beforeEach(async () => {
-          subjectComponents = [setup.weth.address, setup.wbtc.address];
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("_pool doesn't match the components");
-        });
-      });
-
-      describe("when the _minTokensOut[0] is 0", async () => {
-        beforeEach(async () => {
-          subjectMinTokensOut = [ether(0), ether(3000)];
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("requested token0 must be greater than 0");
-        });
-      });
-
-      describe("when the _minTokensOut[1] is 0", async () => {
-        beforeEach(async () => {
-          subjectMinTokensOut = [ether(1), ether(0)];
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("requested token1 must be greater than 0");
-        });
-      });
-
-      describe("when the _liquidity is 0", async () => {
-        beforeEach(async () => {
-          subjectLiquidity = ZERO;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("_liquidity must be greater than 0");
-        });
       });
 
       describe("when the _liquidity is more than available", async () => {
@@ -635,6 +523,78 @@ describe("UniswapV2AmmAdapter", () => {
           });
         });
 
+        describe("when the pool address is invalid", async () => {
+          beforeEach(async () => {
+            const otherUniswapSetup = getUniswapFixture(owner.address);
+            await otherUniswapSetup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
+            subjectAmmPool = otherUniswapSetup.wethDaiPool.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Pool token must be enabled on the Adapter");
+          });
+        });
+
+        describe("when the _components length is invalid", async () => {
+          beforeEach(async () => {
+            subjectComponentsToInput = [setup.weth.address];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Components and units must be equal length");
+          });
+        });
+
+        describe("when the _maxTokensIn length is invalid", async () => {
+          beforeEach(async () => {
+            subjectMaxComponentQuantities = [ether(1)];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Components and units must be equal length");
+          });
+        });
+
+        describe("when the _pool doesn't match the _components", async () => {
+          beforeEach(async () => {
+            subjectComponentsToInput = [setup.weth.address, setup.wbtc.address];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Pool token must be enabled on the Adapter");
+          });
+        });
+
+        describe("when the _maxTokensIn[0] is 0", async () => {
+          beforeEach(async () => {
+            subjectMaxComponentQuantities = [ether(0), ether(3000)];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Component quantity must be nonzero");
+          });
+        });
+
+        describe("when the _maxTokensIn[1] is 0", async () => {
+          beforeEach(async () => {
+            subjectMaxComponentQuantities = [ether(1), ether(0)];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Component quantity must be nonzero");
+          });
+        });
+
+        describe("when the _minLiquidity is 0", async () => {
+          beforeEach(async () => {
+            subjectMinPoolTokensToMint = ZERO;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Token quantity must be nonzero");
+          });
+        });
+
         shouldRevertIfPoolIsNotSupported(subject);
       });
 
@@ -715,6 +675,78 @@ describe("UniswapV2AmmAdapter", () => {
 
           it("should revert", async () => {
             await expect(subject()).to.be.revertedWith("amounts must be <= ownedTokens");
+          });
+        });
+
+        describe("when the pool address is invalid", async () => {
+          beforeEach(async () => {
+            const otherUniswapSetup = getUniswapFixture(owner.address);
+            await otherUniswapSetup.initialize(owner, setup.weth.address, setup.wbtc.address, setup.dai.address);
+            subjectAmmPool = otherUniswapSetup.wethDaiPool.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Pool token must be enabled on the Adapter");
+          });
+        });
+
+        describe("when the _components length is invalid", async () => {
+          beforeEach(async () => {
+            subjectComponentsToOutput = [setup.weth.address];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Components and units must be equal length");
+          });
+        });
+
+        describe("when the _minTokensOut length is invalid", async () => {
+          beforeEach(async () => {
+            subjectMinComponentQuantities = [ether(1)];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Components and units must be equal length");
+          });
+        });
+
+        describe("when the _pool doesn't match the _components", async () => {
+          beforeEach(async () => {
+            subjectComponentsToOutput = [setup.weth.address, setup.wbtc.address];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Pool token must be enabled on the Adapter");
+          });
+        });
+
+        describe("when the _minTokensOut[0] is 0", async () => {
+          beforeEach(async () => {
+            subjectMinComponentQuantities = [ether(0), ether(3000)];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Component quantity must be nonzero");
+          });
+        });
+
+        describe("when the _minTokensOut[1] is 0", async () => {
+          beforeEach(async () => {
+            subjectMinComponentQuantities = [ether(1), ether(0)];
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Component quantity must be nonzero");
+          });
+        });
+
+        describe("when the _liquidity is 0", async () => {
+          beforeEach(async () => {
+            subjectPoolTokens = ZERO;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Token quantity must be nonzero");
           });
         });
 

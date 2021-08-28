@@ -60,5 +60,5 @@ interface IAmmAdapter {
     ) external view returns (address _target, uint256 _value, bytes memory _calldata);
 
     function getSpenderAddress(address _pool) external view returns(address);
-    function isValidPool(address _pool) external view returns(bool);
+    function isValidPool(address _pool, address[] memory _components) external view returns(bool);
 }

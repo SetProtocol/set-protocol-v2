@@ -87,7 +87,7 @@ contract AmmAdapterMock is ERC20 {
     function getProvideLiquidityCalldata(
         address /* _setToken */,
         address _pool,
-        address[] calldata /* _components */,
+        address[] calldata _components,
         uint256[] calldata _maxTokensIn,
         uint256 _minLiquidity
     )
@@ -95,7 +95,7 @@ contract AmmAdapterMock is ERC20 {
         view
         returns (address _target, uint256 _value, bytes memory _calldata)
     {
-        isValidPool(_pool);
+        isValidPool(_pool, _components);
 
         // Check that components match the pool tokens
 
@@ -110,8 +110,12 @@ contract AmmAdapterMock is ERC20 {
         uint256 _maxTokenIn,
         uint256 _minLiquidity
     ) external view returns (address _target, uint256 _value, bytes memory _calldata) {
+
+        address[] memory components = new address[](1);
+        components[0] = _component;
+
         // This address must be the pool
-        isValidPool(_pool);
+        isValidPool(_pool, components);
 
         bytes memory callData = abi.encodeWithSignature(
             "joinswapPoolAmountOut(address,uint256,uint256)",
@@ -125,12 +129,12 @@ contract AmmAdapterMock is ERC20 {
     function getRemoveLiquidityCalldata(
         address /* _setToken */,
         address _pool,
-        address[] calldata /* _components */,
+        address[] calldata _components,
         uint256[] calldata _minTokensOut,
         uint256 _liquidity
     ) external view returns (address _target, uint256 _value, bytes memory _calldata) {
         // Validate the pool and components are legit?
-        isValidPool(_pool);
+        isValidPool(_pool, _components);
 
         bytes memory callData = abi.encodeWithSignature("exitPool(uint256,uint256[])", _liquidity, _minTokensOut);
         return (address(this), 0, callData);
@@ -143,8 +147,12 @@ contract AmmAdapterMock is ERC20 {
         uint256 _minTokenOut,
         uint256 _liquidity
     ) external view returns (address _target, uint256 _value, bytes memory _calldata) {
+
+        address[] memory components = new address[](1);
+        components[0] = _component;
+
         // Pool must be this address
-        isValidPool(_pool);
+        isValidPool(_pool, components);
 
         bytes memory callData = abi.encodeWithSignature(
             "exitswapPoolAmountIn(address,uint256,uint256)",
@@ -155,7 +163,7 @@ contract AmmAdapterMock is ERC20 {
         return (address(this), 0, callData);
     }
     
-    function isValidPool(address _pool) public view returns(bool) {
+    function isValidPool(address _pool,address[] memory /*_components*/) public view returns(bool) {
         return _pool == address(this) || _pool == approvedToken;
     }
 
