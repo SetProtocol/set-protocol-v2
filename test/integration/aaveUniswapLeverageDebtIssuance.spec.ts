@@ -148,7 +148,6 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
     aaveLeverageModule = await deployer.modules.deployAaveLeverageModule(
       setup.controller.address,
       aaveV2Setup.lendingPoolAddressesProvider.address,
-      aaveV2Setup.protocolDataProvider.address,
       "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
       aaveV2Library.address,
     );
