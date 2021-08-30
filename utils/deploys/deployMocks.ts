@@ -35,6 +35,7 @@ import {
   ResourceIdentifierMock,
   StakingAdapterMock,
   StandardTokenMock,
+  StandardTokenWithRoundingErrorMock,
   StandardTokenWithFeeMock,
   TradeAdapterMock,
   SynthMock,
@@ -82,6 +83,7 @@ import { PreciseUnitMathMock__factory } from "../../typechain/factories/PreciseU
 import { ResourceIdentifierMock__factory } from "../../typechain/factories/ResourceIdentifierMock__factory";
 import { StakingAdapterMock__factory } from "../../typechain/factories/StakingAdapterMock__factory";
 import { StandardTokenMock__factory } from "../../typechain/factories/StandardTokenMock__factory";
+import { StandardTokenWithRoundingErrorMock__factory } from "../../typechain/factories/StandardTokenWithRoundingErrorMock__factory";
 import { StandardTokenWithFeeMock__factory } from "../../typechain/factories/StandardTokenWithFeeMock__factory";
 import { TradeAdapterMock__factory } from "../../typechain/factories/TradeAdapterMock__factory";
 import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint256ArrayUtilsMock__factory";
@@ -173,10 +175,10 @@ export default class DeployMocks {
     receiveQuantity: BigNumber,
   ): Promise<ZeroExMock> {
     return await new ZeroExMock__factory(this._deployerSigner).deploy(
-        sendToken,
-        receiveToken,
-        sendQuantity,
-        receiveQuantity,
+      sendToken,
+      receiveToken,
+      sendQuantity,
+      receiveQuantity,
     );
   }
 
@@ -233,6 +235,19 @@ export default class DeployMocks {
   ): Promise<StandardTokenWithFeeMock> {
     return await new StandardTokenWithFeeMock__factory(this._deployerSigner)
       .deploy(initialAccount, initialBalance, name, symbol, fee);
+  }
+
+  public async deployTokenWithErrorMock(
+    initialAccount: Address,
+    initialBalance: BigNumberish,
+    error: BigNumberish,
+    name: string = "Token",
+    symbol: string = "Symbol",
+    decimals: BigNumberish = BigNumber.from(18)
+  ): Promise<StandardTokenWithRoundingErrorMock> {
+    return await new StandardTokenWithRoundingErrorMock__factory(this._deployerSigner).deploy(
+      initialAccount, initialBalance, error, name, symbol, decimals
+    );
   }
 
   public async deployTradeAdapterMock(): Promise<TradeAdapterMock> {
@@ -324,7 +339,7 @@ export default class DeployMocks {
     sBtc: Address,
     currencyKeys: any,
     rates: any
-  ): Promise <SynthetixExchangerMock> {
+  ): Promise<SynthetixExchangerMock> {
     return await new SynthetixExchangerMock__factory(this._deployerSigner).deploy(
       sUsd,
       sEth,
