@@ -24,7 +24,19 @@ pragma solidity 0.6.10;
  * @notice Mock contract for Aave's LendingPoolAddressesProvider
  */
 contract LendingPoolAddressesProviderMock {
-    function getLendingPool() external pure returns (address) {
-        return address(0);
+
+    mapping(bytes32 => address) private _addresses;
+    bytes32 private constant LENDING_POOL = "LENDING_POOL";
+    
+    function setAddress(bytes32 id, address newAddress) external {
+        _addresses[id] = newAddress;
+    }
+
+    function getAddress(bytes32 id) public view returns (address) {
+        return _addresses[id];
+    }
+    
+    function getLendingPool() external view returns (address) {
+        return getAddress(LENDING_POOL);
     }
 }
