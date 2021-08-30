@@ -83,9 +83,12 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         returns (address target, uint256 value, bytes memory data)
     {
         address setToken = _setToken;
+        address[] memory components = _components;
+        uint256[] memory maxTokensIn = _maxTokensIn;
+        uint256 minLiquidity = _minLiquidity;
         IUniswapV2Pair pair = IUniswapV2Pair(_pool);
 
-        require(_maxTokensIn[0] > 0 && _maxTokensIn[1] > 0, "Component quantity must be nonzero");
+        require(maxTokensIn[0] > 0 && maxTokensIn[1] > 0, "Component quantity must be nonzero");
 
         // We expect the totalSupply to be greater than 0 because the isValidPool would
         // have passed by this point, meaning a pool for these tokens exist, which also
@@ -95,16 +98,21 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         // of the given supplied token multiplied by the totalSupply of liquidity tokens divided by
         // the pool reserves of that token.
         // https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2Pair.sol#L123
-        uint[] memory reservesAndTotalSupply = new uint[](3);
-        reservesAndTotalSupply[2] = pair.totalSupply();
-        (reservesAndTotalSupply[0], reservesAndTotalSupply[1]) = _getReserves(pair, _components[0]);
+
+        uint256 amountAMin;
+        uint256 amountBMin;
+        { // scope for reserveA, reserveB, totalSupply and liquidityExpectedFromSuppliedTokens, avoids stack too deep errors
+
+        uint256 totalSupply = pair.totalSupply();
+        (uint256 reserveA, uint256 reserveB) = _getReserves(pair, components[0]);
+
         uint256 liquidityExpectedFromSuppliedTokens = Math.min(
-            _maxTokensIn[0].mul(reservesAndTotalSupply[2]).div(reservesAndTotalSupply[0]),
-            _maxTokensIn[1].mul(reservesAndTotalSupply[2]).div(reservesAndTotalSupply[1])
+            maxTokensIn[0].mul(totalSupply).div(reserveA),
+            maxTokensIn[1].mul(totalSupply).div(reserveB)
         );
 
         require(
-            _minLiquidity <= liquidityExpectedFromSuppliedTokens,
+            minLiquidity <= liquidityExpectedFromSuppliedTokens,
             "_minLiquidity is too high for input token limit"
         );
 
@@ -112,20 +120,22 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         // that are being supplied, we can reverse the above equations in the min function to
         // determine how much actual tokens are supplied to the pool, therefore setting our
         // amountAMin and amountBMin of the addLiquidity call to the expected amounts.
-        uint[] memory minTokensIn = new uint[](2);
-        minTokensIn[0] = liquidityExpectedFromSuppliedTokens.mul(reservesAndTotalSupply[0]).div(reservesAndTotalSupply[2]);
-        minTokensIn[1] = liquidityExpectedFromSuppliedTokens.mul(reservesAndTotalSupply[1]).div(reservesAndTotalSupply[2]);
+
+        amountAMin = liquidityExpectedFromSuppliedTokens.mul(reserveA).div(totalSupply);
+        amountBMin = liquidityExpectedFromSuppliedTokens.mul(reserveB).div(totalSupply);
+
+        }
 
         target = router;
         value = 0;
         data = abi.encodeWithSignature(
             ADD_LIQUIDITY,
-            _components[0],
-            _components[1],
-            _maxTokensIn[0],
-            _maxTokensIn[1],
-            minTokensIn[0],
-            minTokensIn[1],
+            components[0],
+            components[1],
+            maxTokensIn[0],
+            maxTokensIn[1],
+            amountAMin,
+            amountBMin,
             setToken,
             block.timestamp // solhint-disable-line not-rely-on-time
         );
@@ -171,11 +181,16 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         returns (address target, uint256 value, bytes memory data)
     {
         address setToken = _setToken;
+        address[] memory components = _components;
+        uint256[] memory minTokensOut = _minTokensOut;
+        uint256 liquidity = _liquidity;
         IUniswapV2Pair pair = IUniswapV2Pair(_pool);
 
         // Make sure that only up the amount of liquidity tokens owned by the Set Token are redeemed
         uint256 setTokenLiquidityBalance = pair.balanceOf(setToken);
         require(_liquidity <= setTokenLiquidityBalance, "_liquidity must be <= to current balance");
+
+        { // scope for reserveA, reserveB, totalSupply, reservesOwnedByLiquidityA, and reservesOwnedByLiquidityB, avoids stack too deep errors
 
         // For a given Uniswap V2 Liquidity Pool, an owner of a liquidity token is able to claim
         // a portion of the reserves of that pool based on the percentage of liquidity tokens that
@@ -185,27 +200,27 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         // reserves the caller is requesting and can then validate that the _minTokensOut values are
         // less than or equal to that amount. If not, they are requesting too much of the _components
         // relative to the amount of liquidty that they are redeeming.
-        uint[] memory reservesAndTotalSupply = new uint[](3);
-        uint[] memory reservesOwnedByLiquidity = new uint[](2);
-        reservesAndTotalSupply[2] = pair.totalSupply();
-        (reservesAndTotalSupply[0], reservesAndTotalSupply[1]) = _getReserves(pair, _components[0]);
-        reservesOwnedByLiquidity[0] = reservesAndTotalSupply[0].mul(_liquidity).div(reservesAndTotalSupply[2]);
-        reservesOwnedByLiquidity[1] = reservesAndTotalSupply[1].mul(_liquidity).div(reservesAndTotalSupply[2]);
+        uint256 totalSupply = pair.totalSupply();
+        (uint256 reserveA, uint256 reserveB) = _getReserves(pair, components[0]);
+        uint256 reservesOwnedByLiquidityA = reserveA.mul(liquidity).div(totalSupply);
+        uint256 reservesOwnedByLiquidityB = reserveB.mul(liquidity).div(totalSupply);
 
         require(
-            _minTokensOut[0] <= reservesOwnedByLiquidity[0] && _minTokensOut[1] <= reservesOwnedByLiquidity[1],
+            minTokensOut[0] <= reservesOwnedByLiquidityA && minTokensOut[1] <= reservesOwnedByLiquidityB,
             "amounts must be <= ownedTokens"
         );
+
+        }
 
         target = router;
         value = 0;
         data = abi.encodeWithSignature(
             REMOVE_LIQUIDITY,
-            _components[0],
-            _components[1],
-            _liquidity,
-            _minTokensOut[0],
-            _minTokensOut[1],
+            components[0],
+            components[1],
+            liquidity,
+            minTokensOut[0],
+            minTokensOut[1],
             setToken,
             block.timestamp // solhint-disable-line not-rely-on-time
         );
