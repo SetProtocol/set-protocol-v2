@@ -32,11 +32,11 @@ contract LendingPoolAddressesProviderMock {
         _addresses[id] = newAddress;
     }
 
-    function getAddress(bytes32 id) external pure returns (address) {
+    function getAddress(bytes32 id) public view returns (address) {
         return _addresses[id];
     }
     
-    function getLendingPool() external pure returns (address) {
+    function getLendingPool() external view returns (address) {
         return getAddress(LENDING_POOL);
     }
 }
