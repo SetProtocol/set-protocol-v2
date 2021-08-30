@@ -217,6 +217,9 @@ abstract contract BaseStrategy {
      *  Locked (TVL) calculation across it's ecosystem.
      */
     function delegatedAssets() external virtual view returns (uint256) {
+        // silence state mutability warning without generating bytecode
+        // see https://github.com/ethereum/solidity/issues/2691
+        this;
         return 0;
     }
 
@@ -577,10 +580,9 @@ abstract contract BaseStrategy {
      *
      *  This call and `harvestTrigger()` should never return `true` at the same
      *  time.
-     * @param callCost The keeper's estimated cast cost to call `tend()`.
      * @return `true` if `tend()` should be called, `false` otherwise.
      */
-    function tendTrigger(uint256 callCost) public virtual view returns (bool) {
+    function tendTrigger(uint256 /* callCost */) public virtual pure returns (bool) {
         // We usually don't need tend, but if there are positions that need
         // active maintainence, overriding this function is how you would
         // signal for that.

@@ -62,8 +62,6 @@ contract UniswapV2ExchangeAdapterV2 {
      * Note: When selecting the swap for exact tokens function, _sourceQuantity is defined as the max token quantity you are willing to trade, and
      * _minDestinationQuantity is the exact quantity of token you are receiving.
      *
-     * @param  _sourceToken              Address of source token to be sold
-     * @param  _destinationToken         Address of destination token to buy
      * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Fixed/Max amount of source token to sell
      * @param  _destinationQuantity      Min/Fixed amount of destination token to buy
@@ -74,8 +72,8 @@ contract UniswapV2ExchangeAdapterV2 {
      * @return bytes                     Trade calldata
      */
     function getTradeCalldata(
-        address _sourceToken,
-        address _destinationToken,
+        address /* _sourceToken */,
+        address /* _destinationToken */,
         address _destinationAddress,
         uint256 _sourceQuantity,
         uint256 _destinationQuantity,
@@ -84,7 +82,7 @@ contract UniswapV2ExchangeAdapterV2 {
         external
         view
         returns (address, uint256, bytes memory)
-    {   
+    {
         (
             address[] memory path,
             bool shouldSwapExactTokensForTokens
@@ -104,16 +102,16 @@ contract UniswapV2ExchangeAdapterV2 {
     /**
      * Generate data parameter to be passed to `getTradeCallData`. Returns encoded trade paths and bool to select trade function.
      *
-     * @param _sourceToken          Address of the source token to be sold        
+     * @param _sourceToken          Address of the source token to be sold
      * @param _destinationToken     Address of the destination token to buy
      * @param _fixIn                Boolean representing if input tokens amount is fixed
-     * 
-     * @return bytes                Data parameter to be passed to `getTradeCallData`          
+     *
+     * @return bytes                Data parameter to be passed to `getTradeCallData`
      */
     function generateDataParam(address _sourceToken, address _destinationToken, bool _fixIn)
         external
         pure
-        returns (bytes memory) 
+        returns (bytes memory)
     {
         address[] memory path = new address[](2);
         path[0] = _sourceToken;
@@ -138,4 +136,4 @@ contract UniswapV2ExchangeAdapterV2 {
     function getUniswapExchangeData(address[] memory _path, bool _shouldSwapExactTokensForTokens) external pure returns (bytes memory) {
         return abi.encode(_path, _shouldSwapExactTokensForTokens);
     }
-} 
+}

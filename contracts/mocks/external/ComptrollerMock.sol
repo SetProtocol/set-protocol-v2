@@ -49,7 +49,7 @@ contract ComptrollerMock {
     }
 
     // Return empty array
-    function enterMarkets(address[] memory _cTokens) public returns (uint256[] memory) {
+    function enterMarkets(address[] memory _cTokens) public pure returns (uint256[] memory) {
         return new uint256[](_cTokens.length);
     }
 

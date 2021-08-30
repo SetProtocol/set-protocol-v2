@@ -103,7 +103,7 @@ contract AaveMigrationWrapAdapter {
         uint256 /* _wrappedTokenUnits */
     )
         external
-        view
+        pure
         returns (address, uint256, bytes memory)
     {
         revert("AAVE migration cannot be reversed");

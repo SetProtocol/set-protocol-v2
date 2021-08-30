@@ -56,7 +56,7 @@ contract CompoundWrapAdapter {
         uint256 _underlyingUnits
     )
         external
-        view
+        pure
         returns (address, uint256, bytes memory)
     {
         uint256 value;
@@ -75,7 +75,6 @@ contract CompoundWrapAdapter {
     /**
      * Generates the calldata to unwrap a wrapped asset into its underlying.
      *
-     * @param _underlyingToken      Address of the underlying asset
      * @param _wrappedToken         Address of the component to be unwrapped
      * @param _wrappedTokenUnits    Total quantity of wrapped token units to unwrap
      *
@@ -84,12 +83,12 @@ contract CompoundWrapAdapter {
      * @return bytes                Unwrap calldata
      */
     function getUnwrapCallData(
-        address _underlyingToken,
+        address /* _underlyingToken */,
         address _wrappedToken,
         uint256 _wrappedTokenUnits
     )
         external
-        view
+        pure
         returns (address, uint256, bytes memory)
     {
         ( , , bytes memory callData) = ICErc20(_wrappedToken).getRedeemCalldata(_wrappedTokenUnits);
@@ -101,7 +100,7 @@ contract CompoundWrapAdapter {
      * @param _wrappedToken         Address of the wrapped token
      * @return address              Address of the contract to approve tokens to
      */
-     function getSpenderAddress(address /* _underlyingToken */, address _wrappedToken) external view returns(address) {
+     function getSpenderAddress(address /* _underlyingToken */, address _wrappedToken) external pure returns(address) {
          return address(_wrappedToken);
      }
 

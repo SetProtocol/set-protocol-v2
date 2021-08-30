@@ -42,16 +42,15 @@ contract CustomSetValuerMock is ISetValuer {
      * Gets the valuation of a SetToken using data from the price oracle. Reverts
      * if no price exists for a component in the SetToken. Note: this works for external
      * positions and negative (debt) positions.
-     * 
+     *
      * Note: There is a risk that the valuation is off if airdrops aren't retrieved or
      * debt builds up via interest and its not reflected in the position
      *
-     * @param _setToken        SetToken instance to get valuation
      * @param _quoteAsset      Address of token to quote valuation in
      *
      * @return                 SetToken valuation in terms of quote asset in precise units 1e18
      */
-    function calculateSetTokenValuation(ISetToken _setToken, address _quoteAsset) external view override returns (uint256) {
+    function calculateSetTokenValuation(ISetToken /* _setToken */, address _quoteAsset) external view override returns (uint256) {
         return valuation[_quoteAsset];
     }
 }

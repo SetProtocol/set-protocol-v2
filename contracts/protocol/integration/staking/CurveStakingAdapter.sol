@@ -97,7 +97,7 @@ contract CurveStakingAdapter {
      *
      * @return address                  Address of the contract to approve tokens transfers to
      */
-    function getSpenderAddress(address _stakingContract) external view returns(address) {
+    function getSpenderAddress(address _stakingContract) external pure returns(address) {
         return _stakingContract;
     }
 
