@@ -91,18 +91,16 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         // have passed by this point, meaning a pool for these tokens exist, which also
         // means there is at least MINIMUM_LIQUIDITY liquidity tokens in the pool
         // https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2Pair.sol#L121
-        require(pair.totalSupply() > 0, "_pool totalSupply must be nonzero");
-
-        // As mentioned above, the totalSupply of the pool should be greater than 0, and if
-        // this is the case, we know the liquidity returned from the pool is equal to the minimum
+        // If this is the case, we know the liquidity returned from the pool is equal to the minimum
         // of the given supplied token multiplied by the totalSupply of liquidity tokens divided by
         // the pool reserves of that token.
         // https://github.com/Uniswap/uniswap-v2-core/blob/master/contracts/UniswapV2Pair.sol#L123
-        uint[] memory reserves = new uint[](2);
-        (reserves[0], reserves[1]) = _getReserves(pair, _components[0]);
+        uint[] memory reservesAndTotalSupply = new uint[](3);
+        reservesAndTotalSupply[2] = pair.totalSupply();
+        (reservesAndTotalSupply[0], reservesAndTotalSupply[1]) = _getReserves(pair, _components[0]);
         uint256 liquidityExpectedFromSuppliedTokens = Math.min(
-            _maxTokensIn[0].mul(pair.totalSupply()).div(reserves[0]),
-            _maxTokensIn[1].mul(pair.totalSupply()).div(reserves[1])
+            _maxTokensIn[0].mul(reservesAndTotalSupply[2]).div(reservesAndTotalSupply[0]),
+            _maxTokensIn[1].mul(reservesAndTotalSupply[2]).div(reservesAndTotalSupply[1])
         );
 
         require(
@@ -115,8 +113,8 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         // determine how much actual tokens are supplied to the pool, therefore setting our
         // amountAMin and amountBMin of the addLiquidity call to the expected amounts.
         uint[] memory minTokensIn = new uint[](2);
-        minTokensIn[0] = liquidityExpectedFromSuppliedTokens.mul(reserves[0]).div(pair.totalSupply());
-        minTokensIn[1] = liquidityExpectedFromSuppliedTokens.mul(reserves[1]).div(pair.totalSupply());
+        minTokensIn[0] = liquidityExpectedFromSuppliedTokens.mul(reservesAndTotalSupply[0]).div(reservesAndTotalSupply[2]);
+        minTokensIn[1] = liquidityExpectedFromSuppliedTokens.mul(reservesAndTotalSupply[1]).div(reservesAndTotalSupply[2]);
 
         target = router;
         value = 0;
@@ -187,11 +185,12 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         // reserves the caller is requesting and can then validate that the _minTokensOut values are
         // less than or equal to that amount. If not, they are requesting too much of the _components
         // relative to the amount of liquidty that they are redeeming.
-        uint[] memory reserves = new uint[](2);
+        uint[] memory reservesAndTotalSupply = new uint[](3);
         uint[] memory reservesOwnedByLiquidity = new uint[](2);
-        (reserves[0], reserves[1]) = _getReserves(pair, _components[0]);
-        reservesOwnedByLiquidity[0] = reserves[0].mul(_liquidity).div(pair.totalSupply());
-        reservesOwnedByLiquidity[1] = reserves[1].mul(_liquidity).div(pair.totalSupply());
+        reservesAndTotalSupply[2] = pair.totalSupply();
+        (reservesAndTotalSupply[0], reservesAndTotalSupply[1]) = _getReserves(pair, _components[0]);
+        reservesOwnedByLiquidity[0] = reservesAndTotalSupply[0].mul(_liquidity).div(reservesAndTotalSupply[2]);
+        reservesOwnedByLiquidity[1] = reservesAndTotalSupply[1].mul(_liquidity).div(reservesAndTotalSupply[2]);
 
         require(
             _minTokensOut[0] <= reservesOwnedByLiquidity[0] && _minTokensOut[1] <= reservesOwnedByLiquidity[1],

@@ -294,7 +294,7 @@ describe("UniswapV2AmmAdapter", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("_pool totalSupply must be nonzero");
+        await expect(subject()).to.be.revertedWith("SafeMath: division by zero");
       });
     });
 
