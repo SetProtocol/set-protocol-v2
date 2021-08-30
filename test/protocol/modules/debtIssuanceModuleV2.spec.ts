@@ -84,85 +84,184 @@ describe("DebtIssuanceModuleV2", () => {
 
   addSnapshotBeforeRestoreAfterEach();
 
-  context("when SetToken components do not have any rounding error", async () => {
+  context("when DebtIssuanceModuleV2 is initialized", async () => {
+    let preIssueHook: Address;
+    let maxFee: BigNumber;
+    let issueFee: BigNumber;
+    let redeemFee: BigNumber;
+
     before(async () => {
       await tokenWithRoundingError.setError(ZERO);
+
+      preIssueHook = ADDRESS_ZERO;
+      maxFee = ether(0.02);
+      issueFee = ether(0.005);
+      redeemFee = ether(0.005);
     });
 
-    // Note: Tests below are an EXACT copy of the tests for DebtIssuanceModule. Only difference is this SetToken contains
-    // tokenWithRoundingError instead of weth as a default position. This is to ensure the DebtIssuanceModuleV2 behaves
-    // exactly similar to DebtIssuanceModule when there is no rounding error present in it's constituent components.
-    context("DebtIssuanceModule has been initialized", async () => {
-      let preIssueHook: Address;
-      let initialize: boolean;
-      let maxFee: BigNumber;
-      let issueFee: BigNumber;
-      let redeemFee: BigNumber;
+    beforeEach(async () => {
+      await debtIssuance.connect(manager.wallet).initialize(
+        setToken.address,
+        maxFee,
+        issueFee,
+        redeemFee,
+        feeRecipient.address,
+        preIssueHook
+      );
+      await debtModule.connect(manager.wallet).initialize(setToken.address);
+    });
 
-      before(async () => {
-        preIssueHook = ADDRESS_ZERO;
-        initialize = true;
-        maxFee = ether(0.02);
-        issueFee = ether(0.005);
-        redeemFee = ether(0.005);
-      });
 
-      beforeEach(async () => {
-        if (initialize) {
-          await debtIssuance.connect(manager.wallet).initialize(
-            setToken.address,
-            maxFee,
-            issueFee,
-            redeemFee,
-            feeRecipient.address,
-            preIssueHook
-          );
-        }
-      });
+    context("when SetToken components do not have any rounding error", async () => {
+      // Note: Tests below are an EXACT copy of the tests for DebtIssuanceModule. Only difference is this SetToken contains
+      // tokenWithRoundingError instead of weth as a default position. This is to ensure the DebtIssuanceModuleV2 behaves
+      // exactly similar to DebtIssuanceModule when there is no rounding error present in it's constituent components.
 
-      context("External debt module has been registered with DebtIssuanceModule", async () => {
+      describe("#issue", async () => {
+        let subjectSetToken: Address;
+        let subjectQuantity: BigNumber;
+        let subjectTo: Address;
+        let subjectCaller: Account;
+
+        const debtUnits: BigNumber = ether(100);
+
         beforeEach(async () => {
-          await debtModule.connect(manager.wallet).initialize(setToken.address);
+          await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
+          await setup.dai.transfer(debtModule.address, ether(100.5));
+
+          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+          await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
+
+          subjectSetToken = setToken.address;
+          subjectQuantity = ether(1);
+          subjectTo = recipient.address;
+          subjectCaller = owner;
         });
 
-        describe("#issue", async () => {
-          let subjectSetToken: Address;
-          let subjectQuantity: BigNumber;
-          let subjectTo: Address;
-          let subjectCaller: Account;
+        async function subject(): Promise<ContractTransaction> {
+          return debtIssuance.connect(subjectCaller.wallet).issue(
+            subjectSetToken,
+            subjectQuantity,
+            subjectTo,
+          );
+        }
 
-          const debtUnits: BigNumber = ether(100);
+        it("should mint SetTokens to the correct addresses", async () => {
+          await subject();
 
-          beforeEach(async () => {
-            await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
-            await setup.dai.transfer(debtModule.address, ether(100.5));
+          const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+          const managerBalance = await setToken.balanceOf(feeRecipient.address);
+          const toBalance = await setToken.balanceOf(subjectTo);
 
-            const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
-            await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
+          expect(toBalance).to.eq(subjectQuantity);
+          expect(managerBalance).to.eq(feeQuantity);
+        });
 
-            subjectSetToken = setToken.address;
-            subjectQuantity = ether(1);
-            subjectTo = recipient.address;
-            subjectCaller = owner;
+        it("should have the correct token balances", async () => {
+          const preMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
+          const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+          const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+          const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+          await subject();
+
+          const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+          const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
+          const wethFlows = preciseMul(mintQuantity, ether(1));
+
+          const postMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
+          const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+          const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+          const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+          expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethFlows));
+          expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethFlows));
+          expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
+          expect(postSetDaiBalance).to.eq(preSetDaiBalance);
+          expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.sub(daiFlows));
+        });
+
+        it("should have called the module issue hook", async () => {
+          await subject();
+
+          const hookCalled = await debtModule.moduleIssueHookCalled();
+
+          expect(hookCalled).to.be.true;
+        });
+
+        it("should emit the correct SetTokenIssued event", async () => {
+          const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+
+          await expect(subject()).to.emit(debtIssuance, "SetTokenIssued").withArgs(
+            setToken.address,
+            subjectCaller.address,
+            subjectTo,
+            preIssueHook,
+            subjectQuantity,
+            feeQuantity,
+            ZERO
+          );
+        });
+
+        describe("when an external equity position is in place", async () => {
+          const externalUnits: BigNumber = ether(1);
+
+          before(async () => {
+            await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, externalUnits);
           });
 
-          async function subject(): Promise<ContractTransaction> {
-            return debtIssuance.connect(subjectCaller.wallet).issue(
-              subjectSetToken,
-              subjectQuantity,
-              subjectTo,
-            );
-          }
+          after(async () => {
+            await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, ZERO);
+          });
+
+          it("should have the correct token balances", async () => {
+            const preMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
+            const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+            const preExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
+            const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+            await subject();
+
+            const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+            const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
+            const wethDefaultFlows = preciseMul(mintQuantity, ether(1));
+            const wethExternalFlows = preciseMul(mintQuantity, externalUnits);
+
+            const postMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
+            const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+            const postExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
+            const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+            expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethDefaultFlows.add(wethExternalFlows)));
+            expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethDefaultFlows));
+            expect(postExternalWethBalance).to.eq(preExternalWethBalance.add(wethExternalFlows));
+            expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
+            expect(postSetDaiBalance).to.eq(preSetDaiBalance);
+            expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.sub(daiFlows));
+          });
+        });
+
+        describe("when the manager issuance fee is 0", async () => {
+          before(async () => {
+            issueFee = ZERO;
+          });
+
+          after(async () => {
+            issueFee = ether(0.005);
+          });
 
           it("should mint SetTokens to the correct addresses", async () => {
             await subject();
 
-            const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
-            const managerBalance = await setToken.balanceOf(feeRecipient.address);
             const toBalance = await setToken.balanceOf(subjectTo);
 
             expect(toBalance).to.eq(subjectQuantity);
-            expect(managerBalance).to.eq(feeQuantity);
           });
 
           it("should have the correct token balances", async () => {
@@ -176,7 +275,7 @@ describe("DebtIssuanceModuleV2", () => {
 
             const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
             const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
-            const wethFlows = preciseMul(mintQuantity, ether(1));
+            const wethDefaultFlows = preciseMul(mintQuantity, ether(1));
 
             const postMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
             const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
@@ -184,234 +283,233 @@ describe("DebtIssuanceModuleV2", () => {
             const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
             const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
 
-            expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethFlows));
-            expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethFlows));
+            expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethDefaultFlows));
+            expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethDefaultFlows));
             expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
             expect(postSetDaiBalance).to.eq(preSetDaiBalance);
             expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.sub(daiFlows));
           });
+        });
 
-          it("should have called the module issue hook", async () => {
+        describe("when protocol fees are enabled", async () => {
+          const protocolFee: BigNumber = ether(.2);
+
+          beforeEach(async () => {
+            await setup.controller.addFee(debtIssuance.address, ZERO, protocolFee);
+          });
+
+          it("should mint SetTokens to the correct addresses", async () => {
             await subject();
 
-            const hookCalled = await debtModule.moduleIssueHookCalled();
-
-            expect(hookCalled).to.be.true;
-          });
-
-          it("should emit the correct SetTokenIssued event", async () => {
             const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+            const protocolSplit = preciseMul(feeQuantity, protocolFee);
 
-            await expect(subject()).to.emit(debtIssuance, "SetTokenIssued").withArgs(
-              setToken.address,
-              subjectCaller.address,
-              subjectTo,
-              preIssueHook,
-              subjectQuantity,
-              feeQuantity,
-              ZERO
-            );
-          });
+            const managerBalance = await setToken.balanceOf(feeRecipient.address);
+            const protocolBalance = await setToken.balanceOf(dummyModule.address);  // DummyModule is set as address in fixture setup
+            const toBalance = await setToken.balanceOf(subjectTo);
 
-          describe("when an external equity position is in place", async () => {
-            const externalUnits: BigNumber = ether(1);
-
-            before(async () => {
-              await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, externalUnits);
-            });
-
-            after(async () => {
-              await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, ZERO);
-            });
-
-            it("should have the correct token balances", async () => {
-              const preMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
-              const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const preExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
-              const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
-
-              await subject();
-
-              const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
-              const wethDefaultFlows = preciseMul(mintQuantity, ether(1));
-              const wethExternalFlows = preciseMul(mintQuantity, externalUnits);
-
-              const postMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
-              const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const postExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
-              const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
-
-              expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethDefaultFlows.add(wethExternalFlows)));
-              expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethDefaultFlows));
-              expect(postExternalWethBalance).to.eq(preExternalWethBalance.add(wethExternalFlows));
-              expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
-              expect(postSetDaiBalance).to.eq(preSetDaiBalance);
-              expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.sub(daiFlows));
-            });
-          });
-
-          describe("when the manager issuance fee is 0", async () => {
-            before(async () => {
-              issueFee = ZERO;
-            });
-
-            after(async () => {
-              issueFee = ether(0.005);
-            });
-
-            it("should mint SetTokens to the correct addresses", async () => {
-              await subject();
-
-              const toBalance = await setToken.balanceOf(subjectTo);
-
-              expect(toBalance).to.eq(subjectQuantity);
-            });
-
-            it("should have the correct token balances", async () => {
-              const preMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
-              const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
-
-              await subject();
-
-              const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits);
-              const wethDefaultFlows = preciseMul(mintQuantity, ether(1));
-
-              const postMinterWethBalance = await tokenWithRoundingError.balanceOf(subjectCaller.address);
-              const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
-
-              expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethDefaultFlows));
-              expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethDefaultFlows));
-              expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
-              expect(postSetDaiBalance).to.eq(preSetDaiBalance);
-              expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.sub(daiFlows));
-            });
-          });
-
-          describe("when protocol fees are enabled", async () => {
-            const protocolFee: BigNumber = ether(.2);
-
-            beforeEach(async () => {
-              await setup.controller.addFee(debtIssuance.address, ZERO, protocolFee);
-            });
-
-            it("should mint SetTokens to the correct addresses", async () => {
-              await subject();
-
-              const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
-              const protocolSplit = preciseMul(feeQuantity, protocolFee);
-
-              const managerBalance = await setToken.balanceOf(feeRecipient.address);
-              const protocolBalance = await setToken.balanceOf(dummyModule.address);  // DummyModule is set as address in fixture setup
-              const toBalance = await setToken.balanceOf(subjectTo);
-
-              expect(toBalance).to.eq(subjectQuantity);
-              expect(managerBalance).to.eq(feeQuantity.sub(protocolSplit));
-              expect(protocolBalance).to.eq(protocolSplit);
-            });
-          });
-
-          describe("when manager issuance hook is defined", async () => {
-            before(async () => {
-              preIssueHook = issuanceHook.address;
-            });
-
-            after(async () => {
-              preIssueHook = ADDRESS_ZERO;
-            });
-
-            it("should call the issuance hook", async () => {
-              await subject();
-
-              const setToken = await issuanceHook.retrievedSetToken();
-
-              expect(setToken).to.eq(subjectSetToken);
-            });
-          });
-
-          describe("when the issue quantity is 0", async () => {
-            beforeEach(async () => {
-              subjectQuantity = ZERO;
-            });
-
-            it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Issue quantity must be > 0");
-            });
-          });
-
-          describe("when the SetToken is not enabled on the controller", async () => {
-            beforeEach(async () => {
-              const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-                [tokenWithRoundingError.address],
-                [ether(1)],
-                [debtIssuance.address]
-              );
-
-              subjectSetToken = nonEnabledSetToken.address;
-            });
-
-            it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-            });
+            expect(toBalance).to.eq(subjectQuantity);
+            expect(managerBalance).to.eq(feeQuantity.sub(protocolSplit));
+            expect(protocolBalance).to.eq(protocolSplit);
           });
         });
 
-        describe("#redeem", async () => {
-          let subjectSetToken: Address;
-          let subjectQuantity: BigNumber;
-          let subjectTo: Address;
-          let subjectCaller: Account;
-
-          const debtUnits: BigNumber = ether(100);
-
-          beforeEach(async () => {
-            await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
-            await setup.dai.transfer(debtModule.address, ether(100.5));
-
-            const [, equityFlows, ] = await debtIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
-            await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
-
-            await debtIssuance.issue(setToken.address, ether(1), owner.address);
-
-            await setup.dai.approve(debtIssuance.address, ether(100.5));
-
-            subjectSetToken = setToken.address;
-            subjectQuantity = ether(1);
-            subjectTo = recipient.address;
-            subjectCaller = owner;
+        describe("when manager issuance hook is defined", async () => {
+          before(async () => {
+            preIssueHook = issuanceHook.address;
           });
 
-          async function subject(): Promise<ContractTransaction> {
-            return debtIssuance.connect(subjectCaller.wallet).redeem(
-              subjectSetToken,
-              subjectQuantity,
-              subjectTo,
-            );
-          }
+          after(async () => {
+            preIssueHook = ADDRESS_ZERO;
+          });
 
-          it("should mint SetTokens to the correct addresses", async () => {
-            const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
-            const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
+          it("should call the issuance hook", async () => {
+            await subject();
+
+            const setToken = await issuanceHook.retrievedSetToken();
+
+            expect(setToken).to.eq(subjectSetToken);
+          });
+        });
+
+        describe("when the issue quantity is 0", async () => {
+          beforeEach(async () => {
+            subjectQuantity = ZERO;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Issue quantity must be > 0");
+          });
+        });
+
+        describe("when the SetToken is not enabled on the controller", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+              [tokenWithRoundingError.address],
+              [ether(1)],
+              [debtIssuance.address]
+            );
+
+            subjectSetToken = nonEnabledSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
+        });
+      });
+
+      describe("#redeem", async () => {
+        let subjectSetToken: Address;
+        let subjectQuantity: BigNumber;
+        let subjectTo: Address;
+        let subjectCaller: Account;
+
+        const debtUnits: BigNumber = ether(100);
+
+        beforeEach(async () => {
+          await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
+          await setup.dai.transfer(debtModule.address, ether(100.5));
+
+          const [, equityFlows, ] = await debtIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
+          await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
+
+          await debtIssuance.issue(setToken.address, ether(1), owner.address);
+
+          await setup.dai.approve(debtIssuance.address, ether(100.5));
+
+          subjectSetToken = setToken.address;
+          subjectQuantity = ether(1);
+          subjectTo = recipient.address;
+          subjectCaller = owner;
+        });
+
+        async function subject(): Promise<ContractTransaction> {
+          return debtIssuance.connect(subjectCaller.wallet).redeem(
+            subjectSetToken,
+            subjectQuantity,
+            subjectTo,
+          );
+        }
+
+        it("should mint SetTokens to the correct addresses", async () => {
+          const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
+          const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+          await subject();
+
+          const feeQuantity = preciseMulCeil(subjectQuantity, redeemFee);
+          const postManagerBalance = await setToken.balanceOf(feeRecipient.address);
+          const postCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+          expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity));
+          expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
+        });
+
+        it("should have the correct token balances", async () => {
+          const preToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
+          const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+          const preRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+          const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+          await subject();
+
+          const redeemQuantity = preciseMul(subjectQuantity, ether(1).sub(redeemFee));
+          const daiFlows = preciseMulCeil(redeemQuantity, debtUnits);
+          const wethFlows = preciseMul(redeemQuantity, ether(1));
+
+          const postToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
+          const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+          const postRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+          const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+          expect(postToWethBalance).to.eq(preToWethBalance.add(wethFlows));
+          expect(postSetWethBalance).to.eq(preSetWethBalance.sub(wethFlows));
+          expect(postRedeemerDaiBalance).to.eq(preRedeemerDaiBalance.sub(daiFlows));
+          expect(postSetDaiBalance).to.eq(preSetDaiBalance);
+          expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.add(daiFlows));
+        });
+
+        it("should have called the module issue hook", async () => {
+          await subject();
+
+          const hookCalled = await debtModule.moduleRedeemHookCalled();
+
+          expect(hookCalled).to.be.true;
+        });
+
+        it("should emit the correct SetTokenRedeemed event", async () => {
+          const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+
+          await expect(subject()).to.emit(debtIssuance, "SetTokenRedeemed").withArgs(
+            setToken.address,
+            subjectCaller.address,
+            subjectTo,
+            subjectQuantity,
+            feeQuantity,
+            ZERO
+          );
+        });
+
+        describe("when an external equity position is in place", async () => {
+          const externalUnits: BigNumber = ether(1);
+
+          before(async () => {
+            await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, externalUnits);
+          });
+
+          after(async () => {
+            await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, ZERO);
+          });
+
+          it("should have the correct token balances", async () => {
+            const preToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
+            const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+            const preExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
+            const preRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
 
             await subject();
 
-            const feeQuantity = preciseMulCeil(subjectQuantity, redeemFee);
-            const postManagerBalance = await setToken.balanceOf(feeRecipient.address);
-            const postCallerBalance = await setToken.balanceOf(subjectCaller.address);
+            const redeemQuantity = preciseMul(subjectQuantity, ether(1).sub(redeemFee));
+            const daiFlows = preciseMulCeil(redeemQuantity, debtUnits);
+            const wethExternalFlows = preciseMul(redeemQuantity, externalUnits);
+            const wethDefaultFlows = preciseMul(redeemQuantity, ether(1));
 
-            expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity));
-            expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
+            const postToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
+            const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
+            const postExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
+            const postRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+            expect(postToWethBalance).to.eq(preToWethBalance.add(wethExternalFlows.add(wethDefaultFlows)));
+            expect(postSetWethBalance).to.eq(preSetWethBalance.sub(wethDefaultFlows));
+            expect(postExternalWethBalance).to.eq(preExternalWethBalance.sub(wethExternalFlows));
+            expect(postRedeemerDaiBalance).to.eq(preRedeemerDaiBalance.sub(daiFlows));
+            expect(postSetDaiBalance).to.eq(preSetDaiBalance);
+            expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.add(daiFlows));
+          });
+        });
+
+        describe("when the manager redemption fee is 0", async () => {
+          before(async () => {
+            redeemFee = ZERO;
+          });
+
+          after(async () => {
+            redeemFee = ether(0.005);
+          });
+
+          it("should mint SetTokens to the correct addresses", async () => {
+            await subject();
+
+            const toBalance = await setToken.balanceOf(subjectTo);
+
+            expect(toBalance).to.eq(ZERO);
           });
 
           it("should have the correct token balances", async () => {
@@ -439,349 +537,267 @@ describe("DebtIssuanceModuleV2", () => {
             expect(postSetDaiBalance).to.eq(preSetDaiBalance);
             expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.add(daiFlows));
           });
+        });
 
-          it("should have called the module issue hook", async () => {
+        describe("when protocol fees are enabled", async () => {
+          const protocolFee: BigNumber = ether(.2);
+
+          beforeEach(async () => {
+            await setup.controller.addFee(debtIssuance.address, ZERO, protocolFee);
+          });
+
+          it("should mint SetTokens to the correct addresses", async () => {
+            const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
+            const preProtocolBalance = await setToken.balanceOf(dummyModule.address);
+            const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
             await subject();
 
-            const hookCalled = await debtModule.moduleRedeemHookCalled();
+            const feeQuantity = preciseMulCeil(subjectQuantity, redeemFee);
+            const protocolSplit = preciseMul(feeQuantity, protocolFee);
 
-            expect(hookCalled).to.be.true;
+            const postManagerBalance = await setToken.balanceOf(feeRecipient.address);
+            const postProtocolBalance = await setToken.balanceOf(dummyModule.address);  // DummyModule is set as address in fixture setup
+            const postCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+            expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
+            expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity.sub(protocolSplit)));
+            expect(postProtocolBalance).to.eq(preProtocolBalance.add(protocolSplit));
+          });
+        });
+
+        describe("when the issue quantity is 0", async () => {
+          beforeEach(async () => {
+            subjectQuantity = ZERO;
           });
 
-          it("should emit the correct SetTokenRedeemed event", async () => {
-            const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Redeem quantity must be > 0");
+          });
+        });
 
-            await expect(subject()).to.emit(debtIssuance, "SetTokenRedeemed").withArgs(
-              setToken.address,
-              subjectCaller.address,
-              subjectTo,
-              subjectQuantity,
-              feeQuantity,
-              ZERO
+        describe("when the SetToken is not enabled on the controller", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+              [tokenWithRoundingError.address],
+              [ether(1)],
+              [debtIssuance.address]
             );
+
+            subjectSetToken = nonEnabledSetToken.address;
           });
 
-          describe("when an external equity position is in place", async () => {
-            const externalUnits: BigNumber = ether(1);
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
+        });
+      });
+    });
 
-            before(async () => {
-              await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, externalUnits);
-            });
+    context("when SetToken components do have rounding errors", async () => {
+      describe("#issue", async () => {
+        let subjectSetToken: Address;
+        let subjectQuantity: BigNumber;
+        let subjectTo: Address;
+        let subjectCaller: Account;
 
-            after(async () => {
-              await externalPositionModule.addExternalPosition(setToken.address, tokenWithRoundingError.address, ZERO);
-            });
+        const debtUnits: BigNumber = ether(100);
 
-            it("should have the correct token balances", async () => {
-              const preToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
-              const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const preExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
-              const preRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+        beforeEach(async () => {
+          await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
+          await setup.dai.transfer(debtModule.address, ether(100.5));
 
-              await subject();
+          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+          // send exact amount
+          await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0]);
 
-              const redeemQuantity = preciseMul(subjectQuantity, ether(1).sub(redeemFee));
-              const daiFlows = preciseMulCeil(redeemQuantity, debtUnits);
-              const wethExternalFlows = preciseMul(redeemQuantity, externalUnits);
-              const wethDefaultFlows = preciseMul(redeemQuantity, ether(1));
+          subjectSetToken = setToken.address;
+          subjectQuantity = ether(1);
+          subjectTo = recipient.address;
+          subjectCaller = owner;
+        });
 
-              const postToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
-              const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const postExternalWethBalance = await tokenWithRoundingError.balanceOf(externalPositionModule.address);
-              const postRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+        async function subject(): Promise<ContractTransaction> {
+          return debtIssuance.connect(subjectCaller.wallet).issue(
+            subjectSetToken,
+            subjectQuantity,
+            subjectTo,
+          );
+        }
 
-              expect(postToWethBalance).to.eq(preToWethBalance.add(wethExternalFlows.add(wethDefaultFlows)));
-              expect(postSetWethBalance).to.eq(preSetWethBalance.sub(wethDefaultFlows));
-              expect(postExternalWethBalance).to.eq(preExternalWethBalance.sub(wethExternalFlows));
-              expect(postRedeemerDaiBalance).to.eq(preRedeemerDaiBalance.sub(daiFlows));
-              expect(postSetDaiBalance).to.eq(preSetDaiBalance);
-              expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.add(daiFlows));
+        describe("when rounding error is negative one", async () => {
+          beforeEach(async () => {
+            await tokenWithRoundingError.setError(BigNumber.from(-1));
+          });
+
+          describe("when set is exactly collateralized", async () => {
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith(
+                "Invalid transfer in. Results in undercollateralization"
+              );
             });
           });
 
-          describe("when the manager redemption fee is 0", async () => {
-            before(async () => {
-              redeemFee = ZERO;
-            });
-
-            after(async () => {
-              redeemFee = ether(0.005);
+          describe("when set is over-collateralized by at least 1 wei", async () => {
+            beforeEach(async () => {
+              await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
             });
 
             it("should mint SetTokens to the correct addresses", async () => {
               await subject();
 
+              const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+              const managerBalance = await setToken.balanceOf(feeRecipient.address);
               const toBalance = await setToken.balanceOf(subjectTo);
 
-              expect(toBalance).to.eq(ZERO);
+              expect(toBalance).to.eq(subjectQuantity);
+              expect(managerBalance).to.eq(feeQuantity);
             });
+          });
+        });
 
-            it("should have the correct token balances", async () => {
-              const preToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
-              const preSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const preRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+        describe("when rounding error is positive one", async () => {
+          beforeEach(async () => {
+            await tokenWithRoundingError.setError(ONE);
+          });
 
+          describe("when set is exactly collateralized", async () => {
+            it("should mint SetTokens to the correct addresses", async () => {
               await subject();
 
-              const redeemQuantity = preciseMul(subjectQuantity, ether(1).sub(redeemFee));
-              const daiFlows = preciseMulCeil(redeemQuantity, debtUnits);
-              const wethFlows = preciseMul(redeemQuantity, ether(1));
+              const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+              const managerBalance = await setToken.balanceOf(feeRecipient.address);
+              const toBalance = await setToken.balanceOf(subjectTo);
 
-              const postToWethBalance = await tokenWithRoundingError.balanceOf(subjectTo);
-              const postSetWethBalance = await tokenWithRoundingError.balanceOf(subjectSetToken);
-              const postRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-              const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
-              const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
-
-              expect(postToWethBalance).to.eq(preToWethBalance.add(wethFlows));
-              expect(postSetWethBalance).to.eq(preSetWethBalance.sub(wethFlows));
-              expect(postRedeemerDaiBalance).to.eq(preRedeemerDaiBalance.sub(daiFlows));
-              expect(postSetDaiBalance).to.eq(preSetDaiBalance);
-              expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.add(daiFlows));
+              expect(toBalance).to.eq(subjectQuantity);
+              expect(managerBalance).to.eq(feeQuantity);
             });
           });
 
-          describe("when protocol fees are enabled", async () => {
-            const protocolFee: BigNumber = ether(.2);
-
+          describe("when set is over-collateralized by at least 1 wei", async () => {
             beforeEach(async () => {
-              await setup.controller.addFee(debtIssuance.address, ZERO, protocolFee);
+              await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
             });
+            it("should mint SetTokens to the correct addresses", async () => {
+              await subject();
 
+              const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+              const managerBalance = await setToken.balanceOf(feeRecipient.address);
+              const toBalance = await setToken.balanceOf(subjectTo);
+
+              expect(toBalance).to.eq(subjectQuantity);
+              expect(managerBalance).to.eq(feeQuantity);
+            });
+          });
+        });
+      });
+
+      describe("#redeem", async () => {
+        let subjectSetToken: Address;
+        let subjectQuantity: BigNumber;
+        let subjectTo: Address;
+        let subjectCaller: Account;
+
+        const debtUnits: BigNumber = ether(100);
+
+        beforeEach(async () => {
+          await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
+          await setup.dai.transfer(debtModule.address, ether(100.5));
+
+          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+          // Send exact amount
+          await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0]);
+
+          await debtIssuance.issue(setToken.address, ether(1), owner.address);
+
+          await setup.dai.approve(debtIssuance.address, ether(100.5));
+
+          subjectSetToken = setToken.address;
+          subjectQuantity = ether(1);
+          subjectTo = recipient.address;
+          subjectCaller = owner;
+        });
+
+        async function subject(): Promise<ContractTransaction> {
+          return debtIssuance.connect(subjectCaller.wallet).redeem(
+            subjectSetToken,
+            subjectQuantity,
+            subjectTo,
+          );
+        }
+
+        describe("when rounding error is negative one", async () => {
+          beforeEach(async () => {
+            await tokenWithRoundingError.setError(BigNumber.from(-1));
+          });
+
+          describe("when set is exactly collateralized", async () => {
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith(
+                "Invalid transfer out. Results in undercollateralization"
+              );
+            });
+          });
+
+          describe("when set is over-collateralized by at least 1 wei", async () => {
+            beforeEach(async () => {
+              await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
+            });
             it("should mint SetTokens to the correct addresses", async () => {
               const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
-              const preProtocolBalance = await setToken.balanceOf(dummyModule.address);
               const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
 
               await subject();
 
               const feeQuantity = preciseMulCeil(subjectQuantity, redeemFee);
-              const protocolSplit = preciseMul(feeQuantity, protocolFee);
-
               const postManagerBalance = await setToken.balanceOf(feeRecipient.address);
-              const postProtocolBalance = await setToken.balanceOf(dummyModule.address);  // DummyModule is set as address in fixture setup
               const postCallerBalance = await setToken.balanceOf(subjectCaller.address);
 
+              expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity));
               expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
-              expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity.sub(protocolSplit)));
-              expect(postProtocolBalance).to.eq(preProtocolBalance.add(protocolSplit));
+            });
+          });
+        });
+
+        describe("when rounding error is positive one", async () => {
+          beforeEach(async () => {
+            await tokenWithRoundingError.setError(ONE);
+          });
+
+          describe("when set is exactly collateralized", async () => {
+            it("should mint SetTokens to the correct addresses", async () => {
+              const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
+              const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+              await subject();
+
+              const feeQuantity = preciseMulCeil(subjectQuantity, redeemFee);
+              const postManagerBalance = await setToken.balanceOf(feeRecipient.address);
+              const postCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+              expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity));
+              expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
             });
           });
 
-          describe("when the issue quantity is 0", async () => {
+          describe("when set is over-collateralized by at least 1 wei", async () => {
             beforeEach(async () => {
-              subjectQuantity = ZERO;
+              await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
             });
 
-            it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Redeem quantity must be > 0");
+            it("should mint SetTokens to the correct addresses", async () => {
+              const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
+              const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+              await subject();
+
+              const feeQuantity = preciseMulCeil(subjectQuantity, redeemFee);
+              const postManagerBalance = await setToken.balanceOf(feeRecipient.address);
+              const postCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+              expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity));
+              expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
             });
-          });
-
-          describe("when the SetToken is not enabled on the controller", async () => {
-            beforeEach(async () => {
-              const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-                [tokenWithRoundingError.address],
-                [ether(1)],
-                [debtIssuance.address]
-              );
-
-              subjectSetToken = nonEnabledSetToken.address;
-            });
-
-            it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-            });
-          });
-        });
-      });
-    });
-  });
-
-  context("when SetToken components do have rounding errors", async () => {
-    let preIssueHook: Address;
-    let maxFee: BigNumber;
-    let issueFee: BigNumber;
-    let redeemFee: BigNumber;
-
-    before(async () => {
-      preIssueHook = ADDRESS_ZERO;
-      maxFee = ether(0.02);
-      issueFee = ether(0.005);
-      redeemFee = ether(0.005);
-    });
-
-    beforeEach(async () => {
-      await debtIssuance.connect(manager.wallet).initialize(
-        setToken.address,
-        maxFee,
-        issueFee,
-        redeemFee,
-        feeRecipient.address,
-        preIssueHook
-      );
-      await debtModule.connect(manager.wallet).initialize(setToken.address);
-    });
-
-    describe("#issue", async () => {
-      let subjectSetToken: Address;
-      let subjectQuantity: BigNumber;
-      let subjectTo: Address;
-      let subjectCaller: Account;
-
-      const debtUnits: BigNumber = ether(100);
-
-      beforeEach(async () => {
-        await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
-        await setup.dai.transfer(debtModule.address, ether(100.5));
-
-        const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
-        // send exact amount
-        await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0]);
-
-        subjectSetToken = setToken.address;
-        subjectQuantity = ether(1);
-        subjectTo = recipient.address;
-        subjectCaller = owner;
-      });
-
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuance.connect(subjectCaller.wallet).issue(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
-      describe("when rounding error is negative one", async () => {
-        beforeEach(async () => {
-          await tokenWithRoundingError.setError(BigNumber.from(-1));
-        });
-
-        describe("when set is exactly collateralized", async () => {
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith(
-              "Invalid transfer in. Results in undercollateralization"
-            );
-          });
-        });
-
-        describe("when set is over-collateralized by at least 1 wei", async () => {
-          beforeEach(async () => {
-            await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
-          });
-
-          it("should not revert", async () => {
-            await expect(subject()).to.not.be.reverted;
-          });
-        });
-      });
-
-      describe("when rounding error is positive one", async () => {
-        beforeEach(async () => {
-          await tokenWithRoundingError.setError(ONE);
-        });
-
-        describe("when set is exactly collateralized", async () => {
-          it("should not revert", async () => {
-            await expect(subject()).to.not.be.reverted;
-          });
-        });
-
-        describe("when set is over-collateralized by at least 1 wei", async () => {
-          beforeEach(async () => {
-            await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
-          });
-
-          it("should not revert", async () => {
-            await expect(subject()).to.not.be.reverted;
-          });
-        });
-      });
-    });
-
-    describe("#redeem", async () => {
-      let subjectSetToken: Address;
-      let subjectQuantity: BigNumber;
-      let subjectTo: Address;
-      let subjectCaller: Account;
-
-      const debtUnits: BigNumber = ether(100);
-
-      beforeEach(async () => {
-        await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
-        await setup.dai.transfer(debtModule.address, ether(100.5));
-
-        const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
-        // Send exact amount
-        await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0]);
-
-        await debtIssuance.issue(setToken.address, ether(1), owner.address);
-
-        await setup.dai.approve(debtIssuance.address, ether(100.5));
-
-        subjectSetToken = setToken.address;
-        subjectQuantity = ether(1);
-        subjectTo = recipient.address;
-        subjectCaller = owner;
-      });
-
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuance.connect(subjectCaller.wallet).redeem(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
-      describe("when rounding error is negative one", async () => {
-        beforeEach(async () => {
-          await tokenWithRoundingError.setError(BigNumber.from(-1));
-        });
-
-        describe("when set is exactly collateralized", async () => {
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith(
-              "Invalid transfer out. Results in undercollateralization"
-            );
-          });
-        });
-
-        describe("when set is over-collateralized by at least 1 wei", async () => {
-          beforeEach(async () => {
-            await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
-          });
-
-          it("should not revert", async () => {
-            await expect(subject()).to.not.be.reverted;
-          });
-        });
-      });
-
-      describe("when rounding error is positive one", async () => {
-        beforeEach(async () => {
-          await tokenWithRoundingError.setError(ONE);
-        });
-
-        describe("when set is exactly collateralized", async () => {
-          it("should not revert", async () => {
-            await expect(subject()).to.not.be.reverted;
-          });
-        });
-
-        describe("when set is over-collateralized by at least 1 wei", async () => {
-          beforeEach(async () => {
-            await tokenWithRoundingError.connect(owner.wallet).transfer(setToken.address, ONE);
-          });
-
-          it("should not revert", async () => {
-            await expect(subject()).to.not.be.reverted;
           });
         });
       });
