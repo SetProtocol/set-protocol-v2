@@ -42,10 +42,12 @@ describe("AaveV2Fixture", async () => {
       const lendingPoolAddress = await addressProvider.getLendingPool();
       const lendingPoolConfiuratorAddress = await addressProvider.getLendingPoolConfigurator();
       const lendingPoolCollateralManager = await addressProvider.getLendingPoolCollateralManager();
+      const protocolDataProvider = await addressProvider.getAddress("0x0100000000000000000000000000000000000000000000000000000000000000");
 
       expect(lendingPoolAddress).to.eq(aaveSetup.lendingPool.address);
       expect(lendingPoolConfiuratorAddress).to.eq(aaveSetup.lendingPoolConfigurator.address);
       expect(lendingPoolCollateralManager).to.eq(aaveSetup.lendingPoolCollateralManager.address);
+      expect(protocolDataProvider).to.eq(aaveSetup.protocolDataProvider.address);
     });
 
     it("should set initial asset prices and market rates", async () => {
