@@ -22,11 +22,9 @@ import {
   Executor,
   GovernanceStrategy
 } from "../contracts/aaveV2";
-
-
 import { ether, getRandomAddress } from "../common";
-
 import { ADDRESS_ZERO, MAX_UINT_256 } from "../constants";
+import dependencies from "../deploys/dependencies";
 
 export interface ReserveTokens {
   aToken: AaveV2AToken;
@@ -238,6 +236,14 @@ export class AaveV2Fixture {
 
   public async setMarketBorrowRate(asset: Address, rate: BigNumberish): Promise<void> {
     this.lendingRateOracle.setMarketBorrowRate(asset, rate);
+  }
+
+  public getForkedAaveLendingPoolAddressesProvider(): AaveV2LendingPoolAddressesProvider {
+    return this._deployer.external.getForkedAaveLendingPoolAddressesProvider(dependencies.AAVE_LENDING_POOL_ADDRESSES_PROVIDER[1]);
+  }
+
+  public getForkedAaveV2ProtocolDataProvider(): AaveV2LendingPoolAddressesProvider {
+    return this._deployer.external.getForkedAaveV2ProtocolDataProvider(dependencies.AAVE_PROTOCOL_DATA_PROVIDER[1]);
   }
 
   private async initializeGovernance(): Promise<void> {

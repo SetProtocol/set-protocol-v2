@@ -523,6 +523,14 @@ export default class DeployExternalContracts {
     );
   }
 
+  public getForkedAaveLendingPoolAddressesProvider(_mainnetAddressesProvider: Address): AaveV2LendingPoolAddressesProvider {
+    return AaveV2LendingPoolAddressesProvider__factory.connect(_mainnetAddressesProvider, this._deployerSigner);
+  }
+
+  public getForkedAaveV2ProtocolDataProvider(_mainnetAddressesProvider: Address): AaveV2ProtocolDataProvider {
+    return AaveV2ProtocolDataProvider__factory.connect(_mainnetAddressesProvider, this._deployerSigner);
+  }
+
   // AAVE V2 LIBRARIES
   public async deployGeneralLogic(): Promise<GenericLogic> {
     return await new GenericLogic__factory(this._deployerSigner).deploy();
