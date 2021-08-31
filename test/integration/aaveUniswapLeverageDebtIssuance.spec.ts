@@ -37,7 +37,7 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants"
 
 const expect = getWaffleExpect();
 
-describe.skip("AaveUniswapLeverageDebtIssuance", () => {
+describe("AaveUniswapLeverageDebtIssuance", () => {
   let owner: Account;
   let feeRecipient: Account;
   let deployer: DeployHelper;
@@ -50,7 +50,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
   let debtIssuanceModule: DebtIssuanceModuleV2;
   let uniswapExchangeAdapter: UniswapV2ExchangeAdapter;
 
-  let aWETH: AaveV2AToken;
+  let aWBTC: AaveV2AToken;
   let variableDebtDAI: AaveV2VariableDebtToken;
   let variableDebtUSDC: AaveV2VariableDebtToken;
 
@@ -71,6 +71,18 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
     aaveV2Setup = getAaveV2Fixture(owner.address);
     await aaveV2Setup.initialize(setup.weth.address, setup.dai.address);
 
+
+    // Create a WBTC reserve
+    const wbtcReserveTokens = await aaveV2Setup.createAndEnableReserve(
+      setup.wbtc.address, "WBTC", BigNumber.from(8),
+      BigNumber.from(8000),   // base LTV: 80%
+      BigNumber.from(8250),   // liquidation threshold: 82.5%
+      BigNumber.from(10500),  // liquidation bonus: 105.00%
+      BigNumber.from(1000),   // reserve factor: 10%
+      true,                   // enable borrowing on reserve
+      true                    // enable stable debts
+    );
+
     // Create an USDC reserve
     const usdcReserveTokens = await aaveV2Setup.createAndEnableReserve(
       setup.usdc.address, "USDC", BigNumber.from(6),
@@ -81,13 +93,15 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       true,                   // enable borrowing on reserve
       true                    // enable stable debts
     );
+
+    await aaveV2Setup.setAssetPriceInOracle(setup.wbtc.address, ether(1));  // Set to 1 ETH
     await aaveV2Setup.setAssetPriceInOracle(setup.usdc.address, ether(0.001)); // Set to $1000 ETH
 
     // Mint aTokens on Aave
-    await setup.weth.approve(aaveV2Setup.lendingPool.address, ether(1000));
+    await setup.wbtc.approve(aaveV2Setup.lendingPool.address, bitcoin(1000));
     await aaveV2Setup.lendingPool.deposit(
-      setup.weth.address,
-      ether(1000),
+      setup.wbtc.address,
+      bitcoin(1000),
       owner.address,
       ZERO
     );
@@ -106,36 +120,36 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       ZERO
     );
 
-    aWETH = aaveV2Setup.wethReserveTokens.aToken;
+    aWBTC = wbtcReserveTokens.aToken;
 
     variableDebtUSDC = usdcReserveTokens.variableDebtToken;
     variableDebtDAI = aaveV2Setup.daiReserveTokens.variableDebtToken;
 
-    // Create ETH USDC pool and pool liquidity
-    await uniswapSetup.createNewPair(setup.weth.address, setup.usdc.address);
+    // Create WBTC USDC pool and pool liquidity
+    await uniswapSetup.createNewPair(setup.wbtc.address, setup.usdc.address);
     await setup.usdc.connect(owner.wallet).approve(uniswapSetup.router.address, MAX_UINT_256);
-    await setup.weth.connect(owner.wallet).approve(uniswapSetup.router.address, MAX_UINT_256);
+    await setup.wbtc.connect(owner.wallet).approve(uniswapSetup.router.address, MAX_UINT_256);
     await setup.dai.connect(owner.wallet).approve(uniswapSetup.router.address, MAX_UINT_256);
 
-    // 100 ETH = 100k USDC. 1 ETH = 1000 USDC
+    // 100 WBTC = 100k USDC. 1 WBTC = 1000 USDC
     await uniswapSetup.router.connect(owner.wallet).addLiquidity(
-      setup.weth.address,
+      setup.wbtc.address,
       setup.usdc.address,
-      ether(100),
+      bitcoin(100),
       usdc(100000),
-      ether(100),
+      bitcoin(100),
       usdc(100000),
       owner.address,
       MAX_UINT_256
     );
 
-    // 100 ETH = 100k DAI. 1 ETH = 1000 DAI
+    // 100 WBTC = 100k DAI. 1 WBTC = 1000 DAI
     await uniswapSetup.router.connect(owner.wallet).addLiquidity(
-      setup.weth.address,
+      setup.wbtc.address,
       setup.dai.address,
-      ether(100),
+      bitcoin(100),
       ether(100000),
-      ether(100),
+      bitcoin(100),
       ether(100000),
       owner.address,
       MAX_UINT_256
@@ -173,7 +187,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
   describe("#issuance", async () => {
     let setToken: SetToken;
     let issueFee: BigNumber;
-    let aWETHUnits: BigNumber;
+    let aWBTCUnits: BigNumber;
     let actualSeizedTokens: BigNumber;
 
     let subjectSetToken: Address;
@@ -182,15 +196,23 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
     let subjectCaller: Account;
     let issueQuantity: BigNumber;
 
+    async function subject(): Promise<ContractTransaction> {
+      return debtIssuanceModule.connect(subjectCaller.wallet).issue(
+        subjectSetToken,
+        subjectQuantity,
+        subjectTo,
+      );
+    }
+
     context("when a default aToken position with 0 supply", async () => {
       cacheBeforeEach(async () => {
         // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
+        await aaveV2Setup.lendingPool.borrow(setup.wbtc.address, bitcoin(10), 2, ZERO, owner.address);
 
-        aWETHUnits = ether(1);
+        aWBTCUnits = bitcoin(1);
         setToken = await setup.createSetToken(
-          [aWETH.address],
-          [aWETHUnits],
+          [aWBTC.address],
+          [aWBTCUnits],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
         issueFee = ether(0.005);
@@ -206,12 +228,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aWBTC.approve(debtIssuanceModule.address, bitcoin(1000));
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -224,14 +246,6 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).issue(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should not update the collateral position on the SetToken", async () => {
         const initialPositions = await setToken.getPositions();
 
@@ -242,9 +256,9 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
         expect(initialPositions.length).to.eq(1);
         expect(currentPositions.length).to.eq(1);
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(aWETHUnits);
+        expect(newFirstPosition.unit).to.eq(aWBTCUnits);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -260,8 +274,8 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       });
 
       it("should have the correct token balances", async () => {
-        const preMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
 
@@ -269,18 +283,18 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
         const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
         const usdcFlows = preciseMulCeil(mintQuantity, ZERO);
-        const aWETHFlows = preciseMul(mintQuantity, aWETHUnits);
+        const aWBTCFlows = preciseMul(mintQuantity, aWBTCUnits);
 
-        const postMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
 
         // Note: Due to 1 aToken = 1 underlying and interest accruing every block, it is difficult to track precise
         // balances without replicating interest rate logic. Therefore, we expect actual balances to be greater
-        // than expected due to interest accruals on aWETH
-        expect(postMinterAWETHBalance).to.gte(preMinterAWETHBalance.sub(aWETHFlows));
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.add(aWETHFlows));
+        // than expected due to interest accruals on aWBTC
+        expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows)); // No debt
         expect(postSetUsdcBalance).to.eq(preSetUsdcBalance); // No debt
       });
@@ -290,13 +304,13 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       let issueQuantity: BigNumber;
 
       cacheBeforeEach(async () => {
-        // Borrow some WETH to ensure the aWETH balance increases due to interest
-        await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
+        // Borrow some WBTC to ensure the aWBTC balance increases due to interest
+        await aaveV2Setup.lendingPool.borrow(setup.wbtc.address, bitcoin(10), 2, ZERO, owner.address);
 
-        aWETHUnits = ether(1);
+        aWBTCUnits = bitcoin(1);
         setToken = await setup.createSetToken(
-          [aWETH.address],
-          [aWETHUnits],
+          [aWBTC.address],
+          [aWBTCUnits],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
         issueFee = ether(0.005);
@@ -312,12 +326,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aWBTC.approve(debtIssuanceModule.address, bitcoin(1000));
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -327,9 +341,9 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.lever(
           setToken.address,
           setup.usdc.address,
-          setup.weth.address,
+          setup.wbtc.address,
           usdc(500),
-          ether(0.4),
+          bitcoin(0.4),
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
@@ -342,28 +356,20 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).issue(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
 
-        // aWETH position is increased
+        // aWBTC position is increased
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.gte(initialPositions[0].unit); // Should be greater due to interest accrual
+        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -387,27 +393,27 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       });
 
       it("should have the correct token balances", async () => {
-        const preMinteraWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
         const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-        const newAWETHPositionUnits = (await setToken.getPositions())[0].unit;
-        const aWETHFlows = preciseMulCeil(mintQuantity, newAWETHPositionUnits);
+        const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+        const aWBTCFlows = preciseMulCeil(mintQuantity, newAWBTCPositionUnits);
 
         await subject();
 
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
         const usdcFlows = preciseMul(mintQuantity, debtPositionUnits).mul(-1);
 
-        const postMinteraWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postMinteraWETHBalance).to.gte(preMinteraWETHBalance.sub(aWETHFlows));
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.add(aWETHFlows));
+        expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
         expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.add(usdcFlows));
       });
@@ -417,13 +423,13 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       let issueQuantity: BigNumber;
 
       cacheBeforeEach(async () => {
-        // TODO: Borrow some WETH to ensure the aWETH balance increases due to interest
-        // await aaveV2Setup.lendingPool.borrow(setup.weth.address, ether(10), 2, ZERO, owner.address);
+        // Borrow some WBTC to ensure the aWBTC balance increases due to interest
+        await aaveV2Setup.lendingPool.borrow(setup.wbtc.address, bitcoin(10), 2, ZERO, owner.address);
 
-        aWETHUnits = ether(1);
+        aWBTCUnits = bitcoin(1);
         setToken = await setup.createSetToken(
-          [aWETH.address],
-          [aWETHUnits],
+          [aWBTC.address],
+          [aWBTCUnits],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
         issueFee = ether(0.005);
@@ -439,12 +445,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aWBTC.approve(debtIssuanceModule.address, bitcoin(1000));
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -454,14 +460,14 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.lever(
           setToken.address,
           setup.usdc.address,
-          setup.weth.address,
+          setup.wbtc.address,
           usdc(750),
-          ether(0.5),
+          bitcoin(0.5),
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
 
-        // ETH decreases to $400
+        // ETH decreases to $400. 1 WBTC = 1 WETH. So, WBTC = 400$.
         const liquidationUsdcPriceInEth = ether(0.0025);    // 1/400 = 0.0025
         await aaveV2Setup.setAssetPriceInOracle(setup.usdc.address, liquidationUsdcPriceInEth);
 
@@ -469,20 +475,20 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         const debtToCoverHumanReadable = 200;
         actualSeizedTokens = preciseMul(
           preciseMul(liquidationUsdcPriceInEth, ether(debtToCoverHumanReadable)),
-          ether(1.05)  // 5% liquidation bonus as configured in fixture
+          bitcoin(1.05)  // 5% liquidation bonus as configured in fixture
         );
         const debtToCover = usdc(debtToCoverHumanReadable);
         await setup.usdc.approve(aaveV2Setup.lendingPool.address, ether(250));
 
         await aaveV2Setup.lendingPool.connect(owner.wallet).liquidationCall(
-          setup.weth.address,
+          setup.wbtc.address,
           setup.usdc.address,
           setToken.address,
           debtToCover,
           true
         );
 
-        // ETH increases to $1000 to allow more borrow
+        // WBTC increases to $1000 to allow more borrow
         await aaveV2Setup.setAssetPriceInOracle(setup.usdc.address, ether(0.001));  // 1/1000 = .001
       });
 
@@ -493,27 +499,21 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).issue(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
         const setTotalSupply = await setToken.totalSupply();
 
         await subject();
-        // aWETH position is increased
+
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
 
+        // aWBTC position has decreased
         const expectedPostLiquidationUnit = initialPositions[0].unit.sub(preciseDivCeil(actualSeizedTokens, setTotalSupply));
+
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
         expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
@@ -522,12 +522,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       it("should update the borrow position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
+        // Get debt balance after some debt is paid during liquidation
         const previousSecondPositionBalance = await variableDebtUSDC.balanceOf(setToken.address);
         const setTotalSupply = await setToken.totalSupply();
 
         await subject();
 
-        // aWETH position is increased
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
 
@@ -541,29 +541,29 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       });
 
       it("should have the correct token balances", async () => {
-        const preMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
         const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-        const newAWETHPositionUnits = (await setToken.getPositions())[0].unit;
-        const aWETHFlows = preciseMulCeil(mintQuantity, newAWETHPositionUnits).sub(actualSeizedTokens);
+        const aWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+        const aWBTCFlows = preciseMulCeil(mintQuantity, aWBTCPositionUnits).sub(actualSeizedTokens);
 
         await subject();
 
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
         const usdcFlows = preciseMul(mintQuantity, debtPositionUnits).mul(-1);
 
-        const postMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postMinterAWETHBalance).to.eq(preMinterAWETHBalance.sub(aWETHFlows));
-        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.add(aWETHFlows));
+        expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
-        expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows));
+        expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.add(usdcFlows));
       });
     });
 
@@ -572,10 +572,10 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
       cacheBeforeEach(async () => {
         setToken = await setup.createSetToken(
-          [aWETH.address, setup.wbtc.address],
+          [aWBTC.address, setup.weth.address],
           [
-            ether(1),
             bitcoin(1),
+            ether(1),
           ],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
@@ -592,13 +592,13 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.dai.address, setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, MAX_UINT_256);
-        await setup.wbtc.approve(debtIssuanceModule.address, MAX_UINT_256);
+        await aWBTC.approve(debtIssuanceModule.address, MAX_UINT_256);
+        await setup.weth.approve(debtIssuanceModule.address, MAX_UINT_256);
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -608,9 +608,9 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.lever(
           setToken.address,
           setup.dai.address,
-          setup.weth.address,
+          setup.wbtc.address,
           ether(100),
-          ether(0.01),
+          bitcoin(0.01),
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
@@ -618,9 +618,9 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.lever(
           setToken.address,
           setup.usdc.address,
-          setup.weth.address,
+          setup.wbtc.address,
           usdc(100),
-          ether(0.01),
+          bitcoin(0.01),
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
@@ -633,20 +633,11 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).issue(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
 
-        // aWETH position is increased
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
         const newSecondPosition = (await setToken.getPositions())[1];
@@ -654,12 +645,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         expect(initialPositions.length).to.eq(4);
         expect(currentPositions.length).to.eq(4);
 
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
         expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
 
-        expect(newSecondPosition.component).to.eq(setup.wbtc.address);
+        expect(newSecondPosition.component).to.eq(setup.weth.address);
         expect(newSecondPosition.positionState).to.eq(0); // Default
         expect(newSecondPosition.unit).to.eq(initialPositions[1].unit); // Should be unchanged
         expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
@@ -691,19 +682,19 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       });
 
       it("should have the correct token balances", async () => {
-        const preMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
         const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
         const preSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
-        const preMinterWbtcBalance = await setup.wbtc.balanceOf(subjectCaller.address);
-        const preSetWbtcBalance = await setup.wbtc.balanceOf(subjectSetToken);
+        const preMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
+        const preSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
 
         const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
         const setTotalSupply = await setToken.totalSupply();
-        const newAWETHPositionUnits = (await setToken.getPositions())[0].unit;
-        const aWETHFlows = preciseMulCeil(mintQuantity, newAWETHPositionUnits);
+        const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+        const aWBTCFlows = preciseMulCeil(mintQuantity, newAWBTCPositionUnits);
 
         await subject();
 
@@ -711,25 +702,25 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         const usdcDebtPositionUnits = (await setToken.getPositions())[3].unit;
         const daiFlows = preciseMul(mintQuantity, daiDebtPositionUnits).mul(-1);
         const usdcFlows = preciseMul(mintQuantity, usdcDebtPositionUnits).mul(-1);
-        const wbtcFlows = preciseMul(bitcoin(1), setTotalSupply); // 1 BTC unit
+        const wethFlows = preciseMul(ether(1), setTotalSupply); // 1 WETH unit
 
-        const postMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
         const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
         const postSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
-        const postMinterWbtcBalance = await setup.wbtc.balanceOf(subjectCaller.address);
-        const postSetWbtcBalance = await setup.wbtc.balanceOf(subjectSetToken);
+        const postMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
+        const postSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
 
-        expect(postMinterAWETHBalance).to.eq(preMinterAWETHBalance.sub(aWETHFlows));
-        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.add(aWETHFlows));
+        expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
         expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows)); // Round up due to interest accrual
         expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
         expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows)); // Round up due to interest accrual
-        expect(postMinterWbtcBalance).to.eq(preMinterWbtcBalance.sub(wbtcFlows));
-        expect(postSetWbtcBalance).to.eq(preSetWbtcBalance.add(wbtcFlows));
+        expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethFlows));
+        expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethFlows));
       });
     });
   });
@@ -737,7 +728,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
   describe("#redemption", async () => {
     let setToken: SetToken;
     let redeemFee: BigNumber;
-    let aWETHUnits: BigNumber;
+    let aWBTCUnits: BigNumber;
     let actualSeizedTokens: BigNumber;
 
     let subjectSetToken: Address;
@@ -746,12 +737,21 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
     let subjectCaller: Account;
     let issueQuantity: BigNumber;
 
+    async function subject(): Promise<ContractTransaction> {
+      return debtIssuanceModule.connect(subjectCaller.wallet).redeem(
+        subjectSetToken,
+        subjectQuantity,
+        subjectTo,
+      );
+    }
+
+
     context("when a default aToken position and redeem will take supply to 0", async () => {
       cacheBeforeEach(async () => {
-        aWETHUnits = ether(1);
+        aWBTCUnits = bitcoin(1);
         setToken = await setup.createSetToken(
-          [aWETH.address],
-          [aWETHUnits],
+          [aWBTC.address],
+          [aWBTCUnits],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
         await debtIssuanceModule.initialize(
@@ -766,12 +766,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aWBTC.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -785,14 +785,6 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).redeem(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
         await subject();
@@ -801,9 +793,9 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         const newFirstPosition = (await setToken.getPositions())[0];
         expect(initialPositions.length).to.eq(1);
         expect(currentPositions.length).to.eq(1);
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(aWETHUnits);
+        expect(newFirstPosition.unit).to.eq(aWBTCUnits);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -819,8 +811,8 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       });
 
       it("should have the correct token balances", async () => {
-        const preMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
 
@@ -828,15 +820,15 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
         const mintQuantity = preciseMul(subjectQuantity, ether(1));
         const usdcFlows = preciseMulCeil(mintQuantity, ZERO);
-        const aWETHFlows = preciseMul(mintQuantity, aWETHUnits);
+        const aWBTCFlows = preciseMul(mintQuantity, aWBTCUnits);
 
-        const postMinterAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcBalance = await setup.usdc.balanceOf(subjectSetToken);
 
-        expect(postMinterAWETHBalance).to.eq(preMinterAWETHBalance.add(aWETHFlows));
-        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.sub(aWETHFlows));
+        expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.add(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.sub(aWBTCFlows));
         expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.sub(usdcFlows)); // No debt
         expect(postSetUsdcBalance).to.eq(preSetUsdcBalance); // No debt
       });
@@ -847,10 +839,10 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
       cacheBeforeEach(async () => {
 
-        aWETHUnits = ether(1);
+        aWBTCUnits = bitcoin(1);
         setToken = await setup.createSetToken(
-          [aWETH.address],
-          [aWETHUnits],
+          [aWBTC.address],
+          [aWBTCUnits],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
         redeemFee = ether(0.005);
@@ -866,12 +858,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aWBTC.approve(debtIssuanceModule.address, ether(1000));
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -881,9 +873,9 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.lever(
           setToken.address,
           setup.usdc.address,
-          setup.weth.address,
+          setup.wbtc.address,
           usdc(500),
-          ether(0.4),
+          bitcoin(0.4),
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
@@ -899,28 +891,19 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).redeem(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
 
-        // aWETH position is increased
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit); // Should be greater due to interest accrual
+        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -939,13 +922,13 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit); // Should be greater due to interest accrual
+        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
         expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
       });
 
       it("should have the correct token balances", async () => {
-        const preRedeemerAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preRedeemerAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
@@ -953,18 +936,18 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
         await subject();
 
-        const newAWETHPositionUnits = (await setToken.getPositions())[0].unit;
-        const aWETHFlows = preciseMul(redeemQuantity, newAWETHPositionUnits);
+        const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+        const aWBTCFlows = preciseMul(redeemQuantity, newAWBTCPositionUnits);
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
         const usdcFlows = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
 
-        const postRedeemerAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postRedeemerAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postRedeemerAWETHBalance).to.eq(preRedeemerAWETHBalance.add(aWETHFlows));
-        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.sub(aWETHFlows));
+        expect(postRedeemerAWBTCBalance).to.eq(preRedeemerAWBTCBalance.add(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.sub(aWBTCFlows));
         expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
         expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));
       });
@@ -975,10 +958,10 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
       cacheBeforeEach(async () => {
 
-        aWETHUnits = ether(1);
+        aWBTCUnits = bitcoin(1);
         setToken = await setup.createSetToken(
-          [aWETH.address],
-          [aWETHUnits],
+          [aWBTC.address],
+          [aWBTCUnits],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
         await debtIssuanceModule.initialize(
@@ -993,12 +976,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aWBTC.approve(debtIssuanceModule.address, bitcoin(1000));
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -1008,9 +991,9 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.lever(
           setToken.address,
           setup.usdc.address,
-          setup.weth.address,
+          setup.wbtc.address,
           usdc(500),
-          ether(0.4),
+          bitcoin(0.4),
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
@@ -1026,26 +1009,17 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).redeem(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
 
-        // aWETH position is increased
         const currentPositions = await setToken.getPositions();
         const newFirstPosition = (await setToken.getPositions())[0];
 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
         expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
@@ -1073,8 +1047,8 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
       });
 
       it("should have the correct token balances", async () => {
-        const preRedeemerAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preRedeemerAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
@@ -1082,18 +1056,18 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
         await subject();
 
-        const newAWETHPositionUnits = (await setToken.getPositions())[0].unit;
-        const aWETHFlows = preciseMul(redeemQuantity, newAWETHPositionUnits);
+        const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+        const aWBTCFlows = preciseMul(redeemQuantity, newAWBTCPositionUnits);
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
         const usdcFlows = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
 
-        const postRedeemerAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postRedeemerAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postRedeemerAWETHBalance).to.eq(preRedeemerAWETHBalance.add(aWETHFlows));
-        expect(postSetAWETHBalance).to.eq(preSetAWETHBalance.sub(aWETHFlows));
+        expect(postRedeemerAWBTCBalance).to.eq(preRedeemerAWBTCBalance.add(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.sub(aWBTCFlows));
         expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
         expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));
       });
@@ -1104,10 +1078,10 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
 
       cacheBeforeEach(async () => {
 
-        aWETHUnits = ether(1);
+        aWBTCUnits = bitcoin(1);
         setToken = await setup.createSetToken(
-          [aWETH.address],
-          [aWETHUnits],
+          [aWBTC.address],
+          [aWBTCUnits],
           [aaveLeverageModule.address, debtIssuanceModule.address]
         );
         redeemFee = ether(0.005);
@@ -1123,12 +1097,12 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
         await aaveLeverageModule.initialize(
           setToken.address,
-          [setup.weth.address],
+          [setup.wbtc.address],
           [setup.usdc.address]
         );
 
         // Approve tokens to issuance module and call issue
-        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aWBTC.approve(debtIssuanceModule.address, bitcoin(1000));
 
         // Issue 1 SetToken
         issueQuantity = ether(1);
@@ -1138,14 +1112,14 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         await aaveLeverageModule.lever(
           setToken.address,
           setup.usdc.address,
-          setup.weth.address,
+          setup.wbtc.address,
           usdc(750),
-          ether(0.5),
+          bitcoin(0.5),
           "UniswapV2ExchangeAdapter",
           EMPTY_BYTES
         );
 
-         // ETH decreases to $400
+        // ETH decreases to $400. 1 WBTC = 1 ETH = 400$.
         const liquidationUsdcPriceInEth = ether(0.0025);    // 1/400 = 0.0025
         await aaveV2Setup.setAssetPriceInOracle(setup.usdc.address, liquidationUsdcPriceInEth);
 
@@ -1153,20 +1127,20 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         const debtToCoverHumanReadable = 200;
         actualSeizedTokens = preciseMul(
           preciseMul(liquidationUsdcPriceInEth, ether(debtToCoverHumanReadable)),
-          ether(1.05)  // 5% liquidation bonus as configured in fixture
+          bitcoin(1.05)  // 5% liquidation bonus as configured in fixture
         );
         const debtToCover = usdc(debtToCoverHumanReadable);
         await setup.usdc.approve(aaveV2Setup.lendingPool.address, ether(250));
 
         await aaveV2Setup.lendingPool.connect(owner.wallet).liquidationCall(
-          setup.weth.address,
+          setup.wbtc.address,
           setup.usdc.address,
           setToken.address,
           debtToCover,
           true
         );
 
-        // ETH increases to $1000 to allow more borrow
+        // WBTC increases to $1000 to allow more borrow
         await aaveV2Setup.setAssetPriceInOracle(setup.usdc.address, ether(0.001));  // 1/1000 = .001
 
         // Approve debt token to issuance module for redeem
@@ -1180,14 +1154,6 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         subjectCaller = owner;
       });
 
-      async function subject(): Promise<ContractTransaction> {
-        return debtIssuanceModule.connect(subjectCaller.wallet).redeem(
-          subjectSetToken,
-          subjectQuantity,
-          subjectTo,
-        );
-      }
-
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
         const setTotalSupply = await setToken.totalSupply();
@@ -1198,7 +1164,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         const expectedPostLiquidationUnit = initialPositions[0].unit.sub(preciseDivCeil(actualSeizedTokens, setTotalSupply));
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
-        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.component).to.eq(aWBTC.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
         expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
@@ -1208,7 +1174,7 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
-        // aWETH position is increased
+        // aWBTC position is increased
         const setTotalSupply = await setToken.totalSupply();
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
@@ -1219,32 +1185,32 @@ describe.skip("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPositionNotional).to.gte(previousSecondPositionBalance);
+        expect(newSecondPositionNotional).to.gte(previousSecondPositionBalance);  // Debt accrues
         expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
       });
 
       it("should have the correct token balances", async () => {
-        const preRedeemerAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const preSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const preRedeemerAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const preRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
         await subject();
 
         const redeemQuantity = preciseMul(subjectQuantity, ether(1).sub(redeemFee));
-        const newAWETHPositionUnits = (await setToken.getPositions())[0].unit;
-        const aWETHFlows = preciseMul(redeemQuantity, newAWETHPositionUnits);
+        const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+        const aWBTCFlows = preciseMul(redeemQuantity, newAWBTCPositionUnits);
 
         const debtPositionUnits = (await setToken.getPositions())[1].unit;
         const usdcFlows = preciseMulCeil(redeemQuantity, debtPositionUnits.mul(-1));
 
-        const postRedeemerAWETHBalance = await aWETH.balanceOf(subjectCaller.address);
-        const postSetAWETHBalance = await aWETH.balanceOf(subjectSetToken);
+        const postRedeemerAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
         const postRedeemerUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
         const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
 
-        expect(postRedeemerAWETHBalance).to.eq(preRedeemerAWETHBalance.add(aWETHFlows));
-        expect(postSetAWETHBalance).to.gte(preSetAWETHBalance.sub(aWETHFlows));
+        expect(postRedeemerAWBTCBalance).to.eq(preRedeemerAWBTCBalance.add(aWBTCFlows));
+        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.sub(aWBTCFlows));
         expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
         expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));
       });
