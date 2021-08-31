@@ -128,8 +128,6 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
 
         _validateAddLiquidity(actionInfo);
 
-        _executeApprovals(actionInfo);
-
         _executeAddLiquidity(actionInfo);
 
         _validateMinimumLiquidityReceived(actionInfo);
@@ -176,8 +174,6 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         );
 
         _validateAddLiquidity(actionInfo);
-
-        _executeApprovals(actionInfo);
 
         _executeAddLiquiditySingleAsset(actionInfo);
 
@@ -413,12 +409,12 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         require(_actionInfo.liquidityQuantity > 0, "Token quantity must be nonzero");
 
         require(
-            _actionInfo.ammAdapter.isValidPool(_actionInfo.liquidityToken),
+            _actionInfo.ammAdapter.isValidPool(_actionInfo.liquidityToken, _actionInfo.components),
             "Pool token must be enabled on the Adapter"
         );
     }
 
-    function _executeApprovals(ActionInfo memory _actionInfo) internal {
+    function _executeComponentApprovals(ActionInfo memory _actionInfo) internal {
         address spender = _actionInfo.ammAdapter.getSpenderAddress(_actionInfo.liquidityToken);
 
         // Loop through and approve total notional tokens to spender
@@ -435,11 +431,14 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getProvideLiquidityCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components,
             _actionInfo.totalNotionalComponents,
             _actionInfo.liquidityQuantity
         );
+
+        _executeComponentApprovals(_actionInfo);
 
         _actionInfo.setToken.invoke(targetAmm, callValue, methodData);
     }
@@ -448,11 +447,14 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getProvideLiquiditySingleAssetCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components[0],
             _actionInfo.totalNotionalComponents[0],
             _actionInfo.liquidityQuantity
         );
+
+        _executeComponentApprovals(_actionInfo);
 
         _actionInfo.setToken.invoke(targetAmm, callValue, methodData);        
     }
@@ -461,9 +463,16 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getRemoveLiquidityCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components,
             _actionInfo.totalNotionalComponents,
+            _actionInfo.liquidityQuantity
+        );
+
+        _actionInfo.setToken.invokeApprove(
+            _actionInfo.liquidityToken,
+            _actionInfo.ammAdapter.getSpenderAddress(_actionInfo.liquidityToken),
             _actionInfo.liquidityQuantity
         );
 
@@ -474,9 +483,16 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         (
             address targetAmm, uint256 callValue, bytes memory methodData
         ) = _actionInfo.ammAdapter.getRemoveLiquiditySingleAssetCalldata(
+            address(_actionInfo.setToken),
             _actionInfo.liquidityToken,
             _actionInfo.components[0],
             _actionInfo.totalNotionalComponents[0],
+            _actionInfo.liquidityQuantity
+        );
+
+        _actionInfo.setToken.invokeApprove(
+            _actionInfo.liquidityToken,
+            _actionInfo.ammAdapter.getSpenderAddress(_actionInfo.liquidityToken),
             _actionInfo.liquidityQuantity
         );
 
