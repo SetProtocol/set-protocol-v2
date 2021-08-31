@@ -102,7 +102,6 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         uint256 amountAMin;
         uint256 amountBMin;
         { // scope for reserveA, reserveB, totalSupply and liquidityExpectedFromSuppliedTokens, avoids stack too deep errors
-
         uint256 totalSupply = pair.totalSupply();
         (uint256 reserveA, uint256 reserveB) = _getReserves(pair, components[0]);
 
@@ -123,7 +122,6 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
 
         amountAMin = liquidityExpectedFromSuppliedTokens.mul(reserveA).div(totalSupply);
         amountBMin = liquidityExpectedFromSuppliedTokens.mul(reserveB).div(totalSupply);
-
         }
 
         target = router;
@@ -191,7 +189,6 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
         require(_liquidity <= setTokenLiquidityBalance, "_liquidity must be <= to current balance");
 
         { // scope for reserveA, reserveB, totalSupply, reservesOwnedByLiquidityA, and reservesOwnedByLiquidityB, avoids stack too deep errors
-
         // For a given Uniswap V2 Liquidity Pool, an owner of a liquidity token is able to claim
         // a portion of the reserves of that pool based on the percentage of liquidity tokens that
         // they own in relation to the total supply of the liquidity tokens. So if a user owns 25%
@@ -209,7 +206,6 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
             minTokensOut[0] <= reservesOwnedByLiquidityA && minTokensOut[1] <= reservesOwnedByLiquidityB,
             "amounts must be <= ownedTokens"
         );
-
         }
 
         target = router;
