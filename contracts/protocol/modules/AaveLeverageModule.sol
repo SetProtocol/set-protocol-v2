@@ -221,7 +221,10 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         ModuleBase(_controller)
     {
         lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
-        IProtocolDataProvider _protocolDataProvider = IProtocolDataProvider(_lendingPoolAddressesProvider.getAddress(bytes32("0x1")));
+        IProtocolDataProvider _protocolDataProvider = IProtocolDataProvider(
+            // Use the raw input vs bytes32() conversion. This is to ensure the input is an uint and not a string.
+            _lendingPoolAddressesProvider.getAddress(0x0100000000000000000000000000000000000000000000000000000000000000)
+        );
         protocolDataProvider = _protocolDataProvider;
         
         IProtocolDataProvider.TokenData[] memory reserveTokens = _protocolDataProvider.getAllReservesTokens();
