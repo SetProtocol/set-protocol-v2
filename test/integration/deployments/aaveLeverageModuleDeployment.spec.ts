@@ -7,6 +7,7 @@ import {
 } from "@utils/contracts";
 import {
   AaveV2LendingPoolAddressesProvider,
+  AaveV2ProtocolDataProvider
 } from "@utils/contracts/aaveV2";
 import DeployHelper from "@utils/deploys";
 import {
