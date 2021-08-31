@@ -242,7 +242,7 @@ export class AaveV2Fixture {
     return this._deployer.external.getForkedAaveLendingPoolAddressesProvider(dependencies.AAVE_LENDING_POOL_ADDRESSES_PROVIDER[1]);
   }
 
-  public getForkedAaveV2ProtocolDataProvider(): AaveV2LendingPoolAddressesProvider {
+  public getForkedAaveV2ProtocolDataProvider(): AaveV2ProtocolDataProvider {
     return this._deployer.external.getForkedAaveV2ProtocolDataProvider(dependencies.AAVE_PROTOCOL_DATA_PROVIDER[1]);
   }
 
