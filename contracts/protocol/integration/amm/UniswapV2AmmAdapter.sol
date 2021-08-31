@@ -143,7 +143,7 @@ contract UniswapV2AmmAdapter is IAmmAdapter {
      * Return calldata for the add liquidity call for a single asset
      */
     function getProvideLiquiditySingleAssetCalldata(
-        address /* _setToken */,
+        address /*_setToken*/,
         address /*_pool*/,
         address /*_component*/,
         uint256 /*_maxTokenIn*/,
