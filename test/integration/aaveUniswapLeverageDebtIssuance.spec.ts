@@ -301,8 +301,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
     });
 
     context("when a default aToken position and external borrow position", async () => {
-      let issueQuantity: BigNumber;
-
       cacheBeforeEach(async () => {
         // Borrow some WBTC to ensure the aWBTC balance increases due to interest
         await aaveV2Setup.lendingPool.borrow(setup.wbtc.address, bitcoin(10), 2, ZERO, owner.address);
@@ -420,8 +418,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
     });
 
     context("when a default aToken position and liquidated borrow position", async () => {
-      let issueQuantity: BigNumber;
-
       cacheBeforeEach(async () => {
         // Borrow some WBTC to ensure the aWBTC balance increases due to interest
         await aaveV2Setup.lendingPool.borrow(setup.wbtc.address, bitcoin(10), 2, ZERO, owner.address);
@@ -568,159 +564,312 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
     });
 
     context("when 2 default positions and 2 external borrow positions", async () => {
-      let issueQuantity: BigNumber;
+      context("when default and external positions do not overlap", async () => {
+        cacheBeforeEach(async () => {
+          setToken = await setup.createSetToken(
+            [aWBTC.address, setup.weth.address],
+            [
+              bitcoin(1),
+              ether(1),
+            ],
+            [aaveLeverageModule.address, debtIssuanceModule.address]
+          );
+          issueFee = ether(0.005);
+          await debtIssuanceModule.initialize(
+            setToken.address,
+            ether(0.02),
+            issueFee,
+            ether(0.005),
+            feeRecipient.address,
+            ADDRESS_ZERO
+          );
+          // Add SetToken to allow list
+          await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+          await aaveLeverageModule.initialize(
+            setToken.address,
+            [setup.wbtc.address],
+            [setup.dai.address, setup.usdc.address]
+          );
 
-      cacheBeforeEach(async () => {
-        setToken = await setup.createSetToken(
-          [aWBTC.address, setup.weth.address],
-          [
-            bitcoin(1),
-            ether(1),
-          ],
-          [aaveLeverageModule.address, debtIssuanceModule.address]
-        );
-        issueFee = ether(0.005);
-        await debtIssuanceModule.initialize(
-          setToken.address,
-          ether(0.02),
-          issueFee,
-          ether(0.005),
-          feeRecipient.address,
-          ADDRESS_ZERO
-        );
-        // Add SetToken to allow list
-        await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-        await aaveLeverageModule.initialize(
-          setToken.address,
-          [setup.wbtc.address],
-          [setup.dai.address, setup.usdc.address]
-        );
+          // Approve tokens to issuance module and call issue
+          await aWBTC.approve(debtIssuanceModule.address, MAX_UINT_256);
+          await setup.weth.approve(debtIssuanceModule.address, MAX_UINT_256);
 
-        // Approve tokens to issuance module and call issue
-        await aWBTC.approve(debtIssuanceModule.address, MAX_UINT_256);
-        await setup.weth.approve(debtIssuanceModule.address, MAX_UINT_256);
+          // Issue 1 SetToken
+          issueQuantity = ether(1);
+          await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
-        // Issue 1 SetToken
-        issueQuantity = ether(1);
-        await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+          // Lever up
+          await aaveLeverageModule.lever(
+            setToken.address,
+            setup.dai.address,
+            setup.wbtc.address,
+            ether(100),
+            bitcoin(0.01),
+            "UniswapV2ExchangeAdapter",
+            EMPTY_BYTES
+          );
 
-        // Lever up
-        await aaveLeverageModule.lever(
-          setToken.address,
-          setup.dai.address,
-          setup.wbtc.address,
-          ether(100),
-          bitcoin(0.01),
-          "UniswapV2ExchangeAdapter",
-          EMPTY_BYTES
-        );
+          await aaveLeverageModule.lever(
+            setToken.address,
+            setup.usdc.address,
+            setup.wbtc.address,
+            usdc(100),
+            bitcoin(0.01),
+            "UniswapV2ExchangeAdapter",
+            EMPTY_BYTES
+          );
+        });
 
-        await aaveLeverageModule.lever(
-          setToken.address,
-          setup.usdc.address,
-          setup.wbtc.address,
-          usdc(100),
-          bitcoin(0.01),
-          "UniswapV2ExchangeAdapter",
-          EMPTY_BYTES
-        );
+        beforeEach(() => {
+          subjectSetToken = setToken.address;
+          subjectQuantity = issueQuantity;
+          subjectTo = owner.address;
+          subjectCaller = owner;
+        });
+
+        it("should update the collateral position on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+          const newSecondPosition = (await setToken.getPositions())[1];
+
+          expect(initialPositions.length).to.eq(4);
+          expect(currentPositions.length).to.eq(4);
+
+          expect(newFirstPosition.component).to.eq(aWBTC.address);
+          expect(newFirstPosition.positionState).to.eq(0); // Default
+          expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+
+          expect(newSecondPosition.component).to.eq(setup.weth.address);
+          expect(newSecondPosition.positionState).to.eq(0); // Default
+          expect(newSecondPosition.unit).to.eq(initialPositions[1].unit); // Should be unchanged
+          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        it("should update the borrow position on the SetToken correctly", async () => {
+
+          await subject();
+
+          const setTotalSupply = await setToken.totalSupply();
+          const previousThirdPositionBalance = await variableDebtDAI.balanceOf(setToken.address);
+          const expectedThirdPositionUnit = preciseDiv(previousThirdPositionBalance, setTotalSupply).mul(-1);
+
+          const previousFourthPositionBalance = await variableDebtUSDC.balanceOf(setToken.address);
+          const expectedFourthPositionUnit = preciseDiv(previousFourthPositionBalance, setTotalSupply).mul(-1);
+
+          const newThirdPosition = (await setToken.getPositions())[2];
+          const newFourthPosition = (await setToken.getPositions())[3];
+
+          expect(newThirdPosition.component).to.eq(setup.dai.address);
+          expect(newThirdPosition.positionState).to.eq(1); // External
+          expect(newThirdPosition.unit.abs()).to.gte(expectedThirdPositionUnit.abs());   // Debt accrues
+          expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
+
+          expect(newFourthPosition.component).to.eq(setup.usdc.address);
+          expect(newFourthPosition.positionState).to.eq(1); // External
+          expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
+          expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+        });
+
+        it("should have the correct token balances", async () => {
+          const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+          const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
+          const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
+          const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
+          const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const preSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
+          const preMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
+          const preSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+
+          const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+          // const setTotalSupply = await setToken.totalSupply();
+          const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+          const wethPositionUnits = (await setToken.getPositions())[1].unit;
+          const aWBTCFlows = preciseMulCeil(mintQuantity, newAWBTCPositionUnits);
+          const wethFlows = preciseMul(mintQuantity, wethPositionUnits);
+
+          await subject();
+
+          const daiDebtPositionUnits = (await setToken.getPositions())[2].unit;
+          const usdcDebtPositionUnits = (await setToken.getPositions())[3].unit;
+          const daiFlows = preciseMul(mintQuantity, daiDebtPositionUnits).mul(-1);
+          const usdcFlows = preciseMul(mintQuantity, usdcDebtPositionUnits).mul(-1);
+
+          const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+          const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
+          const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
+          const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
+          const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const postSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
+          const postMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
+          const postSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+
+          expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
+          expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
+          expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
+          expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows)); // Round up due to interest accrual
+          expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
+          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows)); // Round up due to interest accrual
+          expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethFlows));
+          expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethFlows));
+        });
       });
+      context("when default and external positions do overlap", async () => {
+        cacheBeforeEach(async () => {
+          setToken = await setup.createSetToken(
+            [aWBTC.address, setup.usdc.address],  // USDC is both a default and external position
+            [
+              bitcoin(1),
+              usdc(100),
+            ],
+            [aaveLeverageModule.address, debtIssuanceModule.address]
+          );
+          issueFee = ether(0.005);
+          await debtIssuanceModule.initialize(
+            setToken.address,
+            ether(0.02),
+            issueFee,
+            ether(0.005),
+            feeRecipient.address,
+            ADDRESS_ZERO
+          );
 
-      beforeEach(() => {
-        subjectSetToken = setToken.address;
-        subjectQuantity = issueQuantity;
-        subjectTo = owner.address;
-        subjectCaller = owner;
-      });
+          // Add SetToken to allow list
+          await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+          await aaveLeverageModule.initialize(
+            setToken.address,
+            [setup.wbtc.address],
+            [setup.usdc.address, setup.dai.address]   // USDC is both a default and external position
+          );
 
-      it("should update the collateral position on the SetToken correctly", async () => {
-        const initialPositions = await setToken.getPositions();
+          // Approve tokens to issuance module and call issue
+          await aWBTC.approve(debtIssuanceModule.address, MAX_UINT_256);
+          await setup.usdc.approve(debtIssuanceModule.address, MAX_UINT_256);
 
-        await subject();
+          // Issue 1 SetToken
+          issueQuantity = ether(1);
+          await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
-        const currentPositions = await setToken.getPositions();
-        const newFirstPosition = (await setToken.getPositions())[0];
-        const newSecondPosition = (await setToken.getPositions())[1];
+          // Lever up
+          await aaveLeverageModule.lever(
+            setToken.address,
+            setup.usdc.address,
+            setup.wbtc.address,
+            usdc(100),
+            bitcoin(0.01),
+            "UniswapV2ExchangeAdapter",
+            EMPTY_BYTES
+          );
 
-        expect(initialPositions.length).to.eq(4);
-        expect(currentPositions.length).to.eq(4);
+          await aaveLeverageModule.lever(
+            setToken.address,
+            setup.dai.address,
+            setup.wbtc.address,
+            ether(100),
+            bitcoin(0.01),
+            "UniswapV2ExchangeAdapter",
+            EMPTY_BYTES
+          );
+        });
 
-        expect(newFirstPosition.component).to.eq(aWBTC.address);
-        expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
-        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+        beforeEach(() => {
+          subjectSetToken = setToken.address;
+          subjectQuantity = issueQuantity;
+          subjectTo = owner.address;
+          subjectCaller = owner;
+        });
 
-        expect(newSecondPosition.component).to.eq(setup.weth.address);
-        expect(newSecondPosition.positionState).to.eq(0); // Default
-        expect(newSecondPosition.unit).to.eq(initialPositions[1].unit); // Should be unchanged
-        expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
-      });
+        it("should update the collateral position on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
 
-      it("should update the borrow position on the SetToken correctly", async () => {
+          await subject();
 
-        await subject();
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+          const newSecondPosition = (await setToken.getPositions())[1];
 
-        const setTotalSupply = await setToken.totalSupply();
-        const previousThirdPositionBalance = await variableDebtDAI.balanceOf(setToken.address);
-        const expectedThirdPositionUnit = preciseDiv(previousThirdPositionBalance, setTotalSupply).mul(-1);
+          expect(initialPositions.length).to.eq(4);
+          expect(currentPositions.length).to.eq(4);
 
-        const previousFourthPositionBalance = await variableDebtUSDC.balanceOf(setToken.address);
-        const expectedFourthPositionUnit = preciseDiv(previousFourthPositionBalance, setTotalSupply).mul(-1);
+          expect(newFirstPosition.component).to.eq(aWBTC.address);
+          expect(newFirstPosition.positionState).to.eq(0); // Default
+          expect(newFirstPosition.unit).to.eq(initialPositions[0].unit);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
 
-        const newThirdPosition = (await setToken.getPositions())[2];
-        const newFourthPosition = (await setToken.getPositions())[3];
+          expect(newSecondPosition.component).to.eq(setup.usdc.address);
+          expect(newSecondPosition.positionState).to.eq(0); // Default
+          expect(newSecondPosition.unit).to.eq(initialPositions[1].unit); // Should be unchanged
+          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+        });
 
-        expect(newThirdPosition.component).to.eq(setup.dai.address);
-        expect(newThirdPosition.positionState).to.eq(1); // External
-        expect(newThirdPosition.unit.abs()).to.gte(expectedThirdPositionUnit.abs());   // Debt accrues
-        expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
+        it("should update the borrow position on the SetToken correctly", async () => {
 
-        expect(newFourthPosition.component).to.eq(setup.usdc.address);
-        expect(newFourthPosition.positionState).to.eq(1); // External
-        expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
-        expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
-      });
+          await subject();
 
-      it("should have the correct token balances", async () => {
-        const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
-        const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
-        const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
-        const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
-        const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-        const preSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
-        const preMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
-        const preSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+          const setTotalSupply = await setToken.totalSupply();
+          const previousThirdPositionBalance = await variableDebtUSDC.balanceOf(setToken.address);
+          const expectedThirdPositionUnit = preciseDiv(previousThirdPositionBalance, setTotalSupply).mul(-1);
 
-        const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-        const setTotalSupply = await setToken.totalSupply();
-        const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
-        const aWBTCFlows = preciseMulCeil(mintQuantity, newAWBTCPositionUnits);
+          const previousFourthPositionBalance = await variableDebtDAI.balanceOf(setToken.address);
+          const expectedFourthPositionUnit = preciseDiv(previousFourthPositionBalance, setTotalSupply).mul(-1);
 
-        await subject();
+          const newThirdPosition = (await setToken.getPositions())[2];
+          const newFourthPosition = (await setToken.getPositions())[3];
 
-        const daiDebtPositionUnits = (await setToken.getPositions())[2].unit;
-        const usdcDebtPositionUnits = (await setToken.getPositions())[3].unit;
-        const daiFlows = preciseMul(mintQuantity, daiDebtPositionUnits).mul(-1);
-        const usdcFlows = preciseMul(mintQuantity, usdcDebtPositionUnits).mul(-1);
-        const wethFlows = preciseMul(ether(1), setTotalSupply); // 1 WETH unit
+          expect(newThirdPosition.component).to.eq(setup.usdc.address);
+          expect(newThirdPosition.positionState).to.eq(1); // External
+          expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
+          expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
 
-        const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
-        const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
-        const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
-        const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
-        const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
-        const postSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
-        const postMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
-        const postSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+          expect(newFourthPosition.component).to.eq(setup.dai.address);
+          expect(newFourthPosition.positionState).to.eq(1); // External
+          expect(newFourthPosition.unit.abs()).to.gte(expectedFourthPositionUnit.abs());   // Debt accrues
+          expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+        });
 
-        expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
-        expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
-        expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
-        expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows)); // Round up due to interest accrual
-        expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
-        expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows)); // Round up due to interest accrual
-        expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethFlows));
-        expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethFlows));
+        it("should have the correct token balances", async () => {
+          const preMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+          const preSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
+          const preMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
+          const preSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
+          const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const preSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
+          const preSetUsdcEquityBalance = await setup.usdc.balanceOf(subjectSetToken);
+
+          const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+          const newAWBTCPositionUnits = (await setToken.getPositions())[0].unit;
+          const usdcPositionUnits = (await setToken.getPositions())[1].unit;
+          const aWBTCFlows = preciseMulCeil(mintQuantity, newAWBTCPositionUnits);
+          const usdcEquityFlows = preciseMul(mintQuantity, usdcPositionUnits);
+
+          await subject();
+
+          const usdcDebtPositionUnits = (await setToken.getPositions())[2].unit;
+          const daiDebtPositionUnits = (await setToken.getPositions())[3].unit;
+          const usdcDebtFlows = preciseMul(mintQuantity, usdcDebtPositionUnits).mul(-1);
+          const daiFlows = preciseMul(mintQuantity, daiDebtPositionUnits).mul(-1);
+
+          const postMinterAWBTCBalance = await aWBTC.balanceOf(subjectCaller.address);
+          const postSetAWBTCBalance = await aWBTC.balanceOf(subjectSetToken);
+          const postMinterUsdcBalance = await setup.usdc.balanceOf(subjectCaller.address);
+          const postSetUsdcDebtBalance = await variableDebtUSDC.balanceOf(subjectSetToken);
+          const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+          const postSetDaiDebtBalance = await variableDebtDAI.balanceOf(subjectSetToken);
+          const postSetUsdcEquityBalance = await setup.usdc.balanceOf(subjectSetToken);
+
+          expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
+          expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
+          expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.sub(usdcEquityFlows).add(usdcDebtFlows));
+          expect(postSetUsdcEquityBalance).to.eq(preSetUsdcEquityBalance.add(usdcEquityFlows));
+          expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcDebtFlows)); // Round up due to interest accrual
+          expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
+          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows)); // Round up due to interest accrual
+        });
       });
     });
   });
@@ -744,7 +893,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         subjectTo,
       );
     }
-
 
     context("when a default aToken position and redeem will take supply to 0", async () => {
       cacheBeforeEach(async () => {
