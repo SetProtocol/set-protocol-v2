@@ -37,6 +37,15 @@ import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants"
 
 const expect = getWaffleExpect();
 
+// Due to low utilization rate of the reserves and small principal amounts, the interest rate accrued each block is very small.
+// Hence, accrued interest doesn't reflect immediately in tokens which have less precision, i.e. less number of decimal places.
+// Eg. if interest accrued each block for an asset is 100 wei (1 wei = 10^(-18)), then USDC (6 decimal places) and
+// WBTC (8 decimal places) would not register this increase until a couple of blocks, whereas DAI (18 decimal places) and
+// WETH (18 decimal places) balances would register this increase in the immediate next block. Thus, we use WBTC and USDC as much
+// as possible to avoid having to write the complex interest accrual logic of Aave to determine the interest rate accrued each block.
+// For WETH and DAI, we use "greater than or equal to" to account for the small amount of interest accrued.
+
+
 describe("AaveUniswapLeverageDebtIssuance", () => {
   let owner: Account;
   let feeRecipient: Account;
@@ -518,21 +527,25 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       it("should update the borrow position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
-        // Get debt balance after some debt is paid during liquidation
+        // Get debt balance after some amount of debt is paid during liquidation
         const previousSecondPositionBalance = await variableDebtUSDC.balanceOf(setToken.address);
         const setTotalSupply = await setToken.totalSupply();
+        const expectedSecondPositionUnit = preciseDiv(previousSecondPositionBalance, setTotalSupply).mul(-1);
 
         await subject();
 
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
 
-        const expectedSecondPositionUnit = preciseDiv(previousSecondPositionBalance, setTotalSupply).mul(-1);
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPosition.unit.abs()).to.gte(expectedSecondPositionUnit.abs());  // Debt accrues
+        // We have used previousSecondPositionBalance to calculate the expectedSecondPositionUnit
+        // but some debt accrued in the block in which we issued the Set.
+        // The accrued interest was synced to the SetToken position units during issuance which leads to the absolute
+        // value of newSecondPosition.unit to be greater than expectedSecondPositionUnit by a very small amount
+        expect(newSecondPosition.unit.abs()).to.gte(expectedSecondPositionUnit.abs());
         expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
       });
 
@@ -653,8 +666,6 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
         it("should update the borrow position on the SetToken correctly", async () => {
 
-          await subject();
-
           const setTotalSupply = await setToken.totalSupply();
           const previousThirdPositionBalance = await variableDebtDAI.balanceOf(setToken.address);
           const expectedThirdPositionUnit = preciseDiv(previousThirdPositionBalance, setTotalSupply).mul(-1);
@@ -662,18 +673,21 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
           const previousFourthPositionBalance = await variableDebtUSDC.balanceOf(setToken.address);
           const expectedFourthPositionUnit = preciseDiv(previousFourthPositionBalance, setTotalSupply).mul(-1);
 
+          await subject();
+
           const newThirdPosition = (await setToken.getPositions())[2];
           const newFourthPosition = (await setToken.getPositions())[3];
 
           expect(newThirdPosition.component).to.eq(setup.dai.address);
           expect(newThirdPosition.positionState).to.eq(1); // External
-          expect(newThirdPosition.unit.abs()).to.gte(expectedThirdPositionUnit.abs());   // Debt accrues
           expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(newThirdPosition.unit.abs()).to.gte(expectedThirdPositionUnit.abs());
 
           expect(newFourthPosition.component).to.eq(setup.usdc.address);
           expect(newFourthPosition.positionState).to.eq(1); // External
-          expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
           expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+          expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);   // Debt accrues but by an insignificant amount
         });
 
         it("should have the correct token balances", async () => {
@@ -711,11 +725,13 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
           expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
           expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
           expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.add(usdcFlows));
-          expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcFlows)); // Round up due to interest accrual
           expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
-          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows)); // Round up due to interest accrual
           expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethFlows));
           expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethFlows));
+          // USDC has 6 decimal places. Interest accrued doesn't reflect in balance immediately.
+          expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.add(usdcFlows));
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows));
         });
       });
       context("when default and external positions do overlap", async () => {
@@ -822,12 +838,13 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
           expect(newThirdPosition.component).to.eq(setup.usdc.address);
           expect(newThirdPosition.positionState).to.eq(1); // External
-          expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
+          expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);   // Debt accrues but doesn't reflect immediately
           expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
 
           expect(newFourthPosition.component).to.eq(setup.dai.address);
           expect(newFourthPosition.positionState).to.eq(1); // External
-          expect(newFourthPosition.unit.abs()).to.gte(expectedFourthPositionUnit.abs());   // Debt accrues
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(newFourthPosition.unit.abs()).to.gte(expectedFourthPositionUnit.abs());
           expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
         });
 
@@ -863,11 +880,13 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
           expect(postMinterAWBTCBalance).to.eq(preMinterAWBTCBalance.sub(aWBTCFlows));
           expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.add(aWBTCFlows));
-          expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.sub(usdcEquityFlows).add(usdcDebtFlows));
           expect(postSetUsdcEquityBalance).to.eq(preSetUsdcEquityBalance.add(usdcEquityFlows));
-          expect(postSetUsdcDebtBalance).to.gte(preSetUsdcDebtBalance.add(usdcDebtFlows)); // Round up due to interest accrual
+          expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.add(usdcDebtFlows));
           expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
-          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows)); // Round up due to interest accrual
+          // Debt accrues but doesn't reflect immediately
+          expect(postMinterUsdcBalance).to.eq(preMinterUsdcBalance.sub(usdcEquityFlows).add(usdcDebtFlows));
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.add(daiFlows));
         });
       });
     });
@@ -1332,7 +1351,8 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(setup.usdc.address);
         expect(newSecondPosition.positionState).to.eq(1); // External
-        expect(newSecondPositionNotional).to.gte(previousSecondPositionBalance);  // Debt accrues
+        // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+        expect(newSecondPositionNotional).to.gte(previousSecondPositionBalance);
         expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
       });
 
@@ -1476,13 +1496,14 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
           expect(newThirdPosition.component).to.eq(setup.usdc.address);
           expect(newThirdPosition.positionState).to.eq(1); // External
-          expect(newThirdPosition.unit.abs()).to.gte(expectedThirdPositionUnit.abs());    // Debt accrues
           expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
+          expect(newThirdPosition.unit.abs()).to.eq(expectedThirdPositionUnit.abs());   // Debt accrues but doesn't reflect immediately
 
           expect(newFourthPosition.component).to.eq(setup.dai.address);
           expect(newFourthPosition.positionState).to.eq(1); // External
-          expect(newFourthPosition.unit.abs()).to.gte(expectedFourthPositionUnit.abs());    // Debt accrues
           expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(newFourthPosition.unit.abs()).to.gte(expectedFourthPositionUnit.abs());
         });
 
         it("should have the correct token balances", async () => {
@@ -1520,11 +1541,12 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
           expect(postRedeemerAWBTCBalance).to.eq(preRedeemerAWBTCBalance.add(aWBTCFlows));
           expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.sub(aWBTCFlows));
           expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcFlows));
-          expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));
           expect(postRedeemerWethBalance).to.eq(preRedeemerWethBalance.add(wethFlows));
           expect(postSetWethBalance).to.eq(preSetWethBalance.sub(wethFlows));
           expect(postRedeemerDaiBalance).to.eq(preRedeemerDaiBalance.sub(daiFlows));
-          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.sub(daiFlows));   // Debt accrues
+          expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcFlows));   // Debt accrues but doesn't reflect immediately
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.sub(daiFlows));
         });
       });
       context("when default and external positions do overlap", async () => {
@@ -1639,13 +1661,14 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
           expect(newThirdPosition.component).to.eq(setup.usdc.address);
           expect(newThirdPosition.positionState).to.eq(1); // External
-          expect(newThirdPosition.unit.abs()).to.gte(expectedThirdPositionUnit.abs());    // Debt accrues
+          expect(newThirdPosition.unit.abs()).to.eq(expectedThirdPositionUnit.abs());    // Debt accrues but doesn't reflect immediately
           expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
 
           expect(newFourthPosition.component).to.eq(setup.dai.address);
           expect(newFourthPosition.positionState).to.eq(1); // External
-          expect(newFourthPosition.unit.abs()).to.gte(expectedFourthPositionUnit.abs());    // Debt accrues
           expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(newFourthPosition.unit.abs()).to.gte(expectedFourthPositionUnit.abs());
         });
 
         it("should have the correct token balances", async () => {
@@ -1681,10 +1704,11 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
           expect(postRedeemerAWBTCBalance).to.eq(preRedeemerAWBTCBalance.add(aWBTCFlows));
           expect(postSetAWBTCBalance).to.eq(preSetAWBTCBalance.sub(aWBTCFlows));
           expect(postRedeemerUsdcBalance).to.eq(preRedeemerUsdcBalance.sub(usdcDebtFlows).add(usdcEquityFlows));
-          expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcDebtFlows));
+          expect(postSetUsdcDebtBalance).to.eq(preSetUsdcDebtBalance.sub(usdcDebtFlows));   // Debt accrues but doesn't reflect immediately
           expect(postSetUsdcEquityBalance).to.eq(preSetUsdcEquityBalance.sub(usdcEquityFlows));
           expect(postRedeemerDaiBalance).to.eq(preRedeemerDaiBalance.sub(daiDebtFlows));
-          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.sub(daiDebtFlows));   // Debt accrues
+          // DAI has 18 decimal places. Thus we need to use greater than or equal to here to account for the very small amount of interest accrued.
+          expect(postSetDaiDebtBalance).to.gte(preSetDaiDebtBalance.sub(daiDebtFlows));
         });
       });
     });
