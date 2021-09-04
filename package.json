@@ -15,9 +15,9 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "yarn compile && yarn build:typechain",
-    "build:npm": "yarn compile:npm && yarn build:typechain",
-    "build:typechain": "yarn patch-hardhat-typechain && yarn typechain && yarn fix-typechain && yarn transpile-dist",
+    "build": "yarn clean && yarn compile && yarn build:typechain",
+    "build:npm": "yarn clean && yarn compile:npm && yarn build:typechain",
+    "build:typechain": "yarn typechain && yarn transpile-dist",
     "chain": "npx hardhat node --no-deploy",
     "clean": "rm -rf coverage.json .coverage_cache .coverage_contracts cache coverage typechain artifacts dist",
     "compile": "npx hardhat compile",
@@ -25,12 +25,10 @@
     "coverage": "yarn clean && yarn build && yarn cov:command",
     "cov:command": "COVERAGE=true node --max-old-space-size=4096 ./node_modules/.bin/hardhat coverage",
     "etherscan:verify": "hardhat --network kovan etherscan-verify --solc-input --license 'None'",
-    "fix-typechain": "node scripts/fix-typechain.js && yarn rename-extensions",
     "flatten": "npx waffle flatten",
     "lint": "yarn run lint-sol && yarn run lint-ts",
     "lint-sol": "solhint 'contracts/**/*.sol'",
     "lint-ts": "tslint -c tslint.json -p tsconfig.json --fix",
-    "patch-hardhat-typechain": "node scripts/patch-hardhat-typechain.js",
     "precommit": "lint-staged",
     "prepare": "yarn build",
     "prepublishOnly": "yarn clean && yarn build:npm",
@@ -52,15 +50,19 @@
   "author": "felix2feng",
   "license": "MIT",
   "homepage": "https://github.com/SetProtocol",
+  "resolutions": {
+    "@ethersproject/abi": "5.4.1",
+    "@ethersproject/bignumber": "5.4.1",
+    "@ethersproject/contracts": "5.4.1",
+    "@ethersproject/providers": "5.4.5"
+  },
   "devDependencies": {
     "@0x/utils": "^6.4.3",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@openzeppelin/contracts": "^3.1.0",
-    "@typechain/ethers-v5": "^5.0.0",
-    "@typechain/truffle-v4": "^2.0.2",
-    "@typechain/truffle-v5": "^2.0.2",
-    "@typechain/web3-v1": "^1.0.0",
+    "@typechain/ethers-v5": "^7.0.1",
+    "@typechain/hardhat": "^2.3.0",
     "@types/chai": "^4.2.11",
     "@types/fs-extra": "^5.0.0",
     "@types/lodash": "^4.14.86",
@@ -70,7 +72,7 @@
     "chai": "^4.2.0",
     "coveralls": "^3.0.1",
     "dotenv": "^8.2.0",
-    "ethereum-waffle": "^3.2.1",
+    "ethereum-waffle": "^3.4.0",
     "hardhat": "^2.6.1",
     "hardhat-deploy": "^0.7.0-beta.39",
     "hardhat-typechain": "^0.3.4",
@@ -89,13 +91,11 @@
     "web3": "^1.2.9"
   },
   "dependencies": {
-    "@ethersproject/bignumber": "5.0.12",
-    "@ethersproject/providers": "5.0.17",
-    "ethers": "5.0.24",
+    "ethers": "^5.4.6",
     "fs-extra": "^5.0.0",
     "module-alias": "^2.2.2",
     "replace-in-file": "^6.1.0",
-    "typechain": "^4.0.1"
+    "typechain": "^5.1.2"
   },
   "peerDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.1",

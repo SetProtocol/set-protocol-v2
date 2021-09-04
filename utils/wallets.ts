@@ -1,5 +1,4 @@
-import { ethers } from "ethers";
-import { Provider } from "@ethersproject/providers";
+import { ethers, providers } from "ethers";
 
 export const privateKeys = [
   "0xf2f48ee19680706196e2e339e5da3491186e0c4c5030670656b0e0164837257d",
@@ -13,7 +12,7 @@ export const privateKeys = [
   "0xb2fd4d29c1390b71b8795ae81196bfd60293adf99f9d32a0aff06288fcdac55f",
 ];
 
-export function generatedWallets(provider: Provider) {
+export function generatedWallets(provider: providers.Provider) {
   return privateKeys.map((key: string) => {
     return new ethers.Wallet(key, provider);
   });
