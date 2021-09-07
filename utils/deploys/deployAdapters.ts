@@ -33,7 +33,6 @@ import {
   CompoundBravoGovernanceAdapter,
   CompClaimAdapter,
 } from "../contracts";
-import { convertLibraryNameToLinkId } from "../common";
 import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
@@ -153,11 +152,10 @@ export default class DeployAdapters {
   }
 
   public async deployCompoundWrapAdapter(libraryName: string, libraryAddress: Address): Promise<CompoundWrapAdapter> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
     return await new CompoundWrapAdapter__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [libraryName]: libraryAddress,
       },
       this._deployerSigner
     ).deploy();
@@ -228,11 +226,10 @@ export default class DeployAdapters {
   }
 
   public async deployCompoundWrapV2Adapter(libraryName: string, libraryAddress: Address): Promise<CompoundWrapV2Adapter> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
     return await new CompoundWrapV2Adapter__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [libraryName]: libraryAddress,
       },
       this._deployerSigner
     ).deploy();

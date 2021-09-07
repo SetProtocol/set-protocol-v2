@@ -1,5 +1,4 @@
 import { Signer } from "ethers";
-import { convertLibraryNameToLinkId } from "../common";
 
 import {
   AaveLeverageModule,
@@ -153,12 +152,10 @@ export default class DeployModules {
     libraryName: string,
     libraryAddress: Address
   ): Promise<CompoundLeverageModule> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
-
     return await new CompoundLeverageModule__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [libraryName]: libraryAddress,
       },
       this._deployerSigner
     ).deploy(
@@ -176,12 +173,10 @@ export default class DeployModules {
     libraryName: string,
     libraryAddress: Address
   ): Promise<AaveLeverageModule> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
-
     return await new AaveLeverageModule__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [libraryName]: libraryAddress,
       },
       this._deployerSigner
     ).deploy(

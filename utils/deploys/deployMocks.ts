@@ -48,7 +48,7 @@ import {
   AaveV2Mock
 } from "../contracts";
 
-import { convertLibraryNameToLinkId, ether } from "../common";
+import { ether } from "../common";
 import dependencies from "./dependencies";
 
 import { AaveLendingPoolCoreMock__factory } from "../../typechain/factories/AaveLendingPoolCoreMock__factory";
@@ -271,12 +271,10 @@ export default class DeployMocks {
   }
 
   public async deployAaveV2Mock(libraryName: string, libraryAddress: Address): Promise<AaveV2Mock> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
-
     return await new AaveV2Mock__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [libraryName]: libraryAddress,
       },
       this._deployerSigner
     ).deploy();
@@ -311,12 +309,10 @@ export default class DeployMocks {
   }
 
   public async deployCompoundMock(libraryName: string, libraryAddress: Address): Promise<CompoundMock> {
-    const linkId = convertLibraryNameToLinkId(libraryName);
-
     return await new CompoundMock__factory(
       // @ts-ignore
       {
-        [linkId]: libraryAddress,
+        [libraryName]: libraryAddress,
       },
       this._deployerSigner
     ).deploy();
