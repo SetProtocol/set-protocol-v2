@@ -18,7 +18,7 @@
     "build": "yarn clean && yarn compile && yarn build:typechain",
     "build:npm": "yarn clean && yarn compile:npm && yarn build:typechain",
     "build:typechain": "yarn typechain && yarn transpile-dist",
-    "chain": "npx hardhat node --no-deploy",
+    "chain": "npx hardhat node",
     "clean": "rm -rf coverage.json .coverage_cache .coverage_contracts cache coverage typechain artifacts dist",
     "compile": "npx hardhat compile",
     "compile:npm": "SKIP_ABI_GAS_MODS=true npx hardhat compile",
