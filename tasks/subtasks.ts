@@ -1,9 +1,8 @@
 import {
-  TASK_TEST_SETUP_TEST_ENVIRONMENT,
   TASK_COMPILE_SOLIDITY_GET_ARTIFACT_FROM_COMPILATION_OUTPUT,
 } from "hardhat/builtin-tasks/task-names";
 
-import { subtask, internalTask } from "hardhat/config";
+import { subtask } from "hardhat/config";
 import { addGasToAbiMethods } from "../utils/tasks";
 
 // Injects network block limit (minus 1 million) in the abi so
@@ -13,8 +12,8 @@ subtask(TASK_COMPILE_SOLIDITY_GET_ARTIFACT_FROM_COMPILATION_OUTPUT)
     const artifact = await runSuper();
 
     // These changes should be skipped when publishing to npm.
-    // They override ethers' gas estimation
-    if (!process.env.SKIP_ABI_GAS_MODS){
+    // They override ethers' gas  estimation
+    if (!process.env.SKIP_ABI_GAS_MODS) {
       artifact.abi = addGasToAbiMethods(network.config, artifact.abi);
     }
 

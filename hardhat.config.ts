@@ -5,7 +5,7 @@ import { HardhatUserConfig } from "hardhat/config";
 import { privateKeys } from "./utils/wallets";
 
 import "@nomiclabs/hardhat-waffle";
-import '@typechain/hardhat'
+import "@typechain/hardhat";
 import "solidity-coverage";
 import "./tasks";
 
@@ -65,7 +65,7 @@ const config: HardhatUserConfig = {
   typechain: {
     outDir: "typechain",
     target: "ethers-v5",
-    externalArtifacts: ['external/**/*.json']
+    externalArtifacts: ["external/**/*.json"],
   },
   mocha: mochaConfig,
 };
