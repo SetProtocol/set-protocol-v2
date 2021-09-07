@@ -15,14 +15,20 @@
 ### Getting started
 
 1. Clone this repo
-2. Navigate to [Alchemy](https://www.alchemy.com/) and create an application
-3. Copy the default environment variables file and populate `ALCHEMY_TOKEN` with the token generated in the previous step
+1. Create an Alchemy token
+    1. Navigate to [Alchemy](https://www.alchemy.com/) and create an account
+    1. Click **Create app** and provide a name (e.g. set-protocol-v2)
+    1. Navigate to your new app and click **View key** then copy the token (the part after `https://eth-mainnet.alchemyapi.io/v2/`)
+1. Create an Infura token
+    1. Navigate to [Infura](https://infura.io) and create an account
+    1. Click **Create new project** and provide a name (e.g. set-protocol-v2)
+    1. Navigate to your new project and copy the project id (the part after `https://mainnet.infura.io/v3/`)
+1. Copy the default environment variable file to a `.env` file
+
     ```bash
-    cp .env.prod .env
-    
-    # Populate ALCHEMY_TOKEN
-    vim .env 
+    cp .env.prod .env   
     ```
+1. Populate `ALCHEMY_TOKEN` and `INFURA_TOKEN` with the tokens generated in the previous steps
 
 To use `console.log` during Solidity development, follow this [guide](https://hardhat.org/guides/hardhat-console.html).
 
