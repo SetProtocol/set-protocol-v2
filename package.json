@@ -74,8 +74,6 @@
     "dotenv": "^8.2.0",
     "ethereum-waffle": "^3.4.0",
     "hardhat": "^2.6.1",
-    "hardhat-deploy": "^0.7.0-beta.39",
-    "hardhat-typechain": "^0.3.4",
     "husky": "^4.2.5",
     "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",
@@ -87,6 +85,7 @@
     "ts-node": "^8.10.1",
     "tslint": "^5.8.0",
     "tslint-eslint-rules": "^5.3.1",
+    "typechain": "5.1.2",
     "typescript": "4",
     "web3": "^1.2.9"
   },
@@ -94,8 +93,7 @@
     "ethers": "^5.4.6",
     "fs-extra": "^5.0.0",
     "module-alias": "^2.2.2",
-    "replace-in-file": "^6.1.0",
-    "typechain": "^5.1.2"
+    "replace-in-file": "^6.1.0"
   },
   "peerDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.1",
