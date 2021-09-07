@@ -58,7 +58,7 @@ npm install @setprotocol/set-protocol-v2
 [23]: https://www.npmjs.com/package/typechain
 
 ## Contributing
-We highly encourage participation from the community to help shape the development of Set. If you are interested in developing on top of Set Protocol or have any questions, please ping us on [Telegram](https://t.me/joinchat/Fx8D6wyprLUlM1jMVnaRdg).
+We highly encourage participation from the community to help shape the development of Set. If you are interested in developing on top of Set Protocol or have any questions, please ping us on [Discord](discord.gg/ZWY66aR).
 
 ## Security
 
