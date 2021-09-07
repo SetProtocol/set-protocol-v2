@@ -12,9 +12,19 @@
 
 ## Development
 
-To use console.log during Solidity development, follow the [guides](https://hardhat.org/guides/hardhat-console.html).
+### Getting started
 
-## Available Functionality
+1. Clone this repo
+2. Navigate to [Alchemy](https://www.alchemy.com/) and create an application
+3. Copy the default environment variables file and populate `ALCHEMY_TOKEN` with the token generated in the previous step
+    ```bash
+    cp .env.prod .env
+    
+    # Populate ALCHEMY_TOKEN
+    vim .env 
+    ```
+
+To use `console.log` during Solidity development, follow this [guide](https://hardhat.org/guides/hardhat-console.html).
 
 ### Run Hardhat EVM
 
