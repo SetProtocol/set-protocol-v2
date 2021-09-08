@@ -41,7 +41,7 @@ contract StandardTokenWithRoundingErrorMock {
 
     uint256 constant public decimals = 18;
     string public name;
-    string public symbol;        
+    string public symbol;
     int256 public err;
 
     mapping (address => uint256) public _balances;
@@ -57,10 +57,10 @@ contract StandardTokenWithRoundingErrorMock {
         int256 _err,
         string memory _name,
         string memory _symbol,
-        uint8 _decimals
+        uint8 /* _decimals */
     )
         public
-        
+
     {
         _balances[_initialAccount] = _initialBalance;
         _totalSupply = _initialBalance;
@@ -97,7 +97,7 @@ contract StandardTokenWithRoundingErrorMock {
         require(_to != address(0), "to null");
         require(_value <= _balances[_from], "value greater than from balance");
         require(_value <= _allowed[_from][msg.sender], "value greater than allowed");
-        
+
         _balances[_from] = _balances[_from].sub(_value);
         _balances[_to] = _balances[_to].add(_value);
         _allowed[_from][msg.sender] = _allowed[_from][msg.sender].sub(_value);
