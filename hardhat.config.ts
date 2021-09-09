@@ -5,9 +5,8 @@ import { HardhatUserConfig } from "hardhat/config";
 import { privateKeys } from "./utils/wallets";
 
 import "@nomiclabs/hardhat-waffle";
-import "hardhat-typechain";
+import "@typechain/hardhat";
 import "solidity-coverage";
-import "hardhat-deploy";
 import "./tasks";
 
 const forkingConfig = {
@@ -29,9 +28,6 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: { enabled: true, runs: 200 },
     },
-  },
-  namedAccounts: {
-    deployer: 0,
   },
   networks: {
     hardhat: {
@@ -65,9 +61,11 @@ const config: HardhatUserConfig = {
       timeout: 100000,
     },
   },
+  // @ts-ignore
   typechain: {
     outDir: "typechain",
     target: "ethers-v5",
+    externalArtifacts: ["external/**/*.json"],
   },
   mocha: mochaConfig,
 };

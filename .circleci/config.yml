@@ -3,7 +3,7 @@ version: 2
 jobs:
   checkout_and_compile:
     docker:
-      - image: circleci/node:10.16.0
+      - image: circleci/node:12.16.0
         environment:
           NODE_OPTIONS: --max_old_space_size=8192
     resource_class: large
@@ -31,7 +31,7 @@ jobs:
             - ~/set-protocol-v2
   test:
     docker:
-      - image: circleci/node:10.16.0
+      - image: circleci/node:12.16.0
     working_directory: ~/set-protocol-v2
     parallelism: 3
     steps:
@@ -52,7 +52,7 @@ jobs:
 
   test_forked_network:
     docker:
-      - image: circleci/node:10.16.0
+      - image: circleci/node:12.16.0
     working_directory: ~/set-protocol-v2
     steps:
       - restore_cache:
@@ -66,7 +66,7 @@ jobs:
 
   coverage:
     docker:
-      - image: circleci/node:10.11.0
+      - image: circleci/node:12.16.0
     working_directory: ~/set-protocol-v2
     # When changing the parallelism value, you also
     # need to update the `persist_to_workspace` paths
@@ -104,7 +104,7 @@ jobs:
 
   report_coverage:
     docker:
-      - image: circleci/node:10.11.0
+      - image: circleci/node:12.16.0
     working_directory: ~/set-protocol-v2
     steps:
       - attach_workspace:

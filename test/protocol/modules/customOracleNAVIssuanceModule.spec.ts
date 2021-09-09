@@ -5,7 +5,7 @@ import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import { Address, CustomOracleNAVIssuanceSettings } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ONE, TWO, THREE, ZERO, ADDRESS_ZERO } from "@utils/constants";
-import { ManagerIssuanceHookMock, NAVIssuanceHookMock, CustomOracleNavIssuanceModule, SetToken, CustomSetValuerMock, ISetValuer } from "@utils/contracts";
+import { ManagerIssuanceHookMock, NAVIssuanceHookMock, CustomOracleNavIssuanceModule, SetToken, CustomSetValuerMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   bitcoin,
@@ -1198,7 +1198,7 @@ describe("CustomOracleNavIssuanceModule", () => {
     let subjectTo: Account;
     let subjectCaller: Account;
     let setValuerAddress: Address;
-    let setValuerMock: ISetValuer;
+    let setValuerMock: CustomSetValuerMock;
 
     let navIssuanceSettings: CustomOracleNAVIssuanceSettings;
     let managerIssuanceHook: Address;
@@ -2199,7 +2199,7 @@ describe("CustomOracleNavIssuanceModule", () => {
 
     let navIssuanceSettings: CustomOracleNAVIssuanceSettings;
     let setValuerAddress: Address;
-    let setValuerMock: ISetValuer;
+    let setValuerMock: CustomSetValuerMock;
     let managerRedemptionHook: Address;
     let managerFees: BigNumber[];
     let premiumPercentage: BigNumber;
