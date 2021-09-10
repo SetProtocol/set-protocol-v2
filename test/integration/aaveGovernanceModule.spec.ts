@@ -1,7 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers";
-import { keccak256 } from "ethers/lib/utils";
-import { utils.defaultAbiCoder } from "ethers/lib/utils";
+import { utils, BigNumber } from "ethers";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -104,8 +102,8 @@ describe("AaveGovernanceModule", () => {
 
       beforeEach(async () => {
         await aaveSetup.aaveProtoGovernance.newProposal(
-          keccak256(new Buffer("ProposalOne")),
-          keccak256(new Buffer("RandomIPFSHash")),
+          utils.keccak256(new Buffer("ProposalOne")),
+          utils.keccak256(new Buffer("RandomIPFSHash")),
           ether(13000000),
           await getRandomAddress(),
           1660,

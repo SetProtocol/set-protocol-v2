@@ -1,6 +1,6 @@
 import "module-alias/register";
 import { BigNumber } from "ethers";
-import { utils.defaultAbiCoder } from "ethers/lib/utils";
+import { utils } from "ethers";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";

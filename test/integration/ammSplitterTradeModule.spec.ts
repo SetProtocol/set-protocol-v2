@@ -1,6 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "ethers";
-import { utils.defaultAbiCoder } from "ethers/lib/utils";
+import { BigNumber, utils } from "ethers";
 import { ethers } from "hardhat";
 
 import { Address, Bytes } from "@utils/types";
