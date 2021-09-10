@@ -1,6 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "@ethersproject/abi";
+import { utils, BigNumber } from "ethers";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { EMPTY_BYTES, ONE, TWO, ZERO } from "@utils/constants";
@@ -161,7 +160,7 @@ describe("AaveGovernanceAdapter", () => {
 
     describe("when voting with another token", () => {
       beforeEach(async () => {
-        subjectData = defaultAbiCoder.encode(
+        subjectData = utils.defaultAbiCoder.encode(
           ["address"],
           [aaveSetup.lendToken.address]
         );

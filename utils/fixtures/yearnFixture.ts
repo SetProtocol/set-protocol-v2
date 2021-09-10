@@ -1,6 +1,4 @@
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
-import { BigNumber } from "@ethersproject/bignumber";
-import { Signer } from "ethers";
+import { providers, BigNumber, Signer } from "ethers";
 
 import {
   Vault,
@@ -16,7 +14,7 @@ export class YearnFixture {
 
   public registry: Registry;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerAddress = ownerAddress;
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);

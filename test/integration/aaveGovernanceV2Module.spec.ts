@@ -1,6 +1,6 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "ethers/lib/utils";
+import { BigNumber } from "ethers";
+import { utils.defaultAbiCoder } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -184,7 +184,7 @@ describe("AaveGovernanceV2Module", () => {
         subjectCaller = owner;
         subjectSetToken = setToken;
         subjectGovernanceIntegrationName = aaveGovernanceV2AdapterIntegrationName;
-        subjectProposalData = defaultAbiCoder.encode(
+        subjectProposalData = utils.defaultAbiCoder.encode(
           ["address", "address[]", "uint256[]", "string[]", "bytes[]", "bool[]", "bytes32"],
           [aaveSetup.executor.address, targets, values, signatures, calldatas, withDelegateCall, ipfsHash]
         );

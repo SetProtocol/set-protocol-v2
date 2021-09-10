@@ -1,6 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "@ethersproject/abi";
+import { utils, BigNumber } from "ethers";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, EMPTY_BYTES, ZERO } from "@utils/constants";
@@ -100,7 +99,7 @@ describe("CompoundLikeGovernanceAdapter", () => {
         "0x00000000000000000000000000000000000000000000000002c68af0bb140000",
       ];
       description = "Create A Proposal";
-      subjectProposalData = defaultAbiCoder.encode(
+      subjectProposalData = utils.defaultAbiCoder.encode(
         ["address[]", "uint256[]", "string[]", "bytes[]", "string"],
         [targets, values, signatures, calldatas, description]
       );

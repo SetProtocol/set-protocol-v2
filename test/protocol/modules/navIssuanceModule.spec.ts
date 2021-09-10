@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { BigNumber, BigNumberish } from "ethers";
 
 import { Address, NAVIssuanceSettings } from "@utils/types";
 import { Account } from "@utils/test/types";

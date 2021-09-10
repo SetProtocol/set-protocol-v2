@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
 
 import { Address, Bytes } from "@utils/types";

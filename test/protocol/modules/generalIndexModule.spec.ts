@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 import { hexlify, hexZeroPad } from "ethers/lib/utils";
 import { Address, StreamingFeeState } from "@utils/types";

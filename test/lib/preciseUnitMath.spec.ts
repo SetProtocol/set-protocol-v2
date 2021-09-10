@@ -1,4 +1,4 @@
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 import { Account } from "../../utils/test/types";
 import { PRECISE_UNIT, MIN_INT_256, MAX_INT_256, ZERO } from "../../utils/constants";

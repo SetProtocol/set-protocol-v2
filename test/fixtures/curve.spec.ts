@@ -16,7 +16,7 @@ import {
 import { CurveFixture } from "@utils/fixtures";
 import { StandardTokenMock } from "../../typechain/StandardTokenMock";
 import { ZERO } from "@utils/constants";
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { BigNumber, BigNumberish } from "ethers";
 import { LiquidityGauge } from "@typechain/LiquidityGauge";
 
 const expect = getWaffleExpect();

@@ -1,7 +1,7 @@
 import "module-alias/register";
 
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "ethers/lib/utils";
+import { BigNumber } from "ethers";
+import { utils.defaultAbiCoder } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -105,7 +105,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
 
     it("should return the correct data", async () => {
       const uniswapData = await subject();
-      const expectedData = defaultAbiCoder.encode(
+      const expectedData = utils.defaultAbiCoder.encode(
         ["address[]", "bool"],
         [subjectPath, subjectShouldTradeExactTokensForTokens]
       );
@@ -148,7 +148,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
         const dataParam = await subject();
 
         const path = [sourceToken, destinationToken];
-        const expectedDataParam = defaultAbiCoder.encode(
+        const expectedDataParam = utils.defaultAbiCoder.encode(
           ["address[]", "bool"],
           [path, subjectFixIn]
         );
@@ -165,7 +165,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
         const dataParam = await subject();
 
         const path = [sourceToken, destinationToken];
-        const expectedDataParam = defaultAbiCoder.encode(
+        const expectedDataParam = utils.defaultAbiCoder.encode(
           ["address[]", "bool"],
           [path, subjectFixIn]
         );
@@ -216,7 +216,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
       beforeEach(async () => {
         const path = [sourceToken, setup.weth.address, destinationToken];
         const shouldTradeExactTokensForTokens = true;
-        subjectData = defaultAbiCoder.encode(
+        subjectData = utils.defaultAbiCoder.encode(
           ["address[]", "bool"],
           [path, shouldTradeExactTokensForTokens]
         );
@@ -240,7 +240,7 @@ describe("UniswapV2ExchangeAdapterV2", () => {
       beforeEach(async () => {
         const path = [sourceToken, setup.weth.address, destinationToken];
         const shouldTradeExactTokensForTokens = false;
-        subjectData = defaultAbiCoder.encode(
+        subjectData = utils.defaultAbiCoder.encode(
           ["address[]", "bool"],
           [path, shouldTradeExactTokensForTokens]
         );

@@ -8,7 +8,7 @@ import {
   getAaveV2Fixture
 } from "@utils/test/index";
 import { SystemFixture, AaveV2Fixture } from "@utils/fixtures";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { ether } from "@utils/common";
 
 const expect = getWaffleExpect();

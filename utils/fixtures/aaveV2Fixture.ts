@@ -1,8 +1,7 @@
 import DeployHelper from "../deploys";
 import { Signer } from "ethers";
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
 import { Address } from "../types";
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { providers, BigNumber, BigNumberish } from "ethers";
 
 import {
   AaveGovernanceV2,
@@ -65,7 +64,7 @@ export class AaveV2Fixture {
   public executor: Executor;
   public governanceStrategy: GovernanceStrategy;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);
   }

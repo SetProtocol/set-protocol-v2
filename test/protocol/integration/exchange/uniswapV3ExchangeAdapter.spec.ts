@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { BigNumber, BigNumberish } from "ethers";
 import { solidityPack } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";

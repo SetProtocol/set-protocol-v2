@@ -1,7 +1,4 @@
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
-
-import { BigNumber } from "@ethersproject/bignumber";
-import { ethers, constants } from "ethers";
+import { BigNumber, constants, ethers, providers } from "ethers";
 
 import { EMPTY_BYTES } from "../constants";
 import { Address, Position } from "../types";
@@ -9,9 +6,9 @@ import { Address, Position } from "../types";
 const { AddressZero } = constants;
 
 export class ProtocolUtils {
-  public _provider: Web3Provider | JsonRpcProvider;
+  public _provider: providers.Web3Provider | providers.JsonRpcProvider;
 
-  constructor(_provider: Web3Provider | JsonRpcProvider) {
+  constructor(_provider: providers.Web3Provider | providers.JsonRpcProvider) {
     this._provider = _provider;
   }
 

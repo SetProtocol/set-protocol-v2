@@ -1,6 +1,6 @@
 import { Signer } from "ethers";
 import { Address } from "../types";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 import { CTokenOracle, YearnVaultOracle } from "../contracts";
 

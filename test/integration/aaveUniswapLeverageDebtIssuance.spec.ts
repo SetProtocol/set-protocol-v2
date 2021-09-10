@@ -32,7 +32,7 @@ import {
   getUniswapFixture
 } from "@utils/test/index";
 import { AaveV2Fixture, SystemFixture, UniswapFixture } from "@utils/fixtures";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
 
 const expect = getWaffleExpect();

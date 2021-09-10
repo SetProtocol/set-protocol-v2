@@ -1,9 +1,7 @@
 import DeployHelper from "../deploys";
-import { Signer, ContractTransaction } from "ethers";
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
+import { BigNumber, Signer, ContractTransaction, providers } from "ethers";
 import { Address } from "../types";
 import { Account } from "@utils/test/types";
-import { BigNumber } from "@ethersproject/bignumber";
 
 import {
   BFactory,
@@ -30,7 +28,7 @@ export class BalancerFixture {
   public wethWbtcPool: BPool;
   public wbtcDaiPool: BPool;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);
   }

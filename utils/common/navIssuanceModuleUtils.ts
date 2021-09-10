@@ -1,4 +1,4 @@
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { Address } from "../types";
 import { preciseMul, preciseMulCeil, preciseDiv, preciseDivCeil } from "./mathUtils";
 import { PRECISE_UNIT } from "../constants";

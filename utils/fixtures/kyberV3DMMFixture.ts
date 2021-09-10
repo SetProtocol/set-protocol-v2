@@ -1,9 +1,7 @@
 import DeployHelper from "../deploys";
-import { Signer } from "ethers";
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
+import { providers, Signer, BigNumber } from "ethers";
 import { Address } from "../types";
 import { Account } from "../test/types";
-import { BigNumber } from "@ethersproject/bignumber";
 
 import { StandardTokenMock } from "../contracts";
 import {
@@ -28,7 +26,7 @@ export class KyberV3DMMFixture {
   public wethDaiPool: DMMPool;
   public wethWbtcPool: DMMPool;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);
   }

@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
+import { utils, BigNumber } from "ethers";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -17,7 +17,6 @@ import {
   getWaffleExpect,
   getYearnFixture,
 } from "@utils/test/index";
-import { defaultAbiCoder } from "@ethersproject/abi";
 import { solidityKeccak256 } from "ethers/lib/utils";
 
 const expect = getWaffleExpect();
@@ -85,7 +84,7 @@ describe("YearnWrapV2Adapter", () => {
       const [targetAddress, ethValue, callData] = await subject();
 
       const selector = solidityKeccak256(["string"], ["deposit(uint256)"]).slice(0, 10);
-      const data = defaultAbiCoder.encode(["uint256"], [subjectQuantity]).slice(2);
+      const data = utils.defaultAbiCoder.encode(["uint256"], [subjectQuantity]).slice(2);
       const expectedCalldata = selector + data;
 
       expect(targetAddress).to.eq(subjectYToken);
@@ -117,7 +116,7 @@ describe("YearnWrapV2Adapter", () => {
       const [targetAddress, ethValue, callData] = await subject();
 
       const selector = solidityKeccak256(["string"], ["withdraw(uint256)"]).slice(0, 10);
-      const data = defaultAbiCoder.encode(["uint256"], [subjectQuantity]).slice(2);
+      const data = utils.defaultAbiCoder.encode(["uint256"], [subjectQuantity]).slice(2);
       const expectedCalldata = selector + data;
 
       expect(targetAddress).to.eq(subjectYToken);

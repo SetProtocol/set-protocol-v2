@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { PositionMock, SetToken, StandardTokenMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {

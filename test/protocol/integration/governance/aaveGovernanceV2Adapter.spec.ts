@@ -1,6 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "@ethersproject/abi";
+import { utils, BigNumber } from "ethers";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { EMPTY_BYTES, ZERO } from "@utils/constants";
@@ -91,7 +90,7 @@ describe("AaveGovernanceAdapter", () => {
     const ipfsHash = "0x384dd57abcd23aae459877625228062db4082485a0ac1fc45eb54524f5836507";
 
     beforeEach(async () => {
-      subjectProposalData = defaultAbiCoder.encode(
+      subjectProposalData = utils.defaultAbiCoder.encode(
         ["address", "address[]", "uint256[]", "string[]", "bytes[]", "bool[]", "bytes32"],
         [aaveSetup.executor.address, targets, values, signatures, calldatas, withDelegateCall, ipfsHash]
       );

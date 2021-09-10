@@ -1,5 +1,4 @@
-import { Signer } from "ethers";
-import { BigNumberish, BigNumber } from "@ethersproject/bignumber";
+import { BigNumberish, BigNumber, Signer } from "ethers";
 import { ether } from "../common";
 
 import {

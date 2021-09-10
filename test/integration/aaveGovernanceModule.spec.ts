@@ -1,7 +1,7 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { keccak256 } from "ethers/lib/utils";
-import { defaultAbiCoder } from "ethers/lib/utils";
+import { utils.defaultAbiCoder } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -145,7 +145,7 @@ describe("AaveGovernanceModule", () => {
 
       describe("when voting with another supported token", () => {
         beforeEach(async () => {
-          subjectData = defaultAbiCoder.encode(
+          subjectData = utils.defaultAbiCoder.encode(
             ["address"],
             [aaveSetup.lendToken.address]
           );

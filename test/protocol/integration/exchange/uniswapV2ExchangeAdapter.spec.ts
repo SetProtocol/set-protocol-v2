@@ -1,7 +1,7 @@
 import "module-alias/register";
 
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "ethers/lib/utils";
+import { BigNumber } from "ethers";
+import { utils.defaultAbiCoder } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -144,7 +144,7 @@ describe("UniswapV2ExchangeAdapter", () => {
     describe("when passed in custom path to trade data", async () => {
       beforeEach(async () => {
         const path = [sourceAddress, setup.weth.address, destinationAddress];
-        subjectData = defaultAbiCoder.encode(
+        subjectData = utils.defaultAbiCoder.encode(
           ["address[]"],
           [path]
         );

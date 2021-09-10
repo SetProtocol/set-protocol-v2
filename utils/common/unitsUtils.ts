@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 export const ether = (amount: number | string): BigNumber => {
   const weiString = ethers.utils.parseEther(amount.toString());

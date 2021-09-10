@@ -1,7 +1,7 @@
 import "module-alias/register";
 
 import { hexlify, hexZeroPad } from "ethers/lib/utils";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
