@@ -49,12 +49,6 @@
   "author": "felix2feng",
   "license": "MIT",
   "homepage": "https://github.com/SetProtocol",
-  "resolutions": {
-    "@ethersproject/abi": "5.4.1",
-    "@ethersproject/bignumber": "5.4.1",
-    "@ethersproject/contracts": "5.4.1",
-    "@ethersproject/providers": "5.4.5"
-  },
   "devDependencies": {
     "@0x/utils": "^6.4.3",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
