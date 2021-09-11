@@ -1,7 +1,6 @@
 import DeployHelper from "../deploys";
 import { MAX_UINT_256 } from "../constants";
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
-import { BigNumber, BigNumberish, Signer } from "ethers";
+import { BigNumber, BigNumberish, Signer, providers } from "ethers";
 import { Address } from "../types";
 import { Account } from "../test/types";
 
@@ -42,7 +41,7 @@ export class UniswapV3Fixture {
    * @param provider      the ethers web3 provider to use
    * @param ownerAddress  the address of the owner
    */
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);
   }

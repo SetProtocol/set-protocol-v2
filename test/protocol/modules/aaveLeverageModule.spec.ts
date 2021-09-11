@@ -32,10 +32,9 @@ import {
   getUniswapFixture
 } from "@utils/test/index";
 import { AaveV2Fixture, SystemFixture, UniswapFixture } from "@utils/fixtures";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber, ContractTransaction } from "ethers";
 import { ADDRESS_ZERO, ZERO, EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
 import { ReserveTokens } from "@utils/fixtures/aaveV2Fixture";
-import { ContractTransaction } from "@ethersproject/contracts";
 
 const expect = getWaffleExpect();
 const web3 = new Web3();

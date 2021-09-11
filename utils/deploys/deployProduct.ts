@@ -1,5 +1,5 @@
 import { Signer } from "ethers";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 import {
   UniswapYieldHook,

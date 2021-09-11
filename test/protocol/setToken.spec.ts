@@ -1,7 +1,7 @@
 import "module-alias/register";
 
 import Web3 from "web3";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 import { Address, Position } from "@utils/types";
 import { Account } from "@utils/test/types";

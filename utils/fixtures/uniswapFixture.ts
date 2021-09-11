@@ -1,9 +1,7 @@
 import DeployHelper from "../deploys";
-import { Signer } from "ethers";
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
+import { Signer, providers, BigNumber } from "ethers";
 import { Address } from "../types";
 import { Account } from "../test/types";
-import { BigNumber } from "@ethersproject/bignumber";
 
 import {
   StakingRewards,
@@ -21,7 +19,7 @@ import { ONE_DAY_IN_SECONDS } from "../constants";
 
 export class UniswapFixture {
   private _deployer: DeployHelper;
-  private _provider: Web3Provider | JsonRpcProvider;
+  private _provider: providers.Web3Provider | providers.JsonRpcProvider;
   private _ownerSigner: Signer;
 
   public owner: Account;
@@ -38,7 +36,7 @@ export class UniswapFixture {
   public wethWbtcStakingRewards: StakingRewards;
   public uniWethPool: UniswapV2Pair;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._provider = provider;
     this._deployer = new DeployHelper(this._ownerSigner);

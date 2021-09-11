@@ -1,6 +1,4 @@
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
-import { BigNumberish, BigNumber } from "@ethersproject/bignumber";
-import { Signer } from "ethers";
+import { BigNumberish, BigNumber, providers, Signer } from "ethers";
 
 import {
   CERc20,
@@ -48,7 +46,7 @@ export class CompoundFixture {
   public priceOracle: CompoundPriceOracleMock;
   public priceOracleProxy: PriceOracleProxy;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerAddress = ownerAddress;
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);

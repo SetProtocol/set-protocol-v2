@@ -24,7 +24,7 @@ import {
   getRandomAddress
 } from "@utils/test/index";
 import { CompoundFixture, SystemFixture } from "@utils/fixtures";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
 
 const expect = getWaffleExpect();

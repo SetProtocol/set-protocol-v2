@@ -1,4 +1,4 @@
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { UniswapV2Pair, SetToken, StakingRewards, StandardTokenMock, WETH9, UniswapV2Router02 } from "../contracts";
 import { ZERO } from "../constants";
 import { ether, preciseMul } from "../index";

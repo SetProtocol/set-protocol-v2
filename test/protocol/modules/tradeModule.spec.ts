@@ -1,7 +1,7 @@
 import "module-alias/register";
 import Web3 from "web3";
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "ethers/lib/utils";
+import { BigNumber } from "ethers";
+import { utils } from "ethers";
 import { ethers } from "hardhat";
 
 import { Address, Bytes } from "@utils/types";
@@ -820,7 +820,7 @@ describe("TradeModule", () => {
 
             subjectDestinationToken = setup.dai.address;
             const tradePath = [subjectSourceToken, setup.weth.address, subjectDestinationToken];
-            subjectData = defaultAbiCoder.encode(
+            subjectData = utils.defaultAbiCoder.encode(
               ["address[]"],
               [tradePath]
             );
@@ -980,7 +980,7 @@ describe("TradeModule", () => {
 
             subjectDestinationToken = setup.dai.address;
             const tradePath = [subjectSourceToken, setup.wbtc.address, subjectDestinationToken];
-            subjectData = defaultAbiCoder.encode(
+            subjectData = utils.defaultAbiCoder.encode(
               ["address[]"],
               [tradePath]
             );

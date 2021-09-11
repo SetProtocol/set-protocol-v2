@@ -13,7 +13,7 @@ import {
 } from "@utils/test/index";
 import { SystemFixture, UniswapFixture } from "@utils/fixtures";
 import { ZERO, MAX_UINT_256 } from "@utils/constants";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
 

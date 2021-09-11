@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
+import { providers } from "ethers";
 import { Address } from "../types";
 import DeployHelper from "../deploys";
 import { Signer } from "ethers";
@@ -24,7 +24,7 @@ export class CurveFixture {
   public gaugeController: GaugeController;
   public minter: Minter;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);
   }

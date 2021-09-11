@@ -1,6 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "ethers/lib/utils";
+import { BigNumber, utils } from "ethers";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -119,7 +118,7 @@ describe("CompoundGovernanceModule", () => {
 
         subjectSetToken = setToken.address;
         subjectIntegrationName = compoundLikeGovernanceAdapterIntegrationName;
-        subjectProposalData = defaultAbiCoder.encode(
+        subjectProposalData = utils.defaultAbiCoder.encode(
           ["address[]", "uint256[]", "string[]", "bytes[]", "string"],
           [targets, values, signatures, calldatas, description]
         );
@@ -162,7 +161,7 @@ describe("CompoundGovernanceModule", () => {
           "0x00000000000000000000000000000000000000000000000002c68af0bb140000",
         ];
         const description = "Create A Proposal";
-        const proposalData = defaultAbiCoder.encode(
+        const proposalData = utils.defaultAbiCoder.encode(
           ["address[]", "uint256[]", "string[]", "bytes[]", "string"],
           [targets, values, signatures, calldatas, description]
         );

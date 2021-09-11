@@ -1,5 +1,5 @@
 import { ethers, network } from "hardhat";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 import { Address } from "../types";
 import { Account, ForkedTokens } from "./types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -86,4 +86,3 @@ export const initializeForkedTokens = async (deployer: DeployHelper): Promise<vo
     await funder.fund(whale, {value: ether(100)}); // Gas money
   }
 };
-

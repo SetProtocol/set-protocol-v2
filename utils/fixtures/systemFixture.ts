@@ -1,6 +1,6 @@
-import { JsonRpcProvider, Web3Provider } from "@ethersproject/providers";
+import { providers } from "ethers";
 import { ContractTransaction, Signer } from "ethers";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 import {
   BasicIssuanceModule,
@@ -31,7 +31,7 @@ import {
 import { SetToken__factory } from "../../typechain/factories/SetToken__factory";
 
 export class SystemFixture {
-  private _provider: Web3Provider | JsonRpcProvider;
+  private _provider: providers.Web3Provider | providers.JsonRpcProvider;
   private _ownerAddress: Address;
   private _ownerSigner: Signer;
   private _deployer: DeployHelper;
@@ -63,7 +63,7 @@ export class SystemFixture {
   public component3Price: BigNumber;
   public component4Price: BigNumber;
 
-  constructor(provider: Web3Provider | JsonRpcProvider, ownerAddress: Address) {
+  constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._provider = provider;
     this._ownerAddress = ownerAddress;
     this._ownerSigner = provider.getSigner(ownerAddress);

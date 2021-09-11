@@ -1,6 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
-import { defaultAbiCoder } from "ethers/lib/utils";
+import { BigNumber, utils } from "ethers";
 import { ethers } from "hardhat";
 
 import { Address, Bytes } from "@utils/types";
@@ -286,7 +285,7 @@ describe("AMMSplitterTradeModule", () => {
 
             subjectDestinationToken = setup.dai.address;
             const tradePath = [subjectSourceToken, setup.weth.address, subjectDestinationToken];
-            subjectData = defaultAbiCoder.encode(
+            subjectData = utils.defaultAbiCoder.encode(
               ["address[]"],
               [tradePath]
             );

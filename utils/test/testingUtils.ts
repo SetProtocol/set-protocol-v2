@@ -5,15 +5,14 @@ chai.use(solidity);
 
 // Use HARDHAT version of providers
 import { ethers } from "hardhat";
-import { BigNumber } from "@ethersproject/bignumber";
-import { JsonRpcProvider } from "@ethersproject/providers";
+import { BigNumber, providers } from "ethers";
 import { Blockchain } from "../common";
 
 const provider = ethers.provider;
 // const blockchain = new Blockchain(provider);
 
 // HARDHAT-SPECIFIC Provider
-export const getProvider = (): JsonRpcProvider => {
+export const getProvider = (): providers.JsonRpcProvider => {
   return ethers.provider;
 };
 

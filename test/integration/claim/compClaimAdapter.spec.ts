@@ -1,6 +1,7 @@
 import "module-alias/register";
 import { waffle } from "hardhat";
 import { Contract, BigNumber } from "ethers";
+import { MockContract } from "@ethereum-waffle/mock-contract";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO } from "@utils/constants";
@@ -29,6 +30,7 @@ describe("CompClaimAdapter", function() {
   let compoundAdmin: Account;
   let deployer: DeployHelper;
   let comptroller: Contract;
+  let mockComptroller: MockContract;
   let compClaimAdapter: CompClaimAdapter;
 
   before(async function() {
@@ -43,15 +45,15 @@ describe("CompClaimAdapter", function() {
   context("unit tests", async function() {
 
     before(async function() {
-      comptroller = await deployMockContract(owner.wallet, ComptrollerArtifact.abi);
-      compClaimAdapter = await deployer.adapters.deployCompClaimAdapter(comptroller.address);
+      mockComptroller = await deployMockContract(owner.wallet, ComptrollerArtifact.abi);
+      compClaimAdapter = await deployer.adapters.deployCompClaimAdapter(mockComptroller.address);
     });
 
     describe("#getClaimCallData", async function() {
       let claimCallData: string;
 
       before(function() {
-        claimCallData = comptroller.interface.encodeFunctionData("claimComp(address)", [ADDRESS_ZERO]);
+        claimCallData = mockComptroller.interface.encodeFunctionData("claimComp(address)", [ADDRESS_ZERO]);
       });
 
       function subject(): Promise<[Address, BigNumber, string]> {
@@ -61,7 +63,7 @@ describe("CompClaimAdapter", function() {
       it("should return claim callData", async function() {
         const callData = await subject();
 
-        expect(callData[0]).to.eq(comptroller.address);
+        expect(callData[0]).to.eq(mockComptroller.address);
         expect(callData[1]).to.eq(ether(0));
         expect(callData[2]).to.eq(claimCallData);
       });
@@ -71,7 +73,7 @@ describe("CompClaimAdapter", function() {
       const rewards: BigNumber = ether(1);
 
       before(async function() {
-        await comptroller.mock.compAccrued.returns(rewards);
+        await mockComptroller.mock.compAccrued.returns(rewards);
       });
 
       function subject(): Promise<BigNumber> {
@@ -85,7 +87,7 @@ describe("CompClaimAdapter", function() {
 
     describe("#getTokenAddress", async function() {
       before(async function() {
-        await comptroller.mock.getCompAddress.returns(ADDRESS_ZERO);
+        await mockComptroller.mock.getCompAddress.returns(ADDRESS_ZERO);
       });
 
       function subject(): Promise<Address> {
@@ -176,7 +178,14 @@ describe("CompClaimAdapter", function() {
       });
 
       it("should claim accrued amount", async function() {
-        await expect(subject).to.changeTokenBalance(comp, setToken, amount);
+        const initialCompBalance = await comp.balanceOf(setToken.address);
+
+        await subject();
+
+        const finalCompBalance = await comp.balanceOf(setToken.address);
+        const expectedBalance = initialCompBalance.add(amount);
+
+        expect(finalCompBalance).to.equal(expectedBalance);
       });
     });
   });

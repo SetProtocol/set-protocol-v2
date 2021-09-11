@@ -1,5 +1,5 @@
 import "module-alias/register";
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber } from "ethers";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
@@ -20,7 +20,7 @@ import {
 } from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
-import { HashZero } from "@ethersproject/constants";
+import { constants } from "ethers";
 
 const expect = getWaffleExpect();
 
@@ -488,7 +488,7 @@ describe("StakingModule", () => {
       await subject();
 
       const position: any = await stakingModule.getStakingPosition(subjectSetToken, subjectComponent, subjectStakeContract);
-      expect(position.adapterHash).to.eq(HashZero);
+      expect(position.adapterHash).to.eq(constants.HashZero);
       expect(position.componentPositionUnits).to.eq(ZERO);
     });
 

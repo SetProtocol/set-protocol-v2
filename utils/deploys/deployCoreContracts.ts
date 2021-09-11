@@ -1,5 +1,4 @@
-import { Signer } from "ethers";
-import { BigNumberish } from "@ethersproject/bignumber";
+import { BigNumberish, Signer } from "ethers";
 
 import {
   Controller,
