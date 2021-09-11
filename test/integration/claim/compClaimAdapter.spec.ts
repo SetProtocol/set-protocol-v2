@@ -46,7 +46,7 @@ describe("CompClaimAdapter", function() {
 
     before(async function() {
       mockComptroller = await deployMockContract(owner.wallet, ComptrollerArtifact.abi);
-      compClaimAdapter = await deployer.adapters.deployCompClaimAdapter(comptroller.address);
+      compClaimAdapter = await deployer.adapters.deployCompClaimAdapter(mockComptroller.address);
     });
 
     describe("#getClaimCallData", async function() {
@@ -63,7 +63,7 @@ describe("CompClaimAdapter", function() {
       it("should return claim callData", async function() {
         const callData = await subject();
 
-        expect(callData[0]).to.eq(comptroller.address);
+        expect(callData[0]).to.eq(mockComptroller.address);
         expect(callData[1]).to.eq(ether(0));
         expect(callData[2]).to.eq(claimCallData);
       });
@@ -178,7 +178,14 @@ describe("CompClaimAdapter", function() {
       });
 
       it("should claim accrued amount", async function() {
-        await expect(subject).to.changeTokenBalance(comp, setToken, amount);
+        const initialCompBalance = await comp.balanceOf(setToken.address);
+
+        await subject();
+
+        const finalCompBalance = await comp.balanceOf(setToken.address);
+        const expectedBalance = initialCompBalance.add(amount);
+
+        expect(finalCompBalance).to.equal(expectedBalance);
       });
     });
   });
