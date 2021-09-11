@@ -36,7 +36,7 @@ describe("BalancerFixture", () => {
 
   describe("#initialize", async () => {
     async function subject(): Promise<any> {
-      await balancerSetup.initialize(owner, setup.weth, setup.dai);
+      await balancerSetup.initialize(owner, setup.weth, setup.wbtc, setup.dai);
     }
 
     it("should deploy core balancer V2 contacts", async () => {
@@ -58,7 +58,7 @@ describe("BalancerFixture", () => {
     let subjectWeights: BigNumber[];
 
     beforeEach(async () => {
-      await balancerSetup.initialize(owner, setup.weth, setup.dai);
+      await balancerSetup.initialize(owner, setup.weth, setup.wbtc, setup.dai);
 
       subjectTokens = [setup.wbtc.address, setup.weth.address];
       subjectWeights = [ether(0.3), ether(0.7)];
