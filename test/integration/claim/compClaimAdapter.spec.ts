@@ -1,6 +1,7 @@
 import "module-alias/register";
 import { waffle } from "hardhat";
 import { Contract, BigNumber } from "ethers";
+import { MockContract } from "@ethereum-waffle/mock-contract";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO } from "@utils/constants";
@@ -29,6 +30,7 @@ describe("CompClaimAdapter", function() {
   let compoundAdmin: Account;
   let deployer: DeployHelper;
   let comptroller: Contract;
+  let mockComptroller: MockContract;
   let compClaimAdapter: CompClaimAdapter;
 
   before(async function() {
@@ -43,7 +45,7 @@ describe("CompClaimAdapter", function() {
   context("unit tests", async function() {
 
     before(async function() {
-      comptroller = await deployMockContract(owner.wallet, ComptrollerArtifact.abi);
+      mockComptroller = await deployMockContract(owner.wallet, ComptrollerArtifact.abi);
       compClaimAdapter = await deployer.adapters.deployCompClaimAdapter(comptroller.address);
     });
 
@@ -51,7 +53,7 @@ describe("CompClaimAdapter", function() {
       let claimCallData: string;
 
       before(function() {
-        claimCallData = comptroller.interface.encodeFunctionData("claimComp(address)", [ADDRESS_ZERO]);
+        claimCallData = mockComptroller.interface.encodeFunctionData("claimComp(address)", [ADDRESS_ZERO]);
       });
 
       function subject(): Promise<[Address, BigNumber, string]> {
@@ -71,7 +73,7 @@ describe("CompClaimAdapter", function() {
       const rewards: BigNumber = ether(1);
 
       before(async function() {
-        await comptroller.mock.compAccrued.returns(rewards);
+        await mockComptroller.mock.compAccrued.returns(rewards);
       });
 
       function subject(): Promise<BigNumber> {
@@ -85,7 +87,7 @@ describe("CompClaimAdapter", function() {
 
     describe("#getTokenAddress", async function() {
       before(async function() {
-        await comptroller.mock.getCompAddress.returns(ADDRESS_ZERO);
+        await mockComptroller.mock.getCompAddress.returns(ADDRESS_ZERO);
       });
 
       function subject(): Promise<Address> {
