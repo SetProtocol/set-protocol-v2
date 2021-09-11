@@ -49,6 +49,7 @@ describe("BalancerV2IndexExchangeAdapter", () => {
     await balancerSetup.initialize(
       owner,
       setup.weth,
+      setup.wbtc,
       setup.dai
     );
 

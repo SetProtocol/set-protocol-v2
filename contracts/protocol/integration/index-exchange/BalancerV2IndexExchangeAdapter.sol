@@ -22,6 +22,8 @@ pragma experimental "ABIEncoderV2";
 import { IBVault } from "../../../interfaces/external/IBVault.sol";
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
 
+import { console } from "hardhat/console.sol";
+
 /**
  * @title BalancerV2IndexExchangeAdapter
  * @author Set Protocol
@@ -82,6 +84,10 @@ contract BalancerV2IndexExchangeAdapter is IIndexExchangeAdapter {
     {
         bytes32 poolId = abi.decode(_data, (bytes32));
 
+        console.logBytes32(poolId);
+        console.log(_destinationAddress);
+        console.log(_sourceQuantity);
+
         IBVault.SingleSwap memory singleSwap = IBVault.SingleSwap({
             poolId: poolId,
             kind: _isSendTokenFixed ? IBVault.SwapKind.GIVEN_IN : IBVault.SwapKind.GIVEN_OUT,
@@ -91,12 +97,16 @@ contract BalancerV2IndexExchangeAdapter is IIndexExchangeAdapter {
             userData: ""
         });
 
+        console.log("a");
+
         IBVault.FundManagement memory funds = IBVault.FundManagement({
-            sender: msg.sender,
+            sender: _destinationAddress,
             fromInternalBalance: false,
             recipient: payable(_destinationAddress),
             toInternalBalance: false
         });
+
+        console.log("b");
         
         bytes memory callData = abi.encodePacked(
             IBVault.swap.selector,
@@ -107,6 +117,8 @@ contract BalancerV2IndexExchangeAdapter is IIndexExchangeAdapter {
                 uint256(-1)
             )
         );
+
+        console.log("c");
 
         return (vault, 0, callData);
     }
