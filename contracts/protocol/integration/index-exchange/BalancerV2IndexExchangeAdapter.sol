@@ -36,10 +36,6 @@ contract BalancerV2IndexExchangeAdapter is IIndexExchangeAdapter {
     // Address of Balancer V2 vault contract
     address public immutable vault;
 
-    // Balancer V2 swap function
-    string internal constant SWAP = "swap((bytes32,enum,address,address,uint256,bytes),(address,bool,address,bool),uint256,unit256)";
-
-
     /* ============ Constructor ============ */
 
     /**
@@ -102,12 +98,14 @@ contract BalancerV2IndexExchangeAdapter is IIndexExchangeAdapter {
             toInternalBalance: false
         });
         
-        bytes memory callData = abi.encodeWithSignature(
-            SWAP,
-            singleSwap,
-            funds,
-            _isSendTokenFixed ? _destinationQuantity : _sourceQuantity,
-            uint256(-1)
+        bytes memory callData = abi.encodePacked(
+            IBVault.swap.selector,
+            abi.encode(
+                singleSwap,
+                funds,
+                _isSendTokenFixed ? _destinationQuantity : _sourceQuantity,
+                uint256(-1)
+            )
         );
 
         return (vault, 0, callData);

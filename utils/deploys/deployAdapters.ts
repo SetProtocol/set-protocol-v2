@@ -7,6 +7,7 @@ import {
   AGIMigrationWrapAdapter,
   AxieInfinityMigrationWrapAdapter,
   BalancerV1IndexExchangeAdapter,
+  BalancerV2IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
   KyberExchangeAdapter,
@@ -40,6 +41,7 @@ import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/Aave
 import { AaveV2WrapV2Adapter__factory } from "../../typechain/factories/AaveV2WrapV2Adapter__factory";
 import { AxieInfinityMigrationWrapAdapter__factory } from "../../typechain/factories/AxieInfinityMigrationWrapAdapter__factory";
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
+import { BalancerV2IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV2IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
@@ -241,5 +243,9 @@ export default class DeployAdapters {
 
   public async deployAaveV2WrapV2Adapter(lendingPool: Address): Promise<AaveV2WrapV2Adapter> {
     return await new AaveV2WrapV2Adapter__factory(this._deployerSigner).deploy(lendingPool);
+  }
+
+  public async deployBalancerV2IndexExchangeAdapter(vault: Address): Promise<BalancerV2IndexExchangeAdapter> {
+    return await new BalancerV2IndexExchangeAdapter__factory(this._deployerSigner).deploy(vault);
   }
 }
