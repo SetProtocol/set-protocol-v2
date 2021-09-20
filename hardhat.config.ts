@@ -17,7 +17,7 @@ const forkingConfig = {
 const mochaConfig = {
   grep: "@forked-mainnet",
   invert: (process.env.FORK) ? false : true,
-  timeout: (process.env.FORK) ? 50000 : 40000,
+  timeout: (process.env.FORK) ? 100000 : 40000,
 } as Mocha.MochaOptions;
 
 checkForkedProviderEnvironment();
@@ -36,7 +36,7 @@ const config: HardhatUserConfig = {
     },
     localhost: {
       url: "http://127.0.0.1:8545",
-      timeout: 100000,
+      timeout: 200000,
       gas: 12000000,
       blockGasLimit: 12000000,
     },
@@ -58,7 +58,7 @@ const config: HardhatUserConfig = {
     // To update coverage network configuration got o .solcover.js and update param in providerOptions field
     coverage: {
       url: "http://127.0.0.1:8555", // Coverage launches its own ganache-cli client
-      timeout: 100000,
+      timeout: 200000,
     },
   },
   // @ts-ignore
