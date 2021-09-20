@@ -32,7 +32,7 @@ contract CurveRegistryMock {
         return pool;
     }
 
-    function get_coins(address /* _pool */) external view returns (address[8] memory) {
+    function get_underlying_coins(address /* _pool */) external view returns (address[8] memory) {
         return tokens;
     }
 }

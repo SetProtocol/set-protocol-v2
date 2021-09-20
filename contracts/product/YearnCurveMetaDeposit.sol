@@ -36,7 +36,8 @@ contract YearnCurveMetaDeposit {
 
     function deposit(
         IYearnVault _yearnToken,
-        uint256 _metaTokenAmount,
+        IERC20 _inputToken,
+        uint256 _inputTokenAmount,
         uint256 _minYTokenReceive
     )
         external
@@ -44,13 +45,15 @@ contract YearnCurveMetaDeposit {
         address lpToken = _yearnToken.token();
         address pool = curveRegistry.get_pool_from_lp_token(lpToken);
 
-        IERC20 metatoken = IERC20(curveRegistry.get_coins(pool)[0]);
+        //IERC20 metatoken = IERC20(curveRegistry.get_coins(pool)[0]);
 
-        metatoken.transferFrom(msg.sender, address(this), _metaTokenAmount);
+        _inputToken.transferFrom(msg.sender, address(this), _inputTokenAmount);
 
-        _handleApprove(metatoken, address(threePool), _metaTokenAmount);
+        _handleApprove(_inputToken, address(threePool), _inputTokenAmount);
 
-        uint256[4] memory depositAmounts = [_metaTokenAmount, 0, 0,0];
+        uint256[4] memory depositAmounts = [uint256(0), uint256(0), uint256(0), uint256(0)];
+        uint tokenIndex = _getTokenIndex(pool, _inputToken);
+        depositAmounts[tokenIndex] = _inputTokenAmount;
         uint256 lpTokens = threePool.add_liquidity(pool, depositAmounts, 0, address(this));
 
         _handleApprove(IERC20(lpToken), address(_yearnToken), lpTokens);
@@ -65,5 +68,13 @@ contract YearnCurveMetaDeposit {
         if (_token.allowance(address(this), _to) < _amount) {
             _token.approve(_to, uint256(-1));
         }
+    }
+
+    function _getTokenIndex(address _pool, IERC20 _token) internal returns (uint256) {
+        address[8] memory tokens = curveRegistry.get_underlying_coins(_pool);
+        for (uint256 i = 0; i < 8; i++) {
+            if (tokens[i] == address(_token)) return i;
+        }
+        revert("YearnCurveMetaDeposit: token not in pool");
     }
 }

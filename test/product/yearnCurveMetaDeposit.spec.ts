@@ -4,6 +4,7 @@ import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getRandomAddress,
+  getSystemFixture,
   getWaffleExpect,
   getYearnFixture,
 } from "@utils/test/index";
@@ -15,7 +16,7 @@ import { Vault } from "@utils/contracts/yearn";
 import { Address, ContractTransaction, CurveUnderlyingTokens } from "@utils/types";
 import { ether } from "@utils/index";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";
-import { YearnFixture } from "@utils/fixtures";
+import { SystemFixture, YearnFixture } from "@utils/fixtures";
 import { BigNumber } from "@ethersproject/bignumber";
 
 const expect = getWaffleExpect();
@@ -26,10 +27,10 @@ describe("YearnCurveMetaDeposit", async () => {
   let user: Account;
   let deployer: DeployHelper;
   let yearnSetup: YearnFixture;
+  let systemSetup: SystemFixture;
 
   let pool: Address;
   let poolTokens: CurveUnderlyingTokens;
-  let threePoolLpToken: StandardTokenMock;
   let metaPoolLpToken: StandardTokenMock;
   let alUSD: StandardTokenMock;
 
@@ -45,12 +46,24 @@ describe("YearnCurveMetaDeposit", async () => {
 
     deployer = new DeployHelper(owner.wallet);
 
-    threePoolLpToken = await deployer.mocks.deployTokenMock(owner.address, ether(1000), 18, "Curve USDC/USDT/DAI", "crv-USDC-USDT-DAI");
+    systemSetup = getSystemFixture(owner.address);
+    await systemSetup.initialize();
+
     metaPoolLpToken = await deployer.mocks.deployTokenMock(owner.address, ether(1000), 18, "Curve alUSD/3Pool", "crv-alUSD-3Pool");
     alUSD = await deployer.mocks.deployTokenMock(owner.address, ether(10000), 18, "Alchemix USD", "alUSD");
     pool = metaPoolLpToken.address;   // usually Curve pools are the same as the LP token address (but not always)
 
-    poolTokens = [alUSD.address, threePoolLpToken.address, ADDRESS_ZERO, ADDRESS_ZERO, ADDRESS_ZERO, ADDRESS_ZERO, ADDRESS_ZERO, ADDRESS_ZERO];
+    // TODO: add tether
+    poolTokens = [
+      alUSD.address,
+      systemSetup.usdc.address,
+      systemSetup.dai.address,
+      ADDRESS_ZERO,
+      ADDRESS_ZERO,
+      ADDRESS_ZERO,
+      ADDRESS_ZERO,
+      ADDRESS_ZERO,
+    ];
 
     curveRegistry = await deployer.mocks.deployCurveRegistryMock(pool, poolTokens);
     curve3Pool = await deployer.mocks.deployCurve3PoolMock(metaPoolLpToken.address, alUSD.address, ether(3), ether(10));
@@ -97,24 +110,25 @@ describe("YearnCurveMetaDeposit", async () => {
   describe("#deposit", async () => {
     let subjectCaller: Account;
     let subjectYVault: Vault;
-    let subjectMetatoken: StandardTokenMock;
+    let subjectInputToken: StandardTokenMock;
     let subjectMetatokenAmount: BigNumber;
     let subjectMinYTokenReceive: BigNumber;
 
     beforeEach(async () => {
       subjectCaller = user;
       subjectYVault = yVault;
-      subjectMetatoken = alUSD;
+      subjectInputToken = alUSD;
       subjectMetatokenAmount = ether(10);
       subjectMinYTokenReceive = ether(0);
 
-      await subjectMetatoken.transfer(user.address, subjectMetatokenAmount);
-      await subjectMetatoken.connect(subjectCaller.wallet).approve(yearnCurveDeposit.address, ether(10));
+      await subjectInputToken.transfer(user.address, subjectMetatokenAmount);
+      await subjectInputToken.connect(subjectCaller.wallet).approve(yearnCurveDeposit.address, ether(10));
     });
 
     async function subject(): Promise<ContractTransaction> {
       return yearnCurveDeposit.connect(subjectCaller.wallet).deposit(
         subjectYVault.address,
+        subjectInputToken.address,
         subjectMetatokenAmount,
         subjectMinYTokenReceive
       );

@@ -20,5 +20,5 @@ pragma solidity 0.6.10;
 
 interface ICurveRegistry {
     function get_pool_from_lp_token(address _lpToken) external returns (address);
-    function get_coins(address _pool) external returns (address[8] memory);
+    function get_underlying_coins(address _pool) external returns (address[8] memory);
 }
