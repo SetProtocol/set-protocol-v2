@@ -129,8 +129,8 @@ contract ZeroExApiAdapter {
                 )
             }
 
-            if (selector == 0x415565b0) {
-                // transformERC20()
+            if (selector == 0x415565b0 || selector == 0x8182b61f) {
+                // transformERC20(), transformERC20Staging()
                 (inputToken, outputToken, inputTokenAmount, minOutputTokenAmount) =
                     abi.decode(_data[4:], (address, address, uint256, uint256));
             } else if (selector == 0xf7fcd384) {
@@ -201,7 +201,58 @@ contract ZeroExApiAdapter {
                 (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
                 require(inputToken == wethAddress, "First token must be WETH");
                 inputToken = ETH_ADDRESS;
-            } else {
+            } else if (selector == 0xf35b4733) {
+				// multiplexBatchSellEthForToken()
+				BatchFillData memory fillData;
+				(fillData, minOutputTokenAmount) =
+					abi.decode(_data[4:], (BatchFillData, uint256));
+				inputToken = ETH_ADDRESS;
+				outputToken = fillData.outputToken;
+//				inputTokenAmount = fillData.sellAmount;
+			} else if (selector == 0x77725df6) {
+				// multiplexBatchSellTokenForEth()
+				BatchFillData memory fillData;
+				(fillData, minOutputTokenAmount) =
+					abi.decode(_data[4:], (BatchFillData, uint256));
+				inputToken = fillData.inputToken;
+				outputToken = ETH_ADDRESS;
+				inputTokenAmount = fillData.sellAmount;
+			} else if (selector == 0x7a1eb1b9) {
+				// multiplexBatchSellTokenForToken()
+				BatchFillData memory fillData;
+				(fillData, minOutputTokenAmount) =
+					abi.decode(_data[4:], (BatchFillData, uint256));
+				inputToken = fillData.inputToken;
+				outputToken = fillData.outputToken;
+				inputTokenAmount = fillData.sellAmount;
+			} else if (selector == 0x5161b966) {
+				// multiplexMultiHopSellEthForToken()
+				MultiHopFillData memory fillData;
+				(fillData, minOutputTokenAmount) =
+					abi.decode(_data[4:], (MultiHopFillData, uint256));
+				require(fillData.tokens.length > 1, "Multihop token path too short");
+				inputToken = ETH_ADDRESS;
+				outputToken = fillData.tokens[fillData.tokens.length - 1];
+//				inputTokenAmount = fillData.sellAmount;
+			} else if (selector == 0x9a2967d2) {
+				// multiplexMultiHopSellTokenForEth()
+				MultiHopFillData memory fillData;
+				(fillData, minOutputTokenAmount) =
+					abi.decode(_data[4:], (MultiHopFillData, uint256));
+				require(fillData.tokens.length > 1, "Multihop token path too short");
+				inputToken = fillData.tokens[0];
+				outputToken = ETH_ADDRESS;
+				inputTokenAmount = fillData.sellAmount;
+			} else if (selector == 0x0f3b31b2) {
+				// multiplexMultiHopSellTokenForToken()
+				MultiHopFillData memory fillData;
+				(fillData, minOutputTokenAmount) =
+					abi.decode(_data[4:], (MultiHopFillData, uint256));
+				require(fillData.tokens.length > 1, "Multihop token path too short");
+				inputToken = fillData.tokens[0];
+				outputToken = fillData.tokens[fillData.tokens.length - 1];
+				inputTokenAmount = fillData.sellAmount;
+			} else {
                 revert("Unsupported 0xAPI function selector");
             }
         }
