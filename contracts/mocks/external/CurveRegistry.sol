@@ -18,8 +18,21 @@
 
 pragma solidity 0.6.10;
 
-interface IYearnVault {
-    function token() external view returns(address);
-    function pricePerShare() external view returns(uint256);
-    function deposit(uint256 _amount) external returns(uint256);
+contract CurveRegistryMock {
+
+    address public pool;
+    address[8] public tokens;
+
+    constructor(address _pool, address[8] memory _tokens) public {
+        pool = _pool;
+        tokens = _tokens;
+    }
+
+    function get_pool_from_lp_token(address /* _lpToken */) external view returns (address) {
+        return pool;
+    }
+
+    function get_coins(address /* _pool */) external view returns (address[8] memory) {
+        return tokens;
+    }
 }

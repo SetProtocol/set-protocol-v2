@@ -33,7 +33,7 @@ export class YearnFixture {
     symbol: string,
     depositLimit: BigNumber
   ): Promise<Vault> {
-    // https://github.com/yearn/yearn-vaults/blob/master/docs/OPERATIONS.md
+    // https://github.com/yearn/yearn-devdocs/blob/master/docs/developers/v2/OPERATIONS.md
     const emptyVault = await this._deployer.external.deployVault();
     await emptyVault["initialize(address,address,address,string,string,address)"]
       (underlying, governance, rewards, name, symbol, guardian);

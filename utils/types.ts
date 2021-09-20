@@ -18,6 +18,8 @@ export type Position = {
 export type ContractTransaction = ContractTransactionType;
 export type Wallet = WalletType;
 
+export type CurveUnderlyingTokens = [Address, Address, Address, Address, Address, Address, Address, Address];
+
 export interface StreamingFeeState {
   feeRecipient: Address;
   streamingFeePercentage: BigNumber;

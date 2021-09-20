@@ -18,8 +18,19 @@
 
 pragma solidity 0.6.10;
 
-interface IYearnVault {
-    function token() external view returns(address);
-    function pricePerShare() external view returns(uint256);
-    function deposit(uint256 _amount) external returns(uint256);
+interface I3Pool {
+    function add_liquidity(
+        address  _pool,
+        uint256[4] calldata _deposit_amounts,
+        uint256 _min_mint_amount,
+        address _receiver
+    ) external returns (uint256);
+
+    function remove_liquidity_one_coin(
+        address _pool,
+        uint256 _burn_amount,
+        int128 i,
+        uint256 _min_amount,
+        address _receiver
+    ) external;
 }

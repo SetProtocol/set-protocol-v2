@@ -1,4 +1,4 @@
-import { Address, Bytes } from "../types";
+import { Address, Bytes, CurveUnderlyingTokens } from "../types";
 import { BigNumberish, BigNumber, Signer } from "ethers";
 
 import {
@@ -10,6 +10,8 @@ import {
   ContractCallerMock,
   CompoundMock,
   ComptrollerMock,
+  Curve3PoolMock,
+  CurveRegistryMock,
   CustomSetValuerMock,
   DebtIssuanceMock,
   DebtModuleMock,
@@ -58,6 +60,8 @@ import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapte
 import { CompoundMock__factory } from "../../typechain/factories/CompoundMock__factory";
 import { ComptrollerMock__factory } from "../../typechain/factories/ComptrollerMock__factory";
 import { ContractCallerMock__factory } from "../../typechain/factories/ContractCallerMock__factory";
+import { Curve3PoolMock__factory  } from "../../typechain/factories/Curve3PoolMock__factory";
+import { CurveRegistryMock__factory } from "../../typechain/factories/CurveRegistryMock__factory";
 import { CustomSetValuerMock__factory } from "../../typechain/factories/CustomSetValuerMock__factory";
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
@@ -363,6 +367,19 @@ export default class DeployMocks {
 
   public async deployWrapV2AdapterMock(): Promise<WrapV2AdapterMock> {
     return await new WrapV2AdapterMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployCurve3PoolMock(
+    lpToken: Address,
+    metatoken: Address,
+    lpAmount: BigNumber,
+    metaAmount: BigNumber,
+  ): Promise<Curve3PoolMock> {
+    return await new Curve3PoolMock__factory(this._deployerSigner).deploy(lpToken, metatoken, lpAmount, metaAmount);
+  }
+
+  public async deployCurveRegistryMock(pool: Address, tokens: CurveUnderlyingTokens): Promise<CurveRegistryMock> {
+    return await new CurveRegistryMock__factory(this._deployerSigner).deploy(pool, tokens);
   }
 
   /*************************************
