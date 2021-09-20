@@ -21,22 +21,23 @@ pragma solidity 0.6.10;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
- * @title   Curve3PoolMock
+ * @title   CurveMetaPoolZapMock
  * @author  Set Protocol
- * @dev     Mock 3Pool contract used for depositing into curve metapools
+ * @dev     Mock Meta Pool Zap contract used for depositing into curve metapools
+ * @notice  Assumes that all deposits/withdrawals are one sided with the input/output token being underlyingToken
  */
-contract Curve3PoolMock {
+contract CurveMetaPoolZapMock {
 
     IERC20 public lpToken;
     uint256 public lpAmount;
-    IERC20 public metatoken;
-    uint256 public metaAmount;
+    IERC20 public underlyingToken;
+    uint256 public inputAmount;
 
-    constructor(IERC20 _lpToken, IERC20 _metatoken, uint256 _lpAmount, uint256 _metaAmount) public {
+    constructor(IERC20 _lpToken, IERC20 _underlyingToken, uint256 _lpAmount, uint256 _inputAmount) public {
         lpToken = _lpToken;
-        metatoken = _metatoken;
+        underlyingToken = _underlyingToken;
         lpAmount = _lpAmount;
-        metaAmount = _metaAmount;
+        inputAmount = _inputAmount;
     }
     
     function add_liquidity(
@@ -48,7 +49,7 @@ contract Curve3PoolMock {
         external
         returns (uint256)
     {
-        metatoken.transferFrom(msg.sender, address(this), _deposit_amounts[0]);
+        underlyingToken.transferFrom(msg.sender, address(this), _deposit_amounts[0]);
         lpToken.transfer(_receiver, lpAmount);
 
         return lpAmount;
@@ -64,6 +65,6 @@ contract Curve3PoolMock {
         external
     {
         lpToken.transferFrom(msg.sender, address(this), _burn_amount);
-        metatoken.transfer(_receiver, metaAmount);
+        underlyingToken.transfer(_receiver, inputAmount);
     }
 }

@@ -18,6 +18,12 @@
 
 pragma solidity 0.6.10;
 
+/**
+ * @title   CurveRegistryMock
+ * @author  Set Protocol
+ * @dev     Mock curve registry contract
+ * @notice  Assumes only a single metapool
+ */
 contract CurveRegistryMock {
 
     address public pool;

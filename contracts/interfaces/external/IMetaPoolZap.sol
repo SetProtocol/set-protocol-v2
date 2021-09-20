@@ -18,7 +18,7 @@
 
 pragma solidity 0.6.10;
 
-interface I3Pool {
+interface IMetaPoolZap {
     function add_liquidity(
         address  _pool,
         uint256[4] calldata _deposit_amounts,

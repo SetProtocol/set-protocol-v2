@@ -30,7 +30,7 @@ export { CompClaimAdapter } from "../../typechain/CompClaimAdapter";
 export { ComptrollerMock } from "../../typechain/ComptrollerMock";
 export { ContractCallerMock } from "../../typechain/ContractCallerMock";
 export { Controller } from "../../typechain/Controller";
-export { Curve3PoolMock } from "../../typechain/Curve3PoolMock";
+export { CurveMetaPoolZapMock } from "../../typechain/CurveMetaPoolZapMock";
 export { CurveRegistryMock } from "../../typechain/CurveRegistryMock";
 export { CurveStakingAdapter } from "../../typechain/CurveStakingAdapter";
 export { CustomOracleNavIssuanceModule } from "../../typechain/CustomOracleNavIssuanceModule";
