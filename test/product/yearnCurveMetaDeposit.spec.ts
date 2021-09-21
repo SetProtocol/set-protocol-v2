@@ -15,7 +15,7 @@ import { CurveMetaPoolZapMock, CurveRegistryMock, StandardTokenMock, YearnCurveM
 import { Vault } from "@utils/contracts/yearn";
 import { Address, ContractTransaction, CurveUnderlyingTokens } from "@utils/types";
 import { ether, preciseMul } from "@utils/index";
-import { ADDRESS_ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, MAX_UINT_256 } from "@utils/constants";
 import { SystemFixture, YearnFixture } from "@utils/fixtures";
 import { BigNumber } from "@ethersproject/bignumber";
 
@@ -50,7 +50,7 @@ describe("YearnCurveMetaDeposit", async () => {
     systemSetup = getSystemFixture(owner.address);
     await systemSetup.initialize();
 
-    metaPoolLpToken = await deployer.mocks.deployTokenMock(owner.address, ether(1000), 18, "Curve alUSD/3Pool", "crv-alUSD-3Pool");
+    metaPoolLpToken = await deployer.mocks.deployTokenMock(owner.address, ether(10000), 18, "Curve alUSD/3Pool", "crv-alUSD-3Pool");
     alUSD = await deployer.mocks.deployTokenMock(owner.address, ether(10000), 18, "Alchemix USD", "alUSD");
     metaPool = metaPoolLpToken.address;   // usually Curve pools are the same as the LP token address (but not always)
 
@@ -152,6 +152,53 @@ describe("YearnCurveMetaDeposit", async () => {
       const finalInputTokens = await subjectInputToken.balanceOf(subjectCaller.address);
 
       expect(initInputTokens.sub(finalInputTokens)).to.eq(subjectInputTokenAmount);
+    });
+  });
+
+  describe("#withdraw", async () => {
+    let subjectCaller: Account;
+    let subjectYVault: Vault;
+    let subjectOutputToken: StandardTokenMock;
+    let subjectYearnTokenAmount: BigNumber;
+    let subjectMinOutputTokenReceive: BigNumber;
+
+    beforeEach(async () => {
+      subjectCaller = user;
+      subjectYVault = yVault;
+      subjectOutputToken = alUSD;
+      subjectYearnTokenAmount = ether(3);
+      subjectMinOutputTokenReceive = ether(0);
+
+      await alUSD.approve(yearnCurveDeposit.address, MAX_UINT_256);
+      await yearnCurveDeposit.deposit(subjectYVault.address, alUSD.address, ether(10), ether(0));
+      await subjectYVault.transfer(subjectCaller.address, subjectYearnTokenAmount);
+
+      await subjectYVault.connect(subjectCaller.wallet).approve(yearnCurveDeposit.address, MAX_UINT_256);
+    });
+
+    async function subject(): Promise<ContractTransaction> {
+      return yearnCurveDeposit.connect(subjectCaller.wallet).withdraw(
+        subjectYVault.address,
+        subjectOutputToken.address,
+        subjectYearnTokenAmount,
+        subjectMinOutputTokenReceive
+      );
+    }
+
+    it("should return the correct amount of output tokens", async () => {
+      const initOutputTokens = await subjectOutputToken.balanceOf(subjectCaller.address);
+      await subject();
+      const finalOutputTokens = await subjectOutputToken.balanceOf(subjectCaller.address);
+
+      expect(finalOutputTokens.sub(initOutputTokens)).to.eq(ether(10));
+    });
+
+    it("should burn the correct amount of yearn tokens", async () => {
+      const initYTokens = await subjectYVault.balanceOf(subjectCaller.address);
+      await subject();
+      const finalYTokens = await subjectYVault.balanceOf(subjectCaller.address);
+
+      expect(initYTokens.sub(finalYTokens)).to.eq(subjectYearnTokenAmount);
     });
   });
 });

@@ -68,14 +68,14 @@ contract YearnCurveMetaDeposit {
 
         _inputToken.transferFrom(msg.sender, address(this), _inputTokenAmount);
 
-        _handleApprove(_inputToken, address(metaPoolZap), _inputTokenAmount);
+        _handleApprove(address(_inputToken), address(metaPoolZap), _inputTokenAmount);
 
         uint256[4] memory depositAmounts = [uint256(0), uint256(0), uint256(0), uint256(0)];
         uint tokenIndex = _getTokenIndex(pool, _inputToken);
         depositAmounts[tokenIndex] = _inputTokenAmount;
         uint256 lpTokens = metaPoolZap.add_liquidity(pool, depositAmounts, 0, address(this));
 
-        _handleApprove(IERC20(lpToken), address(_yearnToken), lpTokens);
+        _handleApprove(lpToken, address(_yearnToken), lpTokens);
         uint256 yTokens = _yearnToken.deposit(lpTokens);
 
         require(yTokens >= _minYTokenReceive, "YearnCurveMetaDeposit: insufficient output");
@@ -83,9 +83,38 @@ contract YearnCurveMetaDeposit {
         IERC20(address(_yearnToken)).transfer(msg.sender, yTokens);
     }
 
-    function _handleApprove(IERC20 _token, address _to, uint256 _amount) internal {
-        if (_token.allowance(address(this), _to) < _amount) {
-            _token.approve(_to, uint256(-1));
+    /**
+     * Executes a withdrawal from yearn and performs a single token withdrawal from the received curve LP
+     *
+     * @param _yearnToken               yearn vault token to spend
+     * @param _outputToken              output token for the curve single token withdrawal
+     * @param _yearnTokenAmount         amount of yearn tokens to spend
+     * @param _minOutputTokenReceive    minimum amount of output tokens to recieve back
+     */
+    function withdraw(
+        IYearnVault _yearnToken,
+        IERC20 _outputToken,
+        uint256 _yearnTokenAmount,
+        uint256 _minOutputTokenReceive
+    )
+        external
+    {
+        IERC20(address(_yearnToken)).transferFrom(msg.sender, address(this), _yearnTokenAmount);
+
+        uint256 lpTokenAmount = _yearnToken.withdraw(_yearnTokenAmount);
+
+        address lpToken = _yearnToken.token();
+        address pool = curveRegistry.get_pool_from_lp_token(lpToken);
+
+        _handleApprove(lpToken, address(metaPoolZap), lpTokenAmount);
+
+        uint256 tokenIndex = _getTokenIndex(pool, _outputToken);
+        metaPoolZap.remove_liquidity_one_coin(pool, lpTokenAmount, int128(tokenIndex), _minOutputTokenReceive, msg.sender);
+    }
+
+    function _handleApprove(address _token, address _to, uint256 _amount) internal {
+        if (IERC20(_token).allowance(address(this), _to) < _amount) {
+            IERC20(_token).approve(_to, uint256(-1));
         }
     }
 
