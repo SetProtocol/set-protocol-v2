@@ -52,6 +52,19 @@ contract ZeroExApiAdapter {
         bytes data;
     }
 
+	struct MultiplexBatchFillData {
+		address inputToken;
+		address outputToken;
+		uint256 sellAmount;
+		BatchSellSubcall[] calls;
+	}
+
+	struct BatchSellSubcall {
+		uint8 subcall;
+		uint256 sellAmount;
+		bytes data;
+	}
+
     /* ============ State Variables ============ */
 
     // ETH pseudo-token address used by 0x API.
@@ -203,25 +216,25 @@ contract ZeroExApiAdapter {
                 inputToken = ETH_ADDRESS;
             } else if (selector == 0xf35b4733) {
 				// multiplexBatchSellEthForToken()
-				BatchFillData memory fillData;
+				MultiplexBatchFillData memory fillData;
 				(fillData, minOutputTokenAmount) =
-					abi.decode(_data[4:], (BatchFillData, uint256));
+					abi.decode(_data[4:], (MultiplexBatchFillData, uint256));
 				inputToken = ETH_ADDRESS;
 				outputToken = fillData.outputToken;
-//				inputTokenAmount = fillData.sellAmount;
+				inputTokenAmount = _sourceQuantity;
 			} else if (selector == 0x77725df6) {
 				// multiplexBatchSellTokenForEth()
-				BatchFillData memory fillData;
+				MultiplexBatchFillData memory fillData;
 				(fillData, minOutputTokenAmount) =
-					abi.decode(_data[4:], (BatchFillData, uint256));
+					abi.decode(_data[4:], (MultiplexBatchFillData, uint256));
 				inputToken = fillData.inputToken;
 				outputToken = ETH_ADDRESS;
 				inputTokenAmount = fillData.sellAmount;
 			} else if (selector == 0x7a1eb1b9) {
 				// multiplexBatchSellTokenForToken()
-				BatchFillData memory fillData;
+				MultiplexBatchFillData memory fillData;
 				(fillData, minOutputTokenAmount) =
-					abi.decode(_data[4:], (BatchFillData, uint256));
+					abi.decode(_data[4:], (MultiplexBatchFillData, uint256));
 				inputToken = fillData.inputToken;
 				outputToken = fillData.outputToken;
 				inputTokenAmount = fillData.sellAmount;
@@ -233,7 +246,7 @@ contract ZeroExApiAdapter {
 				require(fillData.tokens.length > 1, "Multihop token path too short");
 				inputToken = ETH_ADDRESS;
 				outputToken = fillData.tokens[fillData.tokens.length - 1];
-//				inputTokenAmount = fillData.sellAmount;
+				inputTokenAmount = _sourceQuantity;
 			} else if (selector == 0x9a2967d2) {
 				// multiplexMultiHopSellTokenForEth()
 				MultiHopFillData memory fillData;
