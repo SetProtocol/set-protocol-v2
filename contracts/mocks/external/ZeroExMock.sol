@@ -53,6 +53,17 @@ contract ZeroExMock {
         bytes data;
     }
 
+    struct BatchSellSubcall {
+        uint8 subcall;
+        uint256 sellAmount;
+        bytes data;
+    }
+
+    struct MultiHopSellSubcall {
+        uint8 subcall;
+        bytes data;
+    }
+
     address public mockReceiveToken;
     address public mockSendToken;
     uint256 public mockReceiveAmount;
@@ -78,6 +89,20 @@ contract ZeroExMock {
     }
 
     function transformERC20(
+        address /* inputToken */,
+        address /* outputToken */,
+        uint256 /* inputTokenAmount */,
+        uint256 /* minOutputTokenAmount */,
+        Transformation[] calldata /* transformations */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function transformERC20Staging(
         address /* inputToken */,
         address /* outputToken */,
         uint256 /* inputTokenAmount */,
@@ -173,6 +198,83 @@ contract ZeroExMock {
         address /* recipient */
     )
         external
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiplexBatchSellEthForToken(
+        address /* outputToken */,
+        BatchSellSubcall[] memory /* calls */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiplexBatchSellTokenForEth(
+        address /* inputToken */,
+        BatchSellSubcall[] memory /* calls */,
+        uint256 /* sellAmount */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiplexBatchSellTokenForToken(
+        address /* inputToken */,
+        address /* outputToken */,
+        BatchSellSubcall[] memory /* calls */,
+        uint256 /* sellAmount */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiplexMultiHopSellEthForToken(
+        address[] memory /* tokens */,
+        MultiHopSellSubcall[] memory /* calls */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiplexMultiHopSellTokenForEth(
+        address[] memory /* tokens */,
+        MultiHopSellSubcall[] memory /* calls */,
+        uint256 /* sellAmount */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiplexMultiHopSellTokenForToken(
+        address[] memory /* tokens */,
+        MultiHopSellSubcall[] memory /* calls */,
+        uint256 /* sellAmount */,
+        uint256 /* minBuyAmount */
+    )
+        external
+        payable
         returns (uint256)
     {
         _transferTokens();
