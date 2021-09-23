@@ -52,19 +52,6 @@ contract ZeroExApiAdapter {
         bytes data;
     }
 
-	struct MultiplexBatchFillData {
-		address inputToken;
-		address outputToken;
-		uint256 sellAmount;
-		BatchSellSubcall[] calls;
-	}
-
-	struct BatchSellSubcall {
-		uint8 subcall;
-		uint256 sellAmount;
-		bytes data;
-	}
-
     /* ============ State Variables ============ */
 
     // ETH pseudo-token address used by 0x API.
@@ -216,55 +203,44 @@ contract ZeroExApiAdapter {
                 inputToken = ETH_ADDRESS;
             } else if (selector == 0xf35b4733) {
                 // multiplexBatchSellEthForToken()
-                MultiplexBatchFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (MultiplexBatchFillData, uint256));
+                (outputToken, , minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address, uint256, uint256));
                 inputToken = ETH_ADDRESS;
-                outputToken = fillData.outputToken;
                 inputTokenAmount = _sourceQuantity;
 			} else if (selector == 0x77725df6) {
                 // multiplexBatchSellTokenForEth()
-                MultiplexBatchFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (MultiplexBatchFillData, uint256));
-                inputToken = fillData.inputToken;
+                (inputToken, , inputTokenAmount, minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address, uint256, uint256, uint256));
                 outputToken = ETH_ADDRESS;
-                inputTokenAmount = fillData.sellAmount;
 			} else if (selector == 0x7a1eb1b9) {
                 // multiplexBatchSellTokenForToken()
-                MultiplexBatchFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (MultiplexBatchFillData, uint256));
-                inputToken = fillData.inputToken;
-                outputToken = fillData.outputToken;
-                inputTokenAmount = fillData.sellAmount;
+                (inputToken, outputToken, , inputTokenAmount, minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address, address, uint256, uint256, uint256));
 			} else if (selector == 0x5161b966) {
                 // multiplexMultiHopSellEthForToken()
-                MultiHopFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (MultiHopFillData, uint256));
-                require(fillData.tokens.length > 1, "Multihop token path too short");
+                address[] memory tokens;
+                (tokens, , minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address[], uint256, uint256));
+                require(tokens.length > 1, "Multihop token path too short");
                 inputToken = ETH_ADDRESS;
-                outputToken = fillData.tokens[fillData.tokens.length - 1];
+                outputToken = tokens[tokens.length - 1];
                 inputTokenAmount = _sourceQuantity;
 			} else if (selector == 0x9a2967d2) {
                 // multiplexMultiHopSellTokenForEth()
-                MultiHopFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (MultiHopFillData, uint256));
-                require(fillData.tokens.length > 1, "Multihop token path too short");
-                inputToken = fillData.tokens[0];
+                address[] memory tokens;
+                (tokens, , inputTokenAmount, minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address[], uint256, uint256, uint256));
+                require(tokens.length > 1, "Multihop token path too short");
+                inputToken = tokens[0];
                 outputToken = ETH_ADDRESS;
-                inputTokenAmount = fillData.sellAmount;
 			} else if (selector == 0x0f3b31b2) {
                 // multiplexMultiHopSellTokenForToken()
-                MultiHopFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (MultiHopFillData, uint256));
-                require(fillData.tokens.length > 1, "Multihop token path too short");
-                inputToken = fillData.tokens[0];
-                outputToken = fillData.tokens[fillData.tokens.length - 1];
-                inputTokenAmount = fillData.sellAmount;
+                address[] memory tokens;
+                (tokens, , inputTokenAmount, minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address[], uint256, uint256, uint256));
+                require(tokens.length > 1, "Multihop token path too short");
+                inputToken = tokens[0];
+                outputToken = tokens[tokens.length - 1];
 			} else {
                 revert("Unsupported 0xAPI function selector");
             }
