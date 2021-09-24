@@ -207,16 +207,16 @@ contract ZeroExApiAdapter {
                 	abi.decode(_data[4:], (address, uint256, uint256));
                 inputToken = ETH_ADDRESS;
                 inputTokenAmount = _sourceQuantity;
-			} else if (selector == 0x77725df6) {
+            } else if (selector == 0x77725df6) {
                 // multiplexBatchSellTokenForEth()
                 (inputToken, , inputTokenAmount, minOutputTokenAmount) =
                 	abi.decode(_data[4:], (address, uint256, uint256, uint256));
                 outputToken = ETH_ADDRESS;
-			} else if (selector == 0x7a1eb1b9) {
+            } else if (selector == 0x7a1eb1b9) {
                 // multiplexBatchSellTokenForToken()
                 (inputToken, outputToken, , inputTokenAmount, minOutputTokenAmount) =
                 	abi.decode(_data[4:], (address, address, uint256, uint256, uint256));
-			} else if (selector == 0x5161b966) {
+            } else if (selector == 0x5161b966) {
                 // multiplexMultiHopSellEthForToken()
                 address[] memory tokens;
                 (tokens, , minOutputTokenAmount) =
@@ -225,7 +225,7 @@ contract ZeroExApiAdapter {
                 inputToken = ETH_ADDRESS;
                 outputToken = tokens[tokens.length - 1];
                 inputTokenAmount = _sourceQuantity;
-			} else if (selector == 0x9a2967d2) {
+            } else if (selector == 0x9a2967d2) {
                 // multiplexMultiHopSellTokenForEth()
                 address[] memory tokens;
                 (tokens, , inputTokenAmount, minOutputTokenAmount) =
@@ -233,7 +233,7 @@ contract ZeroExApiAdapter {
                 require(tokens.length > 1, "Multihop token path too short");
                 inputToken = tokens[0];
                 outputToken = ETH_ADDRESS;
-			} else if (selector == 0x0f3b31b2) {
+            } else if (selector == 0x0f3b31b2) {
                 // multiplexMultiHopSellTokenForToken()
                 address[] memory tokens;
                 (tokens, , inputTokenAmount, minOutputTokenAmount) =
@@ -241,7 +241,7 @@ contract ZeroExApiAdapter {
                 require(tokens.length > 1, "Multihop token path too short");
                 inputToken = tokens[0];
                 outputToken = tokens[tokens.length - 1];
-			} else {
+            } else {
                 revert("Unsupported 0xAPI function selector");
             }
         }
