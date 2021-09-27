@@ -193,6 +193,7 @@ contract ZeroExApiAdapter {
             }
         }
 
+        require(inputToken != ETH_ADDRESS && outputToken != ETH_ADDRESS, "ETH not supported");
         require(inputToken == _sourceToken, "Mismatched input token");
         require(outputToken == _destinationToken, "Mismatched output token");
         require(!supportsRecipient || recipient == _destinationAddress, "Mismatched recipient");
@@ -202,7 +203,7 @@ contract ZeroExApiAdapter {
         return (
             zeroExAddress,
             // Note: Does not account for limit order protocol fees.
-            inputToken == ETH_ADDRESS ? inputTokenAmount : 0,
+            0,
             _data
         );
     }
