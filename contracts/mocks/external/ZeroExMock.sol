@@ -53,6 +53,17 @@ contract ZeroExMock {
         bytes data;
     }
 
+    struct BatchSellSubcall {
+        uint8 subcall;
+        uint256 sellAmount;
+        bytes data;
+    }
+
+    struct MultiHopSellSubcall {
+        uint8 subcall;
+        bytes data;
+    }
+
     address public mockReceiveToken;
     address public mockSendToken;
     uint256 public mockReceiveAmount;
@@ -78,6 +89,20 @@ contract ZeroExMock {
     }
 
     function transformERC20(
+        address /* inputToken */,
+        address /* outputToken */,
+        uint256 /* inputTokenAmount */,
+        uint256 /* minOutputTokenAmount */,
+        Transformation[] calldata /* transformations */
+    )
+        external
+        payable
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function transformERC20Staging(
         address /* inputToken */,
         address /* outputToken */,
         uint256 /* inputTokenAmount */,
@@ -142,10 +167,24 @@ contract ZeroExMock {
         _transferTokens();
     }
 
-    function sellEthForTokenToUniswapV3(
+    function sellTokenForTokenToUniswapV3(
         bytes memory /* encodedPath */,
+        uint256 /* sellAmount */,
         uint256 /* minBuyAmount */,
         address /* recipient */
+    )
+        external
+        returns (uint256)
+    {
+        _transferTokens();
+    }
+
+    function multiplexBatchSellTokenForToken(
+        address /* inputToken */,
+        address /* outputToken */,
+        BatchSellSubcall[] memory /* calls */,
+        uint256 /* sellAmount */,
+        uint256 /* minBuyAmount */
     )
         external
         payable
@@ -154,25 +193,14 @@ contract ZeroExMock {
         _transferTokens();
     }
 
-    function sellTokenForEthToUniswapV3(
-        bytes memory /* encodedPath */,
+    function multiplexMultiHopSellTokenForToken(
+        address[] memory /* tokens */,
+        MultiHopSellSubcall[] memory /* calls */,
         uint256 /* sellAmount */,
-        uint256 /* minBuyAmount */,
-        address payable /* recipient */
+        uint256 /* minBuyAmount */
     )
         external
-        returns (uint256)
-    {
-        _transferTokens();
-    }
-
-    function sellTokenForTokenToUniswapV3(
-        bytes memory /* encodedPath */,
-        uint256 /* sellAmount */,
-        uint256 /* minBuyAmount */,
-        address /* recipient */
-    )
-        external
+        payable
         returns (uint256)
     {
         _transferTokens();

@@ -129,8 +129,8 @@ contract ZeroExApiAdapter {
                 )
             }
 
-            if (selector == 0x415565b0) {
-                // transformERC20()
+            if (selector == 0x415565b0 || selector == 0x8182b61f) {
+                // transformERC20(), transformERC20Staging()
                 (inputToken, outputToken, inputTokenAmount, minOutputTokenAmount) =
                     abi.decode(_data[4:], (address, address, uint256, uint256));
             } else if (selector == 0xf7fcd384) {
@@ -176,36 +176,24 @@ contract ZeroExApiAdapter {
                     recipient = _destinationAddress;
                 }
                 (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-            } else if (selector == 0x803ba26d) {
-                // sellTokenForEthToUniswapV3()
-                bytes memory encodedPath;
-                (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
-                    abi.decode(_data[4:], (bytes, uint256, uint256, address));
-                supportsRecipient = true;
-                if (recipient == address(0)) {
-                    recipient = _destinationAddress;
-                }
-                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-                require(outputToken == wethAddress, "Last token must be WETH");
-                outputToken = ETH_ADDRESS;
-            } else if (selector == 0x3598d8ab) {
-                // sellEthForTokenToUniswapV3()
-                inputTokenAmount = _sourceQuantity;
-                bytes memory encodedPath;
-                (encodedPath, minOutputTokenAmount, recipient) =
-                    abi.decode(_data[4:], (bytes,  uint256, address));
-                supportsRecipient = true;
-                if (recipient == address(0)) {
-                    recipient = _destinationAddress;
-                }
-                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-                require(inputToken == wethAddress, "First token must be WETH");
-                inputToken = ETH_ADDRESS;
+            } else if (selector == 0x7a1eb1b9) {
+                // multiplexBatchSellTokenForToken()
+                (inputToken, outputToken, , inputTokenAmount, minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address, address, uint256, uint256, uint256));
+            } else if (selector == 0x0f3b31b2) {
+                // multiplexMultiHopSellTokenForToken()
+                address[] memory tokens;
+                (tokens, , inputTokenAmount, minOutputTokenAmount) =
+                	abi.decode(_data[4:], (address[], uint256, uint256, uint256));
+                require(tokens.length > 1, "Multihop token path too short");
+                inputToken = tokens[0];
+                outputToken = tokens[tokens.length - 1];
             } else {
                 revert("Unsupported 0xAPI function selector");
             }
         }
 
+        require(inputToken != ETH_ADDRESS && outputToken != ETH_ADDRESS, "ETH not supported");
         require(inputToken == _sourceToken, "Mismatched input token");
         require(outputToken == _destinationToken, "Mismatched output token");
         require(!supportsRecipient || recipient == _destinationAddress, "Mismatched recipient");
@@ -215,7 +203,7 @@ contract ZeroExApiAdapter {
         return (
             zeroExAddress,
             // Note: Does not account for limit order protocol fees.
-            inputToken == ETH_ADDRESS ? inputTokenAmount : 0,
+            0,
             _data
         );
     }

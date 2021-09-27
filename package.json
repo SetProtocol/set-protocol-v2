@@ -1,6 +1,6 @@
 {
   "name": "@setprotocol/set-protocol-v2",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "",
   "main": "dist",
   "types": "dist/types",
@@ -66,7 +66,7 @@
     "coveralls": "^3.0.1",
     "dotenv": "^8.2.0",
     "ethereum-waffle": "^3.4.0",
-    "hardhat": "^2.6.1",
+    "hardhat": "^2.6.4",
     "husky": "^4.2.5",
     "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",
@@ -75,11 +75,11 @@
     "solhint": "^3.1.0",
     "solidity-coverage": "^0.7.17",
     "ts-generator": "^0.1.1",
-    "ts-node": "^8.10.1",
+    "ts-node": "^8.10.2",
     "tslint": "^5.8.0",
     "tslint-eslint-rules": "^5.3.1",
     "typechain": "5.1.2",
-    "typescript": "4",
+    "typescript": "^4.4.3",
     "web3": "^1.2.9"
   },
   "dependencies": {
