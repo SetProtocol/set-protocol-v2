@@ -12,6 +12,7 @@ const expect = getWaffleExpect();
 
 describe("ZeroExApiAdapter", () => {
   let owner: Account;
+  const ethToken = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
   const sourceToken = "0x6cf5f1d59fddae3a688210953a512b6aee6ea643";
   const destToken = "0x5e5d0bea9d4a15db2d0837aff0435faba166190d";
   const otherToken = "0xae9902bb655de1a67f334d8661b3ae6a96723d5b";
@@ -91,6 +92,44 @@ describe("ZeroExApiAdapter", () => {
         expect(target).to.eq(zeroExMock.address);
         expect(value).to.deep.eq(ZERO);
         expect(_data).to.deep.eq(data);
+      });
+
+      it("rejects ETH output token", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("transformERC20", [
+          sourceToken,
+          ethToken,
+          sourceQuantity,
+          minDestinationQuantity,
+          [],
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          ethToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("ETH not supported");
+      });
+
+      it("rejects ETH input token", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("transformERC20", [
+          ethToken,
+          destToken,
+          sourceQuantity,
+          minDestinationQuantity,
+          [],
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          ethToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("ETH not supported");
       });
 
       it("rejects wrong input token", async () => {
