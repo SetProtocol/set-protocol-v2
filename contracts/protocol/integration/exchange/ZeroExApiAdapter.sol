@@ -176,63 +176,10 @@ contract ZeroExApiAdapter {
                     recipient = _destinationAddress;
                 }
                 (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-            } else if (selector == 0x803ba26d) {
-                // sellTokenForEthToUniswapV3()
-                bytes memory encodedPath;
-                (encodedPath, inputTokenAmount, minOutputTokenAmount, recipient) =
-                    abi.decode(_data[4:], (bytes, uint256, uint256, address));
-                supportsRecipient = true;
-                if (recipient == address(0)) {
-                    recipient = _destinationAddress;
-                }
-                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-                require(outputToken == wethAddress, "Last token must be WETH");
-                outputToken = ETH_ADDRESS;
-            } else if (selector == 0x3598d8ab) {
-                // sellEthForTokenToUniswapV3()
-                inputTokenAmount = _sourceQuantity;
-                bytes memory encodedPath;
-                (encodedPath, minOutputTokenAmount, recipient) =
-                    abi.decode(_data[4:], (bytes,  uint256, address));
-                supportsRecipient = true;
-                if (recipient == address(0)) {
-                    recipient = _destinationAddress;
-                }
-                (inputToken, outputToken) = _decodeTokensFromUniswapV3EncodedPath(encodedPath);
-                require(inputToken == wethAddress, "First token must be WETH");
-                inputToken = ETH_ADDRESS;
-            } else if (selector == 0xf35b4733) {
-                // multiplexBatchSellEthForToken()
-                (outputToken, , minOutputTokenAmount) =
-                	abi.decode(_data[4:], (address, uint256, uint256));
-                inputToken = ETH_ADDRESS;
-                inputTokenAmount = _sourceQuantity;
-            } else if (selector == 0x77725df6) {
-                // multiplexBatchSellTokenForEth()
-                (inputToken, , inputTokenAmount, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (address, uint256, uint256, uint256));
-                outputToken = ETH_ADDRESS;
             } else if (selector == 0x7a1eb1b9) {
                 // multiplexBatchSellTokenForToken()
                 (inputToken, outputToken, , inputTokenAmount, minOutputTokenAmount) =
                 	abi.decode(_data[4:], (address, address, uint256, uint256, uint256));
-            } else if (selector == 0x5161b966) {
-                // multiplexMultiHopSellEthForToken()
-                address[] memory tokens;
-                (tokens, , minOutputTokenAmount) =
-                	abi.decode(_data[4:], (address[], uint256, uint256));
-                require(tokens.length > 1, "Multihop token path too short");
-                inputToken = ETH_ADDRESS;
-                outputToken = tokens[tokens.length - 1];
-                inputTokenAmount = _sourceQuantity;
-            } else if (selector == 0x9a2967d2) {
-                // multiplexMultiHopSellTokenForEth()
-                address[] memory tokens;
-                (tokens, , inputTokenAmount, minOutputTokenAmount) =
-                	abi.decode(_data[4:], (address[], uint256, uint256, uint256));
-                require(tokens.length > 1, "Multihop token path too short");
-                inputToken = tokens[0];
-                outputToken = ETH_ADDRESS;
             } else if (selector == 0x0f3b31b2) {
                 // multiplexMultiHopSellTokenForToken()
                 address[] memory tokens;

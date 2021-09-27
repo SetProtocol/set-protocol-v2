@@ -167,30 +167,6 @@ contract ZeroExMock {
         _transferTokens();
     }
 
-    function sellEthForTokenToUniswapV3(
-        bytes memory /* encodedPath */,
-        uint256 /* minBuyAmount */,
-        address /* recipient */
-    )
-        external
-        payable
-        returns (uint256)
-    {
-        _transferTokens();
-    }
-
-    function sellTokenForEthToUniswapV3(
-        bytes memory /* encodedPath */,
-        uint256 /* sellAmount */,
-        uint256 /* minBuyAmount */,
-        address payable /* recipient */
-    )
-        external
-        returns (uint256)
-    {
-        _transferTokens();
-    }
-
     function sellTokenForTokenToUniswapV3(
         bytes memory /* encodedPath */,
         uint256 /* sellAmount */,
@@ -203,60 +179,10 @@ contract ZeroExMock {
         _transferTokens();
     }
 
-    function multiplexBatchSellEthForToken(
-        address /* outputToken */,
-        BatchSellSubcall[] memory /* calls */,
-        uint256 /* minBuyAmount */
-    )
-        external
-        payable
-        returns (uint256)
-    {
-        _transferTokens();
-    }
-
-    function multiplexBatchSellTokenForEth(
-        address /* inputToken */,
-        BatchSellSubcall[] memory /* calls */,
-        uint256 /* sellAmount */,
-        uint256 /* minBuyAmount */
-    )
-        external
-        payable
-        returns (uint256)
-    {
-        _transferTokens();
-    }
-
     function multiplexBatchSellTokenForToken(
         address /* inputToken */,
         address /* outputToken */,
         BatchSellSubcall[] memory /* calls */,
-        uint256 /* sellAmount */,
-        uint256 /* minBuyAmount */
-    )
-        external
-        payable
-        returns (uint256)
-    {
-        _transferTokens();
-    }
-
-    function multiplexMultiHopSellEthForToken(
-        address[] memory /* tokens */,
-        MultiHopSellSubcall[] memory /* calls */,
-        uint256 /* minBuyAmount */
-    )
-        external
-        payable
-        returns (uint256)
-    {
-        _transferTokens();
-    }
-
-    function multiplexMultiHopSellTokenForEth(
-        address[] memory /* tokens */,
-        MultiHopSellSubcall[] memory /* calls */,
         uint256 /* sellAmount */,
         uint256 /* minBuyAmount */
     )
