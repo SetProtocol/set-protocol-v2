@@ -201,6 +201,36 @@ import { AaveGovernanceV2__factory } from "../../typechain/factories/AaveGoverna
 import { Executor__factory } from "../../typechain/factories/Executor__factory";
 import { GovernanceStrategy__factory } from "../../typechain/factories/GovernanceStrategy__factory";
 
+import {
+  PerpV2MarketRegistry,
+  PerpV2OrderBook,
+  PerpV2Quoter,
+  PerpV2QuoteToken,
+  PerpV2Vault,
+  PerpV2TestAggregatorV3,
+  PerpV2ChainlinkPriceFeed,
+  PerpV2BaseToken,
+  PerpV2ClearingHouse,
+  PerpV2ClearingHouseConfig,
+  PerpV2InsuranceFund,
+  PerpV2AccountBalance,
+  PerpV2Exchange
+} from "./../contracts/perpV2";
+
+import { PerpV2ClearingHouse__factory } from "../../typechain/factories/PerpV2ClearingHouse__factory";
+import { PerpV2MarketRegistry__factory } from "../../typechain/factories/PerpV2MarketRegistry__factory";
+import { PerpV2OrderBook__factory } from "../../typechain/factories/PerpV2OrderBook__factory";
+import { PerpV2Quoter__factory } from "../../typechain/factories/PerpV2Quoter__factory";
+import { PerpV2QuoteToken__factory } from "../../typechain/factories/PerpV2QuoteToken__factory";
+import { PerpV2Vault__factory } from "../../typechain/factories/PerpV2Vault__factory";
+import { PerpV2TestAggregatorV3__factory } from "../../typechain/factories/PerpV2TestAggregatorV3__factory";
+import { PerpV2ChainlinkPriceFeed__factory } from "../../typechain/factories/PerpV2ChainlinkPriceFeed__factory";
+import { PerpV2BaseToken__factory } from "../../typechain/factories/PerpV2BaseToken__factory";
+import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/PerpV2ClearingHouseConfig__factory";
+import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
+import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
+import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
+
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
 
@@ -770,5 +800,59 @@ export default class DeployExternalContracts {
 
   public async deployNFTDescriptor(): Promise<NFTDescriptor> {
     return await new NFTDescriptor__factory(this._deployerSigner).deploy();
+  }
+
+  // PerpV2
+
+  public async deployPerpV2OrderBook(): Promise<PerpV2OrderBook> {
+    return await new PerpV2OrderBook__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2MarketRegistry(): Promise<PerpV2MarketRegistry> {
+    return await new PerpV2MarketRegistry__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2Quoter(): Promise<PerpV2Quoter> {
+    return await new PerpV2Quoter__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2QuoteToken(): Promise<PerpV2QuoteToken> {
+    return await new PerpV2QuoteToken__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2Vault(): Promise<PerpV2Vault> {
+    return await new PerpV2Vault__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2TestAggregatorV3(): Promise<PerpV2TestAggregatorV3> {
+    return await new PerpV2TestAggregatorV3__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2ChainlinkPriceFeed(): Promise<PerpV2ChainlinkPriceFeed> {
+    return await new PerpV2ChainlinkPriceFeed__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2BaseToken(): Promise<PerpV2BaseToken> {
+    return await new PerpV2BaseToken__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2ClearingHouseConfig(): Promise<PerpV2ClearingHouseConfig> {
+    return await new PerpV2ClearingHouseConfig__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2InsuranceFund(): Promise<PerpV2InsuranceFund> {
+    return await new PerpV2InsuranceFund__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2AccountBalance(): Promise<PerpV2AccountBalance> {
+    return await new PerpV2AccountBalance__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2Exchange(): Promise<PerpV2Exchange> {
+    return await new PerpV2Exchange__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2ClearingHouse(): Promise<PerpV2ClearingHouse> {
+    return await new PerpV2ClearingHouse__factory(this._deployerSigner).deploy();
   }
 }
