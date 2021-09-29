@@ -6,6 +6,7 @@ import {
   AaveLendingPoolMock,
   AddressArrayUtilsMock,
   AmmAdapterMock,
+  ChainlinkAggregatorMock,
   ClaimAdapterMock,
   ContractCallerMock,
   CompoundMock,
@@ -54,6 +55,7 @@ import { AaveLendingPoolCoreMock__factory } from "../../typechain/factories/Aave
 import { AaveLendingPoolMock__factory } from "../../typechain/factories/AaveLendingPoolMock__factory";
 import { AddressArrayUtilsMock__factory } from "../../typechain/factories/AddressArrayUtilsMock__factory";
 import { AmmAdapterMock__factory } from "../../typechain/factories/AmmAdapterMock__factory";
+import { ChainlinkAggregatorMock__factory } from "../../typechain/factories/ChainlinkAggregatorMock__factory";
 import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapterMock__factory";
 import { CompoundMock__factory } from "../../typechain/factories/CompoundMock__factory";
 import { ComptrollerMock__factory } from "../../typechain/factories/ComptrollerMock__factory";
@@ -365,7 +367,11 @@ export default class DeployMocks {
     return await new WrapV2AdapterMock__factory(this._deployerSigner).deploy();
   }
 
-  /** ***********************************
+  public async deployChainlinkAggregatorMock(decimals: number): Promise<ChainlinkAggregatorMock> {
+    return await new ChainlinkAggregatorMock__factory(this._deployerSigner).deploy(decimals);
+  }
+
+  /*************************************
    * Instance getters
    ************************************/
 

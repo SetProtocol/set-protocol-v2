@@ -1,6 +1,5 @@
 import { providers, Signer } from "ethers";
 import { ether } from "../common";
-import { MockContract, smockit } from "@eth-optimism/smock";
 
 import {
   PerpV2AccountBalance,
@@ -9,7 +8,6 @@ import {
   PerpV2ClearingHouseConfig,
   PerpV2Exchange,
   PerpV2InsuranceFund,
-  PerpV2TestAggregatorV3,
   PerpV2Vault,
   PerpV2OrderBook,
   PerpV2MarketRegistry,
@@ -25,6 +23,7 @@ import {
 
 import {
   StandardTokenMock,
+  ChainlinkAggregatorMock
 } from "../contracts";
 
 import DeployHelper from "../deploys";
@@ -33,8 +32,8 @@ import { Address } from "../types";
 export interface TokensFixture {
   token0: PerpV2BaseToken;
   token1: PerpV2QuoteToken;
-  mockedAggregator0: MockContract;
-  mockedAggregator1: MockContract;
+  mockAggregator0: ChainlinkAggregatorMock;
+  mockAggregator1: ChainlinkAggregatorMock;
 }
 
 export interface PoolFixture {
@@ -46,7 +45,7 @@ export interface PoolFixture {
 
 export interface BaseTokenFixture {
   baseToken: PerpV2BaseToken;
-  mockedAggregator: MockContract;
+  mockAggregator: ChainlinkAggregatorMock;
 }
 
 export class PerpV2Fixture {
@@ -69,7 +68,7 @@ export class PerpV2Fixture {
   public pool: UniswapV3Pool;
   public quoteToken: PerpV2QuoteToken;
   public baseToken: PerpV2BaseToken;
-  public mockedBaseAggregator: MockContract;
+  public mockBaseAggregator: ChainlinkAggregatorMock;
 
   constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerAddress = ownerAddress;
@@ -80,12 +79,12 @@ export class PerpV2Fixture {
   public async initialize(): Promise<void> {
     this.usdc = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether(10000), 6);
 
-    const { token0, mockedAggregator0, token1 } = await this._tokensFixture();
+    const { token0, mockAggregator0, token1 } = await this._tokensFixture();
 
     // we assume (base, quote) == (token0, token1)
     this.baseToken = token0;
     this.quoteToken = token1;
-    this.mockedBaseAggregator = mockedAggregator0;
+    this.mockBaseAggregator = mockAggregator0;
 
     // deploy UniV3 factory
     this.uniV3Factory = await this._deployer.external.deployUniswapV3Factory();
@@ -106,6 +105,9 @@ export class PerpV2Fixture {
     this.orderBook = await this._deployer.external.deployPerpV2OrderBook();
     await this.orderBook.initialize(this.marketRegistry.address, this.quoteToken.address);
 
+    this.insuranceFund = await this._deployer.external.deployPerpV2InsuranceFund();
+    await this.insuranceFund.initialize(this.usdc.address);
+
     this.accountBalance = await this._deployer.external.deployPerpV2AccountBalance();
     this.exchange = await this._deployer.external.deployPerpV2Exchange();
 
@@ -125,9 +127,6 @@ export class PerpV2Fixture {
       this.marketRegistry.address,
       this.exchange.address
     );
-
-    this.insuranceFund = await this._deployer.external.deployPerpV2InsuranceFund();
-    await this.insuranceFund.initialize(this.usdc.address);
 
     this.vault = await this._deployer.external.deployPerpV2Vault();
 
@@ -186,25 +185,21 @@ export class PerpV2Fixture {
   }
 
   async _createBaseTokenFixture(name: string, symbol: string): Promise<BaseTokenFixture> {
-    const aggregator = await this._deployer.external.deployPerpV2TestAggregatorV3();
-    const mockedAggregator = await smockit(aggregator);
-
-    mockedAggregator.smocked.decimals.will.return.with(async () => 6);
+    const mockAggregator = await this._deployer.mocks.deployChainlinkAggregatorMock(6);
 
     const chainlinkPriceFeed = await this._deployer.external.deployPerpV2ChainlinkPriceFeed();
-    await chainlinkPriceFeed.initialize(mockedAggregator.address);
+    await chainlinkPriceFeed.initialize(mockAggregator.address);
 
     const baseToken = await this._deployer.external.deployPerpV2BaseToken();
     await baseToken.initialize(name, symbol, chainlinkPriceFeed.address);
 
-    return { baseToken, mockedAggregator };
+    return { baseToken, mockAggregator };
   }
-
 
   async _tokensFixture(): Promise<TokensFixture> {
     const {
       baseToken: randomToken0,
-      mockedAggregator: randomMockedAggregator0,
+      mockAggregator: randomMockAggregator0,
     } = await this._createBaseTokenFixture(
         "RandomTestToken0",
         "randomToken0",
@@ -212,7 +207,7 @@ export class PerpV2Fixture {
 
     const {
       baseToken: randomToken1,
-      mockedAggregator: randomMockedAggregator1,
+      mockAggregator: randomMockAggregator1,
     } = await this._createBaseTokenFixture(
         "RandomTestToken1",
         "randomToken1",
@@ -220,25 +215,25 @@ export class PerpV2Fixture {
 
     let token0: PerpV2BaseToken;
     let token1: PerpV2QuoteToken;
-    let mockedAggregator0: MockContract;
-    let mockedAggregator1: MockContract;
+    let mockAggregator0: ChainlinkAggregatorMock;
+    let mockAggregator1: ChainlinkAggregatorMock;
 
     if (this._isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
         token0 = randomToken0;
-        mockedAggregator0 = randomMockedAggregator0;
+        mockAggregator0 = randomMockAggregator0;
         token1 = randomToken1 as PerpV2VirtualToken as PerpV2QuoteToken;
-        mockedAggregator1 = randomMockedAggregator1;
+        mockAggregator1 = randomMockAggregator1;
     } else {
         token0 = randomToken1;
-        mockedAggregator0 = randomMockedAggregator1;
+        mockAggregator0 = randomMockAggregator1;
         token1 = randomToken0 as PerpV2VirtualToken as PerpV2QuoteToken;
-        mockedAggregator1 = randomMockedAggregator0;
+        mockAggregator1 = randomMockAggregator0;
     }
     return {
         token0,
-        mockedAggregator0,
+        mockAggregator0,
         token1,
-        mockedAggregator1,
+        mockAggregator1,
     };
   }
 }
