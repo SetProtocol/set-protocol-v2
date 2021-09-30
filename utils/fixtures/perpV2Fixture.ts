@@ -60,7 +60,6 @@ export interface BaseTokenFixture {
   mockAggregator: ChainlinkAggregatorMock;
 }
 
-const TEN_THOUSAND = "10000";
 const ONE_MILLION = "1000000";
 
 export class PerpV2Fixture {
@@ -68,7 +67,7 @@ export class PerpV2Fixture {
   private _ownerAddress: Address;
   private _ownerSigner: Signer;
   private _feeTier: number = 10000; // From perp fixtures
-  private _oracleDecimals: number = 6; // From perp fixtures
+  private _usdcDecimals: number; // From perp fixtures
 
   public usdc: StandardTokenMock;
   public clearingHouse: PerpV2ClearingHouse;
@@ -94,6 +93,7 @@ export class PerpV2Fixture {
 
   public async initialize(): Promise<void> {
     this.usdc = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether("100000000000000"), 6);
+    this._usdcDecimals = 6;
 
     const { token0, mockAggregator0, token1 } = await this._tokensFixture();
 
@@ -194,7 +194,7 @@ export class PerpV2Fixture {
 
   async deposit(sender: Account, amount: BigNumber, token: StandardTokenMock): Promise<void> {
     const decimals = await token.decimals();
-    const parsedAmount = utils.parseUnits("1000", decimals);
+    const parsedAmount = utils.parseUnits(amount.toString(), decimals);
     await token.connect(sender.wallet).approve(this.vault.address, parsedAmount);
     await this.vault.connect(sender.wallet).deposit(token.address, parsedAmount);
   }
@@ -204,30 +204,26 @@ export class PerpV2Fixture {
     baseTokenAmount: BigNumberish,
     quoteTokenAmount: BigNumberish
   ): Promise<void> {
-      await this.mockBaseAggregator.setRoundData(0, utils.parseUnits("10", 6), 0, 0, 0 );
-
-      await this.pool.initialize(
-        this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount)
-      );
+      await this.pool.initialize(this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount));
+      await this.pool.increaseObservationCardinalityNext((2 ^ 16) - 1);
 
       const tickSpacing = await this.pool.tickSpacing();
       const lowerTick = this._getMinTick(tickSpacing);
       const upperTick = this._getMaxTick(tickSpacing);
 
-      await this.marketRegistry.addPool(this.baseToken.address, 10000);
-      await this.marketRegistry.setFeeRatio(this.baseToken.address, 10000);
+      await this.marketRegistry.addPool(this.baseToken.address, this._feeTier);
+      await this.marketRegistry.setFeeRatio(this.baseToken.address, this._feeTier);
 
       // prepare collateral for maker
-      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._oracleDecimals);
-      const mintBufferAmount = utils.parseUnits(TEN_THOUSAND, this._oracleDecimals);
-      await this.usdc.mint(maker.address, makerCollateralAmount.add(mintBufferAmount));
-      await this.deposit(maker, makerCollateralAmount, this.usdc);
+      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
+      await this.usdc.mint(maker.address, makerCollateralAmount);
+      await this.deposit(maker, BigNumber.from(ONE_MILLION), this.usdc);
 
       // maker add liquidity at ratio
       await this.clearingHouse.connect(maker.wallet).addLiquidity({
           baseToken: this.baseToken.address,
-          base: utils.parseEther(baseTokenAmount.toString()),
-          quote: utils.parseEther(quoteTokenAmount.toString()),
+          base: baseTokenAmount,
+          quote: quoteTokenAmount,
           lowerTick,
           upperTick,
           minBase: 0,
@@ -240,26 +236,25 @@ export class PerpV2Fixture {
     maker: Account,
     baseTokenAmount: BigNumberish,
     quoteTokenAmount: BigNumberish,
-    lowerTick: number = 0,
-    upperTick: number = 10000
+    lowerTick: number,
+    upperTick: number
   ): Promise<void> {
-      await this.pool.initialize(
-        this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount)
-      );
+      await this.pool.initialize(this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount));
+      await this.pool.increaseObservationCardinalityNext((2 ^ 16) - 1);
 
-      await this.marketRegistry.addPool(this.baseToken.address, baseTokenAmount);
-      await this.marketRegistry.setFeeRatio(this.baseToken.address, baseTokenAmount);
+      await this.marketRegistry.addPool(this.baseToken.address, this._feeTier);
+      await this.marketRegistry.setFeeRatio(this.baseToken.address, this._feeTier);
 
       // prepare collateral for maker
-      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._oracleDecimals);
+      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
       await this.usdc.mint(maker.address, makerCollateralAmount);
-      await this.vault.connect(maker.address).deposit(this.usdc.address, makerCollateralAmount);
+      await this.deposit(maker, BigNumber.from(ONE_MILLION), this.usdc);
 
       // maker add liquidity at ratio
-      await this.clearingHouse.connect(maker.address).addLiquidity({
+      await this.clearingHouse.connect(maker.wallet).addLiquidity({
           baseToken: this.baseToken.address,
-          base: utils.parseEther(baseTokenAmount.toString()),
-          quote: utils.parseEther(quoteTokenAmount.toString()),
+          base: baseTokenAmount,
+          quote: quoteTokenAmount,
           lowerTick,
           upperTick,
           minBase: 0,
@@ -269,17 +264,17 @@ export class PerpV2Fixture {
   }
 
   public async setBaseTokenOraclePrice(price: string): Promise<void> {
-    await this.mockBaseAggregator.setRoundData(0, utils.parseUnits(price, this._oracleDecimals), 0, 0, 0);
+    await this.mockBaseAggregator.setRoundData(0, utils.parseUnits(price, this._usdcDecimals), 0, 0, 0);
   }
 
-  public async getAMMBaseTokenPrice(): Promise<String> {
+  public async getAMMBaseTokenPrice(): Promise<BigNumber> {
     const sqrtPriceX96 = (await this.pool.slot0()).sqrtPriceX96;
     const priceX86 = JSBI.BigInt(sqrtPriceX96.toString());
     const squaredPrice = JSBI.multiply(priceX86, priceX86);
     const decimalsRatio = 1e18;
     const denominator = JSBI.exponentiate(JSBI.BigInt(2), JSBI.BigInt(192));
     const scaledPrice = JSBI.multiply(squaredPrice, JSBI.BigInt(decimalsRatio));
-    return JSBI.divide(scaledPrice, denominator).toString();
+    return BigNumber.from(JSBI.divide(scaledPrice, denominator).toString());
   }
 
   // UniV3 AddLiquidity helpers
