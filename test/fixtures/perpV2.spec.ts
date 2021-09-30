@@ -5,34 +5,56 @@ import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
   getPerpV2Fixture,
+  getWaffleExpect,
 } from "@utils/test/index";
 
 import { PerpV2Fixture } from "@utils/fixtures";
 
-// const expect = getWaffleExpect();
+const expect = getWaffleExpect();
 
 describe("PerpV2Fixture", () => {
   let owner: Account;
-  let perpV2Setup: PerpV2Fixture;
+  let maker: Account;
+  // let trader: Account;
+  let perpV2: PerpV2Fixture;
 
   before(async () => {
-    [
-      owner,
-    ] = await getAccounts();
-
-    perpV2Setup = getPerpV2Fixture(owner.address);
+    [ owner, maker, /*trader*/ ] = await getAccounts();
+    perpV2 = getPerpV2Fixture(owner.address);
+    await perpV2.initialize();
   });
 
   addSnapshotBeforeRestoreAfterEach();
 
-  describe("#initialize", async () => {
+  describe("#initializePoolWithLiquidityWide", () => {
+    const subjectBaseTokenAmount = "10000";
+    const subjectQuoteTokenAmount = "100000";
 
-    async function subject(): Promise<any> {
-      await perpV2Setup.initialize();
+    async function subject(): Promise<void> {
+      return await perpV2.initializePoolWithLiquidityWide(
+        maker,
+        subjectBaseTokenAmount,
+        subjectQuoteTokenAmount
+      );
     }
 
-    it("should deploy the PerpV2 system", async () => {
+    it.skip("should have the expected baseToken price at beginning", async () => {
       await subject();
+
+      const baseTokenPrice = await perpV2.getAMMBaseTokenPrice();
+      expect(baseTokenPrice).to.equal("10");
+      console.log("baseTokenPrice --> " + baseTokenPrice);
     });
+
+    it.skip("should open a position and the price should change", () => {
+
+    });
+
   });
+
+  describe("#initializePoolWithLiquidityWithinTicks", () => {
+
+  });
+
+
 });

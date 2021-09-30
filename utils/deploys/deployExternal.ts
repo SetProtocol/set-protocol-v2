@@ -152,9 +152,11 @@ import {
   UniswapV3Factory,
   NonfungiblePositionManager,
   Quoter,
-  NFTDescriptor
+  NFTDescriptor,
+  UniswapV3Pool
 } from "../contracts/uniswapV3";
 import { UniswapV3Factory__factory } from "../../typechain/factories/UniswapV3Factory__factory";
+import { UniswapV3Pool__factory } from "../../typechain/factories/UniswapV3Pool__factory";
 import { SwapRouter__factory } from "../../typechain/factories/SwapRouter__factory";
 import { NonfungiblePositionManager__factory } from "../../typechain/factories/NonfungiblePositionManager__factory";
 import { Quoter__factory } from "../../typechain/factories/Quoter__factory";
@@ -800,6 +802,10 @@ export default class DeployExternalContracts {
 
   public async deployNFTDescriptor(): Promise<NFTDescriptor> {
     return await new NFTDescriptor__factory(this._deployerSigner).deploy();
+  }
+
+  public async getUniswapV3PoolInstance(pool: Address): Promise<UniswapV3Pool> {
+    return await new UniswapV3Pool__factory(this._deployerSigner).attach(pool);
   }
 
   // PerpV2

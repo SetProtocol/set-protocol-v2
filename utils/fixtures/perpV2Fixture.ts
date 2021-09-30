@@ -1,5 +1,17 @@
-import { providers, Signer } from "ethers";
+import {
+  utils,
+  providers,
+  constants,
+  Signer,
+  BigNumber,
+  BigNumberish
+} from "ethers";
+
+import { encodeSqrtRatioX96 } from "@uniswap/v3-sdk";
+import JSBI from "jsbi";
+
 import { ether } from "../common";
+import { Account } from "../test/types";
 
 import {
   PerpV2AccountBalance,
@@ -48,11 +60,15 @@ export interface BaseTokenFixture {
   mockAggregator: ChainlinkAggregatorMock;
 }
 
+const TEN_THOUSAND = "10000";
+const ONE_MILLION = "1000000";
+
 export class PerpV2Fixture {
   private _deployer: DeployHelper;
   private _ownerAddress: Address;
   private _ownerSigner: Signer;
-  private _feeTier: number = 10000;
+  private _feeTier: number = 10000; // From perp fixtures
+  private _oracleDecimals: number = 6; // From perp fixtures
 
   public usdc: StandardTokenMock;
   public clearingHouse: PerpV2ClearingHouse;
@@ -77,7 +93,7 @@ export class PerpV2Fixture {
   }
 
   public async initialize(): Promise<void> {
-    this.usdc = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether(10000), 6);
+    this.usdc = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether("100000000000000"), 6);
 
     const { token0, mockAggregator0, token1 } = await this._tokensFixture();
 
@@ -140,12 +156,14 @@ export class PerpV2Fixture {
     await this.insuranceFund.setBorrower(this.vault.address);
     await this.accountBalance.setVault(this.vault.address);
 
-    // deploy a pool
+    // get pool instance
     const poolAddr = await this.uniV3Factory.getPool(
       this.baseToken.address,
       this.quoteToken.address,
       this._feeTier
     );
+
+    this.pool = await this._deployer.external.getUniswapV3PoolInstance(poolAddr);
 
     await this.baseToken.addWhitelist(poolAddr);
     await this.quoteToken.addWhitelist(poolAddr);
@@ -174,10 +192,112 @@ export class PerpV2Fixture {
     await this.accountBalance.setClearingHouse(this.clearingHouse.address);
   }
 
-  _isAscendingTokenOrder(addr0: string, addr1: string): boolean {
-      return addr0.toLowerCase() < addr1.toLowerCase();
+  async deposit(sender: Account, amount: BigNumber, token: StandardTokenMock): Promise<void> {
+    const decimals = await token.decimals();
+    const parsedAmount = utils.parseUnits("1000", decimals);
+    await token.connect(sender.wallet).approve(this.vault.address, parsedAmount);
+    await this.vault.connect(sender.wallet).deposit(token.address, parsedAmount);
   }
 
+  public async initializePoolWithLiquidityWide(
+    maker: Account,
+    baseTokenAmount: BigNumberish,
+    quoteTokenAmount: BigNumberish
+  ): Promise<void> {
+      await this.mockBaseAggregator.setRoundData(0, utils.parseUnits("10", 6), 0, 0, 0 );
+
+      await this.pool.initialize(
+        this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount)
+      );
+
+      const tickSpacing = await this.pool.tickSpacing();
+      const lowerTick = this._getMinTick(tickSpacing);
+      const upperTick = this._getMaxTick(tickSpacing);
+
+      await this.marketRegistry.addPool(this.baseToken.address, 10000);
+      await this.marketRegistry.setFeeRatio(this.baseToken.address, 10000);
+
+      // prepare collateral for maker
+      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._oracleDecimals);
+      const mintBufferAmount = utils.parseUnits(TEN_THOUSAND, this._oracleDecimals);
+      await this.usdc.mint(maker.address, makerCollateralAmount.add(mintBufferAmount));
+      await this.deposit(maker, makerCollateralAmount, this.usdc);
+
+      // maker add liquidity at ratio
+      await this.clearingHouse.connect(maker.wallet).addLiquidity({
+          baseToken: this.baseToken.address,
+          base: utils.parseEther(baseTokenAmount.toString()),
+          quote: utils.parseEther(quoteTokenAmount.toString()),
+          lowerTick,
+          upperTick,
+          minBase: 0,
+          minQuote: 0,
+          deadline: constants.MaxUint256,
+      });
+  }
+
+  public async initializePoolWithLiquidityWithinTicks(
+    maker: Account,
+    baseTokenAmount: BigNumberish,
+    quoteTokenAmount: BigNumberish,
+    lowerTick: number = 0,
+    upperTick: number = 10000
+  ): Promise<void> {
+      await this.pool.initialize(
+        this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount)
+      );
+
+      await this.marketRegistry.addPool(this.baseToken.address, baseTokenAmount);
+      await this.marketRegistry.setFeeRatio(this.baseToken.address, baseTokenAmount);
+
+      // prepare collateral for maker
+      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._oracleDecimals);
+      await this.usdc.mint(maker.address, makerCollateralAmount);
+      await this.vault.connect(maker.address).deposit(this.usdc.address, makerCollateralAmount);
+
+      // maker add liquidity at ratio
+      await this.clearingHouse.connect(maker.address).addLiquidity({
+          baseToken: this.baseToken.address,
+          base: utils.parseEther(baseTokenAmount.toString()),
+          quote: utils.parseEther(quoteTokenAmount.toString()),
+          lowerTick,
+          upperTick,
+          minBase: 0,
+          minQuote: 0,
+          deadline: constants.MaxUint256,
+      });
+  }
+
+  public async setBaseTokenOraclePrice(price: string): Promise<void> {
+    await this.mockBaseAggregator.setRoundData(0, utils.parseUnits(price, this._oracleDecimals), 0, 0, 0);
+  }
+
+  public async getAMMBaseTokenPrice(): Promise<String> {
+    const sqrtPriceX96 = (await this.pool.slot0()).sqrtPriceX96;
+    const priceX86 = JSBI.BigInt(sqrtPriceX96.toString());
+    const squaredPrice = JSBI.multiply(priceX86, priceX86);
+    const decimalsRatio = 1e18;
+    const denominator = JSBI.exponentiate(JSBI.BigInt(2), JSBI.BigInt(192));
+    const scaledPrice = JSBI.multiply(squaredPrice, JSBI.BigInt(decimalsRatio));
+    return JSBI.divide(scaledPrice, denominator).toString();
+  }
+
+  // UniV3 AddLiquidity helpers
+  private _getMinTick(tickSpacing: number) {
+    return Math.ceil(-887272 / tickSpacing) * tickSpacing;
+  }
+
+  private _getMaxTick(tickSpacing: number) {
+    return Math.floor(887272 / tickSpacing) * tickSpacing;
+  }
+
+  private _encodePriceSqrt(token1Amount: BigNumberish, token0Amount: BigNumberish): BigNumber {
+    return BigNumber.from(
+      encodeSqrtRatioX96(token1Amount.toString(), token0Amount.toString()).toString()
+    );
+  }
+
+  // Base & Quote token helpers
   async _createQuoteTokenFixture(name: string, symbol: string): Promise<PerpV2QuoteToken> {
     const quoteToken = await this._deployer.external.deployPerpV2QuoteToken();
     await quoteToken.initialize(name, symbol);
@@ -235,5 +355,9 @@ export class PerpV2Fixture {
         token1,
         mockAggregator1,
     };
+  }
+
+  private _isAscendingTokenOrder(addr0: string, addr1: string): boolean {
+      return addr0.toLowerCase() < addr1.toLowerCase();
   }
 }
