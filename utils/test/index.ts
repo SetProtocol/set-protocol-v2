@@ -6,6 +6,7 @@ import {
   AaveFixture,
   AaveV2Fixture,
   BalancerFixture,
+  BalancerV2Fixture,
   CompoundFixture,
   CurveFixture,
   KyberV3DMMFixture,
@@ -24,6 +25,7 @@ export const getBlockchainUtils = () => new Blockchain(provider);
 export const getAaveFixture = (ownerAddress: Address) => new AaveFixture(provider, ownerAddress);
 export const getAaveV2Fixture = (ownerAdderss: Address) => new AaveV2Fixture(provider, ownerAdderss);
 export const getBalancerFixture = (ownerAddress: Address) => new BalancerFixture(provider, ownerAddress);
+export const getBalancerV2Fixture = (ownerAddress: Address) => new BalancerV2Fixture(provider, ownerAddress);
 export const getCurveFixture = (ownerAddress: Address) => new CurveFixture(provider, ownerAddress);
 export const getCompoundFixture = (ownerAddress: Address) => new CompoundFixture(provider, ownerAddress);
 export const getKyberV3DMMFixture = (ownerAddress: Address) => new KyberV3DMMFixture(provider, ownerAddress);

@@ -1,5 +1,7 @@
 import { BigNumberish, BigNumber, Signer } from "ethers";
 import { ether } from "../common";
+import { ADDRESS_ZERO, ZERO } from "@utils/constants";
+import { Address } from "./../types";
 
 import {
   CompoundPriceOracleMock,
@@ -19,8 +21,6 @@ import {
   WETH9,
   DelegateRegistry
 } from "./../contracts";
-
-import { Address } from "./../types";
 
 import { CERc20__factory } from "../../typechain/factories/CERc20__factory";
 import { CEther__factory } from "../../typechain/factories/CEther__factory";
@@ -200,6 +200,13 @@ import { AaveV2PriceOracle__factory } from "../../typechain/factories/AaveV2Pric
 import { AaveGovernanceV2__factory } from "../../typechain/factories/AaveGovernanceV2__factory";
 import { Executor__factory } from "../../typechain/factories/Executor__factory";
 import { GovernanceStrategy__factory } from "../../typechain/factories/GovernanceStrategy__factory";
+
+import {
+  BVault,
+  WeightedPoolFactory
+} from "../contracts/balancerV2";
+import { BVault__factory } from "../../typechain/factories/BVault__factory";
+import { WeightedPoolFactory__factory } from "../../typechain/factories/WeightedPoolFactory__factory";
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -770,5 +777,14 @@ export default class DeployExternalContracts {
 
   public async deployNFTDescriptor(): Promise<NFTDescriptor> {
     return await new NFTDescriptor__factory(this._deployerSigner).deploy();
+  }
+
+  // Balancer V2
+  public async deployBVault(weth: Address): Promise<BVault> {
+    return await new BVault__factory(this._deployerSigner).deploy(ADDRESS_ZERO, weth, ZERO, ZERO);
+  }
+
+  public async deployWeightedPoolFactory(vault: Address): Promise<WeightedPoolFactory> {
+    return await new WeightedPoolFactory__factory(this._deployerSigner).deploy(vault);
   }
 }
