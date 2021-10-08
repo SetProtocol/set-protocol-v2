@@ -29,7 +29,6 @@
     "lint": "yarn run lint-sol && yarn run lint-ts",
     "lint-sol": "solhint 'contracts/**/*.sol'",
     "lint-ts": "eslint -c .eslintrc.js --ext .ts test utils tasks --fix",
-    "lint-ts:nofix": "eslint -c .eslintrc.js --ext .ts",
     "precommit": "lint-staged",
     "prepare": "yarn build",
     "prepublishOnly": "yarn clean && yarn build:npm",
