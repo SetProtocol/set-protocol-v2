@@ -4,7 +4,7 @@ import { BigNumber } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";
-import { AmmModule, AmmAdapterMock, SetToken, } from "@utils/contracts";
+import { AmmModule, AmmAdapterMock, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,

@@ -188,8 +188,8 @@ describe("SetValuer", () => {
       });
 
       it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("SafeCast: value must be positive");
-        });
+        await expect(subject()).to.be.revertedWith("SafeCast: value must be positive");
+      });
     });
   });
 });

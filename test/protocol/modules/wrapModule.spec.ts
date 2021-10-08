@@ -104,7 +104,7 @@ describe("WrapModule", () => {
       expect(isModuleEnabled).to.eq(true);
     });
 
-   describe("when the caller is not the SetToken manager", async () => {
+    describe("when the caller is not the SetToken manager", async () => {
       beforeEach(async () => {
         subjectCaller = await getRandomAccount();
       });

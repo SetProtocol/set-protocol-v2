@@ -31,6 +31,7 @@ export class CurveFixture {
 
   /**
    * Initializes a pool.
+   *
    * @param _tokens Expects 4 tokens
    */
   public async initializePool(_tokens: [string, string, string, string]): Promise<void> {

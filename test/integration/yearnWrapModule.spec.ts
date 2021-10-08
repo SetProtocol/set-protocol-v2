@@ -194,7 +194,7 @@ describe("yearnWrapModule", () => {
 
       describe("when it is an invalid vault - underlying token", async () => {
         beforeEach(async () => {
-            subjectUnderlyingToken = setup.usdc.address;
+          subjectUnderlyingToken = setup.usdc.address;
         });
 
         it("should revert as it the vault holds a different underlying token", async () => {

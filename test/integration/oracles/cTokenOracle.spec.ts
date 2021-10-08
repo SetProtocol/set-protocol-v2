@@ -144,10 +144,10 @@ describe("CTokenOracle", () => {
     it("returns the correct cTokenValue", async () => {
       const result = await subject();
       const expectedResult = ether(1)
-                              .mul(exchangeRate)
-                              .mul(cDaiFullUnit)
-                              .div(daiFullUnit)
-                              .div(ether(1));
+        .mul(exchangeRate)
+        .mul(cDaiFullUnit)
+        .div(daiFullUnit)
+        .div(ether(1));
 
       expect(result).to.eq(expectedResult);
     });

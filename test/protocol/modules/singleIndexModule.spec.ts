@@ -50,7 +50,7 @@ describe("SingleIndexModule", () => {
   const BALANCER_ID = THREE;
   const ONE_MINUTE_IN_SECONDS: BigNumber = BigNumber.from(60);
 
-   cacheBeforeEach(async () => {
+  cacheBeforeEach(async () => {
     [
       owner,
       trader,

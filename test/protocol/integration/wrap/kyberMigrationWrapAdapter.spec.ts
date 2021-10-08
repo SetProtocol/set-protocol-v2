@@ -78,12 +78,12 @@ describe("KyberMigrationWrapAdapter", () => {
     });
 
     it("should have the correct KNC token address", async () => {
-        const deployKyberMigrationWrapAdapter = await subject();
+      const deployKyberMigrationWrapAdapter = await subject();
 
-        const kncToken = await deployKyberMigrationWrapAdapter.kncToken();
-        const expectedKncToken = subjectKncToken;
+      const kncToken = await deployKyberMigrationWrapAdapter.kncToken();
+      const expectedKncToken = subjectKncToken;
 
-        expect(kncToken).to.eq(expectedKncToken);
+      expect(kncToken).to.eq(expectedKncToken);
     });
   });
 

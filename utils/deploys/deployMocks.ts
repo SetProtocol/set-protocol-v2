@@ -365,7 +365,7 @@ export default class DeployMocks {
     return await new WrapV2AdapterMock__factory(this._deployerSigner).deploy();
   }
 
-  /*************************************
+  /** ***********************************
    * Instance getters
    ************************************/
 

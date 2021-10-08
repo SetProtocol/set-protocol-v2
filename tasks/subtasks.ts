@@ -19,6 +19,6 @@ subtask(TASK_COMPILE_SOLIDITY_GET_ARTIFACT_FROM_COMPILATION_OUTPUT)
 
     return artifact;
   }
-);
+  );
 
 export {};

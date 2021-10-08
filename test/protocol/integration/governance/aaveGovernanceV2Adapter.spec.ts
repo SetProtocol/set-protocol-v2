@@ -102,15 +102,15 @@ describe("AaveGovernanceAdapter", () => {
     }
 
     it("should return the correct data for creating a proposal", async () => {
-        const [targetAddress, ethValue, callData] = await subject();
+      const [targetAddress, ethValue, callData] = await subject();
 
-        const expectedCalldata = aaveSetup.aaveGovernanceV2.interface.encodeFunctionData(
-          "create", [aaveSetup.executor.address, targets, values, signatures, calldatas, withDelegateCall, ipfsHash]
-        );
+      const expectedCalldata = aaveSetup.aaveGovernanceV2.interface.encodeFunctionData(
+        "create", [aaveSetup.executor.address, targets, values, signatures, calldatas, withDelegateCall, ipfsHash]
+      );
 
-        expect(targetAddress).to.eq(aaveSetup.aaveGovernanceV2.address);
-        expect(ethValue).to.eq(BigNumber.from(0));
-        expect(callData).to.eq(expectedCalldata);
+      expect(targetAddress).to.eq(aaveSetup.aaveGovernanceV2.address);
+      expect(ethValue).to.eq(BigNumber.from(0));
+      expect(callData).to.eq(expectedCalldata);
     });
   });
 
