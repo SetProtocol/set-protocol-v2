@@ -679,7 +679,7 @@ export default class DeployExternalContracts {
     return UniswapV2Router02__factory.connect(_mainnetRouter, this._deployerSigner);
   }
 
-  public async deployUniswapV2Pair(_factory: Address, _weth: Address): Promise<UniswapV2Pair> {
+  public async deployUniswapV2Pair(): Promise<UniswapV2Pair> {
     return await new UniswapV2Pair__factory(this._deployerSigner).deploy();
   }
 

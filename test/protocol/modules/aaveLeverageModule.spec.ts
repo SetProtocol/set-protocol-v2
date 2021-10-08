@@ -1681,7 +1681,7 @@ describe("AaveLeverageModule", () => {
 
         // Fetch total repay amount
         const res = await tx.wait();
-        const levDecreasedEvent = res.events?.find((value, index, array) => {
+        const levDecreasedEvent = res.events?.find(value => {
           return value.event == "LeverageDecreased";
         });
         const totalRepayAmount: BigNumber = levDecreasedEvent?.args?.[5];

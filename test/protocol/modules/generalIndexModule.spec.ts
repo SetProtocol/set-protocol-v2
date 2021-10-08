@@ -2814,7 +2814,7 @@ describe("GeneralIndexModule", () => {
       }
 
       describe("removal", async () => {
-        async function subject(andRestore?: boolean): Promise<any> {
+        async function subject(): Promise<any> {
           return subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
         }
 
@@ -2839,7 +2839,7 @@ describe("GeneralIndexModule", () => {
           );
         });
 
-        async function subject(andRestore?: boolean): Promise<any> {
+        async function subject(): Promise<any> {
           await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
           await restoreModule();
         }
@@ -2890,7 +2890,7 @@ describe("GeneralIndexModule", () => {
           await indexModule.setRaiseTargetPercentage(subjectSetToken.address, MAX_UINT_256);
         });
 
-        async function subject(andRestore?: boolean): Promise<any> {
+        async function subject(): Promise<any> {
           await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
           await restoreModule();
         }
