@@ -42,6 +42,7 @@ export { ExplicitERC20Mock } from "../../typechain/ExplicitERC20Mock";
 export { ForceFunderMock } from "../../typechain/ForceFunderMock";
 export { GaugeControllerMock } from "../../typechain/GaugeControllerMock";
 export { GeneralIndexModule } from "../../typechain/GeneralIndexModule";
+export { GeneralIndexModuleV2 } from "../../typechain/GeneralIndexModuleV2";
 export { GodModeMock } from "../../typechain/GodModeMock";
 export { GovernanceAdapterMock } from "../../typechain/GovernanceAdapterMock";
 export { GovernanceModule } from "../../typechain/GovernanceModule";

@@ -38,7 +38,7 @@ import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
 
 
 /**
- * @title GeneralIndexModule
+ * @title GeneralIndexModuleV2
  * @author Set Protocol
  *
  * Smart contract that facilitates rebalances for indices. Manager can update allocation by calling startRebalance().
@@ -53,8 +53,12 @@ import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
  * SECURITY ASSUMPTION:
  *  - Works with following modules: StreamingFeeModule, BasicIssuanceModule (any other module additions to Sets using
  *    this module need to be examined separately)
+ * 
+ * Note: TradeModuleV2 will allow governance to specify a protocol fee and rebate split percentage
+ * which is sent to the manager's address. The fee rebates will be automatic per trade.
+ * 
  */
-contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
+contract GeneralIndexModuleV2 is ModuleBase, ReentrancyGuard {
     using SafeCast for int256;
     using SafeCast for uint256;
     using SafeMath for uint256;
@@ -124,7 +128,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         address _executor,
         uint256 _netAmountSold,
         uint256 _netAmountReceived,
-        uint256 _protocolFee
+        uint256 _protocolFee,
+        uint256 _managerRebate
     );
 
     event RebalanceStarted(
@@ -134,12 +139,16 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         uint256 indexed positionMultiplier
     );
 
+    event FeeRecipientUpdated(ISetToken indexed _setToken, address _newFeeRecipient);
+
     /* ============ Constants ============ */
 
-    uint256 private constant GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX = 0;                   // Id of protocol fee % assigned to this module in the Controller
+    uint256 constant internal GENERAL_INDEX_MODULE_V2_TOTAL_FEE_INDEX = 0;               // 0 index stores the total fee % charged in the trade function
+    uint256 constant internal GENERAL_INDEX_MODULE_V2_MANAGER_REBATE_SPLIT_INDEX = 1;    // 1 index stores the % of total fees that the manager receives back as rebates
 
     /* ============ State Variables ============ */
 
+    mapping(ISetToken => address) public managerRebateRecipient;                            // Mapping to efficiently identify a manager rebate recipient address for a given SetToken
     mapping(ISetToken => mapping(IERC20 => TradeExecutionParams)) public executionInfo;     // Mapping of SetToken to execution parameters of each asset on SetToken
     mapping(ISetToken => TradePermissionInfo) public permissionInfo;                        // Mapping of SetToken to trading permissions
     mapping(ISetToken => RebalanceInfo) public rebalanceInfo;                               // Mapping of SetToken to relevant data for current rebalance
@@ -240,7 +249,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         _executeTrade(tradeInfo);
 
-        uint256 protocolFee = _accrueProtocolFee(tradeInfo);
+        (uint256 protocolFee, uint256 managerRebate) = _accrueFees(tradeInfo);
 
         (uint256 netSendAmount, uint256 netReceiveAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
@@ -252,7 +261,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             msg.sender,
             netSendAmount,
             netReceiveAmount,
-            protocolFee
+            protocolFee,
+            managerRebate
         );
     }
 
@@ -292,11 +302,11 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         _executeTrade(tradeInfo);
 
-        uint256 protocolFee = _accrueProtocolFee(tradeInfo);
+        (uint256 protocolFee, uint256 managerRebate) = _accrueFees(tradeInfo);
         (uint256 netSendAmount, uint256 netReceiveAmount) = _updatePositionStateAndTimestamp(tradeInfo, _component);
 
         require(
-            netReceiveAmount.add(protocolFee) < executionInfo[_setToken][_component].maxSize,
+            netReceiveAmount.add(protocolFee).add(managerRebate) < executionInfo[_setToken][_component].maxSize,
             "Trade amount > max trade size"
         );
 
@@ -310,7 +320,8 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
             msg.sender,
             netSendAmount,
             netReceiveAmount,
-            protocolFee
+            protocolFee,
+            managerRebate
         );
     }
 
@@ -496,18 +507,46 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Called to initialize module to SetToken in order to allow GeneralIndexModule access for rebalances.
+     * MANAGER ONLY: Updates address receiving manager rebate fees for a given SetToken.
+     *
+     * @param _setToken             Instance of the SetToken to update fee recipient
+     * @param _newRebateRecipient   New rebate fee recipient address
+     */
+    function updateFeeRecipient(
+        ISetToken _setToken,
+        address _newRebateRecipient
+    )
+        external
+        onlyManagerAndValidSet(_setToken)
+    {
+        require(_newRebateRecipient != address(0), "Recipient must be non-zero address.");
+        require(_newRebateRecipient != managerRebateRecipient[_setToken], "Same fee recipient passed");
+
+        managerRebateRecipient[_setToken] = _newRebateRecipient;
+
+        emit FeeRecipientUpdated(_setToken, _newRebateRecipient);
+    }
+
+    /**
+     * MANAGER ONLY: Called to initialize module to SetToken in order to allow GeneralIndexModuleV2 access for rebalances.
      * Grabs the current units for each asset in the Set and set's the targetUnit to that unit in order to prevent any
      * trading until startRebalance() is explicitly called. Position multiplier is also logged in order to make sure any
      * position multiplier changes don't unintentionally open the Set for rebalancing.
      *
      * @param _setToken         Address of the Set Token
      */
-    function initialize(ISetToken _setToken)
+    function initialize(
+        ISetToken _setToken,
+        address _managerRebateRecipient
+    )
         external
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
     {
+        require(_managerRebateRecipient != address(0), "Recipient must be non-zero address.");
+
+        managerRebateRecipient[_setToken] = _managerRebateRecipient;
+
         ISetToken.Position[] memory positions = _setToken.getPositions();
 
         for (uint256 i = 0; i < positions.length; i++) {
@@ -522,7 +561,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Called by a SetToken to notify that this module was removed from the SetToken.
+     * Called by a SetToken to notify that this module was removed from the SetToken. Remove the manager rebate recipient address.
      * Clears the rebalanceInfo and permissionsInfo of the calling SetToken.
      * IMPORTANT: SetToken's execution settings, including trade maximums and exchange names,
      * are NOT DELETED. Restoring a previously removed module requires that care is taken to
@@ -537,6 +576,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
 
         delete rebalanceInfo[ISetToken(msg.sender)];
         delete permissionInfo[ISetToken(msg.sender)];
+        delete managerRebateRecipient[ISetToken(msg.sender)];
     }
 
     /* ============ External View Functions ============ */
@@ -772,7 +812,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Function handles all interactions with exchange. All GeneralIndexModule adapters must allow for selling or buying a fixed
+     * Function handles all interactions with exchange. All GeneralIndexModuleV2 adapters must allow for selling or buying a fixed
      * quantity of a token in return for a non-fixed (floating) quantity of a token. If `isSendTokenFixed` is true then the adapter
      * will choose the exchange interface associated with inputting a fixed amount, otherwise it will select the interface used for
      * receiving a fixed amount. Any other exchange specific data can also be created by calling generateDataParam function.
@@ -810,14 +850,28 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
      * @param _tradeInfo                Struct containing trade information used in internal functions
      *
      * @return protocolFee              Amount of receive token taken as protocol fee
+     * @return managerRebate            Amount of receive token taken as manager rebate fee
      */
-    function _accrueProtocolFee(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFee) {
+    function _accrueFees(TradeInfo memory _tradeInfo) internal returns (uint256 protocolFee, uint256 managerRebate) {
         uint256 exchangedQuantity =  IERC20(_tradeInfo.receiveToken)
             .balanceOf(address(_tradeInfo.setToken))
             .sub(_tradeInfo.preTradeReceiveTokenBalance);
 
-        protocolFee = getModuleFee(GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX, exchangedQuantity);
+        uint256 totalFeePercentage = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_V2_TOTAL_FEE_INDEX);
+        uint256 managerRebateSplitPercentage = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_V2_MANAGER_REBATE_SPLIT_INDEX);
+
+        managerRebate = totalFeePercentage.preciseMul(exchangedQuantity).preciseMul(managerRebateSplitPercentage);
+        protocolFee = totalFeePercentage.preciseMul(exchangedQuantity).sub(managerRebate);
+
         payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFee);
+
+        if (managerRebate > 0) {
+            _tradeInfo.setToken.strictInvokeTransfer(
+                _tradeInfo.receiveToken,
+                managerRebateRecipient[_tradeInfo.setToken],
+                managerRebate
+            );
+        }
     }
 
     /**
@@ -890,7 +944,7 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         view
         returns (bool isSendTokenFixed, uint256 totalFixedQuantity)
     {
-        uint256 protocolFee = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_PROTOCOL_FEE_INDEX);
+        uint256 totalFeePercentage = controller.getModuleFee(address(this), GENERAL_INDEX_MODULE_V2_TOTAL_FEE_INDEX);
         uint256 componentMaxSize = executionInfo[_setToken][_component].maxSize;
 
         (
@@ -905,14 +959,14 @@ contract GeneralIndexModule is ModuleBase, ReentrancyGuard {
         isSendTokenFixed = targetNotional < currentNotional;
 
         // In order to account for fees taken by protocol when buying the notional difference between currentUnit
-        // and targetUnit is divided by (1 - protocolFee) to make sure that targetUnit can be met. Failure to
+        // and targetUnit is divided by (1 - totalFeePercentage) to make sure that targetUnit can be met. Failure to
         // do so would lead to never being able to meet target of components that need to be bought.
         //
         // ? - lesserOf: (componentMaxSize, (currentNotional - targetNotional))
-        // : - lesserOf: (componentMaxSize, (targetNotional - currentNotional) / 10 ** 18 - protocolFee)
+        // : - lesserOf: (componentMaxSize, (targetNotional - currentNotional) / 10 ** 18 - totalFeePercentage)
         totalFixedQuantity = isSendTokenFixed
             ? componentMaxSize.min(currentNotional.sub(targetNotional))
-            : componentMaxSize.min(targetNotional.sub(currentNotional).preciseDiv(PreciseUnitMath.preciseUnit().sub(protocolFee)));
+            : componentMaxSize.min(targetNotional.sub(currentNotional).preciseDiv(PreciseUnitMath.preciseUnit().sub(totalFeePercentage)));
     }
 
     /**

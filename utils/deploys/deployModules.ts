@@ -10,6 +10,7 @@ import {
   CustomOracleNavIssuanceModule,
   DebtIssuanceModule,
   GeneralIndexModule,
+  GeneralIndexModuleV2,
   GovernanceModule,
   IssuanceModule,
   NavIssuanceModule,
@@ -33,6 +34,7 @@ import { CustomOracleNavIssuanceModule__factory } from "../../typechain/factorie
 import { DebtIssuanceModule__factory } from "../../typechain/factories/DebtIssuanceModule__factory";
 import { DebtIssuanceModuleV2__factory } from "../../typechain/factories/DebtIssuanceModuleV2__factory";
 import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIndexModule__factory";
+import { GeneralIndexModuleV2__factory } from "../../typechain/factories/GeneralIndexModuleV2__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
@@ -140,6 +142,16 @@ export default class DeployModules {
     weth: Address
   ): Promise<GeneralIndexModule> {
     return await new GeneralIndexModule__factory(this._deployerSigner).deploy(
+      controller,
+      weth
+    );
+  }
+
+  public async deployGeneralIndexModuleV2(
+    controller: Address,
+    weth: Address
+  ): Promise<GeneralIndexModuleV2> {
+    return await new GeneralIndexModuleV2__factory(this._deployerSigner).deploy(
       controller,
       weth
     );
