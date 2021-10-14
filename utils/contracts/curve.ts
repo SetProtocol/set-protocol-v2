@@ -7,3 +7,4 @@ export { LiquidityGauge } from "../../typechain/LiquidityGauge";
 export { LiquidityGaugeReward } from "../../typechain/LiquidityGaugeReward";
 export { Minter } from "../../typechain/Minter";
 export { Stableswap } from "../../typechain/Stableswap";
+export { CurveMetaPoolAmmAdapter } from "../../typechain/CurveMetaPoolAmmAdapter"

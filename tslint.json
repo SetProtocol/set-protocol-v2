@@ -1,6 +1,5 @@
 {
   "rules": {
-      "no-unused-variable": true,
       "class-name": true,
       "comment-format": [
           true,
