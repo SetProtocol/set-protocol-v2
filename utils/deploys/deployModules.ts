@@ -17,6 +17,7 @@ import {
   StakingModule,
   StreamingFeeModule,
   TradeModule,
+  TradeModuleV2,
   WrapModule,
   WrapModuleV2
 } from "../contracts";
@@ -39,6 +40,7 @@ import { SingleIndexModule__factory } from "../../typechain/factories/SingleInde
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
 import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
+import { TradeModuleV2__factory } from "../../typechain/factories/TradeModuleV2__factory";
 import { WrapModule__factory } from "../../typechain/factories/WrapModule__factory";
 import { WrapModuleV2__factory } from "../../typechain/factories/WrapModuleV2__factory";
 
@@ -91,6 +93,10 @@ export default class DeployModules {
 
   public async deployTradeModule(controller: Address): Promise<TradeModule> {
     return await new TradeModule__factory(this._deployerSigner).deploy(controller);
+  }
+
+  public async deployTradeModuleV2(controller: Address): Promise<TradeModuleV2> {
+    return await new TradeModuleV2__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployWrapModule(controller: Address, weth: Address): Promise<WrapModule> {

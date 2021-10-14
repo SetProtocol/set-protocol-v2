@@ -34,13 +34,16 @@ import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
 /**
- * @title TradeModule
+ * @title TradeModuleV2
  * @author Set Protocol
  *
  * Module that enables SetTokens to perform atomic trades using Decentralized Exchanges
- * such as 1inch or Kyber. Integrations mappings are stored on the IntegrationRegistry contract.
+ * such as Uniswap or 0x. Integrations mappings are stored on the IntegrationRegistry contract.
+ * 
+ * Note: TradeModuleV2 will allow governance to specify a protocol fee and rebate split percentage
+ * which is sent to the manager's address. The fee rebates will be automatic per trade.
  */
-contract TradeModule is ModuleBase, ReentrancyGuard {
+contract TradeModuleV2 is ModuleBase, ReentrancyGuard {
     using SafeCast for int256;
     using SafeMath for uint256;
 
@@ -71,13 +74,24 @@ contract TradeModule is ModuleBase, ReentrancyGuard {
         IExchangeAdapter _exchangeAdapter,
         uint256 _totalSendAmount,
         uint256 _totalReceiveAmount,
-        uint256 _protocolFee
+        uint256 _protocolFee,
+        uint256 _managerRebate
     );
+
+    event FeeRecipientUpdated(ISetToken indexed _setToken, address _newFeeRecipient);
 
     /* ============ Constants ============ */
 
-    // 0 index stores the fee % charged in the trade function
-    uint256 constant internal TRADE_MODULE_PROTOCOL_FEE_INDEX = 0;
+    // 0 index stores the total fee % charged in the trade function
+    uint256 constant internal TRADE_MODULE_V2_TOTAL_FEE_INDEX = 0;
+
+    // 1 index stores the % of total fees that the manager receives back as rebates
+    uint256 constant internal TRADE_MODULE_V2_MANAGER_REBATE_SPLIT_INDEX = 1;
+
+    /* ============ State Variables ============ */
+
+    // Mapping to efficiently identify a manager rebate recipient address for a given SetToken
+    mapping(ISetToken => address) public managerRebateRecipient;
 
     /* ============ Constructor ============ */
 
@@ -91,12 +105,17 @@ contract TradeModule is ModuleBase, ReentrancyGuard {
      * @param _setToken                 Instance of the SetToken to initialize
      */
     function initialize(
-        ISetToken _setToken
+        ISetToken _setToken,
+        address _managerRebateRecipient
     )
         external
         onlyValidAndPendingSet(_setToken)
         onlySetManager(_setToken, msg.sender)
     {
+        require(_managerRebateRecipient != address(0), "Recipient must be non-zero address.");
+
+        managerRebateRecipient[_setToken] = _managerRebateRecipient;
+
         _setToken.initializeModule();
     }
 
@@ -141,7 +160,7 @@ contract TradeModule is ModuleBase, ReentrancyGuard {
 
         uint256 exchangedQuantity = _validatePostTrade(tradeInfo);
 
-        uint256 protocolFee = _accrueProtocolFee(tradeInfo, exchangedQuantity);
+        (uint256 protocolFee, uint256 managerRebate) = _accrueFees(tradeInfo, exchangedQuantity);
 
         (
             uint256 netSendAmount,
@@ -155,15 +174,38 @@ contract TradeModule is ModuleBase, ReentrancyGuard {
             tradeInfo.exchangeAdapter,
             netSendAmount,
             netReceiveAmount,
-            protocolFee
+            protocolFee,
+            managerRebate
         );
     }
 
     /**
-     * Removes this module from the SetToken, via call by the SetToken. Left with empty logic
-     * here because there are no check needed to verify removal.
+     * MANAGER ONLY: Updates address receiving manager rebate fees for a given SetToken.
+     *
+     * @param _setToken             Instance of the SetToken to update fee recipient
+     * @param _newRebateRecipient   New rebate fee recipient address
      */
-    function removeModule() external override {}
+    function updateFeeRecipient(
+        ISetToken _setToken,
+        address _newRebateRecipient
+    )
+        external
+        onlyManagerAndValidSet(_setToken)
+    {
+        require(_newRebateRecipient != address(0), "Recipient must be non-zero address.");
+        require(_newRebateRecipient != managerRebateRecipient[_setToken], "Same fee recipient passed");
+
+        managerRebateRecipient[_setToken] = _newRebateRecipient;
+
+        emit FeeRecipientUpdated(_setToken, _newRebateRecipient);
+    }
+
+    /**
+     * Removes this module from the SetToken, via call by the SetToken. Remove the manager rebate recipient address.
+     */
+    function removeModule() external override {
+        delete managerRebateRecipient[ISetToken(msg.sender)];
+    }
 
     /* ============ Internal Functions ============ */
 
@@ -282,17 +324,35 @@ contract TradeModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Retrieve fee from controller and calculate total protocol fee and send from SetToken to protocol recipient
+     * Retrieve fees from controller and calculate protocol fee and manager rebate. Send from SetToken to protocol recipient and
+     * to manager recipient.
      *
      * @param _tradeInfo                Struct containing trade information used in internal functions
-     * @return uint256                  Amount of receive token taken as protocol fee
+     * @return protocolFee              Amount of receive token taken as protocol fee
+     * @return managerRebate            Amount of receive token taken as manager rebate fee
      */
-    function _accrueProtocolFee(TradeInfo memory _tradeInfo, uint256 _exchangedQuantity) internal returns (uint256) {
-        uint256 protocolFeeTotal = getModuleFee(TRADE_MODULE_PROTOCOL_FEE_INDEX, _exchangedQuantity);
-        
-        payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFeeTotal);
-        
-        return protocolFeeTotal;
+    function _accrueFees(
+        TradeInfo memory _tradeInfo,
+        uint256 _exchangedQuantity
+    )
+        internal
+        returns (uint256 protocolFee, uint256 managerRebate)
+    {
+        uint256 totalFeePercentage = controller.getModuleFee(address(this), TRADE_MODULE_V2_TOTAL_FEE_INDEX);
+        uint256 managerRebateSplitPercentage = controller.getModuleFee(address(this), TRADE_MODULE_V2_MANAGER_REBATE_SPLIT_INDEX);
+
+        managerRebate = totalFeePercentage.preciseMul(_exchangedQuantity).preciseMul(managerRebateSplitPercentage);
+        protocolFee = totalFeePercentage.preciseMul(_exchangedQuantity).sub(managerRebate);
+
+        payProtocolFeeFromSetToken(_tradeInfo.setToken, _tradeInfo.receiveToken, protocolFee);
+
+        if (managerRebate > 0) {
+            _tradeInfo.setToken.strictInvokeTransfer(
+                _tradeInfo.receiveToken,
+                managerRebateRecipient[_tradeInfo.setToken],
+                managerRebate
+            );
+        }
     }
 
     /**
