@@ -335,6 +335,16 @@ describe("GeneralIndexModuleV2", () => {
       });
     });
 
+    describe("when the manager rebate recipient is the zero address", async () => {
+      beforeEach(async () => {
+        subjectRebateRecipient = ADDRESS_ZERO;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Recipient must be non-zero address.");
+      });
+    });
+
     describe("when set has weth as component", async () => {
       beforeEach(async () => {
         subjectSetToken = indexWithWeth;
