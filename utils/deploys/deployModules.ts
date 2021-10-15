@@ -10,6 +10,7 @@ import {
   CustomOracleNavIssuanceModule,
   DebtIssuanceModule,
   GeneralIndexModule,
+  GeneralIndexModuleV2,
   GovernanceModule,
   IssuanceModule,
   NavIssuanceModule,
@@ -17,6 +18,7 @@ import {
   StakingModule,
   StreamingFeeModule,
   TradeModule,
+  TradeModuleV2,
   WrapModule,
   WrapModuleV2
 } from "../contracts";
@@ -32,6 +34,7 @@ import { CustomOracleNavIssuanceModule__factory } from "../../typechain/factorie
 import { DebtIssuanceModule__factory } from "../../typechain/factories/DebtIssuanceModule__factory";
 import { DebtIssuanceModuleV2__factory } from "../../typechain/factories/DebtIssuanceModuleV2__factory";
 import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIndexModule__factory";
+import { GeneralIndexModuleV2__factory } from "../../typechain/factories/GeneralIndexModuleV2__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
@@ -39,6 +42,7 @@ import { SingleIndexModule__factory } from "../../typechain/factories/SingleInde
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
 import { TradeModule__factory } from "../../typechain/factories/TradeModule__factory";
+import { TradeModuleV2__factory } from "../../typechain/factories/TradeModuleV2__factory";
 import { WrapModule__factory } from "../../typechain/factories/WrapModule__factory";
 import { WrapModuleV2__factory } from "../../typechain/factories/WrapModuleV2__factory";
 
@@ -93,6 +97,10 @@ export default class DeployModules {
     return await new TradeModule__factory(this._deployerSigner).deploy(controller);
   }
 
+  public async deployTradeModuleV2(controller: Address): Promise<TradeModuleV2> {
+    return await new TradeModuleV2__factory(this._deployerSigner).deploy(controller);
+  }
+
   public async deployWrapModule(controller: Address, weth: Address): Promise<WrapModule> {
     return await new WrapModule__factory(this._deployerSigner).deploy(controller, weth);
   }
@@ -134,6 +142,16 @@ export default class DeployModules {
     weth: Address
   ): Promise<GeneralIndexModule> {
     return await new GeneralIndexModule__factory(this._deployerSigner).deploy(
+      controller,
+      weth
+    );
+  }
+
+  public async deployGeneralIndexModuleV2(
+    controller: Address,
+    weth: Address
+  ): Promise<GeneralIndexModuleV2> {
+    return await new GeneralIndexModuleV2__factory(this._deployerSigner).deploy(
       controller,
       weth
     );
