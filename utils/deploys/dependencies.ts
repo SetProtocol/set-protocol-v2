@@ -65,6 +65,18 @@ export default {
     1: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
     42: "0x3d07e0780fd534759dbf1d7e3d92f454b783c4f4",
   },
+  USDT: {
+    1: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    42: "",
+  },
+  GUSD: {
+    1: "0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd",
+    42: "",
+  },
+  THREE_CRV: {
+    1: "0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490",
+    42: "",
+  },
 
   // AAVE V2
 

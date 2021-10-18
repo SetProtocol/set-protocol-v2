@@ -17,203 +17,90 @@ import { TriPool } from "@typechain/TriPool";
 import { ether } from "@utils/common";
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 import { ethers } from "hardhat";
+import { IERC20__factory } from "@typechain/factories/IERC20__factory";
+import dependencies from "@utils/deploys/dependencies";
+import { TriPool__factory } from "@typechain/factories/TriPool__factory";
+import { MetapoolStableSwap__factory } from "@typechain/factories/MetapoolStableSwap__factory";
+import { MetapoolZap__factory } from "@typechain/factories/MetapoolZap__factory";
+import { CurveMetaPoolAmmAdapter } from "@typechain/CurveMetaPoolAmmAdapter";
+import { CurveRegistry__factory } from "@typechain/factories/CurveRegistry__factory";
+import { IERC20 } from "@typechain/IERC20";
+import { TriPoolZap__factory } from "@typechain/factories/TriPoolZap__factory";
+import { TriPoolZap } from "@typechain/TriPoolZap";
 
 export class CurveAmmFixture {
-  private _deployer: DeployHelper;
+  private _provider: providers.Web3Provider | providers.JsonRpcProvider;
+  private _ownerAddress: Address;
   private _ownerSigner: Signer;
+  private _deployer: DeployHelper;
 
-  public dai: StandardTokenMock;
-  public usdc: StandardTokenMock;
-  public usdt: StandardTokenMock;
-  public usdn: StandardTokenMock;
+  public dai: IERC20;
+  public usdc: IERC20;
+  public usdt: IERC20;
+  public gusd: IERC20;
 
-  public threeCrv: CurvePoolERC20;
+  public setToken: StandardTokenMock;
+
+  public threeCrv: IERC20;
   public triPool: TriPool;
   public deposit: CurveDeposit;
 
-  public crvToken: CRVToken;
-  public gaugeController: GaugeController;
-  public minter: Minter;
-
-  public addressProvider: CurveAddressProvider;
   public curveRegistry: CurveRegistry;
 
-  public poolToken: CurvePoolERC20;
-  public metaPool: MetapoolStableSwap;
-  public metaPoolZap: MetapoolZap;
+  public poolToken: IERC20;
+  public metapool: MetapoolStableSwap;
+  public metapoolZap: TriPoolZap;
 
-  public stableSwap: Stableswap;
+  public curveMetapoolAmmAdapter: CurveMetaPoolAmmAdapter;
+
+  public baseCoins: Address[];
+  public underlying: Address[];
 
   constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
+    this._provider = provider;
+    this._ownerAddress = ownerAddress;
     this._ownerSigner = provider.getSigner(ownerAddress);
     this._deployer = new DeployHelper(this._ownerSigner);
   }
 
-  /**
-   * Initializes a pool.
-   * @param _tokens Expects 4 tokens
-   */
-  public async initializePool(ownerAddress: string): Promise<void> {
-    this.dai = await this._deployer.mocks.deployTokenMock(ownerAddress, ether(1000000), 18);
-    this.usdc = await this._deployer.mocks.deployTokenMock(ownerAddress, ether(1000000), 6);
-    this.usdt = await this._deployer.mocks.deployTokenMock(ownerAddress, ether(1000000), 6);
-    this.usdn = await this._deployer.mocks.deployTokenMock(ownerAddress, ether(1000000), 18);
+  public getForkedDependencyAddresses() {
+    return {
+      whales: [
+        dependencies.DAI_WHALE,
+        dependencies.USDC_WHALE,
+      ],
 
-    this.threeCrv = await this._deployer.external.deployCurvePoolERC20(
-      "Curve.fi DAI/USDC/USDT/sUSD",
-      "crvUSD",
-      18,
-      0,
-    );
-
-    this.stableSwap = await this._deployer.external.deployStableswap(
-      [this.dai.address, this.usdc.address, this.usdt.address, this.usdn.address],
-      [this.dai.address, this.usdc.address, this.usdt.address, this.usdn.address],
-      this.threeCrv.address,
-    );
-
-    this.deposit = await this._deployer.external.deployCurveDeposit(
-      [this.dai.address, this.usdc.address, this.usdt.address,this.usdn.address],
-      [this.dai.address, this.usdc.address, this.usdt.address,this.usdn.address],
-      this.stableSwap.address,
-      this.threeCrv.address,
-    );
-
-    await this.threeCrv.set_minter(this.stableSwap.address);
-
-    await this.dai.connect(this._ownerSigner).approve(this.deposit.address, ether(1000000));
-    await this.usdc.connect(this._ownerSigner).approve(this.deposit.address, ether(1000000));
-    await this.usdt.connect(this._ownerSigner).approve(this.deposit.address, ether(1000000));
-    await this.usdn.connect(this._ownerSigner).approve(this.deposit.address, ether(1000000));
-
-
-    //Prerequisites MetapoolZap
-    this.addressProvider = await this._deployer.external.deployCurveAddressProvider(
-      await this._ownerSigner.getAddress(),
-    );
-
-    this.gaugeController = await this._deployer.external.deployGaugeController(
-      this.dai.address,
-      this.dai.address,
-    );
-
-    this.curveRegistry = await this._deployer.external.deployCurveRegistry(
-      this.addressProvider.address,
-      this.gaugeController.address,
-    );
-
-    //MetaPool
-    this.poolToken = await this._deployer.external.deployCurvePoolERC20(
-      "Curve.fi DAI/USDC/USDT",
-      "3CRV",
-      18,
-      0,
-    );
-
-    await this.deposit.add_liquidity(
-          [
-            BigNumber.from("1000000000000000000"),
-            BigNumber.from("1000000"),
-            BigNumber.from("1000000"),
-            BigNumber.from("1000000000000000000"),
-          ],
-          BigNumber.from(0),
-          {
-            gasLimit: 9000000,
-          },
-        );
-
-    this.metaPool = await this._deployer.external.deployCurveMetapoolStableSwap(
-      await this._ownerSigner.getAddress(),
-      [this.poolToken.address, this.threeCrv.address],
-      this.poolToken.address,
-      this.stableSwap.address,
-      200,
-      4000000,
-      0,
-    );
-
-    await this.poolToken.set_minter(this.metaPool.address);
-
-
-    //MetaPoolZap
-    // this.metaPoolZap = await this._deployer.external.deployCurveMetapoolZap(
-    //   this.metaPool.address,
-    //   this.poolToken.address,
-    // );
-
+      tokens: [
+        dependencies.DAI[1],
+        dependencies.USDC[1],
+        dependencies.USDT[1],
+        dependencies.GUSD[1],
+        dependencies.THREE_CRV[1],
+      ],
+    };
   }
 
-  /**
-   * Initializes a pool.
-   * @param _tokens Expects 4 tokens
-   */
-  public async initialize(ownerAddress: string): Promise<void> {
-    //this.crvToken = await this._deployer.external.deployCrvToken("Curve DAO Token", "CRV");
-    this.dai = await this._deployer.mocks.deployTokenMock(ownerAddress, ether(1000000), 18);
-    this.usdc = await this._deployer.mocks.deployTokenMock(ownerAddress, ether(1000000), 6);
-    this.usdt = await this._deployer.mocks.deployTokenMock(ownerAddress, ether(1000000), 6);
+  public async deployForkedContracts(): Promise<void> {
+    enum ids {DAI, USDC, USDT, GUSD, THREE_CRV}
+    const { whales, tokens } = this.getForkedDependencyAddresses();
+    this.dai = IERC20__factory.connect(tokens[ids.DAI], this._provider.getSigner(whales[ids.DAI]));
+    this.usdc = IERC20__factory.connect(tokens[ids.USDC], this._provider);
+    this.usdt = IERC20__factory.connect(tokens[ids.USDT], this._provider);
+    this.gusd = IERC20__factory.connect(tokens[ids.GUSD], this._provider);
 
-    //3CRV Pool
-    this.threeCrv = await this._deployer.external.deployCurvePoolERC20(
-      "Curve.fi DAI/USDC/USDT",
-      "3CRV",
-      18,
-      0,
-    );
+    this.baseCoins = [this.dai.address, this.usdc.address, this.usdt.address];
+    this.underlying = [this.gusd.address, ...this.baseCoins];
 
+    this.threeCrv = IERC20__factory.connect(tokens[ids.THREE_CRV], this._provider);
 
-    this.triPool = await this._deployer.external.deployCurveTriPool(
-      ownerAddress,
-      [this.dai.address, this.usdc.address, this.usdt.address],
-      this.threeCrv.address,
-      100,
-      4000000,
-      0,
-    );
+    this.setToken = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether(1000000), 18);
 
-    await this.threeCrv.set_minter(this.triPool.address);
+    this.curveRegistry = CurveRegistry__factory.connect("0x7D86446dDb609eD0F5f8684AcF30380a356b2B4c", this._provider);
+    this.metapoolZap = TriPoolZap__factory.connect("0x5F890841f657d90E081bAbdB532A05996Af79Fe6", this._provider);
 
+    this.metapool = MetapoolStableSwap__factory.connect("0x4f062658EaAF2C1ccf8C8e36D6824CDf41167956", this._provider); // GUSD Pool
+    this.poolToken = IERC20__factory.connect("0xD2967f45c4f384DEEa880F807Be904762a3DeA07", this._provider); // GUSD LP
 
-    //Prerequisites MetapoolZap
-    this.addressProvider = await this._deployer.external.deployCurveAddressProvider(
-      await this._ownerSigner.getAddress(),
-    );
-
-    this.gaugeController = await this._deployer.external.deployGaugeController(
-      this.crvToken.address,
-      this.crvToken.address,
-    );
-
-    this.curveRegistry = await this._deployer.external.deployCurveRegistry(
-      this.addressProvider.address,
-      this.gaugeController.address,
-    );
-
-    //MetaPool
-    this.poolToken = await this._deployer.external.deployCurvePoolERC20(
-      "Curve.fi DAI/USDC/USDT",
-      "3CRV",
-      18,
-      0,
-    );
-
-    console.log(await this.triPool.get_virtual_price())
-
-    this.metaPool = await this._deployer.external.deployCurveMetapoolStableSwap(
-      await this._ownerSigner.getAddress(),
-      [this.poolToken.address, this.threeCrv.address],
-      this.poolToken.address,
-      this.triPool.address,
-      200,
-      4000000,
-      0,
-    );
-
-    //MetaPoolZap
-    this.metaPoolZap = await this._deployer.external.deployCurveMetapoolZap(
-      this.metaPool.address,
-      this.poolToken.address,
-    );
+    this.curveMetapoolAmmAdapter = await this._deployer.adapters.deployCurveMetaPoolAmmAdapter(this.curveRegistry.address, this.metapoolZap.address);
   }
 }
