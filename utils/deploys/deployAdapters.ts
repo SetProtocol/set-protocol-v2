@@ -32,7 +32,6 @@ import {
   SynthetixExchangeAdapter,
   CompoundBravoGovernanceAdapter,
   CompClaimAdapter,
-  CurveMetaPoolAmmAdapter
 } from "../contracts";
 import { Address, Bytes } from "./../types";
 
