@@ -25,7 +25,7 @@ import { IMetapoolFactory } from "../../../interfaces/external/IMetapoolFactory.
 import { IMetaPoolZap } from "../../../interfaces/external/IMetaPoolZap.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract CurveMetaPoolAmmAdapter is IAmmAdapter {
+contract CurveFactoryMetapoolAmmAdapter is IAmmAdapter {
     using SafeCast for uint256;
     using SafeCast for int256;
 

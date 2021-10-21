@@ -2,17 +2,16 @@ import { providers } from "ethers";
 import { Address } from "../types";
 import DeployHelper from "../deploys";
 import { Signer } from "ethers";
-import { CurveDeposit } from "../../typechain/CurveDeposit";
 import { MetapoolStableSwap } from "@typechain/MetapoolStableSwap";
 import { ether } from "@utils/common";
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 import { ethers } from "hardhat";
 import dependencies from "@utils/deploys/dependencies";
-import { CurveMetaPoolAmmAdapter } from "@typechain/CurveMetaPoolAmmAdapter";
 import { ERC20 } from "@typechain/ERC20";
 import MetapoolFactoryAbi from "../../external/abi/curve/MetapoolFactory.json";
 import MetaPoolStableSwapAbi from "../../external/abi/curve/MetapoolStableSwap.json";
 import { MetapoolFactory } from "@typechain/MetapoolFactory";
+import { CurveFactoryMetapoolAmmAdapter } from "@typechain/CurveFactoryMetapoolAmmAdapter";
 
 interface FactoryMetapoolSetup {
   pool: MetapoolStableSwap;
@@ -32,7 +31,7 @@ export class CurveAmmFixture {
 
   public mim3CRVFactoryMetapoolSetup: FactoryMetapoolSetup;
 
-  public curveMetapoolAmmAdapter: CurveMetaPoolAmmAdapter;
+  public curveFactoryMetapoolAmmAdapter: CurveFactoryMetapoolAmmAdapter;
 
   constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerAddress = ownerAddress;
@@ -62,7 +61,7 @@ export class CurveAmmFixture {
       "0x5a6A4D54456819380173272A5E8E9B9904BdF41B",
     )) as MetapoolStableSwap; // MIM factory Metapool
 
-    this.curveMetapoolAmmAdapter = await this._deployer.adapters.deployCurveMetaPoolAmmAdapter(
+    this.curveFactoryMetapoolAmmAdapter = await this._deployer.adapters.deployCurveFactoryMetapoolAmmAdapter(
       this.metapoolFactory.address
     );
 

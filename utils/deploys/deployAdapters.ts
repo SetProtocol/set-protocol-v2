@@ -65,8 +65,9 @@ import { UniswapV3ExchangeAdapter__factory } from "../../typechain/factories/Uni
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
-import { CurveMetaPoolAmmAdapter__factory } from "../../typechain/factories/CurveMetaPoolAmmAdapter__factory";
 import { CompClaimAdapter__factory, AGIMigrationWrapAdapter__factory } from "../../typechain";
+import { CurveFactoryMetapoolAmmAdapter } from "@typechain/CurveFactoryMetapoolAmmAdapter";
+import { CurveFactoryMetapoolAmmAdapter__factory } from "@typechain/factories/CurveFactoryMetapoolAmmAdapter__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -187,8 +188,8 @@ export default class DeployAdapters {
     return await new CurveStakingAdapter__factory(this._deployerSigner).deploy(gaugeController);
   }
 
-  public async deployCurveMetaPoolAmmAdapter(curveRegistry: Address): Promise<CurveMetaPoolAmmAdapter> {
-    return await new CurveMetaPoolAmmAdapter__factory(this._deployerSigner).deploy(curveRegistry);
+  public async deployCurveFactoryMetapoolAmmAdapter(curveRegistry: Address): Promise<CurveFactoryMetapoolAmmAdapter> {
+    return await new CurveFactoryMetapoolAmmAdapter__factory(this._deployerSigner).deploy(curveRegistry);
   }
 
   public async deployUniswapPairPriceAdapter(

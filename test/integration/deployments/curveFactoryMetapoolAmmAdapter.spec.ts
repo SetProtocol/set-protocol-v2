@@ -4,8 +4,8 @@ import { BigNumber, BigNumberish } from "ethers";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { MAX_UINT_256, ADDRESS_ZERO, ZERO } from "@utils/constants";
-import { SetToken, AmmModule, UniswapV2AmmAdapter, UniswapV2Pair } from "@utils/contracts";
+import { ADDRESS_ZERO, ZERO } from "@utils/constants";
+import { SetToken, AmmModule, } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
 import {
@@ -14,23 +14,19 @@ import {
   getSystemFixture,
   getUniswapFixture,
   getWaffleExpect,
-  getLastBlockTimestamp,
   getCurveAmmFixture,
 } from "@utils/test/index";
 
-import { CurveAmmFixture, SystemFixture, UniswapFixture } from "@utils/fixtures";
+import { CurveAmmFixture, SystemFixture, } from "@utils/fixtures";
 import { ethers, network } from "hardhat";
-import { Interface } from "@ethersproject/abi";
 import dependencies from "@utils/deploys/dependencies";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { parseEther } from "@ethersproject/units";
-import { copySync } from "fs-extra";
 import { ERC20 } from "@typechain/ERC20";
 
 const expect = getWaffleExpect();
-const provider = ethers.provider;
 
-describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
+describe("CurveFactoryMetapoolAmmAdapter [@forked-mainnet]", () => {
   let owner: Account;
   let threeCrvWhale: SignerWithAddress;
   let mimWhale: SignerWithAddress;
@@ -124,7 +120,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
   describe("constructor", async () => {
     it("should have correct metapoolFactory address", async () => {
-      expect(await curveAmmSetup.curveMetapoolAmmAdapter.metapoolFactory()).to.eq(
+      expect(await curveAmmSetup.curveFactoryMetapoolAmmAdapter.metapoolFactory()).to.eq(
         curveAmmSetup.metapoolFactory.address,
       );
     });
@@ -140,7 +136,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     });
 
     async function subject(): Promise<any> {
-      return await curveAmmSetup.curveMetapoolAmmAdapter.isValidPool(
+      return await curveAmmSetup.curveFactoryMetapoolAmmAdapter.isValidPool(
         subjectAmmPool,
         subjectComponents,
       );
@@ -188,7 +184,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     });
 
     async function subject(): Promise<any> {
-      return await curveAmmSetup.curveMetapoolAmmAdapter.getProvideLiquiditySingleAssetCalldata(
+      return await curveAmmSetup.curveFactoryMetapoolAmmAdapter.getProvideLiquiditySingleAssetCalldata(
         curveAmmSetup.setToken.address,
         subjectAmmPool,
         subjectComponent,
@@ -231,7 +227,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     });
 
     async function subject(): Promise<any> {
-      return await curveAmmSetup.curveMetapoolAmmAdapter.getRemoveLiquiditySingleAssetCalldata(
+      return await curveAmmSetup.curveFactoryMetapoolAmmAdapter.getRemoveLiquiditySingleAssetCalldata(
         curveAmmSetup.setToken.address,
         subjectAmmPool,
         subjectComponent,
@@ -276,7 +272,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     });
 
     async function subject(): Promise<any> {
-      return await curveAmmSetup.curveMetapoolAmmAdapter.getProvideLiquidityCalldata(
+      return await curveAmmSetup.curveFactoryMetapoolAmmAdapter.getProvideLiquidityCalldata(
         curveAmmSetup.setToken.address,
         subjectAmmPool,
         subjectComponents,
@@ -317,7 +313,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     });
 
     async function subject(): Promise<any> {
-      return await curveAmmSetup.curveMetapoolAmmAdapter.getRemoveLiquidityCalldata(
+      return await curveAmmSetup.curveFactoryMetapoolAmmAdapter.getRemoveLiquidityCalldata(
         curveAmmSetup.setToken.address,
         subjectAmmPool,
         subjectComponents,
@@ -379,8 +375,8 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         await setup.approveAndIssueSetToken(setToken, ether(1));
         await setup.integrationRegistry.addIntegration(
           ammModule.address,
-          "CURVEMETAPOOLAMMADAPTER",
-          curveAmmSetup.curveMetapoolAmmAdapter.address,
+          "curveFactoryMetapoolAmmAdapter",
+          curveAmmSetup.curveFactoryMetapoolAmmAdapter.address,
         );
       });
 
@@ -391,7 +387,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         beforeEach(async () => {
           subjectSetToken = setToken.address;
-          subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
+          subjectIntegrationName = "curveFactoryMetapoolAmmAdapter";
           subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
           subjectComponentsToInput = [curveAmmSetup.mim.address, curveAmmSetup.threeCrv.address];
           subjectMaxComponentQuantities = [ether(1), ether(1)]; // tokens in
@@ -521,8 +517,8 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         await setup.approveAndIssueSetToken(setToken, ether(1));
         await setup.integrationRegistry.addIntegration(
           ammModule.address,
-          "CURVEMETAPOOLAMMADAPTER",
-          curveAmmSetup.curveMetapoolAmmAdapter.address,
+          "curveFactoryMetapoolAmmAdapter",
+          curveAmmSetup.curveFactoryMetapoolAmmAdapter.address,
         );
       });
 
@@ -533,7 +529,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         beforeEach(async () => {
           subjectSetToken = setToken.address;
-          subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
+          subjectIntegrationName = "curveFactoryMetapoolAmmAdapter";
           subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
           subjectMinLiquidity = parseEther("1.021669737060627784"); // min lp-token out
           subjectComponent = curveAmmSetup.threeCrv.address;
@@ -647,8 +643,8 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         await setup.approveAndIssueSetToken(setToken, ether(1));
         await setup.integrationRegistry.addIntegration(
           ammModule.address,
-          "CURVEMETAPOOLAMMADAPTER",
-          curveAmmSetup.curveMetapoolAmmAdapter.address,
+          "curveFactoryMetapoolAmmAdapter",
+          curveAmmSetup.curveFactoryMetapoolAmmAdapter.address,
         );
       });
 
@@ -659,7 +655,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         beforeEach(async () => {
           subjectSetToken = setToken.address;
-          subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
+          subjectIntegrationName = "curveFactoryMetapoolAmmAdapter";
           subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
           subjectPoolTokens = ether(3);
           subjectComponentsToOutput = [curveAmmSetup.mim.address, curveAmmSetup.threeCrv.address];
@@ -818,7 +814,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         beforeEach(async () => {
           subjectSetToken = setToken.address;
-          subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
+          subjectIntegrationName = "curveFactoryMetapoolAmmAdapter";
           subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
           subjectTokenIn = ether(1); // lp tokens to burn
           subjectComponent = curveAmmSetup.threeCrv.address;
