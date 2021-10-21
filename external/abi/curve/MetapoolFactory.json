@@ -1,0 +1,1 @@
+{"contractName":"MetapoolFactory", "abi":[{"name":"get_coins","outputs":[{"type":"address[2]","name":""}],"inputs":[{"type":"address","name":"_pool"}],"stateMutability":"view","type":"function","gas":"2427"}]}

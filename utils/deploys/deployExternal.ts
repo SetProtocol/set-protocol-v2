@@ -202,14 +202,10 @@ import { Executor__factory } from "../../typechain/factories/Executor__factory";
 import { GovernanceStrategy__factory } from "../../typechain/factories/GovernanceStrategy__factory";
 import { CurveAddressProvider__factory } from "@typechain/factories/CurveAddressProvider__factory";
 import { CurveRegistry__factory } from "@typechain/factories/CurveRegistry__factory";
-import { MetapoolZap__factory } from "@typechain/factories/MetapoolZap__factory";
-import { MetapoolZap } from "@typechain/MetapoolZap";
 import { CurveRegistry } from "@typechain/CurveRegistry";
 import { CurveAddressProvider } from "@typechain/CurveAddressProvider";
 import { MetapoolStableSwap__factory } from "@typechain/factories/MetapoolStableSwap__factory";
 import { MetapoolStableSwap } from "@typechain/MetapoolStableSwap";
-import { TriPool__factory } from "@typechain/factories/TriPool__factory";
-import { TriPool } from "@typechain/TriPool";
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
 
@@ -670,34 +666,6 @@ export default class DeployExternalContracts {
   public async deployCurveRegistry(_addressProvider: string, _gaugeController: string): Promise<CurveRegistry> {
     return await new CurveRegistry__factory(this._deployerSigner).deploy(_addressProvider, _gaugeController);
   }
-
-  public async deployCurveTriPool(
-    _controller:string,
-    _coins:[string,string,string],
-    _poolToken:string,
-    _A:number,_fee:number,
-    _adminFee:number
-    ): Promise<TriPool> {
-    return await new TriPool__factory(this._deployerSigner).deploy(_controller,_coins,_poolToken,_A,_fee,_adminFee);
-  }
-
-  public async deployCurveMetapoolStableSwap(
-    _controller:string,
-    _coins:[string,string],
-    _poolToken:string,
-    _basePool:string,
-    _A:number,
-    _fee:number,
-    _adminFee:number
-    ): Promise<MetapoolStableSwap> {
-    return await new MetapoolStableSwap__factory(this._deployerSigner).deploy(_controller,_coins,_poolToken,_basePool,_A,_fee,_adminFee);
-  }
-
-  public async deployCurveMetapoolZap(_pool:string,_token:string): Promise<MetapoolZap> {
-    return await new MetapoolZap__factory(this._deployerSigner).deploy(_pool,_token);
-  }
-
-
 
   // Uniswap
   public async deployUni(_account: Address, _minter: Address, _mintingAllowedAfter: BigNumber): Promise<Uni> {

@@ -16,6 +16,7 @@
 
 pragma solidity 0.6.10;
 
-interface ICurveRegistry {
-    function get_underlying_coins(address _pool) external view returns (address[8] memory);
+interface IMetapoolFactory {
+    //Will return [exoticStable, 3CRV]
+    function get_coins(address _pool) external view returns (address[2] memory);
 }

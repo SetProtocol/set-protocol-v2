@@ -11,13 +11,13 @@ import "./tasks";
 
 const forkingConfig = {
   url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
-  blockNumber: 12198000,
+  blockNumber: 12657139,
 };
 
 const mochaConfig = {
   grep: "@forked-mainnet",
-  invert: (process.env.FORK) ? false : true,
-  timeout: (process.env.FORK) ? 100000 : 40000,
+  invert: process.env.FORK ? false : true,
+  timeout: process.env.FORK ? 100000 : 40000,
 } as Mocha.MochaOptions;
 
 checkForkedProviderEnvironment();
@@ -31,7 +31,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      forking: (process.env.FORK) ? forkingConfig : undefined,
+      forking: process.env.FORK ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
     },
     localhost: {
@@ -71,7 +71,7 @@ const config: HardhatUserConfig = {
 };
 
 function getHardhatPrivateKeys() {
-  return privateKeys.map(key => {
+  return privateKeys.map((key) => {
     const ONE_MILLION_ETH = "1000000000000000000000000";
     return {
       privateKey: key,
@@ -81,13 +81,16 @@ function getHardhatPrivateKeys() {
 }
 
 function checkForkedProviderEnvironment() {
-  if (process.env.FORK &&
-      (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
-     ) {
-    console.log(chalk.red(
-      "You are running forked provider tests with invalid Alchemy credentials.\n" +
-      "Update your ALCHEMY_TOKEN settings in the `.env` file."
-    ));
+  if (
+    process.env.FORK &&
+    (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
+  ) {
+    console.log(
+      chalk.red(
+        "You are running forked provider tests with invalid Alchemy credentials.\n" +
+          "Update your ALCHEMY_TOKEN settings in the `.env` file.",
+      ),
+    );
     process.exit(1);
   }
 }

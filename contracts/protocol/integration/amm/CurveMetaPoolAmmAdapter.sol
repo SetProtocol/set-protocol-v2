@@ -21,23 +21,23 @@ pragma solidity 0.6.10;
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 
 import { IAmmAdapter } from "../../../interfaces/IAmmAdapter.sol";
-import { ICurveRegistry } from "../../../interfaces/external/ICurveRegistry.sol";
+import { IMetapoolFactory } from "../../../interfaces/external/IMetapoolFactory.sol";
 import { IMetaPoolZap } from "../../../interfaces/external/IMetaPoolZap.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CurveMetaPoolAmmAdapter is IAmmAdapter {
     using SafeCast for uint256;
     using SafeCast for int256;
 
-    ICurveRegistry public curveRegistry;
-    IMetaPoolZap public metaPoolZap;
+    IMetapoolFactory public metapoolFactory;
+    address public constant THREE_CRV = address(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
 
-    string public constant ADD_LIQUIDITY = "add_liquidity(address,uint256[4],uint256,address)";
-    string public constant REMOVE_LIQUIDITY = "remove_liquidity(address,uint256,uint256[4],address)";
-    string public constant REMOVE_LIQUIDITY_SINGLE = "remove_liquidity_one_coin(address,uint256,int128,uint256,address)";
+    string public constant ADD_LIQUIDITY = "add_liquidity(uint256[2],uint256,address)";
+    string public constant REMOVE_LIQUIDITY = "remove_liquidity(uint256,uint256[2],address)";
+    string public constant REMOVE_LIQUIDITY_SINGLE = "remove_liquidity_one_coin(uint256,int128,uint256,address)";
 
-    constructor(ICurveRegistry _curveRegistry, IMetaPoolZap _metaPoolZap) public {
-        curveRegistry = _curveRegistry;
-        metaPoolZap = _metaPoolZap;
+    constructor(IMetapoolFactory _metapoolFactory) public {
+        metapoolFactory = _metapoolFactory;
     }
 
     function getProvideLiquidityCalldata(
@@ -53,18 +53,17 @@ contract CurveMetaPoolAmmAdapter is IAmmAdapter {
         returns (address, uint256, bytes memory)
     {
         require(_isValidPool(_pool, _components), "invalid pool");
-
-        uint256[4] memory inputAmounts = _convertUintArrayLiteral(_maxTokensIn);
+        require(_maxTokensIn[0] > 0 && _maxTokensIn[1] > 0, "tokens in must be nonzero");
+        uint256[2] memory inputAmounts = _convertUintArrayLiteral(_maxTokensIn);
 
         bytes memory callData = abi.encodeWithSignature(
             ADD_LIQUIDITY,
-            _pool,
             inputAmounts,
             _minLiquidity,
             _setToken
         );
 
-        return (address(metaPoolZap), 0, callData);
+        return (_pool, 0, callData);
     }
 
     function getProvideLiquiditySingleAssetCalldata(
@@ -81,18 +80,17 @@ contract CurveMetaPoolAmmAdapter is IAmmAdapter {
     {
         uint256 tokenIndex = _getTokenIndex(_pool, _component);
 
-        uint256[4] memory inputAmounts;
+        uint256[2] memory inputAmounts;
         inputAmounts[tokenIndex] = _maxTokenIn;
 
         bytes memory callData = abi.encodeWithSignature(
             ADD_LIQUIDITY,
-            _pool,
             inputAmounts,
             _minLiquidity,
             _setToken
         );
 
-        return (address(metaPoolZap), 0, callData);
+        return (_pool, 0, callData);
     }
 
     function getRemoveLiquidityCalldata(
@@ -108,17 +106,17 @@ contract CurveMetaPoolAmmAdapter is IAmmAdapter {
         returns (address, uint256, bytes memory)
     {
         require(_isValidPool(_pool, _components), "invalid pool");
-        uint256[4] memory outputAmounts = _convertUintArrayLiteral(_minTokensOut);
+
+        uint256[2] memory outputAmounts = _convertUintArrayLiteral(_minTokensOut);
 
         bytes memory callData = abi.encodeWithSignature(
             REMOVE_LIQUIDITY,
-            _pool,
             _liquidity,
             outputAmounts,
             _setToken
         );
 
-        return (address(metaPoolZap), 0, callData);
+        return (_pool, 0, callData);
     }
 
     function getRemoveLiquiditySingleAssetCalldata(
@@ -137,19 +135,17 @@ contract CurveMetaPoolAmmAdapter is IAmmAdapter {
 
         bytes memory callData = abi.encodeWithSignature(
             REMOVE_LIQUIDITY_SINGLE,
-            _pool,
             _liquidity,
             i,
             _minTokenOut,
             _setToken
         );
 
-        return (address(metaPoolZap), 0, callData);
-
+        return (_pool, 0, callData);
     }
 
     function getSpenderAddress(address _pool) external view override returns(address) {
-        return address(metaPoolZap);
+        return _pool;
     }
 
     function isValidPool(address _pool, address[] memory _components) external view override returns(bool) {
@@ -157,31 +153,27 @@ contract CurveMetaPoolAmmAdapter is IAmmAdapter {
     }
 
     function _isValidPool(address _pool, address[] memory _components) internal view returns(bool) {
-
-        address[8] memory expectedTokens = curveRegistry.get_underlying_coins(_pool);
+        address[2] memory expectedTokens = metapoolFactory.get_coins(_pool);
 
         for (uint256 i = 0; i < _components.length; i++) {
-            if (expectedTokens[i] != _components[i]) return false;
+            if ((_components[i] == expectedTokens[0] || _components[i] == expectedTokens[1]) == false) {
+                return false;
+            }
         }
 
-        // rest of tokens should be 0
-        for (uint256 i = _components.length; i < expectedTokens.length; i++) {
-            if (expectedTokens[i] != address(0)) return false;
-        }
-        
         return true;
     }
 
-    function _convertUintArrayLiteral(uint256[] memory _arr) internal pure returns (uint256[4] memory _literal) {
-        for (uint256 i = 0; i < 4; i++) {
+    function _convertUintArrayLiteral(uint256[] memory _arr) internal pure returns (uint256[2] memory _literal) {
+        for (uint256 i = 0; i < 2; i++) {
             _literal[i] = _arr[i];
         }
         return _literal;
     }
 
     function _getTokenIndex(address _pool, address _token) internal view returns (uint256) {
-        address[8] memory underlying = curveRegistry.get_underlying_coins(_pool);
-        for (uint256 i = 0; i < 8; i++) {
+        address[2] memory underlying = metapoolFactory.get_coins(_pool);
+        for (uint256 i = 0; i < 2; i++) {
             if (underlying[i] == _token) return i;
         }
         revert("token not in pool");
