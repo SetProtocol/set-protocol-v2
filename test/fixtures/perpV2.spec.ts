@@ -62,14 +62,14 @@ describe("PerpV2Fixture", () => {
       const initialAmmBaseTokenPrice = await perpV2.getAMMBaseTokenPrice();
 
       await perpV2.clearingHouse.connect(taker.wallet).openPosition({
-          baseToken: perpV2.baseToken.address,
-          isBaseToQuote: false,
-          isExactInput: true,
-          oppositeAmountBound: 0,
-          amount: ether(100),
-          sqrtPriceLimitX96: 0,
-          deadline: constants.MaxUint256,
-          referralCode: constants.HashZero,
+        baseToken: perpV2.baseToken.address,
+        isBaseToQuote: false,
+        isExactInput: true,
+        oppositeAmountBound: 0,
+        amount: ether(100),
+        sqrtPriceLimitX96: 0,
+        deadline: constants.MaxUint256,
+        referralCode: constants.HashZero,
       });
 
       const finalAmmBaseTokenPrice = await perpV2.getAMMBaseTokenPrice();
@@ -126,14 +126,14 @@ describe("PerpV2Fixture", () => {
 
       // Take long position
       await perpV2.clearingHouse.connect(taker.wallet).openPosition({
-          baseToken: perpV2.baseToken.address,
-          isBaseToQuote: false,
-          isExactInput: true,
-          oppositeAmountBound: 0,
-          amount: ether(takerBuyAmount),
-          sqrtPriceLimitX96: 0,
-          deadline: constants.MaxUint256,
-          referralCode: constants.HashZero,
+        baseToken: perpV2.baseToken.address,
+        isBaseToQuote: false,
+        isExactInput: true,
+        oppositeAmountBound: 0,
+        amount: ether(takerBuyAmount),
+        sqrtPriceLimitX96: 0,
+        deadline: constants.MaxUint256,
+        referralCode: constants.HashZero,
       });
     });
 

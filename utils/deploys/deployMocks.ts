@@ -371,7 +371,7 @@ export default class DeployMocks {
     return await new ChainlinkAggregatorMock__factory(this._deployerSigner).deploy(decimals);
   }
 
-  /*************************************
+  /** ***********************************
    * Instance getters
    ************************************/
 

@@ -16,7 +16,6 @@ import { Account } from "../test/types";
 import {
   PerpV2AccountBalance,
   PerpV2BaseToken,
-  PerpV2ChainlinkPriceFeed,
   PerpV2ClearingHouseConfig,
   PerpV2Exchange,
   PerpV2InsuranceFund,
@@ -147,10 +146,10 @@ export class PerpV2Fixture {
     this.vault = await this._deployer.external.deployPerpV2Vault();
 
     await this.vault.initialize(
-        this.insuranceFund.address,
-        this.clearingHouseConfig.address,
-        this.accountBalance.address,
-        this.exchange.address,
+      this.insuranceFund.address,
+      this.clearingHouseConfig.address,
+      this.accountBalance.address,
+      this.exchange.address,
     );
 
     await this.insuranceFund.setBorrower(this.vault.address);
@@ -172,12 +171,12 @@ export class PerpV2Fixture {
     this.clearingHouse = await this._deployer.external.deployPerpV2ClearingHouse();
 
     await this.clearingHouse.initialize(
-        this.clearingHouseConfig.address,
-        this.vault.address,
-        this.quoteToken.address,
-        this.uniV3Factory.address,
-        this.exchange.address,
-        this.accountBalance.address,
+      this.clearingHouseConfig.address,
+      this.vault.address,
+      this.quoteToken.address,
+      this.uniV3Factory.address,
+      this.exchange.address,
+      this.accountBalance.address,
     );
 
     await this.quoteToken.mintMaximumTo(this.clearingHouse.address);
@@ -204,32 +203,32 @@ export class PerpV2Fixture {
     baseTokenAmount: BigNumberish,
     quoteTokenAmount: BigNumberish
   ): Promise<void> {
-      await this.pool.initialize(this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount));
-      await this.pool.increaseObservationCardinalityNext((2 ^ 16) - 1);
+    await this.pool.initialize(this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount));
+    await this.pool.increaseObservationCardinalityNext((2 ^ 16) - 1);
 
-      const tickSpacing = await this.pool.tickSpacing();
-      const lowerTick = this._getMinTick(tickSpacing);
-      const upperTick = this._getMaxTick(tickSpacing);
+    const tickSpacing = await this.pool.tickSpacing();
+    const lowerTick = this._getMinTick(tickSpacing);
+    const upperTick = this._getMaxTick(tickSpacing);
 
-      await this.marketRegistry.addPool(this.baseToken.address, this._feeTier);
-      await this.marketRegistry.setFeeRatio(this.baseToken.address, this._feeTier);
+    await this.marketRegistry.addPool(this.baseToken.address, this._feeTier);
+    await this.marketRegistry.setFeeRatio(this.baseToken.address, this._feeTier);
 
-      // prepare collateral for maker
-      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
-      await this.usdc.mint(maker.address, makerCollateralAmount);
-      await this.deposit(maker, BigNumber.from(ONE_MILLION), this.usdc);
+    // prepare collateral for maker
+    const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
+    await this.usdc.mint(maker.address, makerCollateralAmount);
+    await this.deposit(maker, BigNumber.from(ONE_MILLION), this.usdc);
 
-      // maker add liquidity at ratio
-      await this.clearingHouse.connect(maker.wallet).addLiquidity({
-          baseToken: this.baseToken.address,
-          base: baseTokenAmount,
-          quote: quoteTokenAmount,
-          lowerTick,
-          upperTick,
-          minBase: 0,
-          minQuote: 0,
-          deadline: constants.MaxUint256,
-      });
+    // maker add liquidity at ratio
+    await this.clearingHouse.connect(maker.wallet).addLiquidity({
+      baseToken: this.baseToken.address,
+      base: baseTokenAmount,
+      quote: quoteTokenAmount,
+      lowerTick,
+      upperTick,
+      minBase: 0,
+      minQuote: 0,
+      deadline: constants.MaxUint256,
+    });
   }
 
   public async initializePoolWithLiquidityWithinTicks(
@@ -239,28 +238,28 @@ export class PerpV2Fixture {
     lowerTick: number,
     upperTick: number
   ): Promise<void> {
-      await this.pool.initialize(this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount));
-      await this.pool.increaseObservationCardinalityNext((2 ^ 16) - 1);
+    await this.pool.initialize(this._encodePriceSqrt(quoteTokenAmount, baseTokenAmount));
+    await this.pool.increaseObservationCardinalityNext((2 ^ 16) - 1);
 
-      await this.marketRegistry.addPool(this.baseToken.address, this._feeTier);
-      await this.marketRegistry.setFeeRatio(this.baseToken.address, this._feeTier);
+    await this.marketRegistry.addPool(this.baseToken.address, this._feeTier);
+    await this.marketRegistry.setFeeRatio(this.baseToken.address, this._feeTier);
 
-      // prepare collateral for maker
-      const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
-      await this.usdc.mint(maker.address, makerCollateralAmount);
-      await this.deposit(maker, BigNumber.from(ONE_MILLION), this.usdc);
+    // prepare collateral for maker
+    const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
+    await this.usdc.mint(maker.address, makerCollateralAmount);
+    await this.deposit(maker, BigNumber.from(ONE_MILLION), this.usdc);
 
-      // maker add liquidity at ratio
-      await this.clearingHouse.connect(maker.wallet).addLiquidity({
-          baseToken: this.baseToken.address,
-          base: baseTokenAmount,
-          quote: quoteTokenAmount,
-          lowerTick,
-          upperTick,
-          minBase: 0,
-          minQuote: 0,
-          deadline: constants.MaxUint256,
-      });
+    // maker add liquidity at ratio
+    await this.clearingHouse.connect(maker.wallet).addLiquidity({
+      baseToken: this.baseToken.address,
+      base: baseTokenAmount,
+      quote: quoteTokenAmount,
+      lowerTick,
+      upperTick,
+      minBase: 0,
+      minQuote: 0,
+      deadline: constants.MaxUint256,
+    });
   }
 
   public async setBaseTokenOraclePrice(price: string): Promise<void> {
@@ -316,16 +315,16 @@ export class PerpV2Fixture {
       baseToken: randomToken0,
       mockAggregator: randomMockAggregator0,
     } = await this._createBaseTokenFixture(
-        "RandomTestToken0",
-        "randomToken0",
+      "RandomTestToken0",
+      "randomToken0",
     );
 
     const {
       baseToken: randomToken1,
       mockAggregator: randomMockAggregator1,
     } = await this._createBaseTokenFixture(
-        "RandomTestToken1",
-        "randomToken1",
+      "RandomTestToken1",
+      "randomToken1",
     );
 
     let token0: PerpV2BaseToken;
@@ -334,25 +333,25 @@ export class PerpV2Fixture {
     let mockAggregator1: ChainlinkAggregatorMock;
 
     if (this._isAscendingTokenOrder(randomToken0.address, randomToken1.address)) {
-        token0 = randomToken0;
-        mockAggregator0 = randomMockAggregator0;
-        token1 = randomToken1 as PerpV2VirtualToken as PerpV2QuoteToken;
-        mockAggregator1 = randomMockAggregator1;
+      token0 = randomToken0;
+      mockAggregator0 = randomMockAggregator0;
+      token1 = randomToken1 as PerpV2VirtualToken as PerpV2QuoteToken;
+      mockAggregator1 = randomMockAggregator1;
     } else {
-        token0 = randomToken1;
-        mockAggregator0 = randomMockAggregator1;
-        token1 = randomToken0 as PerpV2VirtualToken as PerpV2QuoteToken;
-        mockAggregator1 = randomMockAggregator0;
+      token0 = randomToken1;
+      mockAggregator0 = randomMockAggregator1;
+      token1 = randomToken0 as PerpV2VirtualToken as PerpV2QuoteToken;
+      mockAggregator1 = randomMockAggregator0;
     }
     return {
-        token0,
-        mockAggregator0,
-        token1,
-        mockAggregator1,
+      token0,
+      mockAggregator0,
+      token1,
+      mockAggregator1,
     };
   }
 
   private _isAscendingTokenOrder(addr0: string, addr1: string): boolean {
-      return addr0.toLowerCase() < addr1.toLowerCase();
+    return addr0.toLowerCase() < addr1.toLowerCase();
   }
 }

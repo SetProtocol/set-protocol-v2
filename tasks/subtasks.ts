@@ -53,6 +53,6 @@ subtask(TASK_TYPECHAIN_GENERATE_TYPES)
       fs.outputFileSync(item.artifactPath, JSON.stringify(item.artifact, undefined, "  "));
     }
   }
-);
+  );
 
 export {};
