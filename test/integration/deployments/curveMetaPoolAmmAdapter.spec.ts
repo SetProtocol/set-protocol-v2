@@ -135,7 +135,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     let subjectComponents: Address[];
 
     beforeEach(async () => {
-      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
+      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
       subjectComponents = [curveAmmSetup.mim.address, curveAmmSetup.threeCrv.address];
     });
 
@@ -181,7 +181,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     let subjectMinLiquidity: BigNumber;
 
     before(async () => {
-      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
+      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
       subjectComponent = curveAmmSetup.mim.address;
       subjectMaxTokenIn = ether(1);
       subjectMinLiquidity = ether(1);
@@ -206,7 +206,11 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
       ]);
 
       expect(JSON.stringify(calldata)).to.eq(
-        JSON.stringify([curveAmmSetup.mim3CRVFactoryMetapool.address, ZERO, expectedCallData]),
+        JSON.stringify([
+          curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address,
+          ZERO,
+          expectedCallData,
+        ]),
       );
     });
   });
@@ -219,7 +223,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     let subjectLiquidity: BigNumber;
 
     before(async () => {
-      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
+      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
       subjectComponent = curveAmmSetup.threeCrv.address;
       subjectComponentIndex = 1;
       subjectMinTokenOut = ether(1);
@@ -249,7 +253,11 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
       );
 
       expect(JSON.stringify(calldata)).to.eq(
-        JSON.stringify([curveAmmSetup.mim3CRVFactoryMetapool.address, ZERO, expectedCallData]),
+        JSON.stringify([
+          curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address,
+          ZERO,
+          expectedCallData,
+        ]),
       );
     });
   });
@@ -261,8 +269,8 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     let subjectMinLiquidity: BigNumber;
 
     beforeEach(async () => {
-      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
-      subjectComponents = curveAmmSetup.underlying;
+      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
+      subjectComponents = curveAmmSetup.mim3CRVFactoryMetapoolSetup.underlying;
       subjectMaxTokensIn = [ether(1), ether(1)];
       subjectMinLiquidity = ether(1);
     });
@@ -286,7 +294,11 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
       ]);
 
       expect(JSON.stringify(calldata)).to.eq(
-        JSON.stringify([curveAmmSetup.mim3CRVFactoryMetapool.address, ZERO, expectedCallData]),
+        JSON.stringify([
+          curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address,
+          ZERO,
+          expectedCallData,
+        ]),
       );
     });
   });
@@ -298,8 +310,8 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     let subjectLiquidity: BigNumber;
 
     beforeEach(async () => {
-      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
-      subjectComponents = curveAmmSetup.underlying;
+      subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
+      subjectComponents = curveAmmSetup.mim3CRVFactoryMetapoolSetup.underlying;
       subjectMinTokensOut = [ether(1), ether(1)];
       subjectLiquidity = ether(2);
     });
@@ -324,7 +336,11 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
       ]);
 
       expect(JSON.stringify(calldata)).to.eq(
-        JSON.stringify([curveAmmSetup.mim3CRVFactoryMetapool.address, ZERO, expectedCallData]),
+        JSON.stringify([
+          curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address,
+          ZERO,
+          expectedCallData,
+        ]),
       );
     });
   });
@@ -354,10 +370,10 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         await curveAmmSetup.threeCrv
           .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
+          .approve(curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address, parseEther("1000"));
         await curveAmmSetup.mim
           .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
+          .approve(curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address, parseEther("1000"));
 
         // Mint some instances of the SetToken
         await setup.approveAndIssueSetToken(setToken, ether(1));
@@ -376,7 +392,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         beforeEach(async () => {
           subjectSetToken = setToken.address;
           subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
-          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
+          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
           subjectComponentsToInput = [curveAmmSetup.mim.address, curveAmmSetup.threeCrv.address];
           subjectMaxComponentQuantities = [ether(1), ether(1)]; // tokens in
           subjectCaller = owner;
@@ -396,7 +412,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         it("should mint the liquidity token to the caller", async () => {
           await subject();
-          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapool.balanceOf(
+          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.balanceOf(
             subjectSetToken,
           );
           expect(liquidityTokenBalance).to.eq(subjectMinPoolTokensToMint);
@@ -412,7 +428,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         describe("when the pool address is invalid", async () => {
           beforeEach(async () => {
-            subjectAmmPool = curveAmmSetup.otherPoolToken.address;
+            subjectAmmPool = setup.wbtc.address;
           });
 
           it("should revert", async () => {
@@ -491,13 +507,13 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         await curveAmmSetup.threeCrv
           .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
+          .approve(curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address, parseEther("1000"));
         await curveAmmSetup.mim
           .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
+          .approve(curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address, parseEther("1000"));
 
         // Add some liquidity to haave enough pool Token to issue the first setToken
-        await curveAmmSetup.mim3CRVFactoryMetapool
+        await curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool
           .connect(owner.wallet)
           ["add_liquidity(uint256[2],uint256,address)"]([0, parseEther("10")], 0, owner.address);
 
@@ -518,7 +534,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         beforeEach(async () => {
           subjectSetToken = setToken.address;
           subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
-          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
+          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
           subjectMinLiquidity = parseEther("1.021669737060627784"); // min lp-token out
           subjectComponent = curveAmmSetup.threeCrv.address;
           subjectMaxTokenIn = ether(1); // tokens in
@@ -538,7 +554,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         it("should mint the liquidity token to the caller", async () => {
           await subject();
-          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapool.balanceOf(
+          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.balanceOf(
             subjectSetToken,
           );
           expect(liquidityTokenBalance).to.eq(subjectMinLiquidity);
@@ -558,7 +574,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         describe("when the pool address is invalid", async () => {
           beforeEach(async () => {
-            subjectAmmPool = curveAmmSetup.otherPoolToken.address;
+            subjectAmmPool = setup.wbtc.address;
           });
 
           it("should revert", async () => {
@@ -604,7 +620,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
       before(async () => {
         // Deploy a standard SetToken with the AMM Module
         setToken = await setup.createSetToken(
-          [curveAmmSetup.poolToken.address],
+          [curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.address],
           [ether(3)],
           [setup.issuanceModule.address, ammModule.address],
         );
@@ -617,13 +633,13 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         await curveAmmSetup.threeCrv
           .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
+          .approve(curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address, parseEther("1000"));
         await curveAmmSetup.mim
           .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
+          .approve(curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address, parseEther("1000"));
 
         // Add some liquidity to have enough pool Token to issue the first setToken
-        await curveAmmSetup.mim3CRVFactoryMetapool
+        await curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool
           .connect(owner.wallet)
           ["add_liquidity(uint256[2],uint256,address)"]([0, parseEther("10")], 0, owner.address);
 
@@ -644,7 +660,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         beforeEach(async () => {
           subjectSetToken = setToken.address;
           subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
-          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
+          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
           subjectPoolTokens = ether(3);
           subjectComponentsToOutput = [curveAmmSetup.mim.address, curveAmmSetup.threeCrv.address];
           subjectMinComponentQuantities = [ether(1), ether(1)];
@@ -665,12 +681,12 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         }
 
         it("should reduce the liquidity token of the caller", async () => {
-          const previousLiquidityTokenBalance = await curveAmmSetup.poolToken.balanceOf(
+          const previousLiquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.balanceOf(
             subjectSetToken,
           );
 
           await subject();
-          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapool.balanceOf(
+          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.balanceOf(
             subjectSetToken,
           );
           const expectedLiquidityBalance = previousLiquidityTokenBalance.sub(subjectPoolTokens);
@@ -771,10 +787,10 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     });
 
     context("when there is a deployed SetToken with enabled AmmModule", async () => {
-      beforeEach(async () => {
+      before(async () => {
         // Deploy a standard SetToken with the AMM Module
         setToken = await setup.createSetToken(
-          [curveAmmSetup.poolToken.address],
+          [curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.address],
           [ether(2)],
           [setup.issuanceModule.address, ammModule.address],
         );
@@ -785,46 +801,30 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
         await sendTokenToOwner(threeCrvWhale, curveAmmSetup.threeCrv);
         await sendTokenToOwner(mimWhale, curveAmmSetup.mim);
 
-        await curveAmmSetup.threeCrv
-          .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
-        await curveAmmSetup.mim
-          .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
-        await curveAmmSetup.poolToken
-          .connect(owner.wallet)
-          .approve(curveAmmSetup.mim3CRVFactoryMetapool.address, parseEther("1000"));
-
-        // Add some liquidity to haave enough pool Token to issue the first setToken
-        await curveAmmSetup.mim3CRVFactoryMetapool
+        // Add some liquidity to have enough pool Token to issue the first setToken
+        await curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool
           .connect(owner.wallet)
           ["add_liquidity(uint256[2],uint256,address)"]([0, parseEther("10")], 0, owner.address);
 
         // Mint some instances of the SetToken
         await setup.approveAndIssueSetToken(setToken, ether(1));
-        await setup.integrationRegistry.addIntegration(
-          ammModule.address,
-          "CURVEMETAPOOLAMMADAPTER",
-          curveAmmSetup.curveMetapoolAmmAdapter.address,
-        );
       });
 
-      describe.skip("#removeLiquiditySingleASset", async () => {
-        let subjectAmmPool: Address;
+      describe("#removeLiquiditySingleAsset", async () => {
         let subjectComponent: Address;
-        let subjectMaxTokenIn: BigNumber;
-        let subjectMinLiquidity: BigNumber;
-        let expectedOutputAmount: BigNumber;
+        let subjectTokenIn: BigNumber;
+        let subjectMinTokenOut: BigNumber;
+        let expectedOutput: BigNumber;
 
         beforeEach(async () => {
           subjectSetToken = setToken.address;
           subjectIntegrationName = "CURVEMETAPOOLAMMADAPTER";
-          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapool.address;
-          subjectMaxTokenIn = ether(1);
+          subjectAmmPool = curveAmmSetup.mim3CRVFactoryMetapoolSetup.pool.address;
+          subjectTokenIn = ether(1); // lp tokens to burn
           subjectComponent = curveAmmSetup.threeCrv.address;
+          subjectMinTokenOut = ether(0.5); // min tokens to receive
           subjectCaller = owner;
-          subjectMinLiquidity = ether(1);
-          expectedOutputAmount = parseEther("1.021669737060627784");
+          expectedOutput = parseEther("0.978380022521669874");
         });
 
         async function subject(): Promise<any> {
@@ -832,19 +832,23 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
             subjectSetToken,
             subjectIntegrationName,
             subjectAmmPool,
-            subjectMinLiquidity,
+            subjectTokenIn,
             subjectComponent,
-            subjectMaxTokenIn,
-            { gasLimit: 9000000 },
+            subjectMinTokenOut,
           );
         }
 
-        it("should mint the liquidity token to the caller", async () => {
-          await subject();
-          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapool.balanceOf(
+        it("should reduce the liquidity token of the caller", async () => {
+          const previousLiquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.balanceOf(
             subjectSetToken,
           );
-          expect(liquidityTokenBalance).to.eq(expectedOutputAmount);
+
+          await subject();
+          const liquidityTokenBalance = await curveAmmSetup.mim3CRVFactoryMetapoolSetup.lpToken.balanceOf(
+            subjectSetToken,
+          );
+          const expectedLiquidityBalance = previousLiquidityTokenBalance.sub(subjectTokenIn);
+          expect(liquidityTokenBalance).to.eq(expectedLiquidityBalance);
         });
 
         it("should update the positions properly", async () => {
@@ -852,16 +856,16 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
           const positions = await setToken.getPositions();
           expect(positions.length).to.eq(2);
           expect(positions[0].component.toLowerCase()).to.eq(
-            curveAmmSetup.mim.address.toLowerCase(),
+            subjectAmmPool.toLowerCase(),
           );
           expect(positions[0].unit).to.eq(ether(1));
-          expect(positions[1].component.toLowerCase()).to.eq(subjectAmmPool.toLowerCase());
-          expect(positions[1].unit).to.eq(expectedOutputAmount);
+          expect(positions[1].component.toLowerCase()).to.eq(curveAmmSetup.threeCrv.address.toLowerCase());
+          expect(positions[1].unit).to.eq(expectedOutput);
         });
 
         describe("when the pool address is invalid", async () => {
           beforeEach(async () => {
-            subjectAmmPool = curveAmmSetup.otherPoolToken.address;
+            subjectAmmPool = setup.wbtc.address;
           });
 
           it("should revert", async () => {
@@ -881,7 +885,7 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
 
         describe("when tokens in is 0", async () => {
           beforeEach(async () => {
-            subjectMaxTokenIn = ZERO;
+            subjectTokenIn = ZERO;
           });
 
           it("should revert", async () => {
@@ -889,13 +893,13 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
           });
         });
 
-        describe("when the _minLiquidity is 0", async () => {
+        describe("when the minTokenOut is 0", async () => {
           beforeEach(async () => {
-            subjectMinLiquidity = ZERO;
+            subjectMinTokenOut = ZERO;
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Token quantity must be nonzero");
+            await expect(subject()).to.be.revertedWith("Component quantity must be nonzero");
           });
         });
 
@@ -906,14 +910,8 @@ describe("CurveMetaPoolAmmAdapter [@forked-mainnet]", () => {
     function shouldRevertIfPoolIsNotSupported(subject: any) {
       it("should revert when the pool is not supported on the adapter", async () => {
         subjectAmmPool = setup.wbtc.address;
-        console.log(
-          await curveAmmSetup.curveMetapoolAmmAdapter.isValidPool(subjectAmmPool, [
-            curveAmmSetup.threeCrv.address,
-          ]),
-        );
         await expect(subject()).to.be.revertedWith("Pool token must be enabled on the Adapter");
       });
     }
-
   });
 });
