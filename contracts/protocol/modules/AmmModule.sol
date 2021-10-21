@@ -339,7 +339,7 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
         actionInfo.preActionComponentBalances = _getTokenBalances(address(_setToken), _components);
 
         actionInfo.liquidityQuantity = actionInfo.totalSupply.getDefaultTotalNotional(_poolTokenInPositionUnit);
-                                       
+              
         actionInfo.totalNotionalComponents = _getTotalNotionalComponents(_setToken, _componentUnits);
 
         actionInfo.componentUnits = _componentUnits;

@@ -78,6 +78,7 @@ contract CurveMetaPoolAmmAdapter is IAmmAdapter {
         override
         returns (address, uint256, bytes memory)
     {
+        require(_maxTokenIn > 0, "tokens in must be nonzero");
         uint256 tokenIndex = _getTokenIndex(_pool, _component);
 
         uint256[2] memory inputAmounts;
