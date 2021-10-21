@@ -77,8 +77,8 @@ export class CompoundFixture {
 
     // deploy Interest rate model
     this.interestRateModel = await this._deployer.external.deployWhitePaperInterestRateModel(
-        ether(1), // To change
-        ether(1), // To change
+      ether(1), // To change
+      ether(1), // To change
     );
 
     // Deploy COMP governance

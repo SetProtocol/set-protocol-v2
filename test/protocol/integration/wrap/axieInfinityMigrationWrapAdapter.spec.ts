@@ -95,13 +95,13 @@ describe("AxieInfinityMigrationWrapAdapter", () => {
     });
 
     it("should have the correct new AXS token address", async () => {
-        const deployedAxieMigrationWrapAdapter = await subject();
+      const deployedAxieMigrationWrapAdapter = await subject();
 
-        const newAxsToken = await deployedAxieMigrationWrapAdapter.newToken();
-        const expectedNewAxsToken = subjectNewAxsToken;
+      const newAxsToken = await deployedAxieMigrationWrapAdapter.newToken();
+      const expectedNewAxsToken = subjectNewAxsToken;
 
-        expect(newAxsToken).to.eq(expectedNewAxsToken);
-      });
+      expect(newAxsToken).to.eq(expectedNewAxsToken);
+    });
   });
 
   describe("#swapTokenUsingAdapter", async () => {

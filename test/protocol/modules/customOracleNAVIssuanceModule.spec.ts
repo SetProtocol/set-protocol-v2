@@ -161,7 +161,9 @@ describe("CustomOracleNavIssuanceModule", () => {
     });
 
     context("when using the default valuer", () => {
-      before(async() => {setValuerAddress = ADDRESS_ZERO; });
+      before(async() => {
+        setValuerAddress = ADDRESS_ZERO;
+      });
       it("should set the correct NAV issuance settings", async () => {
         await subject();
 

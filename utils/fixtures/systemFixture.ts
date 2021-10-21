@@ -88,7 +88,7 @@ export class SystemFixture {
       [],
       [this.weth.address, this.usdc.address, this.wbtc.address, this.dai.address],
       [this.usdc.address, this.usdc.address, this.usdc.address, this.usdc.address],
-    [
+      [
         this.ETH_USD_Oracle.address,
         this.USD_USD_Oracle.address,
         this.BTC_USD_Oracle.address,

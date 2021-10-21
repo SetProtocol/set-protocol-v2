@@ -561,7 +561,7 @@ describe("DebtIssuanceModule", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+          const [, equityFlows ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
           await setup.weth.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
 
           subjectSetToken = setToken.address;
@@ -803,7 +803,7 @@ describe("DebtIssuanceModule", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
+          const [, equityFlows ] = await debtIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
           await setup.weth.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
 
           await debtIssuance.issue(setToken.address, ether(1), owner.address);

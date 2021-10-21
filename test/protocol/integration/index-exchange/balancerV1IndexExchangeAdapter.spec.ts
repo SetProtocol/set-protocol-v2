@@ -62,7 +62,7 @@ describe("BalancerV1IndexExchangeAdapter", () => {
     let subjectBalancerProxyAddress: Address;
 
     beforeEach(async () => {
-        subjectBalancerProxyAddress = balancerSetup.exchange.address;
+      subjectBalancerProxyAddress = balancerSetup.exchange.address;
     });
 
     async function subject(): Promise<any> {

@@ -1043,7 +1043,7 @@ describe("GeneralIndexModule", () => {
           });
 
           it("emits the correct TradeExecuted event", async () => {
-            const [expectedIn, ] = await sushiswapSetup.router.getAmountsIn(
+            const [expectedIn ] = await sushiswapSetup.router.getAmountsIn(
               bitcoin(.1),
               [setup.weth.address, setup.wbtc.address]
             );
@@ -1242,7 +1242,7 @@ describe("GeneralIndexModule", () => {
 
             it("the position units and lastTradeTimestamp should be set as expected", async () => {
               const amountOut = bitcoin(0.1);
-              const [expectedIn, ] = await kyberV3Setup.dmmRouter.getAmountsIn(
+              const [expectedIn ] = await kyberV3Setup.dmmRouter.getAmountsIn(
                 amountOut,
                 [kyberV3Setup.wethWbtcPool.address],
                 [setup.weth.address, setup.wbtc.address]
@@ -1295,7 +1295,7 @@ describe("GeneralIndexModule", () => {
         describe("when exchange takes more than maximum input eth amount, while buying component", async () => {
           beforeEach(async () => {
             subjectComponent = setup.wbtc.address;
-            const [expectedIn, ] = await sushiswapSetup.router.getAmountsOut(
+            const [expectedIn ] = await sushiswapSetup.router.getAmountsOut(
               bitcoin(.1),
               [setup.wbtc.address, setup.weth.address]
             );
@@ -2814,7 +2814,7 @@ describe("GeneralIndexModule", () => {
       }
 
       describe("removal", async () => {
-        async function subject(andRestore?: boolean): Promise<any> {
+        async function subject(): Promise<any> {
           return subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
         }
 
@@ -2839,7 +2839,7 @@ describe("GeneralIndexModule", () => {
           );
         });
 
-        async function subject(andRestore?: boolean): Promise<any> {
+        async function subject(): Promise<any> {
           await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
           await restoreModule();
         }
@@ -2890,7 +2890,7 @@ describe("GeneralIndexModule", () => {
           await indexModule.setRaiseTargetPercentage(subjectSetToken.address, MAX_UINT_256);
         });
 
-        async function subject(andRestore?: boolean): Promise<any> {
+        async function subject(): Promise<any> {
           await subjectSetToken.connect(subjectCaller.wallet).removeModule(indexModule.address);
           await restoreModule();
         }

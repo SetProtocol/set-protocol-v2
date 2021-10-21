@@ -60,6 +60,9 @@ const getForkedDependencyAddresses = (): any => {
 // Mainnet token instances connected their impersonated
 // top holders to enable approval / transfer etc.
 export const getForkedTokens = (): ForkedTokens => {
+
+  // (eslint is confused by typescript enum keyword)
+  // eslint-disable-next-line no-unused-vars
   const enum ids { DAI, WETH, WBTC, USDC }
   const { whales, tokens } = getForkedDependencyAddresses();
 

@@ -1057,22 +1057,22 @@ describe("ZeroExApiAdapter", () => {
       }
 
       it("permits any destination address when recipient is null", async () => {
-          const path = [sourceToken, destToken];
+        const path = [sourceToken, destToken];
 
-          const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
-            encodePath(path),
-            sourceQuantity,
-            minDestinationQuantity,
-            ADDRESS_ZERO,
-          ]);
-          await zeroExApiAdapter.getTradeCalldata(
-            sourceToken,
-            destToken,
-            destination,
-            sourceQuantity,
-            minDestinationQuantity,
-            data,
-          );
+        const data = zeroExMock.interface.encodeFunctionData("sellTokenForTokenToUniswapV3", [
+          encodePath(path),
+          sourceQuantity,
+          minDestinationQuantity,
+          ADDRESS_ZERO,
+        ]);
+        await zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
       });
 
       it("rejects wrong input token", async () => {

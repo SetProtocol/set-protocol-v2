@@ -29,7 +29,7 @@ const expect = getWaffleExpect();
 
 async function getReserves(pair: UniswapV2Pair, token: string): Promise<[BigNumber, BigNumber]> {
   const token0 = await pair.token0();
-  const [reserve0, reserve1, ] = await pair.getReserves();
+  const [reserve0, reserve1 ] = await pair.getReserves();
   return token0 == token ? [reserve0, reserve1] : [reserve1, reserve0];
 }
 
@@ -330,53 +330,53 @@ describe("UniswapV2AmmAdapter", () => {
     });
 
     async function subject(): Promise<any> {
-        return await uniswapV2AmmAdapter.getRemoveLiquidityCalldata(
-            owner.address,
-            subjectAmmPool,
-            subjectComponents,
-            subjectMinTokensOut,
-            subjectLiquidity);
+      return await uniswapV2AmmAdapter.getRemoveLiquidityCalldata(
+        owner.address,
+        subjectAmmPool,
+        subjectComponents,
+        subjectMinTokensOut,
+        subjectLiquidity);
     }
 
     it("should return the correct remove liquidity calldata", async () => {
-        const calldata = await subject();
-        const blockTimestamp = await getLastBlockTimestamp();
+      const calldata = await subject();
+      const blockTimestamp = await getLastBlockTimestamp();
 
-        const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("removeLiquidity", [
-          setup.weth.address,
-          setup.dai.address,
-          subjectLiquidity,
-          subjectMinTokensOut[0],
-          subjectMinTokensOut[1],
-          owner.address,
-          blockTimestamp,
-        ]);
-        expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+      const expectedCallData = uniswapSetup.router.interface.encodeFunctionData("removeLiquidity", [
+        setup.weth.address,
+        setup.dai.address,
+        subjectLiquidity,
+        subjectMinTokensOut[0],
+        subjectMinTokensOut[1],
+        owner.address,
+        blockTimestamp,
+      ]);
+      expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapSetup.router.address, ZERO, expectedCallData]));
+    });
+
+    describe("when the _liquidity is more than available", async () => {
+      beforeEach(async () => {
+        subjectLiquidity = (await uniswapSetup.wethDaiPool.balanceOf(owner.address)).add(ether(1));
       });
 
-      describe("when the _liquidity is more than available", async () => {
-        beforeEach(async () => {
-          subjectLiquidity = (await uniswapSetup.wethDaiPool.balanceOf(owner.address)).add(ether(1));
-        });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("_liquidity must be <= to current balance");
+      });
+    });
 
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("_liquidity must be <= to current balance");
-        });
+    describe("when the _minTokensOut is too high", async () => {
+      beforeEach(async () => {
+        const balance = await uniswapSetup.wethDaiPool.balanceOf(owner.address);
+        const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
+        const [reserveA ] = await getReserves(uniswapSetup.wethDaiPool, setup.weth.address);
+        const tooMuchEth = balance.mul(reserveA).div(totalSupply).add(ether(1));
+        subjectMinTokensOut = [tooMuchEth, subjectMinTokensOut[1]];
       });
 
-      describe("when the _minTokensOut is too high", async () => {
-        beforeEach(async () => {
-          const balance = await uniswapSetup.wethDaiPool.balanceOf(owner.address);
-          const totalSupply = await uniswapSetup.wethDaiPool.totalSupply();
-          const [reserveA, ] = await getReserves(uniswapSetup.wethDaiPool, setup.weth.address);
-          const tooMuchEth = balance.mul(reserveA).div(totalSupply).add(ether(1));
-          subjectMinTokensOut = [tooMuchEth, subjectMinTokensOut[1]];
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("amounts must be <= ownedTokens");
-        });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("amounts must be <= ownedTokens");
       });
+    });
   });
 
   context("Add and Remove Liquidity Tests", async () => {

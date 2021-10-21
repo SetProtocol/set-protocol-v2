@@ -48,6 +48,7 @@ const expect = getWaffleExpect();
 
 /**
  * Checks for |val2| <= |val1| < |val2| * 1.000001
+ *
  * @param val1 Value 1 with accrued interest
  * @param val2 Value 2
  */
