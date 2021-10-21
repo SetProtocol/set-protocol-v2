@@ -8,3 +8,4 @@ export { SystemFixture } from "./systemFixture";
 export { UniswapFixture } from "./uniswapFixture";
 export { UniswapV3Fixture } from "./uniswapV3Fixture";
 export { YearnFixture } from "./yearnFixture";
+export { PerpV2Fixture } from "./perpV2Fixture";

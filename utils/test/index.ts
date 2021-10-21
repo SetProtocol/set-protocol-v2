@@ -12,7 +12,8 @@ import {
   SystemFixture,
   UniswapFixture,
   YearnFixture,
-  UniswapV3Fixture
+  UniswapV3Fixture,
+  PerpV2Fixture
 } from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
 
@@ -30,6 +31,7 @@ export const getKyberV3DMMFixture = (ownerAddress: Address) => new KyberV3DMMFix
 export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(provider, ownerAddress);
 export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
 export const getUniswapV3Fixture = (ownerAddress: Address) => new UniswapV3Fixture(provider, ownerAddress);
+export const getPerpV2Fixture = (ownerAddress: Address) => new PerpV2Fixture(provider, ownerAddress);
 
 export { ForkedTokens } from "./types";
 

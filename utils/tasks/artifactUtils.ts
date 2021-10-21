@@ -40,3 +40,22 @@ export function addGasToAbiMethods(
 
   return modifiedAbi;
 }
+
+// Removes gas field from ABI. Useful when temporarily modifying external artifacts
+// that have variable gas requirements depending on use context (e.g coverage, different networks)
+export function removeGasFromAbiMethods(abi: any[]) {
+  const modifiedAbi: any[] = [];
+
+  for (const abiElement of abi) {
+    if (abiElement.type !== "function") {
+      modifiedAbi.push(abiElement);
+      continue;
+    }
+
+    delete abiElement.gas;
+
+    modifiedAbi.push(abiElement);
+  }
+
+  return modifiedAbi;
+}

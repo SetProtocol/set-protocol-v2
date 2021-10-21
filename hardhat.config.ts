@@ -68,6 +68,13 @@ const config: HardhatUserConfig = {
     externalArtifacts: ["external/**/*.json"],
   },
   mocha: mochaConfig,
+
+  // These are external artifacts we don't compile but would like to improve
+  // test performance for by hardcoding the gas into the abi at runtime
+  // @ts-ignore
+  externalGasMods: [
+    "external/abi/perp",
+  ],
 };
 
 function getHardhatPrivateKeys() {
