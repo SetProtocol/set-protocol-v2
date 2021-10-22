@@ -36,7 +36,7 @@ export class YearnFixture {
     // https://github.com/yearn/yearn-vaults/blob/master/docs/OPERATIONS.md
     const emptyVault = await this._deployer.external.deployVault();
     await emptyVault["initialize(address,address,address,string,string,address)"]
-      (underlying, governance, rewards, name, symbol, guardian);
+    (underlying, governance, rewards, name, symbol, guardian);
 
     await emptyVault.setGovernance(this._ownerAddress);
     await emptyVault.acceptGovernance();

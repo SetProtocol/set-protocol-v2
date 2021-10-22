@@ -181,10 +181,10 @@ describe("UniswapV2ExchangeGeneralIndexModule", () => {
     cacheBeforeEach(async () => {
       await initSetToken(
         index,
-       [setup.wbtc.address, setup.dai.address],
-       [bitcoin(1000), ether(100000)],
-       [exchangeAdapterName, exchangeAdapterName],
-       [ZERO, ZERO]
+        [setup.wbtc.address, setup.dai.address],
+        [bitcoin(1000), ether(100000)],
+        [exchangeAdapterName, exchangeAdapterName],
+        [ZERO, ZERO]
       );
     });
 

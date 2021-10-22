@@ -278,7 +278,7 @@ describe("CompoundLeverageModule", () => {
 
       if (isAllowlisted) {
         // Add SetToken to allow list
-          await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
+        await compoundLeverageModule.updateAllowedSetToken(setToken.address, true);
       }
     };
 

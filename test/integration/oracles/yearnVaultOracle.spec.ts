@@ -123,8 +123,8 @@ describe("YearnVaultOracle", () => {
     it("returns the correct vault value", async () => {
       const result = await subject();
       const expectedResult = pricePerShare
-                              .mul(daiUsdcPrice)
-                              .div(daiFullUnit);
+        .mul(daiUsdcPrice)
+        .div(daiFullUnit);
       expect(result).to.eq(expectedResult);
     });
   });

@@ -17,6 +17,7 @@ export { AssetLimitHook } from "../../typechain/AssetLimitHook";
 export { AxieInfinityMigrationWrapAdapter } from "../../typechain/AxieInfinityMigrationWrapAdapter";
 export { BalancerV1IndexExchangeAdapter } from "../../typechain/BalancerV1IndexExchangeAdapter";
 export { BasicIssuanceModule } from "../../typechain/BasicIssuanceModule";
+export { ChainlinkAggregatorMock } from "../../typechain/ChainlinkAggregatorMock";
 export { ClaimAdapterMock } from "../../typechain/ClaimAdapterMock";
 export { ClaimModule } from "../../typechain/ClaimModule";
 export { Compound } from "../../typechain/Compound";

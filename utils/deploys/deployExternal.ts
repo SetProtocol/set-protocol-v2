@@ -152,9 +152,11 @@ import {
   UniswapV3Factory,
   NonfungiblePositionManager,
   Quoter,
-  NFTDescriptor
+  NFTDescriptor,
+  UniswapV3Pool
 } from "../contracts/uniswapV3";
 import { UniswapV3Factory__factory } from "../../typechain/factories/UniswapV3Factory__factory";
+import { UniswapV3Pool__factory } from "../../typechain/factories/UniswapV3Pool__factory";
 import { SwapRouter__factory } from "../../typechain/factories/SwapRouter__factory";
 import { NonfungiblePositionManager__factory } from "../../typechain/factories/NonfungiblePositionManager__factory";
 import { Quoter__factory } from "../../typechain/factories/Quoter__factory";
@@ -204,8 +206,36 @@ import { CurveAddressProvider__factory } from "@typechain/factories/CurveAddress
 import { CurveRegistry__factory } from "@typechain/factories/CurveRegistry__factory";
 import { CurveRegistry } from "@typechain/CurveRegistry";
 import { CurveAddressProvider } from "@typechain/CurveAddressProvider";
-import { MetapoolStableSwap__factory } from "@typechain/factories/MetapoolStableSwap__factory";
-import { MetapoolStableSwap } from "@typechain/MetapoolStableSwap";
+import {
+  PerpV2MarketRegistry,
+  PerpV2OrderBook,
+  PerpV2Quoter,
+  PerpV2QuoteToken,
+  PerpV2Vault,
+  PerpV2TestAggregatorV3,
+  PerpV2ChainlinkPriceFeed,
+  PerpV2BaseToken,
+  PerpV2ClearingHouse,
+  PerpV2ClearingHouseConfig,
+  PerpV2InsuranceFund,
+  PerpV2AccountBalance,
+  PerpV2Exchange
+} from "./../contracts/perpV2";
+
+import { PerpV2ClearingHouse__factory } from "../../typechain/factories/PerpV2ClearingHouse__factory";
+import { PerpV2MarketRegistry__factory } from "../../typechain/factories/PerpV2MarketRegistry__factory";
+import { PerpV2OrderBook__factory } from "../../typechain/factories/PerpV2OrderBook__factory";
+import { PerpV2Quoter__factory } from "../../typechain/factories/PerpV2Quoter__factory";
+import { PerpV2QuoteToken__factory } from "../../typechain/factories/PerpV2QuoteToken__factory";
+import { PerpV2Vault__factory } from "../../typechain/factories/PerpV2Vault__factory";
+import { PerpV2TestAggregatorV3__factory } from "../../typechain/factories/PerpV2TestAggregatorV3__factory";
+import { PerpV2ChainlinkPriceFeed__factory } from "../../typechain/factories/PerpV2ChainlinkPriceFeed__factory";
+import { PerpV2BaseToken__factory } from "../../typechain/factories/PerpV2BaseToken__factory";
+import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/PerpV2ClearingHouseConfig__factory";
+import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
+import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
+import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
+
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
 
@@ -692,7 +722,7 @@ export default class DeployExternalContracts {
     return UniswapV2Router02__factory.connect(_mainnetRouter, this._deployerSigner);
   }
 
-  public async deployUniswapV2Pair(_factory: Address, _weth: Address): Promise<UniswapV2Pair> {
+  public async deployUniswapV2Pair(): Promise<UniswapV2Pair> {
     return await new UniswapV2Pair__factory(this._deployerSigner).deploy();
   }
 
@@ -783,5 +813,63 @@ export default class DeployExternalContracts {
 
   public async deployNFTDescriptor(): Promise<NFTDescriptor> {
     return await new NFTDescriptor__factory(this._deployerSigner).deploy();
+  }
+
+  public async getUniswapV3PoolInstance(pool: Address): Promise<UniswapV3Pool> {
+    return await new UniswapV3Pool__factory(this._deployerSigner).attach(pool);
+  }
+
+  // PerpV2
+
+  public async deployPerpV2OrderBook(): Promise<PerpV2OrderBook> {
+    return await new PerpV2OrderBook__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2MarketRegistry(): Promise<PerpV2MarketRegistry> {
+    return await new PerpV2MarketRegistry__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2Quoter(): Promise<PerpV2Quoter> {
+    return await new PerpV2Quoter__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2QuoteToken(): Promise<PerpV2QuoteToken> {
+    return await new PerpV2QuoteToken__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2Vault(): Promise<PerpV2Vault> {
+    return await new PerpV2Vault__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2TestAggregatorV3(): Promise<PerpV2TestAggregatorV3> {
+    return await new PerpV2TestAggregatorV3__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2ChainlinkPriceFeed(): Promise<PerpV2ChainlinkPriceFeed> {
+    return await new PerpV2ChainlinkPriceFeed__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2BaseToken(): Promise<PerpV2BaseToken> {
+    return await new PerpV2BaseToken__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2ClearingHouseConfig(): Promise<PerpV2ClearingHouseConfig> {
+    return await new PerpV2ClearingHouseConfig__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2InsuranceFund(): Promise<PerpV2InsuranceFund> {
+    return await new PerpV2InsuranceFund__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2AccountBalance(): Promise<PerpV2AccountBalance> {
+    return await new PerpV2AccountBalance__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2Exchange(): Promise<PerpV2Exchange> {
+    return await new PerpV2Exchange__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPerpV2ClearingHouse(): Promise<PerpV2ClearingHouse> {
+    return await new PerpV2ClearingHouse__factory(this._deployerSigner).deploy();
   }
 }

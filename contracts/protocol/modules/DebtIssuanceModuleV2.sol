@@ -38,11 +38,13 @@ import { IssuanceValidationUtils } from "../lib/IssuanceValidationUtils.sol";
  * in the manager hook, as well as specify issue and redeem fees.
  * 
  * NOTE: 
- * DebtIssuanceModule contract confirmed increase/decrease in balance of component held by the SetToken after every transfer in/out
+ * DebtIssuanceModule contract confirms increase/decrease in balance of component held by the SetToken after every transfer in/out
  * for each component during issuance/redemption. This contract replaces those strict checks with slightly looser checks which 
  * ensure that the SetToken remains collateralized after every transfer in/out for each component during issuance/redemption.
  * This module should be used to issue/redeem SetToken whose one or more components return a balance value with +/-1 wei error.
  * For example, this module can be used to issue/redeem SetTokens which has one or more aTokens as its components.
+ * The new checks do NOT apply to any transfers that are part of an external position. A token that has rounding issues may lead to 
+ * reverts if it is included as an external position unless explicitly allowed in a module hook.
  */
 contract DebtIssuanceModuleV2 is DebtIssuanceModule {
     

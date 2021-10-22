@@ -75,12 +75,12 @@ describe("AGIMigrationWrapAdapter", () => {
     });
 
     it("should have the correct AGI token V2 (AGIX) address", async () => {
-        const agiMigrationWrapAdapter = await subject();
+      const agiMigrationWrapAdapter = await subject();
 
-        const agixToken = await agiMigrationWrapAdapter.agixToken();
-        const expectedAgixToken = subjectAgiTokenV2;
+      const agixToken = await agiMigrationWrapAdapter.agixToken();
+      const expectedAgixToken = subjectAgiTokenV2;
 
-        expect(agixToken).to.eq(expectedAgixToken);
+      expect(agixToken).to.eq(expectedAgixToken);
     });
   });
 

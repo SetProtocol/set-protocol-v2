@@ -6,7 +6,7 @@ let isFirstRun = true;
 export async function setupNativeSolc({ input }, { config }, runSuper) {
   let solcVersionOutput = "";
   try {
-    solcVersionOutput = execSync(`solc --version`).toString();
+    solcVersionOutput = execSync("solc --version").toString();
   } catch (error) {
     // Probably failed because solc wasn"t installed. We do nothing here.
   }
@@ -14,17 +14,17 @@ export async function setupNativeSolc({ input }, { config }, runSuper) {
   isFirstRun && console.log("Local native solc version: ", solcVersionOutput);
 
   if (!solcVersionOutput.includes(config.solidity.version)) {
-    isFirstRun && console.log(`Using solcjs`);
+    isFirstRun && console.log("Using solcjs");
     isFirstRun = false;
     return runSuper();
   }
 
-  isFirstRun && console.log(`Using native solc`);
+  isFirstRun && console.log("Using native solc");
   isFirstRun = false;
 
-  const output = execSync(`solc --standard-json`, {
+  const output = execSync("solc --standard-json", {
     input: JSON.stringify(input, undefined, 2),
   });
 
-  return JSON.parse(output.toString(`utf8`));
+  return JSON.parse(output.toString("utf8"));
 }

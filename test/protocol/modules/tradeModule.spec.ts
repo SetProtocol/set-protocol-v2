@@ -143,10 +143,10 @@ describe("TradeModule", () => {
     uniswapV3ExchangeAdapter = await deployer.adapters.deployUniswapV3ExchangeAdapter(uniswapV3Setup.swapRouter.address);
 
     zeroExMock = await deployer.mocks.deployZeroExMock(
-        setup.wbtc.address,
-        setup.weth.address,
-        BigNumber.from(100000000), // 1 WBTC
-        wbtcRate, // Trades for 33 WETH
+      setup.wbtc.address,
+      setup.weth.address,
+      BigNumber.from(100000000), // 1 WBTC
+      wbtcRate, // Trades for 33 WETH
     );
     zeroExApiAdapter = await deployer.adapters.deployZeroExApiAdapter(zeroExMock.address, setup.weth.address);
 

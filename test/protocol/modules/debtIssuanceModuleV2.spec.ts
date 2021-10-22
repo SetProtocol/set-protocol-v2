@@ -129,7 +129,7 @@ describe("DebtIssuanceModuleV2", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+          const [, equityFlows ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
           await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
 
           subjectSetToken = setToken.address;
@@ -371,7 +371,7 @@ describe("DebtIssuanceModuleV2", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
+          const [, equityFlows ] = await debtIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
           await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0].mul(ether(1.005)));
 
           await debtIssuance.issue(setToken.address, ether(1), owner.address);
@@ -607,7 +607,7 @@ describe("DebtIssuanceModuleV2", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+          const [, equityFlows ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
           // send exact amount
           await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0]);
 
@@ -704,7 +704,7 @@ describe("DebtIssuanceModuleV2", () => {
           await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
           await setup.dai.transfer(debtModule.address, ether(100.5));
 
-          const [, equityFlows, ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+          const [, equityFlows ] = await debtIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
           // Send exact amount
           await tokenWithRoundingError.approve(debtIssuance.address, equityFlows[0]);
 
