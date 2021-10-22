@@ -23,14 +23,12 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { IAmmAdapter } from "../../../interfaces/IAmmAdapter.sol";
 import { IMetapoolFactory } from "../../../interfaces/external/IMetapoolFactory.sol";
 import { IMetaPoolZap } from "../../../interfaces/external/IMetaPoolZap.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract CurveFactoryMetapoolAmmAdapter is IAmmAdapter {
     using SafeCast for uint256;
     using SafeCast for int256;
 
     IMetapoolFactory public metapoolFactory;
-    address public constant THREE_CRV = address(0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490);
 
     string public constant ADD_LIQUIDITY = "add_liquidity(uint256[2],uint256,address)";
     string public constant REMOVE_LIQUIDITY = "remove_liquidity(uint256,uint256[2],address)";
@@ -52,7 +50,6 @@ contract CurveFactoryMetapoolAmmAdapter is IAmmAdapter {
         override
         returns (address, uint256, bytes memory)
     {
-        require(_isValidPool(_pool, _components), "invalid pool");
         require(_maxTokensIn[0] > 0 && _maxTokensIn[1] > 0, "tokens in must be nonzero");
         uint256[2] memory inputAmounts = _convertUintArrayLiteral(_maxTokensIn);
 
@@ -106,8 +103,6 @@ contract CurveFactoryMetapoolAmmAdapter is IAmmAdapter {
         override
         returns (address, uint256, bytes memory)
     {
-        require(_isValidPool(_pool, _components), "invalid pool");
-
         uint256[2] memory outputAmounts = _convertUintArrayLiteral(_minTokensOut);
 
         bytes memory callData = abi.encodeWithSignature(
@@ -157,7 +152,7 @@ contract CurveFactoryMetapoolAmmAdapter is IAmmAdapter {
         address[2] memory expectedTokens = metapoolFactory.get_coins(_pool);
 
         for (uint256 i = 0; i < _components.length; i++) {
-            if ((_components[i] == expectedTokens[0] || _components[i] == expectedTokens[1]) == false) {
+            if (!(_components[i] == expectedTokens[0] || _components[i] == expectedTokens[1])) {
                 return false;
             }
         }
@@ -177,6 +172,5 @@ contract CurveFactoryMetapoolAmmAdapter is IAmmAdapter {
         for (uint256 i = 0; i < 2; i++) {
             if (underlying[i] == _token) return i;
         }
-        revert("token not in pool");
     }
 }
