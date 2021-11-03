@@ -188,6 +188,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
+        // TODO: Update externalPositionUnit for collateralToken ?
+
         emit LeverageIncreased(
             _setToken,
             _baseToken,
@@ -221,6 +223,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
+        // TODO: Update externalPositionUnit for collateralToken ?
+
         emit LeverageDecreased(
             _setToken,
             _baseToken,
@@ -247,6 +251,16 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         );
 
         _setToken.invokeDeposit(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
+
+
+        uint256 newDefaultTokenUnit = _setToken
+            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
+            .toUint256()
+            .sub(_collateralQuantityUnits);
+
+        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
+
+        // TODO: Update externalPositionUnit for collateralToken ?
     }
 
     function withdraw(
@@ -260,6 +274,15 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
 
         _setToken.invokeWithdraw(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
+
+        uint256 newDefaultTokenUnit = _setToken
+            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
+            .toUint256()
+            .add(_collateralQuantityUnits);
+
+        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
+
+        // TODO: Update externalPositionUnit for collateralToken ?
     }
 
     function setCollateralToken(
@@ -413,8 +436,12 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             realizedPnL;
 
         // Set the external position unit for DIM
-        int256 newPositionUnit = usdcToWithdraw.preciseDiv(setTokenQuantity);
-        _updateCollateralPosition(_setToken, collateralToken[_setToken], newPositionUnit.toUint256());
+        _setToken.editExternalPosition(
+            address(collateralToken[_setToken]),
+            address(this),
+            usdcToWithdraw.preciseDiv(setTokenQuantity),
+            ""
+        );
     }
 
 
@@ -519,15 +546,6 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         payProtocolFeeFromSetToken(_setToken, address(token), protocolFee);
         return protocolFee;
     }
-
-
-    /**
-     * @dev Updates default position unit for given aToken on SetToken
-     */
-    function _updateCollateralPosition(ISetToken _setToken, IERC20 collateral, uint256 _newPositionUnit) internal {
-        _setToken.editDefaultPosition(address(collateral), _newPositionUnit);
-    }
-
 
     function _createAndValidateActionInfo(
         ISetToken _setToken,
