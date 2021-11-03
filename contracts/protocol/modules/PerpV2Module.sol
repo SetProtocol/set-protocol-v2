@@ -176,8 +176,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _minReceiveQuantityUnits,
-            true
+            _minReceiveQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
@@ -210,8 +209,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _minReceiveQuantityUnits,
-            false
+            _minReceiveQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
@@ -306,7 +304,6 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
-        AccountInfo memory accountInfo = getAccountInfo(setToken);
         require(_getCollateralBalance(setToken) == 0);
 
         delete positions[setToken];
@@ -366,7 +363,6 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         override
         onlyModule(_setToken)
     {
-        uint256 deltaQuote = 0;
         int256 realizedPnL = 0;
         int256 setTokenQuantity = _setTokenQuantity.toInt256();
 
@@ -382,48 +378,23 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             int256 basePositionUnit = positionInfo[i].baseBalance.div(_setToken.totalSupply().toInt256());
             int256 baseTradeNotionalQuantity = _abs(setTokenQuantity.mul(basePositionUnit));
 
-            // Calculate amount quote will be reduced by
+            // Calculate amount quote debt will be reduced by
             int256 closeRatio = baseTradeNotionalQuantity.div(positionInfo[i].baseBalance);
             int256 reducedOpenNotional = positionInfo[i].quoteBalance.mul(closeRatio);
-            int256 openNotionalFraction = (positionInfo[i].quoteBalance * -1) + reducedOpenNotional;
+
             // Trade
-            bool isLong = basePositionUnit >= 0;
+            ActionInfo memory actionInfo = _createAndValidateActionInfo(
+                _setToken,
+                positionInfo[i].baseToken,
+                baseTradeNotionalQuantity,
+                0
+            );
 
-            if (isLong) {
-                ActionInfo memory actionInfo = ActionInfo({
-                    setToken: _setToken,
-                    baseToken: positionInfo[i].baseToken,
-                    isBaseToQuote: true,
-                    isExactInput: true,
-                    amount: baseTradeNotionalQuantity,
-                    oppositeAmountBound: 0,
-                    preTradeQuoteBalance: perpAccountBalance.getQuote(
-                        address(_setToken),
-                        address(positionInfo[i].baseToken)
-                    )
-                });
+            (,uint256 deltaQuote) = _executeTrade(actionInfo);
 
-                (,deltaQuote) = _executeTrade(actionInfo);
-
-            } else {
-                ActionInfo memory actionInfo = ActionInfo({
-                    setToken: _setToken,
-                    baseToken: positionInfo[i].baseToken,
-                    isBaseToQuote: false,
-                    isExactInput: false,
-                    amount: baseTradeNotionalQuantity,
-                    oppositeAmountBound: 0,
-                    preTradeQuoteBalance: perpAccountBalance.getQuote(
-                        address(_setToken),
-                        address(positionInfo[i].baseToken)
-                    )
-                });
-
-                (,deltaQuote) = _executeTrade(actionInfo);
-            }
-
-            // Calculate realized PnL and add to running total
-            if (isLong){
+            // Calculate realized PnL for and add to running total.
+            // When basePositionUnit is positive, position is long.
+            if (basePositionUnit >= 0){
                 realizedPnL += reducedOpenNotional + deltaQuote.toInt256();
             } else {
                 realizedPnL += reducedOpenNotional - deltaQuote.toInt256();
@@ -469,10 +440,10 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     /* ============ External Getter Functions ============ */
 
     function getPositionInfo(ISetToken _setToken) public view returns (PositionInfo[] memory) {
-        PositionInfo[] storage positionInfo;
+        PositionInfo[] memory positionInfo = new PositionInfo[](positions[_setToken].length);
 
         for(uint i = 0; i < positions[_setToken].length; i++){
-            PositionInfo memory info = PositionInfo({
+            positionInfo[i] = PositionInfo({
                 baseToken: positions[_setToken][i].baseToken,
                 baseBalance: perpAccountBalance.getBase(
                     address(_setToken),
@@ -483,8 +454,6 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
                     address(positions[_setToken][i].baseToken)
                 )
             });
-
-            positionInfo.push(info);
         }
 
         return positionInfo;
@@ -559,8 +528,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         ISetToken _setToken,
         IERC20 _baseToken,
         int256 _baseTokenQuantityUnits,
-        uint256 _minReceiveQuantityUnits,
-        bool _isLever
+        uint256 _minReceiveQuantityUnits
     )
         internal
         view
@@ -613,7 +581,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     /**
      * @dev Validate common requirements for lever and delever
      */
-    function _validateCommon(ActionInfo memory _actionInfo) internal view {
+    function _validateCommon(ActionInfo memory _actionInfo) internal pure {
         // TODO: other validations....
         require(_actionInfo.amount > 0, "Amount is 0");
     }
@@ -641,7 +609,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         uint256 _collateralQuantityUnits
     )
         internal
-        pure
+        view
         returns (uint256)
     {
         uint256 notionalQuantity = _collateralQuantityUnits.mul(_setToken.totalSupply());
@@ -662,11 +630,11 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     }
 
     function _formatCollateralToken(uint256 amount, uint8 decimals) internal pure returns (uint256) {
-        return amount.preciseDiv(10**(18 - decimals));
+        return amount.preciseDiv(10**(18 - uint(decimals)));
     }
 
     function _parseCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
-        return amount.mul(int256(10**(18 - decimals)));
+        return amount.mul(int256(10**(18 - uint(decimals))));
     }
 
     function _abs(int x) internal pure returns (int) {
