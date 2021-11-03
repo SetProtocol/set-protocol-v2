@@ -28,7 +28,7 @@ import { StreamingFeeModuleViewer } from "./StreamingFeeModuleViewer.sol";
  * @title ProtocolViewer
  * @author Set Protocol
  *
- * ProtocolViewer enables atch queries of various protocol state.
+ * ProtocolViewer enables batch queries of various protocol state.
  */
 contract ProtocolViewer is
     ERC20Viewer,
