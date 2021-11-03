@@ -65,7 +65,6 @@
     "@typescript-eslint/eslint-plugin-tslint": "^4.33.0",
     "@typescript-eslint/parser": "^4.33.0",
     "@uniswap/lib": "^4.0.1-alpha",
-    "@uniswap/v3-sdk": "^3.5.1",
     "chai": "^4.2.0",
     "coveralls": "^3.0.1",
     "dotenv": "^8.2.0",
@@ -76,7 +75,6 @@
     "hardhat": "^2.6.4",
     "husky": "^4.2.5",
     "istanbul-combine-updated": "^0.3.0",
-    "jsbi": "^3.2.5",
     "lint-staged": "^10.2.11",
     "lodash": "^4.17.4",
     "solc": "^0.6.10",
@@ -91,8 +89,10 @@
     "web3": "^1.2.9"
   },
   "dependencies": {
+    "@uniswap/v3-sdk": "^3.5.1",
     "ethers": "^5.4.6",
     "fs-extra": "^5.0.0",
+    "jsbi": "^3.2.5",
     "module-alias": "^2.2.2",
     "replace-in-file": "^6.1.0"
   },
