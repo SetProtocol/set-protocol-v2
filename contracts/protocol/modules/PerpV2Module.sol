@@ -39,6 +39,7 @@ import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 
 
 /**
@@ -51,12 +52,13 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
+    using AddressArrayUtils for address[];
 
     /* ============ Structs ============ */
 
     struct ActionInfo {
         ISetToken setToken;
-        IERC20 baseToken;
+        address baseToken;
         bool isBaseToQuote;
         bool isExactInput;
         int256 amount;
@@ -65,7 +67,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     }
 
     struct PositionInfo {
-        IERC20 baseToken;
+        address baseToken;
         int256 baseBalance;
         int256 quoteBalance;
     }
@@ -84,7 +86,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     event LeverageIncreased(
         ISetToken indexed _setToken,
-        IERC20 indexed _baseToken,
+        address indexed _baseToken,
         uint256 _deltaBase,
         uint256 _deltaQuote,
         uint256 _protocolFee
@@ -92,7 +94,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     event LeverageDecreased(
         ISetToken indexed _setToken,
-        IERC20 indexed _baseToken,
+        address indexed _baseToken,
         uint256 _deltaBase,
         uint256 _deltaQuote,
         uint256 _protocolFee
@@ -135,7 +137,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     IVault public immutable perpVault;
 
-    mapping(ISetToken => PositionInfo[]) public positions;
+    mapping(ISetToken => address[]) public positions;
 
     mapping(ISetToken => IERC20) public collateralToken;
 
@@ -167,7 +169,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     function lever(
         ISetToken _setToken,
-        IERC20 _baseToken,
+        address _baseToken,
         int256 _baseQuantityUnits,
         uint256 _minReceiveQuantityUnits
     )
@@ -189,6 +191,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
         // TODO: Update externalPositionUnit for collateralToken ?
+
+        _updatePositionList(_setToken, _baseToken);
 
         emit LeverageIncreased(
             _setToken,
@@ -202,7 +206,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     function delever(
         ISetToken _setToken,
-        IERC20 _baseToken,
+        address _baseToken,
         int256 _baseQuantityUnits,
         uint256 _minReceiveQuantityUnits
     )
@@ -224,6 +228,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
         // TODO: Update externalPositionUnit for collateralToken ?
+
+        _updatePositionList(_setToken, _baseToken);
 
         emit LeverageDecreased(
             _setToken,
@@ -474,14 +480,14 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         for(uint i = 0; i < positions[_setToken].length; i++){
             positionInfo[i] = PositionInfo({
-                baseToken: positions[_setToken][i].baseToken,
+                baseToken: positions[_setToken][i],
                 baseBalance: perpAccountBalance.getBase(
                     address(_setToken),
-                    address(positions[_setToken][i].baseToken)
+                    positions[_setToken][i]
                 ),
                 quoteBalance: perpAccountBalance.getQuote(
                     address(_setToken),
-                    address(positions[_setToken][i].baseToken)
+                    positions[_setToken][i]
                 )
             });
         }
@@ -517,7 +523,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     function _executeTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
         IClearingHouse.OpenPositionParams memory params = IClearingHouse.OpenPositionParams({
-            baseToken: address(_actionInfo.baseToken),
+            baseToken: _actionInfo.baseToken,
             isBaseToQuote: _actionInfo.isBaseToQuote,
             isExactInput: _actionInfo.isExactInput,
             amount: _actionInfo.amount.toUint256(),
@@ -549,7 +555,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     function _createAndValidateActionInfo(
         ISetToken _setToken,
-        IERC20 _baseToken,
+        address _baseToken,
         int256 _baseTokenQuantityUnits,
         uint256 _minReceiveQuantityUnits
     )
@@ -582,7 +588,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     function _createAndValidateActionInfoNotional(
         ISetToken _setToken,
-        IERC20 _baseToken,
+        address _baseToken,
         int256 _notionalBaseTokenQuantity,
         uint256 _minNotionalQuoteReceiveQuantity
     )
@@ -601,13 +607,27 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             oppositeAmountBound: _minNotionalQuoteReceiveQuantity,
             preTradeQuoteBalance: IAccountBalance(perpAccountBalance).getQuote(
                 address(_setToken),
-                address(_baseToken)
+                _baseToken
             )
         });
 
         _validateCommon(actionInfo);
 
         return actionInfo;
+    }
+
+    function _updatePositionList(ISetToken _setToken, address _baseToken) internal {
+        int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
+
+        // TODO: Add storage variants of contains, indexOf to AddressArrayUtils ?
+        address[] memory positionList = positions[_setToken];
+        bool baseTokenExists = positionList.contains(_baseToken);
+
+        if (baseTokenExists && baseBalance == 0) {
+            positions[_setToken].removeStorage(_baseToken);
+        }  else if (!baseTokenExists) {
+            positions[_setToken].push(_baseToken);
+        }
     }
 
     /**
