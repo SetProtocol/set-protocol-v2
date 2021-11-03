@@ -38,6 +38,8 @@ import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
+import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+
 
 /**
  * @title AaveLeverageModule
@@ -48,6 +50,7 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  */
 contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
+    using PreciseUnitMath for int256;
 
     /* ============ Structs ============ */
 
@@ -371,16 +374,16 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
         // Calculate already accrued PnL from non-issuance/redemption sources (ex: levering)
         int256 totalFundingAndCarriedPnL = accountInfo.pendingFundingPayments + accountInfo.owedRealizedPnL;
-        int256 owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL.div(_setToken.totalSupply().toInt256());
+        int256 owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL.preciseDiv(_setToken.totalSupply().toInt256());
 
         for (uint256 i = 0; i < positionInfo.length; i++) {
             // Calculate amount to trade
-            int256 basePositionUnit = positionInfo[i].baseBalance.div(_setToken.totalSupply().toInt256());
-            int256 baseTradeNotionalQuantity = _abs(setTokenQuantity.mul(basePositionUnit));
+            int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
+            int256 baseTradeNotionalQuantity = _abs(setTokenQuantity.preciseMul(basePositionUnit));
 
             // Calculate amount quote debt will be reduced by
-            int256 closeRatio = baseTradeNotionalQuantity.div(positionInfo[i].baseBalance);
-            int256 reducedOpenNotional = positionInfo[i].quoteBalance.mul(closeRatio);
+            int256 closeRatio = baseTradeNotionalQuantity.preciseDiv(positionInfo[i].baseBalance);
+            int256 reducedOpenNotional = positionInfo[i].quoteBalance.preciseMul(closeRatio);
 
             // Trade
             ActionInfo memory actionInfo = _createAndValidateActionInfo(
@@ -402,15 +405,15 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         }
 
         // Calculate amount of USDC to withdraw
-        int256 collateralPositionUnit = _getCollateralBalance(_setToken).div(_setToken.totalSupply().toInt256());
+        int256 collateralPositionUnit = _getCollateralBalance(_setToken).preciseDiv(_setToken.totalSupply().toInt256());
 
         int256 usdcToWithdraw =
-            collateralPositionUnit.mul(setTokenQuantity) +
-            owedRealizedPnLPositionUnit.mul(setTokenQuantity) +
+            collateralPositionUnit.preciseMul(setTokenQuantity) +
+            owedRealizedPnLPositionUnit.preciseMul(setTokenQuantity) +
             realizedPnL;
 
         // Set the external position unit for DIM
-        int256 newPositionUnit = usdcToWithdraw.div(setTokenQuantity);
+        int256 newPositionUnit = usdcToWithdraw.preciseDiv(setTokenQuantity);
         _updateCollateralPosition(_setToken, collateralToken[_setToken], newPositionUnit.toUint256());
     }
 
@@ -432,7 +435,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         bool /* isEquity */
     ) external override onlyModule(_setToken) {
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
-        uint256 usdcToWithdraw = _setTokenQuantity.mul(externalPositionUnit.toUint256());
+        uint256 usdcToWithdraw = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
         _setToken.invokeWithdraw(perpVault, _setToken, usdcToWithdraw);
     }
@@ -463,9 +466,11 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         (int256 owedRealizedPnL, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
 
         accountInfo = AccountInfo({
-            collateralBalance: perpVault.balanceOf(address(_setToken)),
+            collateralBalance: _getCollateralBalance(_setToken),
             owedRealizedPnL: owedRealizedPnL,
             pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)),
+
+            // TODO: think this is also in "settlement decimals"
             accountValue: perpClearingHouse.getAccountValue(address(_setToken)),
             marginRequirement: perpAccountBalance.getMarginRequirementForLiquidation(address(_setToken))
 
@@ -539,15 +544,24 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         return _createAndValidateActionInfoNotional(
             _setToken,
             _baseToken,
-            _baseTokenQuantityUnits.mul(totalSupply.toInt256()),
-            _minReceiveQuantityUnits.mul(totalSupply)
+            _baseTokenQuantityUnits.preciseMul(totalSupply.toInt256()),
+            _minReceiveQuantityUnits.preciseMul(totalSupply)
         );
     }
 
-    // Long,  lever:   buy Base (positive),  exact output, minQuote = upper bound of input quote
-    // Short, lever:   sell Base (negative), exact input,  minQuote = lower bound of output quote
-    // Long,  delever: sell Base (negative), exact input,  minQuote = lower bound of output quote
-    // Short, delever: buy Base (positive),  exact output, minQuote = upper bound of input quote
+    /*
+
+    | --------------------------------------------------------------------------------------------------|
+    | Action |  Type | isB2Q | Exact In / Out | Amount    | minReceived   | minReceived description     |
+    | -------|-------|-------|----------------|-----------| ------------- | ----------------------------|
+    | Buy    | Long  | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
+    | Buy    | Short | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
+    | Sell   | Long  | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
+    | Sell   | Short | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
+    |---------------------------------------------------------------------------------------------------|
+
+    */
+
     function _createAndValidateActionInfoNotional(
         ISetToken _setToken,
         IERC20 _baseToken,
@@ -612,7 +626,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         view
         returns (uint256)
     {
-        uint256 notionalQuantity = _collateralQuantityUnits.mul(_setToken.totalSupply());
+        uint256 notionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
         uint8 decimals = ERC20(address(collateralToken[_setToken])).decimals();
 
         return _formatCollateralToken(
@@ -634,7 +648,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     }
 
     function _parseCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
-        return amount.mul(int256(10**(18 - uint(decimals))));
+        return amount.preciseMul(int256(10**(18 - uint(decimals))));
     }
 
     function _abs(int x) internal pure returns (int) {
