@@ -77,6 +77,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         int256 owedRealizedPnL;
         int256 pendingFundingPayments;
         int256 accountValue;
+        uint256 totalAbsPositionValue;
+        int256 netQuoteBalance;
         int256 marginRequirement;
         // Missing....
         // uint256 freeCollateral;
@@ -505,6 +507,9 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
             // TODO: think this is also in "settlement decimals"
             accountValue: perpClearingHouse.getAccountValue(address(_setToken)),
+
+            totalAbsPositionValue: perpAccountBalance.getTotalAbsPositionValue(address(_setToken)),
+            netQuoteBalance: perpAccountBalance.getNetQuoteBalance(address(_setToken)),
             marginRequirement: perpAccountBalance.getMarginRequirementForLiquidation(address(_setToken))
 
             // Missing....
