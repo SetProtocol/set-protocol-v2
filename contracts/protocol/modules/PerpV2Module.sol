@@ -44,7 +44,7 @@ import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 
 
 /**
- * @title AaveLeverageModule
+ * @title PerpLeverageModule
  * @author Set Protocol
  * @notice Smart contract that enables leverage trading using Aave as the lending protocol.
  * @dev Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
