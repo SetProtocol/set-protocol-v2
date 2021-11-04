@@ -22,6 +22,7 @@ pragma experimental ABIEncoderV2;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IClearingHouse } from "../../../interfaces/external/perp-v2/IClearingHouse.sol";
 import { IVault } from "../../../interfaces/external/perp-v2/IVault.sol";
+import { IQuoter } from "../../../interfaces/external/perp-v2/IQuoter.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 
 /**
@@ -135,5 +136,38 @@ library PerpV2 {
 
         bytes memory returnValue = _setToken.invoke(address(_clearingHouse), 0, openPositionCalldata);
         return abi.decode(returnValue, (uint256,uint256));
+    }
+
+    function getSwapCalldata(
+        IQuoter _quoter,
+        IQuoter.SwapParams memory _params
+    )
+        public
+        pure
+        returns (address, uint256, bytes memory)
+    {
+        bytes memory callData = abi.encodeWithSignature(
+            "openPosition(IQuoter.SwapParams)",
+            _params
+        );
+
+        return (address(_quoter), 0, callData);
+    }
+
+    function invokeSwap(
+        ISetToken _setToken,
+        IQuoter _quoter,
+        IQuoter.SwapParams memory _params
+    )
+        external
+        returns (IQuoter.SwapResponse memory)
+    {
+        ( , , bytes memory swapCalldata) = getSwapCalldata(
+            _quoter,
+            _params
+        );
+
+        bytes memory returnValue = _setToken.invoke(address(_quoter), 0, swapCalldata);
+        return abi.decode(returnValue, (IQuoter.SwapResponse));
     }
 }
