@@ -33,6 +33,7 @@ import { IAccountBalance } from "../../interfaces/external/perp-v2/IAccountBalan
 import { IClearingHouse } from "../../interfaces/external/perp-v2/IClearingHouse.sol";
 import { IExchange } from "../../interfaces/external/perp-v2/IExchange.sol";
 import { IVault } from "../../interfaces/external/perp-v2/IVault.sol";
+import { IQuoter } from "../../interfaces/external/perp-v2/IQuoter.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
@@ -139,6 +140,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     IVault public immutable perpVault;
 
+    IQuoter public immutable perpQuoter;
+
     mapping(ISetToken => address[]) public positions;
 
     mapping(ISetToken => IERC20) public collateralToken;
@@ -156,7 +159,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         IAccountBalance _perpAccountBalance,
         IClearingHouse _perpClearingHouse,
         IExchange _perpExchange,
-        IVault _perpVault
+        IVault _perpVault,
+        IQuoter _perpQuoter
     )
         public
         ModuleBase(_controller)
@@ -165,6 +169,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         perpClearingHouse = _perpClearingHouse;
         perpExchange = _perpExchange;
         perpVault = _perpVault;
+        perpQuoter = _perpQuoter;
     }
 
     /* ============ External Functions ============ */
@@ -246,51 +251,22 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
       ISetToken _setToken,
       uint256 _collateralQuantityUnits
     )
-      external
+      public
       nonReentrant
       onlyManagerAndValidSet(_setToken)
     {
-        uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
-
-        _setToken.invokeApprove(
-            address(collateralToken[_setToken]),
-            address(perpVault),
-            notionalCollateralQuantity
-        );
-
-        _setToken.invokeDeposit(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
-
-
-        uint256 newDefaultTokenUnit = _setToken
-            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
-            .toUint256()
-            .sub(_collateralQuantityUnits);
-
-        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
-
-        // TODO: Update externalPositionUnit for collateralToken ?
+        _deposit(_setToken, _collateralQuantityUnits);
     }
 
     function withdraw(
       ISetToken _setToken,
       uint256 _collateralQuantityUnits
     )
-      public // compiler visibility...
+      public
       nonReentrant
       onlyManagerAndValidSet(_setToken)
     {
-        uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
-
-        _setToken.invokeWithdraw(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
-
-        uint256 newDefaultTokenUnit = _setToken
-            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
-            .toUint256()
-            .add(_collateralQuantityUnits);
-
-        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
-
-        // TODO: Update externalPositionUnit for collateralToken ?
+        _withdraw(_setToken, _collateralQuantityUnits);
     }
 
     function setCollateralToken(
@@ -384,8 +360,50 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     }
 
 
-    function moduleIssueHook(ISetToken _setToken, uint256 _setTokenQuantity) external override onlyModule(_setToken) {
-        // WIP
+    function moduleIssueHook(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        external
+        override
+        onlyModule(_setToken)
+    {
+        int256 usdcAmountIn = 0;
+
+        PositionInfo[] memory positionInfo = getPositionInfo(_setToken);
+
+        for(uint i = 0; i < positionInfo.length; i++) {
+            int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
+            int256 baseTradeNotionalQuantity = _abs(basePositionUnit.preciseMul(_setTokenQuantity.toInt256()));
+
+            // Simulate trade to get its real cost
+            ActionInfo memory actionInfo = _createAndValidateActionInfo(
+                _setToken,
+                positionInfo[i].baseToken,
+                baseTradeNotionalQuantity,
+                0
+            );
+
+            IQuoter.SwapResponse memory swapResponse = _simulateTrade(actionInfo);
+
+            usdcAmountIn += _calculateUSDCAmountIn(
+                _setToken,
+                _setTokenQuantity,
+                baseTradeNotionalQuantity,
+                basePositionUnit,
+                positionInfo[i],
+                swapResponse.deltaAvailableQuote
+            );
+        }
+
+        // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
+        int256 newExternalPositionUnit = usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256());
+
+        _setToken.editExternalPositionUnit(
+            address(collateralToken[_setToken]),
+            address(this),
+            newExternalPositionUnit
+        );
     }
 
 
@@ -458,8 +476,31 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         uint256 _setTokenQuantity,
         IERC20 _component,
         bool /* isEquity */
-    ) external override onlyModule(_setToken) {
-        // WIP
+    )
+        external
+        override
+        onlyModule(_setToken)
+    {
+        // Deposit collateral from SetToken into PerpV2
+        int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
+        uint256 usdcTransferInQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
+        _deposit(_setToken, usdcTransferInQuantityUnits);
+
+        PositionInfo[] memory positionInfo = getPositionInfo(_setToken);
+
+        for(uint i = 0; i < positionInfo.length; i++) {
+            int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
+            int256 baseTradeNotionalQuantity = _abs(_setTokenQuantity.toInt256().preciseMul(basePositionUnit));
+
+            ActionInfo memory actionInfo = _createAndValidateActionInfo(
+                _setToken,
+                positionInfo[i].baseToken,
+                baseTradeNotionalQuantity,
+                0
+            );
+
+            _executeTrade(actionInfo);
+        }
     }
 
 
@@ -470,9 +511,8 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         bool /* isEquity */
     ) external override onlyModule(_setToken) {
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
-        uint256 usdcToWithdraw = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
-
-        _setToken.invokeWithdraw(perpVault, _setToken, usdcToWithdraw);
+        uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
+        _withdraw(_setToken, usdcTransferOutQuantityUnits);
     }
 
     /* ============ External Getter Functions ============ */
@@ -526,6 +566,43 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
 
     /* ============ Internal Functions ============ */
 
+    function _deposit(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
+        uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
+
+        _setToken.invokeApprove(
+            address(collateralToken[_setToken]),
+            address(perpVault),
+            notionalCollateralQuantity
+        );
+
+        _setToken.invokeDeposit(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
+
+        uint256 newDefaultTokenUnit = _setToken
+            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
+            .toUint256()
+            .sub(_collateralQuantityUnits);
+
+        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
+
+        // TODO: Update externalPositionUnit for collateralToken ?
+    }
+
+    function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
+        uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
+
+        _setToken.invokeWithdraw(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
+
+        uint256 newDefaultTokenUnit = _setToken
+            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
+            .toUint256()
+            .add(_collateralQuantityUnits);
+
+        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
+
+        // TODO: Update externalPositionUnit for collateralToken ?
+    }
+
+
     function _executeTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
         IClearingHouse.OpenPositionParams memory params = IClearingHouse.OpenPositionParams({
             baseToken: _actionInfo.baseToken,
@@ -541,6 +618,17 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         return _actionInfo.setToken.invokeOpenPosition(perpClearingHouse, params);
     }
 
+    function _simulateTrade(ActionInfo memory _actionInfo) internal returns (IQuoter.SwapResponse memory) {
+        IQuoter.SwapParams memory params = IQuoter.SwapParams({
+            baseToken: _actionInfo.baseToken,
+            isBaseToQuote: _actionInfo.isBaseToQuote,
+            isExactInput: _actionInfo.isExactInput,
+            amount: _actionInfo.amount.toUint256(),
+            sqrtPriceLimitX96: 0
+        });
+
+        return _actionInfo.setToken.invokeSwap(perpQuoter, params);
+    }
 
     function _accrueProtocolFee(
         ISetToken _setToken,
@@ -553,7 +641,7 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         uint256 protocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
         uint256 protocolFeeUnits = protocolFee.preciseDiv(_setToken.totalSupply());
 
-        withdraw(_setToken, protocolFeeUnits);
+        _withdraw(_setToken, protocolFeeUnits);
         payProtocolFeeFromSetToken(_setToken, address(token), protocolFee);
         return protocolFee;
     }
@@ -633,6 +721,83 @@ contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         }  else if (!baseTokenExists) {
             positions[_setToken].push(_baseToken);
         }
+    }
+
+    function _calculateUSDCAmountIn(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity,
+        int256 _baseTradeQuantity,
+        int256 _basePositionUnit,
+        PositionInfo memory _positionInfo,
+        uint256 _deltaQuote
+    )
+        internal
+        view
+        returns(int256)
+    {
+        // Calculate ideal quote cost e.g without slippage and Perp protocol fees
+        int256 spotPrice = getSpotPrice(_positionInfo.baseToken).toInt256();
+        int256 idealDeltaQuote = _baseTradeQuantity.preciseMul(spotPrice);
+
+        // Calculate slippage for long and short cases
+        int256 slippageQuantity = (_basePositionUnit >= 0)
+            ? _deltaQuote.toInt256() - idealDeltaQuote
+            : idealDeltaQuote - _deltaQuote.toInt256();
+
+        // Calculate current leverage
+        int256 currentLeverage = _calculateCurrentLeverage(
+            _positionInfo.baseBalance,
+            _positionInfo.quoteBalance,
+            _getCollateralBalance(_setToken),
+            spotPrice
+        );
+
+        int256 owedRealizedPnlDiscountQuantity = _calculateOwedRealizedPnLDiscount(
+            _setToken,
+            _setTokenQuantity
+        );
+
+        return (
+            slippageQuantity +
+            owedRealizedPnlDiscountQuantity +
+            _deltaQuote.toInt256().preciseDiv(currentLeverage)
+        );
+    }
+
+    function _calculateOwedRealizedPnLDiscount(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        internal
+        view
+        returns (int256)
+    {
+        // Calculate addtional usdcAmountIn and add to running total.
+        (int256 owedRealizedPnL, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
+        int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
+
+        return (owedRealizedPnL + pendingFundingPayments)
+            .preciseDiv(_setToken.totalSupply().toInt256())
+            .preciseMul(_setTokenQuantity.toInt256());
+    }
+
+    function _calculateCurrentLeverage(
+        int256 baseBalance,
+        int256 quoteBalance,
+        int256 collateralBalance,
+        int256 spotPrice
+    )
+        internal
+        pure
+        returns (int256)
+    {
+        int256 basePositionValue = baseBalance.preciseMul(spotPrice);
+
+        return basePositionValue.preciseDiv(
+            basePositionValue +
+            quoteBalance +
+            collateralBalance
+        );
     }
 
     /**
