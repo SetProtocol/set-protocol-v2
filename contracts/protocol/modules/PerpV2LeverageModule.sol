@@ -566,6 +566,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /* ============ Internal Functions ============ */
 
     function _deposit(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
+        uint256 initialCollateralPositionBalance = collateralToken[_setToken].balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
 
         _setToken.invokeApprove(
@@ -576,27 +577,26 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         _setToken.invokeDeposit(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
 
-        uint256 newDefaultTokenUnit = _setToken
-            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
-            .toUint256()
-            .sub(_collateralQuantityUnits);
-
-        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
+        _setToken.calculateAndEditDefaultPosition(
+            address(collateralToken[_setToken]),
+            _setToken.totalSupply(),
+            initialCollateralPositionBalance
+        );
 
         // TODO: Update externalPositionUnit for collateralToken ?
     }
 
     function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
+        uint256 initialCollateralPositionBalance = collateralToken[_setToken].balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
 
         _setToken.invokeWithdraw(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
 
-        uint256 newDefaultTokenUnit = _setToken
-            .getDefaultPositionRealUnit(address(collateralToken[_setToken]))
-            .toUint256()
-            .add(_collateralQuantityUnits);
-
-        _setToken.editDefaultPosition(address(collateralToken[_setToken]), newDefaultTokenUnit);
+        _setToken.calculateAndEditDefaultPosition(
+            address(collateralToken[_setToken]),
+            _setToken.totalSupply(),
+            initialCollateralPositionBalance
+        );
 
         // TODO: Update externalPositionUnit for collateralToken ?
     }
