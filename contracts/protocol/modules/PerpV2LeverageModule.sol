@@ -42,6 +42,8 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 
+// TODO: REMOVE THIS WHEN COMPLETE
+// import "hardhat/console.sol";
 
 /**
  * @title PerpLeverageModule
@@ -303,9 +305,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
-        require(_getCollateralBalance(setToken) == 0);
+        require(_getCollateralBalance(setToken) == 0, "Collateral balance remaining");
 
-        delete positions[setToken];
+        delete positions[setToken]; // Should already be empty
         delete collateralToken[setToken];
 
         // Try if unregister exists on any of the modules
@@ -861,11 +863,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     function _formatCollateralToken(uint256 amount, uint8 decimals) internal pure returns (uint256) {
-        return amount.preciseDiv(10**(18 - uint(decimals)));
+        return amount.div(10**(18 - uint(decimals)));
     }
 
     function _parseCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
-        return amount.preciseMul(int256(10**(18 - uint(decimals))));
+        return amount.mul(int256(10**(18 - uint(decimals))));
     }
 
     function _abs(int x) internal pure returns (int) {

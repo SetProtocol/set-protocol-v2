@@ -13,6 +13,7 @@ import {
   GovernanceModule,
   IssuanceModule,
   NavIssuanceModule,
+  PerpV2LeverageModule,
   SingleIndexModule,
   StakingModule,
   StreamingFeeModule,
@@ -35,6 +36,7 @@ import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIn
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
+import { PerpV2LeverageModule__factory } from "../../typechain/factories/PerpV2LeverageModule__factory";
 import { SingleIndexModule__factory } from "../../typechain/factories/SingleIndexModule__factory";
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
 import { StreamingFeeModule__factory } from "../../typechain/factories/StreamingFeeModule__factory";
@@ -187,5 +189,31 @@ export default class DeployModules {
 
   public async deployWrapModuleV2(controller: Address, weth: Address): Promise<WrapModuleV2> {
     return await new WrapModuleV2__factory(this._deployerSigner).deploy(controller, weth);
+  }
+
+  public async deployPerpV2LeverageModule(
+    controller: Address,
+    perpAccountBalance: Address,
+    perpClearingHouse: Address,
+    perpExchange: Address,
+    perpVault: Address,
+    perpQuoter: Address,
+    libraryName: string,
+    libraryAddress: Address
+  ): Promise<PerpV2LeverageModule> {
+    return await new PerpV2LeverageModule__factory(
+      // @ts-ignore
+      {
+        [libraryName]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy(
+      controller,
+      perpAccountBalance,
+      perpClearingHouse,
+      perpExchange,
+      perpVault,
+      perpQuoter
+    );
   }
 }
