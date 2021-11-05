@@ -50,7 +50,7 @@ import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
  * @dev Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
  * debt when borrowed assets are the same.
  */
-contract PerpLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
+contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
     using AddressArrayUtils for address[];

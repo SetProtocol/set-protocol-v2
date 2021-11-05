@@ -30,6 +30,7 @@ import {
   OracleAdapterMock,
   OracleMock,
   YearnVaultMock,
+  PerpV2Mock,
   PositionMock,
   PreciseUnitMathMock,
   ResourceIdentifierMock,
@@ -79,6 +80,7 @@ import { OneInchExchangeMock__factory } from "../../typechain/factories/OneInchE
 import { OracleAdapterMock__factory } from "../../typechain/factories/OracleAdapterMock__factory";
 import { OracleMock__factory } from "../../typechain/factories/OracleMock__factory";
 import { YearnVaultMock__factory } from "../../typechain/factories/YearnVaultMock__factory";
+import { PerpV2Mock__factory } from "../../typechain/factories/PerpV2Mock__factory";
 import { PositionMock__factory } from "../../typechain/factories/PositionMock__factory";
 import { PreciseUnitMathMock__factory } from "../../typechain/factories/PreciseUnitMathMock__factory";
 import { ResourceIdentifierMock__factory } from "../../typechain/factories/ResourceIdentifierMock__factory";
@@ -95,6 +97,7 @@ import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory
 import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
 import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrategyMock__factory";
 import { AaveV2Mock__factory } from "../../typechain/factories/AaveV2Mock__factory";
+
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -273,6 +276,16 @@ export default class DeployMocks {
 
   public async deployAaveV2Mock(libraryName: string, libraryAddress: Address): Promise<AaveV2Mock> {
     return await new AaveV2Mock__factory(
+      // @ts-ignore
+      {
+        [libraryName]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
+  }
+
+  public async deployPerpV2Mock(libraryName: string, libraryAddress: Address): Promise<PerpV2Mock> {
+    return await new PerpV2Mock__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,

@@ -114,7 +114,7 @@ library PerpV2 {
         returns (address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature(
-            "openPosition(IClearingHouse.OpenPositionParams)",
+            "openPosition((address,bool,bool,uint256,uint256,uint256,uint160,bytes32))",
             _params
         );
 
@@ -147,7 +147,7 @@ library PerpV2 {
         returns (address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature(
-            "openPosition(IQuoter.SwapParams)",
+            "swap((address,bool,bool,uint256,uint160))",
             _params
         );
 
