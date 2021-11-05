@@ -269,17 +269,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         _withdraw(_setToken, _collateralQuantityUnits);
     }
 
-    function setCollateralToken(
-      ISetToken _setToken,
-      IERC20 _collateralToken
-    )
-      public // compiler visibility...
-      onlyManagerAndValidSet(ISetToken(_setToken))
-    {
-        require(perpVault.balanceOf(address(_setToken)) == 0);
-        collateralToken[_setToken] = _collateralToken;
-    }
-
     function initialize(
         ISetToken _setToken,
         IERC20 _collateralToken
@@ -308,7 +297,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
 
         // Set collateralToken
-        setCollateralToken(_setToken, _collateralToken);
+        _setCollateralToken(_setToken, _collateralToken);
     }
 
 
@@ -357,6 +346,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
         anySetAllowed = _anySetAllowed;
         emit AnySetAllowedUpdated(_anySetAllowed);
+    }
+
+    function setCollateralToken(
+      ISetToken _setToken,
+      IERC20 _collateralToken
+    )
+      external
+      onlyManagerAndValidSet(ISetToken(_setToken))
+    {
+        _setCollateralToken(_setToken, _collateralToken);
     }
 
 
@@ -798,6 +797,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             quoteBalance +
             collateralBalance
         );
+    }
+
+    function _setCollateralToken(
+      ISetToken _setToken,
+      IERC20 _collateralToken
+    )
+      internal
+    {
+        require(perpVault.balanceOf(address(_setToken)) == 0);
+        collateralToken[_setToken] = _collateralToken;
     }
 
     /**
