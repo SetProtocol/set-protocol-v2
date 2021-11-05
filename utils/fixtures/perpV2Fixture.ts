@@ -24,7 +24,8 @@ import {
   PerpV2MarketRegistry,
   PerpV2ClearingHouse,
   PerpV2QuoteToken,
-  PerpV2VirtualToken
+  PerpV2VirtualToken,
+  PerpV2Quoter,
 } from "../contracts/perpV2";
 
 import {
@@ -74,6 +75,7 @@ export class PerpV2Fixture {
   public accountBalance: PerpV2AccountBalance;
   public marketRegistry: PerpV2MarketRegistry;
   public clearingHouseConfig: PerpV2ClearingHouseConfig;
+  public quoter: PerpV2Quoter;
 
   public exchange: PerpV2Exchange;
   public vault: PerpV2Vault;
@@ -178,6 +180,9 @@ export class PerpV2Fixture {
       this.exchange.address,
       this.accountBalance.address,
     );
+
+    this.quoter = await this._deployer.external.deployPerpV2Quoter();
+    await this.quoter.initialize(this.marketRegistry.address);
 
     await this.quoteToken.mintMaximumTo(this.clearingHouse.address);
     await this.baseToken.mintMaximumTo(this.clearingHouse.address);
