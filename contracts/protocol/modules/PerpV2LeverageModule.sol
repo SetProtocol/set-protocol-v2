@@ -82,8 +82,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 accountValue;
         uint256 totalAbsPositionValue;
         int256 netQuoteBalance;
-        int256 marginRequirement;
         // Missing....
+        // int256 marginRequirement;
         // uint256 freeCollateral;
     }
 
@@ -180,7 +180,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
-        uint256 _minReceiveQuantityUnits
+        uint256 _minReceiveQuoteQuantityUnits
     )
         external
         nonReentrant
@@ -190,7 +190,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _minReceiveQuantityUnits
+            _minReceiveQuoteQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
@@ -217,7 +217,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
-        uint256 _minReceiveQuantityUnits
+        uint256 _minReceiveQuoteQuantityUnits
     )
         external
         nonReentrant
@@ -227,7 +227,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _minReceiveQuantityUnits
+            _minReceiveQuoteQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
@@ -268,6 +268,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
       nonReentrant
       onlyManagerAndValidSet(_setToken)
     {
+        require(_collateralQuantityUnits > 0, "Withdraw amount is 0");
         _withdraw(_setToken, _collateralQuantityUnits);
     }
 
@@ -539,19 +540,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
-        (int256 owedRealizedPnL, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
-
         accountInfo = AccountInfo({
             collateralBalance: _getCollateralBalance(_setToken),
-            owedRealizedPnL: owedRealizedPnL,
+            owedRealizedPnL: perpAccountBalance.getOwedRealizedPnl(address(_setToken)),
             pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)),
 
             // TODO: think this is also in "settlement decimals"
             accountValue: perpClearingHouse.getAccountValue(address(_setToken)),
 
             totalAbsPositionValue: perpAccountBalance.getTotalAbsPositionValue(address(_setToken)),
-            netQuoteBalance: perpAccountBalance.getNetQuoteBalance(address(_setToken)),
-            marginRequirement: perpAccountBalance.getMarginRequirementForLiquidation(address(_setToken))
+            netQuoteBalance: perpAccountBalance.getNetQuoteBalance(address(_setToken))
 
             // Missing....
             //freeCollateral: perpVault.getFreeCollateral(address(_setToken))
@@ -611,9 +609,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             isExactInput: _actionInfo.isExactInput,
             amount: _actionInfo.amount.toUint256(),
             oppositeAmountBound: _actionInfo.oppositeAmountBound,
-            deadline: 0,
+            deadline: PreciseUnitMath.maxUint256(),
             sqrtPriceLimitX96: 0,
-            referralCode: 0
+            referralCode: bytes32(0)
         });
 
         return _actionInfo.setToken.invokeOpenPosition(perpClearingHouse, params);
@@ -774,7 +772,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns (int256)
     {
         // Calculate addtional usdcAmountIn and add to running total.
-        (int256 owedRealizedPnL, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
+        int256 owedRealizedPnL = perpAccountBalance.getOwedRealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
         return (owedRealizedPnL + pendingFundingPayments)
@@ -832,8 +830,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // TODO: Add logic here to convert non-USDC collateral into USDC
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         int256 balance = perpVault.balanceOf(address(_setToken));
-        IERC20 token = collateralToken[_setToken];
-        uint8 decimals = ERC20(address(token)).decimals();
+        uint8 decimals = ERC20(address(collateralToken[_setToken])).decimals();
         return _parseCollateralToken(balance, decimals);
     }
 
@@ -846,6 +843,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns (uint256)
     {
         uint256 notionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
+
         uint8 decimals = ERC20(address(collateralToken[_setToken])).decimals();
 
         return _formatCollateralToken(
