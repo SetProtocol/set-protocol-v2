@@ -10,8 +10,15 @@ import {
   SetToken
 } from "@utils/contracts";
 
+import { PerpV2BaseToken } from "@utils/contracts/perpV2";
+
 import DeployHelper from "@utils/deploys";
-import { ether } from "@utils/index";
+import {
+  ether,
+  usdc as usdcUnits,
+  preciseDiv,
+  preciseMul
+} from "@utils/index";
 
 import {
   cacheBeforeEach,
@@ -24,13 +31,15 @@ import {
 } from "@utils/test/index";
 
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
-import { ADDRESS_ZERO  } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO  } from "@utils/constants";
+import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
 
 describe("PerpV2LeverageModule", () => {
   let owner: Account;
   let maker: Account;
+  let mockModule: Account;
   let deployer: DeployHelper;
 
   let perpLib: PerpV2;
@@ -39,12 +48,15 @@ describe("PerpV2LeverageModule", () => {
   let setup: SystemFixture;
   let perpSetup: PerpV2Fixture;
 
+  let vETH: PerpV2BaseToken;
+  // let vBTC: PerpV2BaseToken;
   let usdc: StandardTokenMock;
 
   cacheBeforeEach(async () => {
     [
       owner,
       maker,
+      mockModule,
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -52,12 +64,19 @@ describe("PerpV2LeverageModule", () => {
     await setup.initialize();
 
     perpSetup = getPerpV2Fixture(owner.address);
-    await perpSetup.initialize();
+    await perpSetup.initialize(maker);
 
+    vETH = perpSetup.vETH;
+    // vBTC = perpSetup.vBTC;
     usdc = perpSetup.usdc;
 
     // Create liquidity
-    await perpSetup.initializePoolWithLiquidityWide(maker, ether(1000), ether(10_000));
+    await perpSetup.setBaseTokenOraclePrice(vETH, "10");
+    await perpSetup.initializePoolWithLiquidityWide(
+      vETH,
+      ether(10000),
+      ether(100_000)
+    );
 
     debtIssuanceMock = await deployer.mocks.deployDebtIssuanceMock();
     await setup.controller.addModule(debtIssuanceMock.address);
@@ -252,7 +271,7 @@ describe("PerpV2LeverageModule", () => {
 
           const perpLeverageModuleNotPendingSetToken = await setup.createSetToken(
             [usdc.address],
-            [ether(100)],
+            [usdcUnits(100)],
             [newModule]
           );
 
@@ -268,7 +287,7 @@ describe("PerpV2LeverageModule", () => {
         beforeEach(async () => {
           const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
             [setup.weth.address],
-            [ether(1)],
+            [usdcUnits(100)],
             [perpLeverageModule.address]
           );
 
@@ -310,42 +329,816 @@ describe("PerpV2LeverageModule", () => {
   });
 
   describe("#lever", () => {
-    // inverse
-    // multiple tokens
+    let setToken: SetToken;
+    let isInitialized: boolean = true;
 
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+    let subjectBaseToken: Address;
+    let subjectSlippagePercentage: BigNumber;
+    let subjectBaseTradeQuantity: BigNumber;
+    let subjectMinQuoteReceive: BigNumber;
+    let subjectDepositQuantity: BigNumber;
+
+    const initializeContracts = async () => {
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      subjectSetToken = setToken.address;
+      subjectDepositQuantity = ether(10);
+      subjectSlippagePercentage = ether(.2);
+
+      if (isInitialized === true) {
+        // Add mock module to controller
+        await setup.controller.addModule(mockModule.address);
+
+        await debtIssuanceMock.initialize(setToken.address);
+        await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+        await perpLeverageModule.connect(owner.wallet).initialize(
+          setToken.address,
+          usdc.address
+        );
+
+        // Initialize mock module
+        await setToken.addModule(mockModule.address);
+        await setToken.connect(mockModule.wallet).initializeModule();
+
+        const issueQuantity = ether(1);
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      }
+    };
+
+    const initializeSubjectVariables = async () => {
+      subjectCaller = owner;
+      subjectBaseToken = vETH.address;
+
+      if (isInitialized === true) {
+        await perpLeverageModule.deposit(subjectSetToken, subjectDepositQuantity);
+      }
+
+      const slippageQuantity = preciseMul(subjectDepositQuantity, subjectSlippagePercentage);
+      const vETHSpotPrice = await perpSetup.getSpotPrice(subjectBaseToken);
+
+      subjectBaseTradeQuantity = preciseDiv(subjectDepositQuantity,vETHSpotPrice);
+      subjectMinQuoteReceive = subjectDepositQuantity.add(slippageQuantity);
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule.connect(subjectCaller.wallet).lever(
+        subjectSetToken,
+        subjectBaseToken,
+        subjectBaseTradeQuantity,
+        subjectMinQuoteReceive
+      );
+    }
+
+    describe("when module is initialized", async () => {
+      beforeEach(() => isInitialized = true);
+
+      describe("when long and no positions are open (total supply is 1)", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+
+        it("should add the position to the positions array", async() => {
+          await subject();
+        });
+      });
+
+      describe("when long (total supply is 2)", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+      });
+
+      describe("when there is pending funding", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+      });
+
+      describe("when a protocol fee is charged", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+      });
+
+      describe("when short", async () => {});
+
+      describe("when amount of token to trade is 0", async () => {
+        beforeEach(async () => {
+          subjectBaseTradeQuantity = ZERO;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Amount is 0");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+            [perpSetup.usdc.address],
+            [usdcUnits(100)],
+            [perpLeverageModule.address],
+            owner.address
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+
+        afterEach(() => subjectSetToken = setToken.address);
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        await initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#delever", () => {
-    // inverse
-    // multiple tokens
+    let setToken: SetToken;
+    let isInitialized: boolean = true;
+
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+    let subjectBaseToken: Address;
+    let subjectSlippagePercentage: BigNumber;
+    let subjectBaseTradeQuantity: BigNumber;
+    let subjectMinQuoteReceive: BigNumber;
+    let subjectDepositQuantity: BigNumber;
+
+    const initializeContracts = async () => {
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      subjectSetToken = setToken.address;
+      subjectDepositQuantity = ether(10);
+      subjectSlippagePercentage = ether(.2);
+
+      if (isInitialized === true) {
+        // Add mock module to controller
+        await setup.controller.addModule(mockModule.address);
+
+        await debtIssuanceMock.initialize(setToken.address);
+        await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+        await perpLeverageModule.connect(owner.wallet).initialize(
+          setToken.address,
+          usdc.address
+        );
+
+        // Initialize mock module
+        await setToken.addModule(mockModule.address);
+        await setToken.connect(mockModule.wallet).initializeModule();
+
+        const issueQuantity = ether(1);
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      }
+    };
+
+    const initializeSubjectVariables = async () => {
+      subjectCaller = owner;
+      subjectBaseToken = vETH.address;
+
+      if (isInitialized === true) {
+        await perpLeverageModule.deposit(subjectSetToken, subjectDepositQuantity);
+      }
+
+      const slippageQuantity = preciseMul(subjectDepositQuantity, subjectSlippagePercentage);
+      const vETHSpotPrice = await perpSetup.getSpotPrice(subjectBaseToken);
+
+      subjectBaseTradeQuantity = preciseDiv(subjectDepositQuantity,vETHSpotPrice);
+      subjectMinQuoteReceive = subjectDepositQuantity.add(slippageQuantity);
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule.connect(subjectCaller.wallet).delever(
+        subjectSetToken,
+        subjectBaseToken,
+        subjectBaseTradeQuantity,
+        subjectMinQuoteReceive
+      );
+    }
+
+    describe("when module is initialized", async () => {
+      beforeEach(() => isInitialized = true);
+
+      describe("when long (total supply is 1)", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+      });
+
+      describe("when delevering to zero", async () => {
+        it("should remove the position from the positions array", async () => {
+          await subject();
+        });
+      });
+
+      describe("when long (total supply is 2)", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+      });
+
+      describe("when there is pending funding", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+      });
+
+      describe("when a protocol fee is charged", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          await subject();
+        });
+      });
+
+      describe("when short", async () => {});
+
+      describe("when amount of token to trade is 0", async () => {
+        beforeEach(async () => {
+          subjectBaseTradeQuantity = ZERO;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Amount is 0");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+            [perpSetup.usdc.address],
+            [usdcUnits(100)],
+            [perpLeverageModule.address],
+            owner.address
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+
+        afterEach(() => subjectSetToken = setToken.address);
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        await initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#deposit", () => {
+    let subjectSetToken: SetToken;
+    let subjectDepositAmount: number;
+    let subjectDepositQuantity: BigNumber;
+    let subjectCaller: Account;
+    let isInitialized: boolean;
 
+    const initializeContracts = async () => {
+      subjectSetToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      await debtIssuanceMock.initialize(subjectSetToken.address);
+      await perpLeverageModule.updateAllowedSetToken(subjectSetToken.address, true);
+
+      if (isInitialized) {
+        await perpLeverageModule.initialize(
+          subjectSetToken.address,
+          usdc.address
+        );
+
+        const issueQuantity = ether(1);
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(subjectSetToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(subjectSetToken.address, issueQuantity, owner.address);
+      }
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectCaller = owner;
+      subjectDepositAmount = 1;
+      subjectDepositQuantity = ether(subjectDepositAmount); // 1 USDC in 10**18
+    };
+
+    async function subject(): Promise<any> {
+      await perpLeverageModule
+        .connect(subjectCaller.wallet)
+        .deposit(subjectSetToken.address, subjectDepositQuantity);
+    }
+
+    describe("when module is initialized", () => {
+      beforeEach(async () => {
+        isInitialized = true;
+      });
+
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+
+      it("should create a deposit", async () => {
+        const {
+          collateralBalance: initialCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+        await subject();
+
+        const {
+          collateralBalance: finalCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+
+        const expectedCollateralBalance = initialCollateralBalance.add(subjectDepositQuantity);
+        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
+      });
+
+      it("should update the USDC defaultPositionUnit", async () => {
+        const initialDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);
+        await subject();
+        const finalDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);;
+
+        const expectedDefaultPosition = initialDefaultPosition.sub(usdcUnits(subjectDepositAmount));
+        expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+      });
+
+      describe("when not called by manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#withdraw", () => {
+    let subjectSetToken: SetToken;
+    let subjectWithdrawAmount: number;
+    let subjectWithdrawQuantity: BigNumber;
+    let subjectCaller: Account;
+    let isInitialized: boolean;
 
+    const initializeContracts = async () => {
+      subjectSetToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      await debtIssuanceMock.initialize(subjectSetToken.address);
+      await perpLeverageModule.updateAllowedSetToken(subjectSetToken.address, true);
+
+      if (isInitialized) {
+        await perpLeverageModule.initialize(
+          subjectSetToken.address,
+          usdc.address
+        );
+
+        const issueQuantity = ether(1);
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(subjectSetToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(subjectSetToken.address, issueQuantity, owner.address);
+
+        // Deposit 10 USDC
+        await perpLeverageModule
+          .connect(owner.wallet)
+          .deposit(subjectSetToken.address, ether(10));
+      }
+    };
+
+    const initializeSubjectVariables = (withdrawAmount: number = 5) => {
+      subjectWithdrawAmount = withdrawAmount;
+      subjectCaller = owner;
+      subjectWithdrawQuantity = ether(withdrawAmount); // USDC in 10**18
+    };
+
+    async function subject(): Promise<any> {
+      await perpLeverageModule
+        .connect(subjectCaller.wallet)
+        .withdraw(subjectSetToken.address, subjectWithdrawQuantity);
+    }
+
+    describe("when module is initialized", () => {
+      beforeEach(async () => {
+        isInitialized = true;
+      });
+
+      cacheBeforeEach(initializeContracts);
+      beforeEach(() => initializeSubjectVariables());
+
+      it("should create a deposit", async () => {
+        const {
+          collateralBalance: initialCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+        await subject();
+
+        const {
+          collateralBalance: finalCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+
+        const expectedCollateralBalance = initialCollateralBalance.sub(subjectWithdrawQuantity);
+        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
+      });
+
+      it("should update the USDC defaultPositionUnit", async () => {
+        const initialDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);
+        await subject();
+        const finalDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);;
+
+        const expectedDefaultPosition = initialDefaultPosition.add(usdcUnits(subjectWithdrawAmount));
+        expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+      });
+
+      describe("when withdraw amount is 0", async () => {
+        beforeEach(() => initializeSubjectVariables(0));
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Withdraw amount is 0");
+        });
+      });
+
+      describe("when not called by manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#moduleIssueHook", () => {
-    // inverse
-    // multiple tokens
+    let setToken: SetToken;
+    let depositQuantity: BigNumber;
+
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+    let subjectSetQuantity: BigNumber;
+
+    const initializeContracts = async () => {
+      // Add mock module to controller
+      await setup.controller.addModule(mockModule.address);
+
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      await debtIssuanceMock.initialize(setToken.address);
+      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+      await perpLeverageModule.connect(owner.wallet).initialize(
+        setToken.address,
+        usdc.address
+      );
+
+      // Initialize mock module
+      await setToken.addModule(mockModule.address);
+      await setToken.connect(mockModule.wallet).initializeModule();
+
+      const issueQuantity = ether(1);
+      await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+      await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+      // Deposit 10 USDC (in 10**18)
+      depositQuantity = ether(10);
+      await perpLeverageModule.deposit(setToken.address, depositQuantity);
+
+      const vETHSpotPrice = await perpSetup.getSpotPrice(vETH.address);
+      const vETHQuantity = preciseDiv(depositQuantity,vETHSpotPrice);
+      const slippagePercentage = ether(.2);
+      const minQuoteReceive = depositQuantity.add(preciseMul(depositQuantity, slippagePercentage));
+
+      await perpLeverageModule.connect(owner.wallet).lever(
+        setToken.address,
+        vETH.address,
+        vETHQuantity,
+        minQuoteReceive
+      );
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+      subjectCaller = mockModule;
+      subjectSetQuantity = ether(1);
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule
+        .connect(subjectCaller.wallet)
+        .moduleIssueHook(subjectSetToken, subjectSetQuantity);
+    }
+
+    describe("when long (total supply is 1)", async () => {
+      it("should set the expected USDC externalPositionUnit", async () => {
+      });
+    });
+
+    describe("when long (total supply is 2)", async () => {
+      it("should set the expected USDC externalPositionUnit", async () => {
+      });
+    });
+
+    describe("when there is pending funding", async () => {
+      it("should set the expected USDC externalPositionUnit", async () => {
+      });
+    });
+
+    describe("when short", async () => {});
+
+    describe("when there are multiple positions", async () => {});
+
+    describe("when caller is not module", async () => {
+      beforeEach(async () => {
+        subjectCaller = owner;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Only the module can call");
+      });
+    });
+
+    describe("if disabled module is caller", async () => {
+      beforeEach(async () => {
+        await setup.controller.removeModule(mockModule.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+      });
+    });
   });
 
   describe("#moduleRedeemHook", () => {
-    // inverse
-    // multiple tokens
+    let setToken: SetToken;
+
+    let subjectSetToken: Address;
+    let subjectSetQuantity: BigNumber;
+    let subjectCaller: Account;
+
+    const initializeContracts = async () => {
+      // Add mock module to controller
+      await setup.controller.addModule(mockModule.address);
+
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      // Initialize mock module
+      await setToken.addModule(mockModule.address);
+      await setToken.connect(mockModule.wallet).initializeModule();
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+      subjectCaller = mockModule;
+      subjectSetQuantity = ether(1);
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule.connect(subjectCaller.wallet).moduleRedeemHook(subjectSetToken, subjectSetQuantity);
+    }
+
+    describe("when caller is not module", async () => {
+      beforeEach(async () => subjectCaller = owner);
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Only the module can call");
+      });
+    });
+
+    describe("if disabled module is caller", async () => {
+      beforeEach(async () => {
+        await setup.controller.removeModule(mockModule.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+      });
+    });
   });
 
   describe("#componentIssueHook", () => {
-    // inverse
-    // multiple tokens
+    let setToken: SetToken;
+    let subjectSetToken: Address;
+    let subjectSetQuantity: BigNumber;
+    let subjectCaller: Account;
+
+    const initializeContracts = async () => {
+      // Add mock module to controller
+      await setup.controller.addModule(mockModule.address);
+
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      // Initialize mock module
+      await setToken.addModule(mockModule.address);
+      await setToken.connect(mockModule.wallet).initializeModule();
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+      subjectCaller = mockModule;
+      subjectSetQuantity = ether(1);
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule.connect(subjectCaller.wallet).componentIssueHook(
+        subjectSetToken,
+        subjectSetQuantity,
+        usdc.address,
+        true // unused
+      );
+    }
+
+    describe("when caller is not module", async () => {
+      beforeEach(async () => {
+        subjectCaller = owner;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Only the module can call");
+      });
+    });
+
+    describe("if disabled module is caller", async () => {
+      beforeEach(async () => {
+        await setup.controller.removeModule(mockModule.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+      });
+    });
   });
 
   describe("#componentRedeemHook", () => {
-    // inverse
-    // multiple tokens
+    let setToken: SetToken;
+
+    let subjectSetToken: Address;
+    let subjectSetQuantity: BigNumber;
+    let subjectCaller: Account;
+
+    const initializeContracts = async () => {
+      // Add mock module to controller
+      await setup.controller.addModule(mockModule.address);
+
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      // Initialize mock module
+      await setToken.addModule(mockModule.address);
+      await setToken.connect(mockModule.wallet).initializeModule();
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+      subjectCaller = mockModule;
+      subjectSetQuantity = ether(1);
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule.connect(subjectCaller.wallet).componentRedeemHook(
+        subjectSetToken,
+        subjectSetQuantity,
+        usdc.address,
+        true // unused
+      );
+    }
+
+    describe("when caller is not module", async () => {
+      beforeEach(async () => {
+        subjectCaller = owner;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Only the module can call");
+      });
+    });
+
+    describe("if disabled module is caller", async () => {
+      beforeEach(async () => {
+        await setup.controller.removeModule(mockModule.address);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+      });
+    });
   });
 
   describe("#registerToModule", async () => {

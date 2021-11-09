@@ -23,7 +23,7 @@ describe("PerpV2Fixture", () => {
   before(async () => {
     [ owner, maker, taker ] = await getAccounts();
     perpV2 = getPerpV2Fixture(owner.address);
-    await perpV2.initialize();
+    await perpV2.initialize(maker);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -42,7 +42,7 @@ describe("PerpV2Fixture", () => {
 
     async function subject(): Promise<void> {
       return await perpV2.initializePoolWithLiquidityWide(
-        maker,
+        perpV2.vETH,
         subjectBaseTokenAmount,
         subjectQuoteTokenAmount
       );
@@ -52,17 +52,17 @@ describe("PerpV2Fixture", () => {
       await subject();
 
       const expectedPrice = ether(10);
-      const ammBaseTokenPrice = await perpV2.getAMMBaseTokenPrice();
+      const ammBaseTokenPrice = await perpV2.getSpotPrice(perpV2.vETH.address);
       expect(expectedPrice).to.be.closeTo(ammBaseTokenPrice, 1); // 1 wei difference
     });
 
     it("should be possible to open a long position / price will change", async () => {
       await subject();
 
-      const initialAmmBaseTokenPrice = await perpV2.getAMMBaseTokenPrice();
+      const initialAmmBaseTokenPrice = await perpV2.getSpotPrice(perpV2.vETH.address);
 
       await perpV2.clearingHouse.connect(taker.wallet).openPosition({
-        baseToken: perpV2.baseToken.address,
+        baseToken: perpV2.vETH.address,
         isBaseToQuote: false,
         isExactInput: true,
         oppositeAmountBound: 0,
@@ -72,7 +72,7 @@ describe("PerpV2Fixture", () => {
         referralCode: constants.HashZero,
       });
 
-      const finalAmmBaseTokenPrice = await perpV2.getAMMBaseTokenPrice();
+      const finalAmmBaseTokenPrice = await perpV2.getSpotPrice(perpV2.vETH.address);
       expect(initialAmmBaseTokenPrice).to.be.lt(finalAmmBaseTokenPrice);
     });
   });
@@ -88,7 +88,7 @@ describe("PerpV2Fixture", () => {
 
     async function subject(): Promise<void> {
       return await perpV2.initializePoolWithLiquidityWithinTicks(
-        maker,
+        perpV2.vETH,
         subjectBaseTokenAmount,
         subjectQuoteTokenAmount,
         subjectLowerTick,
@@ -99,9 +99,9 @@ describe("PerpV2Fixture", () => {
     it("should have the expected baseToken vAMM price at beginning", async () => {
       await subject();
 
-      const expectedPrice = ether(quoteTokenAmount / baseTokenAmount); // 151644308811078730000
-      const ammBaseTokenPrice = await perpV2.getAMMBaseTokenPrice();   // 151644308811078744992
-      expect(expectedPrice).to.be.closeTo(ammBaseTokenPrice, 20000);
+      const expectedPrice = ether(quoteTokenAmount / baseTokenAmount);     // 151644308811078730000
+      const spotPrice = await perpV2.getSpotPrice(perpV2.vETH.address);   // 151644308811078744992
+      expect(expectedPrice).to.be.closeTo(spotPrice, 20000);
     });
   });
 
@@ -110,8 +110,8 @@ describe("PerpV2Fixture", () => {
     const takerBuyAmount = 100;
 
     // vAMM = 1 BaseToken = 10 USDC
-    const baseTokenAmount = ether(10_000);
-    const quoteTokenAmount = ether(100_000);
+    const vETHAmount = ether(10_000);
+    const vQuoteAmount = ether(100_000);
 
     const subjectOraclePrice = "15.15";
 
@@ -119,14 +119,14 @@ describe("PerpV2Fixture", () => {
       await perpV2.usdc.mint(taker.address, utils.parseUnits(takerCollateralWholeUnitAmount, 6));
       await perpV2.deposit(taker, BigNumber.from(takerCollateralWholeUnitAmount), perpV2.usdc);
       await perpV2.initializePoolWithLiquidityWide(
-        maker,
-        baseTokenAmount,
-        quoteTokenAmount
+        perpV2.vETH,
+        vETHAmount,
+        vQuoteAmount
       );
 
       // Take long position
       await perpV2.clearingHouse.connect(taker.wallet).openPosition({
-        baseToken: perpV2.baseToken.address,
+        baseToken: perpV2.vETH.address,
         isBaseToQuote: false,
         isExactInput: true,
         oppositeAmountBound: 0,
@@ -138,7 +138,7 @@ describe("PerpV2Fixture", () => {
     });
 
     async function subject(): Promise<void> {
-      return await perpV2.setBaseTokenOraclePrice(subjectOraclePrice);
+      return await perpV2.setBaseTokenOraclePrice(perpV2.vETH, subjectOraclePrice);
     }
 
     it("should update the oracle price and increase taker account value", async () => {

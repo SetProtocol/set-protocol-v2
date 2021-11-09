@@ -21,7 +21,7 @@ import { MAX_UINT_256, ZERO_BYTES, ADDRESS_ZERO, ZERO } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
-describe("PerpV2", () => {
+describe.only("PerpV2", () => {
   let owner: Account;
   let maker: Account;
   let deployer: DeployHelper;
@@ -33,7 +33,7 @@ describe("PerpV2", () => {
   let perpSetup: PerpV2Fixture;
 
   let setToken: SetToken;
-  let baseToken:  PerpV2BaseToken;
+  let vETH:  PerpV2BaseToken;
 
   before(async () => {
     [
@@ -55,12 +55,12 @@ describe("PerpV2", () => {
     await setup.controller.addModule(invokeLibMock.address);
 
     perpSetup = getPerpV2Fixture(owner.address);
-    await perpSetup.initialize();
+    await perpSetup.initialize(maker);
 
-    baseToken = perpSetup.baseToken;
+    vETH = perpSetup.vETH;
 
     // Create liquidity
-    await perpSetup.initializePoolWithLiquidityWide(maker, ether(1000), ether(10_000));
+    await perpSetup.initializePoolWithLiquidityWide(vETH, ether(1000), ether(10_000));
 
     setToken = await setup.createSetToken(
       [perpSetup.usdc.address],
@@ -217,7 +217,7 @@ describe("PerpV2", () => {
 
   describe("#getOpenPositionCalldata", async () => {
     let subjectClearingHouse: Address;
-    let subjectBaseToken: PerpV2BaseToken;
+    let subjectVETH: PerpV2BaseToken;
     let subjectIsBaseToQuote: boolean;
     let subjectIsExactInput: boolean;
     let subjectTradeQuoteAmount: BigNumber;
@@ -228,7 +228,7 @@ describe("PerpV2", () => {
 
     beforeEach(async () => {
       subjectClearingHouse = perpSetup.clearingHouse.address;
-      subjectBaseToken = baseToken;
+      subjectVETH = vETH;
       subjectIsBaseToQuote = false;
       subjectIsExactInput = true;
       subjectTradeQuoteAmount = ether(1);
@@ -242,7 +242,7 @@ describe("PerpV2", () => {
       return await perpLibMock.testGetOpenPositionCalldata(
         subjectClearingHouse,
         {
-          baseToken: subjectBaseToken.address,
+          baseToken: subjectVETH.address,
           isBaseToQuote: subjectIsBaseToQuote,
           isExactInput: subjectIsExactInput,
           amount: subjectTradeQuoteAmount,
@@ -258,7 +258,7 @@ describe("PerpV2", () => {
       const [target, value, calldata] = await subject();
       const expectedCalldata = perpSetup.clearingHouse.interface.encodeFunctionData("openPosition", [
         {
-          baseToken: subjectBaseToken.address,
+          baseToken: subjectVETH.address,
           isBaseToQuote: subjectIsBaseToQuote,
           isExactInput: subjectIsExactInput,
           amount: subjectTradeQuoteAmount,
@@ -278,7 +278,7 @@ describe("PerpV2", () => {
   describe("#invokeOpenPosition", async () => {
     let subjectSetToken: Address;
     let subjectClearingHouse: Address;
-    let subjectBaseToken: PerpV2BaseToken;
+    let subjectVETH: PerpV2BaseToken;
     let subjectIsBaseToQuote: boolean;
     let subjectIsExactInput: boolean;
     let subjectTradeQuoteAmount: BigNumber;
@@ -293,7 +293,7 @@ describe("PerpV2", () => {
 
       subjectSetToken = setToken.address;
       subjectClearingHouse = perpSetup.clearingHouse.address;
-      subjectBaseToken = baseToken;
+      subjectVETH = vETH;
       subjectIsBaseToQuote = false;
       subjectIsExactInput = true;
       subjectTradeQuoteAmount = ether(1);
@@ -308,7 +308,7 @@ describe("PerpV2", () => {
         subjectSetToken,
         subjectClearingHouse,
         {
-          baseToken: subjectBaseToken.address,
+          baseToken: subjectVETH.address,
           isBaseToQuote: subjectIsBaseToQuote,
           isExactInput: subjectIsExactInput,
           amount: subjectTradeQuoteAmount,
@@ -321,13 +321,13 @@ describe("PerpV2", () => {
     }
 
     it("should open a position", async () => {
-      const previousBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken.address);
-      const previousQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken.address);
+      const previousBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectVETH.address);
+      const previousQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectVETH.address);
 
       await subject();
 
-      const currentBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken.address);
-      const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken.address);
+      const currentBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectVETH.address);
+      const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectVETH.address);
 
       const expectedQuoteBalance = previousQuoteBalance.sub(subjectTradeQuoteAmount);
 
@@ -339,7 +339,7 @@ describe("PerpV2", () => {
 
   describe("#getSwapCalldata", async () => {
     let subjectQuoter: Address;
-    let subjectBaseToken: PerpV2BaseToken;
+    let subjectVETH: PerpV2BaseToken;
     let subjectIsBaseToQuote: boolean;
     let subjectIsExactInput: boolean;
     let subjectTradeQuoteAmount: BigNumber;
@@ -347,7 +347,7 @@ describe("PerpV2", () => {
 
     beforeEach(async () => {
       subjectQuoter = perpSetup.clearingHouse.address;
-      subjectBaseToken = baseToken;
+      subjectVETH = vETH;
       subjectIsBaseToQuote = false;
       subjectIsExactInput = true;
       subjectTradeQuoteAmount = ether(1);
@@ -358,7 +358,7 @@ describe("PerpV2", () => {
       return await perpLibMock.testGetSwapCalldata(
         subjectQuoter,
         {
-          baseToken: subjectBaseToken.address,
+          baseToken: subjectVETH.address,
           isBaseToQuote: subjectIsBaseToQuote,
           isExactInput: subjectIsExactInput,
           amount: subjectTradeQuoteAmount,
@@ -371,7 +371,7 @@ describe("PerpV2", () => {
       const [target, value, calldata] = await subject();
       const expectedCalldata = perpSetup.quoter.interface.encodeFunctionData("swap", [
         {
-          baseToken: subjectBaseToken.address,
+          baseToken: subjectVETH.address,
           isBaseToQuote: subjectIsBaseToQuote,
           isExactInput: subjectIsExactInput,
           amount: subjectTradeQuoteAmount,
@@ -388,7 +388,7 @@ describe("PerpV2", () => {
   describe("#invokeSwap", async () => {
     let subjectSetToken: Address;
     let subjectQuoter: Address;
-    let subjectBaseToken: PerpV2BaseToken;
+    let subjectVETH: PerpV2BaseToken;
     let subjectIsBaseToQuote: boolean;
     let subjectIsExactInput: boolean;
     let subjectTradeQuoteAmount: BigNumber;
@@ -399,7 +399,7 @@ describe("PerpV2", () => {
 
       subjectSetToken = setToken.address;
       subjectQuoter = perpSetup.quoter.address;
-      subjectBaseToken = baseToken;
+      subjectVETH = vETH;
       subjectIsBaseToQuote = false;
       subjectIsExactInput = true;
       subjectTradeQuoteAmount = ether(1);
@@ -409,7 +409,7 @@ describe("PerpV2", () => {
     // Need to callStatic this swap to get the return values
     async function subject(callStatic: boolean): Promise<any> {
       const params = {
-        baseToken: subjectBaseToken.address,
+        baseToken: subjectVETH.address,
         isBaseToQuote: subjectIsBaseToQuote,
         isExactInput: subjectIsExactInput,
         amount: subjectTradeQuoteAmount,
@@ -429,7 +429,7 @@ describe("PerpV2", () => {
         subjectSetToken,
         perpSetup.clearingHouse.address,
         {
-          baseToken: subjectBaseToken.address,
+          baseToken: subjectVETH.address,
           isBaseToQuote: subjectIsBaseToQuote,
           isExactInput: subjectIsExactInput,
           amount: subjectTradeQuoteAmount,
@@ -450,9 +450,9 @@ describe("PerpV2", () => {
     });
 
     it("should only simulates the trade", async () => {
-      const previousQuoteBalance = await await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken.address);
+      const previousQuoteBalance = await await perpSetup.accountBalance.getQuote(setToken.address, subjectVETH.address);
       await subject(false);
-      const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken.address);
+      const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectVETH.address);
 
       expect(currentQuoteBalance).to.eq(previousQuoteBalance);
     });
