@@ -43,7 +43,7 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 
 // TODO: REMOVE THIS WHEN COMPLETE
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 /**
  * @title PerpLeverageModule
@@ -180,7 +180,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
-        uint256 _minReceiveQuoteQuantityUnits
+        uint256 _receiveQuoteQuantityUnits
     )
         external
         nonReentrant
@@ -190,7 +190,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _minReceiveQuoteQuantityUnits
+            _receiveQuoteQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
@@ -217,7 +217,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
-        uint256 _minReceiveQuoteQuantityUnits
+        uint256 _receiveQuoteQuantityUnits
     )
         external
         nonReentrant
@@ -226,8 +226,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ActionInfo memory actionInfo = _createAndValidateActionInfo(
             _setToken,
             _baseToken,
-            _baseQuantityUnits,
-            _minReceiveQuoteQuantityUnits
+            _baseQuantityUnits.mul(-1),
+            _receiveQuoteQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
@@ -269,7 +269,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
       onlyManagerAndValidSet(_setToken)
     {
         require(_collateralQuantityUnits > 0, "Withdraw amount is 0");
-        _withdraw(_setToken, _collateralQuantityUnits);
+        _withdraw(_setToken, _collateralQuantityUnits, true);
     }
 
     function initialize(
@@ -505,7 +505,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
     }
 
-
     function componentRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
@@ -514,7 +513,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     ) external override onlyModule(_setToken) {
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
-        _withdraw(_setToken, usdcTransferOutQuantityUnits);
+        _withdraw(_setToken, usdcTransferOutQuantityUnits, false);
     }
 
     /* ============ External Getter Functions ============ */
@@ -586,17 +585,23 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // TODO: Update externalPositionUnit for collateralToken ?
     }
 
-    function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
+    function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits, bool editDefaultPosition) internal {
+        if (_collateralQuantityUnits == 0) return;
+
         uint256 initialCollateralPositionBalance = collateralToken[_setToken].balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
 
         _setToken.invokeWithdraw(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
 
-        _setToken.calculateAndEditDefaultPosition(
-            address(collateralToken[_setToken]),
-            _setToken.totalSupply(),
-            initialCollateralPositionBalance
-        );
+        // Skip position editing in cases (like fee payment) where we withdraw and immediately
+        // forward the amount to another recipient.
+        if (editDefaultPosition) {
+            _setToken.calculateAndEditDefaultPosition(
+                address(collateralToken[_setToken]),
+                _setToken.totalSupply(),
+                initialCollateralPositionBalance
+            );
+        }
 
         // TODO: Update externalPositionUnit for collateralToken ?
     }
@@ -637,12 +642,20 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns(uint256)
     {
         IERC20 token = collateralToken[_setToken];
+
         uint256 protocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
         uint256 protocolFeeUnits = protocolFee.preciseDiv(_setToken.totalSupply());
 
-        _withdraw(_setToken, protocolFeeUnits);
-        payProtocolFeeFromSetToken(_setToken, address(token), protocolFee);
-        return protocolFee;
+        _withdraw(_setToken, protocolFeeUnits, false);
+
+        uint256 protocolFeeInCollateralDecimals = _formatCollateralToken(
+            protocolFee,
+            ERC20(address(token)).decimals()
+        );
+
+        payProtocolFeeFromSetToken(_setToken, address(token), protocolFeeInCollateralDecimals);
+
+        return protocolFeeInCollateralDecimals;
     }
 
     function _createAndValidateActionInfo(
