@@ -1270,8 +1270,6 @@ describe("PerpV2LeverageModule", () => {
 
   describe("#moduleIssueHook", () => {
     let setToken: SetToken;
-    let depositQuantity: BigNumber;
-
     let subjectSetToken: Address;
     let subjectCaller: Account;
     let subjectSetQuantity: BigNumber;
@@ -1305,8 +1303,7 @@ describe("PerpV2LeverageModule", () => {
       await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
       // Deposit 10 USDC (in 10**18)
-      depositQuantity = ether(10);
-      await perpLeverageModule.deposit(setToken.address, depositQuantity);
+      await perpLeverageModule.deposit(setToken.address, ether(10));
     };
 
     const initializeSubjectVariables = () => {
@@ -1481,6 +1478,9 @@ describe("PerpV2LeverageModule", () => {
       // Initialize mock module
       await setToken.addModule(mockModule.address);
       await setToken.connect(mockModule.wallet).initializeModule();
+
+      // Deposit 10 USDC (in 10**18)
+      await perpLeverageModule.deposit(setToken.address, ether(10));
     };
 
     const initializeSubjectVariables = () => {
@@ -1522,6 +1522,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
     let subjectCaller: Account;
+    let subjectLeverageRatio: number;
 
     const initializeContracts = async () => {
       // Add mock module to controller
@@ -1533,15 +1534,32 @@ describe("PerpV2LeverageModule", () => {
         [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
       );
 
+      await debtIssuanceMock.initialize(setToken.address);
+      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+      await perpLeverageModule.connect(owner.wallet).initialize(
+        setToken.address,
+        usdc.address
+      );
+
       // Initialize mock module
       await setToken.addModule(mockModule.address);
       await setToken.connect(mockModule.wallet).initializeModule();
+
+      const issueQuantity = ether(1);
+      await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+      await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+      // Deposit 10 USDC (in 10**18)
+      await perpLeverageModule.deposit(setToken.address, ether(10));
     };
 
     const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
       subjectCaller = mockModule;
       subjectSetQuantity = ether(1);
+      subjectLeverageRatio = 2;
     };
 
     cacheBeforeEach(initializeContracts);
@@ -1555,6 +1573,50 @@ describe("PerpV2LeverageModule", () => {
         true // unused
       );
     }
+
+    describe("when long", () => {
+      let totalSupply: BigNumber;
+      let baseTradeQuantityUnit: BigNumber;
+
+      cacheBeforeEach(async () => {
+        const spotPrice = await perpSetup.getSpotPrice(vETH.address);
+        totalSupply = await setToken.totalSupply();
+
+        const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+        const baseTradeQuantityNotional = preciseDiv(collateralBalance.mul(subjectLeverageRatio), spotPrice);
+        baseTradeQuantityUnit = preciseDiv(baseTradeQuantityNotional, totalSupply);
+
+        const estimatedQuoteQuantityNotional =  preciseMul(baseTradeQuantityNotional, spotPrice);
+        const allowedSlippage = preciseMul(estimatedQuoteQuantityNotional, ether(.02));
+        const quoteReceiveQuantityUnit = preciseDiv(
+          estimatedQuoteQuantityNotional.add(allowedSlippage),
+          totalSupply
+        );
+
+        await perpLeverageModule.connect(owner.wallet).lever(
+          setToken.address,
+          vETH.address,
+          baseTradeQuantityUnit,
+          quoteReceiveQuantityUnit
+        );
+
+        await perpLeverageModule
+          .connect(subjectCaller.wallet)
+          .moduleIssueHook(subjectSetToken, subjectSetQuantity);
+      });
+
+      it("should open the correct position in Perp", async () => {
+        const { baseBalance: initialBaseBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+        await subject();
+        const { baseBalance: finalBaseBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+
+        const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+        const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
+        const expectedBaseBalance = initialBaseBalance.add(baseTokenBoughtNotional);
+
+        expect(finalBaseBalance).eq(expectedBaseBalance);
+      });
+    });
 
     describe("when caller is not module", async () => {
       beforeEach(async () => {
