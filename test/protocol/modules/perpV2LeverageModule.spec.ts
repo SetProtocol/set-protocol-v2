@@ -1852,6 +1852,75 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  describe("#setCollateralToken", async () => {
+    let setToken: SetToken;
+    let subjectSetToken: Address;
+    let subjectCollateralToken: Address;
+    let subjectCaller: Account;
+
+    cacheBeforeEach(async function () {
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [ether(100)],
+        [perpLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
+      );
+      await debtIssuanceMock.initialize(setToken.address);
+      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+      await perpLeverageModule.initialize(
+        setToken.address,
+        usdc.address
+      );
+
+      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
+
+      // Approve tokens to issuance module and call issue
+      await usdc.approve(setup.issuanceModule.address, ether(100));
+      await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
+    });
+
+    beforeEach(async () => {
+      subjectSetToken = setToken.address;
+      subjectCollateralToken = await getRandomAddress();
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      return perpLeverageModule
+        .connect(subjectCaller.wallet)
+        .setCollateralToken(subjectSetToken, subjectCollateralToken);
+    }
+
+    it("should update the collateral token", async () => {
+      const initialCollateralToken = await perpLeverageModule.collateralToken(subjectSetToken);
+      await subject();
+      const finalCollateralToken = await perpLeverageModule.collateralToken(subjectSetToken);
+
+      expect(initialCollateralToken).to.not.eq(finalCollateralToken);
+      expect(finalCollateralToken).to.eq(subjectCollateralToken);
+    });
+
+    describe("when the perp account has a collateral balance", async () => {
+      beforeEach(async () => {
+        await perpLeverageModule.deposit(subjectSetToken, ether(10));
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Existing collateral balance");
+      });
+    });
+
+    describe("when not called by the SetToken manager", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      });
+    });
+  });
+
   describe("#getPositionInfo", () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
