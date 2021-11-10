@@ -77,14 +77,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     struct AccountInfo {
         int256 collateralBalance;
-        int256 owedRealizedPnL;
+        int256 owedRealizedPnl;
         int256 pendingFundingPayments;
-        int256 accountValue;
-        uint256 totalAbsPositionValue;
-        int256 netQuoteBalance;
-        // Missing....
-        // int256 marginRequirement;
-        // uint256 freeCollateral;
     }
 
     /* ============ Events ============ */
@@ -424,8 +418,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
 
         // Calculate already accrued PnL from non-issuance/redemption sources (ex: levering)
-        int256 totalFundingAndCarriedPnL = accountInfo.pendingFundingPayments + accountInfo.owedRealizedPnL;
-        int256 owedRealizedPnLPositionUnit = totalFundingAndCarriedPnL.preciseDiv(_setToken.totalSupply().toInt256());
+        int256 totalFundingAndCarriedPnL = accountInfo.pendingFundingPayments + accountInfo.owedRealizedPnl;
+        int256 owedRealizedPnlPositionUnit = totalFundingAndCarriedPnL.preciseDiv(_setToken.totalSupply().toInt256());
 
         for (uint256 i = 0; i < positionInfo.length; i++) {
             // Calculate amount to trade
@@ -460,7 +454,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         int256 usdcToWithdraw =
             collateralPositionUnit.preciseMul(setTokenQuantity) +
-            owedRealizedPnLPositionUnit.preciseMul(setTokenQuantity) +
+            owedRealizedPnlPositionUnit.preciseMul(setTokenQuantity) +
             realizedPnL;
 
         // Set the external position unit for DIM
@@ -541,17 +535,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
         accountInfo = AccountInfo({
             collateralBalance: _getCollateralBalance(_setToken),
-            owedRealizedPnL: perpAccountBalance.getOwedRealizedPnl(address(_setToken)),
-            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)),
-
-            // TODO: think this is also in "settlement decimals"
-            accountValue: perpClearingHouse.getAccountValue(address(_setToken)),
-
-            totalAbsPositionValue: perpAccountBalance.getTotalAbsPositionValue(address(_setToken)),
-            netQuoteBalance: perpAccountBalance.getNetQuoteBalance(address(_setToken))
-
-            // Missing....
-            //freeCollateral: perpVault.getFreeCollateral(address(_setToken))
+            owedRealizedPnl: perpAccountBalance.getOwedRealizedPnl(address(_setToken)),
+            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken))
         });
     }
 
@@ -764,7 +749,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             spotPrice
         );
 
-        int256 owedRealizedPnlDiscountQuantity = _calculateOwedRealizedPnLDiscount(
+        int256 owedRealizedPnlDiscountQuantity = _calculateOwedRealizedPnlDiscount(
             _setToken,
             _setTokenQuantity
         );
@@ -776,7 +761,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
     }
 
-    function _calculateOwedRealizedPnLDiscount(
+    function _calculateOwedRealizedPnlDiscount(
         ISetToken _setToken,
         uint256 _setTokenQuantity
     )
@@ -785,10 +770,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns (int256)
     {
         // Calculate addtional usdcAmountIn and add to running total.
-        int256 owedRealizedPnL = perpAccountBalance.getOwedRealizedPnl(address(_setToken));
+        int256 owedRealizedPnl = perpAccountBalance.getOwedRealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
-        return (owedRealizedPnL + pendingFundingPayments)
+        return (owedRealizedPnl + pendingFundingPayments)
             .preciseDiv(_setToken.totalSupply().toInt256())
             .preciseMul(_setTokenQuantity.toInt256());
     }
