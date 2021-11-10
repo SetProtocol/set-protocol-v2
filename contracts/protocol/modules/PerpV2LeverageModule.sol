@@ -975,7 +975,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return (
             slippageQuantity +
             owedRealizedPnlDiscountQuantity +
-            _deltaQuote.toInt256().preciseDiv(currentLeverage)
+            idealDeltaQuote.preciseDiv(currentLeverage)
         );
     }
 
