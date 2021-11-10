@@ -1275,6 +1275,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectSetToken: Address;
     let subjectCaller: Account;
     let subjectSetQuantity: BigNumber;
+    let subjectLeverageRatio: number;
 
     const initializeContracts = async () => {
       // Add mock module to controller
@@ -1306,24 +1307,13 @@ describe("PerpV2LeverageModule", () => {
       // Deposit 10 USDC (in 10**18)
       depositQuantity = ether(10);
       await perpLeverageModule.deposit(setToken.address, depositQuantity);
-
-      const vETHSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-      const vETHQuantity = preciseDiv(depositQuantity,vETHSpotPrice);
-      const slippagePercentage = ether(.2);
-      const minQuoteReceive = depositQuantity.add(preciseMul(depositQuantity, slippagePercentage));
-
-      await perpLeverageModule.connect(owner.wallet).lever(
-        setToken.address,
-        vETH.address,
-        vETHQuantity,
-        minQuoteReceive
-      );
     };
 
     const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
       subjectCaller = mockModule;
       subjectSetQuantity = ether(1);
+      subjectLeverageRatio = 2;
     };
 
     cacheBeforeEach(initializeContracts);
@@ -1335,24 +1325,120 @@ describe("PerpV2LeverageModule", () => {
         .moduleIssueHook(subjectSetToken, subjectSetQuantity);
     }
 
-    describe("when long (total supply is 1)", async () => {
-      it("should set the expected USDC externalPositionUnit", async () => {
+    describe("when long, single position", () => {
+      let baseTradeQuantityUnit: BigNumber;
+
+      cacheBeforeEach(async () => {
+        const spotPrice = await perpSetup.getSpotPrice(vETH.address);
+        const totalSupply = await setToken.totalSupply();
+
+        const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+        const baseTradeQuantityNotional = preciseDiv(collateralBalance.mul(subjectLeverageRatio), spotPrice);
+        baseTradeQuantityUnit = preciseDiv(baseTradeQuantityNotional, totalSupply);
+
+        const estimatedQuoteQuantityNotional =  preciseMul(baseTradeQuantityNotional, spotPrice);
+        const allowedSlippage = preciseMul(estimatedQuoteQuantityNotional, ether(.02));
+        const quoteReceiveQuantityUnit = preciseDiv(
+          estimatedQuoteQuantityNotional.add(allowedSlippage),
+          totalSupply
+        );
+
+        await perpLeverageModule.connect(owner.wallet).lever(
+          setToken.address,
+          vETH.address,
+          baseTradeQuantityUnit,
+          quoteReceiveQuantityUnit
+        );
+      });
+
+      async function subject(): Promise<any> {
+        await perpLeverageModule
+          .connect(subjectCaller.wallet)
+          .moduleIssueHook(subjectSetToken, subjectSetQuantity);
+      }
+
+      describe("when issuing a single set", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+          const spotPrice = await perpSetup.getSpotPrice(vETH.address);
+          const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+          const currentLeverage = await perpSetup.getCurrentLeverage(
+            subjectSetToken,
+            positionInfo,
+            collateralBalance
+          );
+
+          const { deltaBase, deltaQuote } = await perpSetup.getSwapQuote(
+            vETH.address,
+            preciseMul(baseTradeQuantityUnit, subjectSetQuantity),
+            true
+          );
+
+          const idealQuote = preciseMul(deltaBase, spotPrice);
+          const expectedSlippage = idealQuote.sub(deltaQuote).mul(-1);
+          const usdcTransferInQuantity = preciseDiv(idealQuote, currentLeverage).add(expectedSlippage);
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
+
+          await subject();
+
+          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
+            usdc.address,
+            perpLeverageModule.address
+          );
+
+          // Not perfect... needs investigation. Not even consistent??? e.g off by one occasionally
+          // 10008085936690386266 vs 10008085658829252928
+          expect(toUSDCDecimals(externalPositionUnit))
+            .to.be
+            .closeTo(toUSDCDecimals(expectedExternalPositionUnit), 1);
+        });
+      });
+
+      describe("when there is pending funding", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+        });
+      });
+
+      describe("when there is owedRealizedPnl", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+        });
+      });
+
+      describe("when issuing multiple sets", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+        });
       });
     });
 
-    describe("when long (total supply is 2)", async () => {
-      it("should set the expected USDC externalPositionUnit", async () => {
-      });
+    describe("when long, multiple positions", async () => {
+
     });
 
-    describe("when there is pending funding", async () => {
-      it("should set the expected USDC externalPositionUnit", async () => {
+    describe("when short", async () => {
+      describe("when issuing a single set", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+        });
       });
+
+      describe("when there is pending funding", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+        });
+      });
+
+      describe("when there is owedRealizedPnl", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+        });
+      });
+
+      describe("when issuing multiple sets", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
+        });
+      });
+
+      describe("when there are multiple positions", async () => {});
     });
 
-    describe("when short", async () => {});
-
-    describe("when there are multiple positions", async () => {});
 
     describe("when caller is not module", async () => {
       beforeEach(async () => {
