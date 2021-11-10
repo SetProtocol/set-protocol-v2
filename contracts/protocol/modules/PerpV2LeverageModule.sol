@@ -48,9 +48,7 @@ import "hardhat/console.sol";
 /**
  * @title PerpLeverageModule
  * @author Set Protocol
- * @notice Smart contract that enables leverage trading using Aave as the lending protocol.
- * @dev Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
- * debt when borrowed assets are the same.
+ * @notice Smart contract that enables leveraged trading using the PerpV2 protocol.
  */
 contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
@@ -61,42 +59,41 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     struct ActionInfo {
         ISetToken setToken;
-        address baseToken;
-        bool isBaseToQuote;
-        bool isExactInput;
-        int256 amount;
-        uint256 oppositeAmountBound;
-        int256 preTradeQuoteBalance;
+        address baseToken;              // Virtual token minted by the Perp protocol
+        bool isBaseToQuote;             // When true, `baseToken` is being sold, when false, bought
+        bool isExactInput;              // When true, `amount` is the swap input, when false, the swap output
+        int256 amount;                  // Quantity in 10**18 decimals
+        uint256 oppositeAmountBound;    // vUSDC receive quantity bound (see trade table for more info)
     }
 
     struct PositionInfo {
-        address baseToken;
-        int256 baseBalance;
-        int256 quoteBalance;
+        address baseToken;              // Virtual token minted by the Perp protocol
+        int256 baseBalance;             // Position size in 10**18 decimals. When negative, position is short
+        int256 quoteBalance;            // vUSDC "debt" minted to open position. When positive, position is short
     }
 
     struct AccountInfo {
-        int256 collateralBalance;
-        int256 owedRealizedPnl;
-        int256 pendingFundingPayments;
+        int256 collateralBalance;       // Quantity of collateral deposited in Perp vault in 10**18 decimals
+        int256 owedRealizedPnl;         // USDC quantity of profit and loss in 10**18 decimals not yet settled to vault
+        int256 pendingFundingPayments;  // USDC quantity of pending funding payments in 10**18 decimals
     }
 
     /* ============ Events ============ */
 
     event LeverageIncreased(
         ISetToken indexed _setToken,
-        address indexed _baseToken,
-        uint256 _deltaBase,
-        uint256 _deltaQuote,
-        uint256 _protocolFee
+        address indexed _baseToken,     // Virtual token minted by the Perp protocol
+        uint256 _deltaBase,             // Change in baseToken position size resulting from trade
+        uint256 _deltaQuote,            // Change in vUSDC position size resulting from trade
+        uint256 _protocolFee            // Quantity in collateral decimals sent to fee recipient during lever trade
     );
 
     event LeverageDecreased(
         ISetToken indexed _setToken,
-        address indexed _baseToken,
-        uint256 _deltaBase,
-        uint256 _deltaQuote,
-        uint256 _protocolFee
+        address indexed _baseToken,     // Virtual token minted by the Perp protocol
+        uint256 _deltaBase,             // Change in baseToken position size resulting from trade
+        uint256 _deltaQuote,            // Change in vUSDC position size resulting from trade
+        uint256 _protocolFee            // Quantity in collateral decimals sent to fee recipient during trade
     );
 
     /**
@@ -128,24 +125,34 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /* ============ State Variables ============ */
 
+    // PerpV2 contract which provides getters for base and quote balances, as well as owedRealizedPnl balance
     IAccountBalance public immutable perpAccountBalance;
 
+    // PerpV2 contract which provides a trading API
     IClearingHouse public immutable perpClearingHouse;
 
+    // PerpV2 contract which manages trading logic. Provides getters for UniswapV3 pools and pending funding balances
     IExchange public immutable perpExchange;
 
+    // PerpV2 contract which handles deposits and withdrawals. Provides getter for collateral balances
     IVault public immutable perpVault;
 
+    // TODO - REMOVE: PerpV2 contract which makes it possible to simulate a trade before it occurs
     IQuoter public immutable perpQuoter;
 
+    // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
+    // Array is automatically updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) public positions;
 
+    // Mapping of SetTokens to the token used as a vault deposit. NOTE: only a single collateral type is allowed
+    // per SetToken at any given time.
     mapping(ISetToken => IERC20) public collateralToken;
 
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
     mapping(ISetToken => bool) public allowedSetTokens;
 
-    // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list. Updateable by governance.
+    // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list.
+    // Updateable by governance.
     bool public anySetAllowed;
 
     /* ============ Constructor ============ */
@@ -683,7 +690,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 _minNotionalQuoteReceiveQuantity
     )
         internal
-        view
+        pure
         returns(ActionInfo memory)
     {
         bool isShort = _notionalBaseTokenQuantity < 0;
@@ -694,11 +701,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             isBaseToQuote: isShort,
             isExactInput: isShort,
             amount: _abs(_notionalBaseTokenQuantity),
-            oppositeAmountBound: _minNotionalQuoteReceiveQuantity,
-            preTradeQuoteBalance: IAccountBalance(perpAccountBalance).getQuote(
-                address(_setToken),
-                _baseToken
-            )
+            oppositeAmountBound: _minNotionalQuoteReceiveQuantity
         });
 
         _validateCommon(actionInfo);
