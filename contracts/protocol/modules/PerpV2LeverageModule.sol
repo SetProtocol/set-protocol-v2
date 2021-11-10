@@ -65,7 +65,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         bool isBaseToQuote;             // When true, `baseToken` is being sold, when false, bought
         bool isExactInput;              // When true, `amount` is the swap input, when false, the swap output
         int256 amount;                  // Quantity in 10**18 decimals
-        uint256 oppositeAmountBound;    // vUSDC receive quantity bound (see trade table for more info)
+        uint256 oppositeAmountBound;    // vUSDC receive quantity bound (see `_createAndValidateActionInfoNotional` for details)
     }
 
     struct PositionInfo {
@@ -739,6 +739,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /* ============ Internal Functions ============ */
 
+    /**
+     * @dev Invoke deposit from SetToken using PerpV2 library. Creates a collateral deposit in Perp vault
+     */
     function _deposit(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
         uint256 initialCollateralPositionBalance = collateralToken[_setToken].balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
@@ -760,6 +763,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // TODO: Update externalPositionUnit for collateralToken ?
     }
 
+    /**
+     * @dev Invoke withdraw from SetToken using PerpV2 library. Withdraws collateral token from Perp vault
+     * into a default position. Optionally updates the collateral asset's default position unit.
+     */
     function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits, bool editDefaultPosition) internal {
         if (_collateralQuantityUnits == 0) return;
 
@@ -781,7 +788,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // TODO: Update externalPositionUnit for collateralToken ?
     }
 
-
+    /**
+     * @dev Formats Perp Protocol openPosition call and executes via SetToken (and PerpV2 lib)
+     * @return uint256     The base position delta resulting from the trade
+     * @return uint256     The quote asset position delta resulting from the trade
+     */
     function _executeTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
         IClearingHouse.OpenPositionParams memory params = IClearingHouse.OpenPositionParams({
             baseToken: _actionInfo.baseToken,
@@ -797,6 +808,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return _actionInfo.setToken.invokeOpenPosition(perpClearingHouse, params);
     }
 
+    // TODO: REMOVE...
     function _simulateTrade(ActionInfo memory _actionInfo) internal returns (IQuoter.SwapResponse memory) {
         IQuoter.SwapParams memory params = IQuoter.SwapParams({
             baseToken: _actionInfo.baseToken,
@@ -809,6 +821,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return _actionInfo.setToken.invokeSwap(perpQuoter, params);
     }
 
+    /**
+     * @dev Calculates protocol fee on module and pays protocol fee from SetToken
+     * @return uint256          Total protocol fee paid in underlying collateral decimals e.g (USDC = 6)
+     */
     function _accrueProtocolFee(
         ISetToken _setToken,
         uint256 _exchangedQuantity
@@ -833,11 +849,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return protocolFeeInCollateralDecimals;
     }
 
+    /**
+     * @dev Construct the ActionInfo struct for lever and delever
+     * @return ActionInfo       Instance of constructed ActionInfo struct
+     */
     function _createAndValidateActionInfo(
         ISetToken _setToken,
         address _baseToken,
         int256 _baseTokenQuantityUnits,
-        uint256 _minReceiveQuantityUnits
+        uint256 _recieveQuoteQuantityUnits
     )
         internal
         view
@@ -849,28 +869,29 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseTokenQuantityUnits.preciseMul(totalSupply.toInt256()),
-            _minReceiveQuantityUnits.preciseMul(totalSupply)
+            _recieveQuoteQuantityUnits.preciseMul(totalSupply)
         );
     }
 
-    /*
-
-    | --------------------------------------------------------------------------------------------------|
-    | Action |  Type | isB2Q | Exact In / Out | Amount    | minReceived   | minReceived description     |
-    | -------|-------|-------|----------------|-----------| ------------- | ----------------------------|
-    | Buy    | Long  | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
-    | Buy    | Short | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
-    | Sell   | Long  | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
-    | Sell   | Short | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
-    |---------------------------------------------------------------------------------------------------|
-
-    */
-
+    /**
+     * @dev Construct the ActionInfo struct for lever and delever accepting notional units.
+     *
+     * | --------------------------------------------------------------------------------------------------|
+     * | Action |  Type | isB2Q | Exact In / Out | Amount    | Recieve Token | Receive Description         |
+     * | -------|-------|-------|----------------|-----------| ------------- | ----------------------------|
+     * | Buy    | Long  | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
+     * | Buy    | Short | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
+     * | Sell   | Long  | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
+     * | Sell   | Short | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
+     * |---------------------------------------------------------------------------------------------------|
+     *
+     * @return ActionInfo       Instance of constructed ActionInfo struct
+     */
     function _createAndValidateActionInfoNotional(
         ISetToken _setToken,
         address _baseToken,
         int256 _notionalBaseTokenQuantity,
-        uint256 _minNotionalQuoteReceiveQuantity
+        uint256 _notionalQuoteReceiveQuantity
     )
         internal
         pure
@@ -884,7 +905,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             isBaseToQuote: isShort,
             isExactInput: isShort,
             amount: _abs(_notionalBaseTokenQuantity),
-            oppositeAmountBound: _minNotionalQuoteReceiveQuantity
+            oppositeAmountBound: _notionalQuoteReceiveQuantity
         });
 
         _validateCommon(actionInfo);
@@ -892,6 +913,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return actionInfo;
     }
 
+    /**
+     * @dev Update position address array if a token has been newly added or completely sold off
+     * during lever/delever
+     */
     function _updatePositionList(ISetToken _setToken, address _baseToken) internal {
         int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
 
@@ -906,6 +931,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
     }
 
+    /**
+     * @dev Calculate amount of USDC to transfer in to pay for issuance. Slippage is paid for
+     * by issuer and any pending funding payments / carried owedRealizedPnl are paid for by
+     * existing Set holders. Returned value is used to set the Perp account's external position unit.
+     *
+     * @return int256 Amount of USDC to transfer in.
+     */
     function _calculateUSDCAmountIn(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
@@ -947,6 +979,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
     }
 
+    /**
+     * @dev Calculate the total amount to discount an issuance purchase by given pending funding payments
+     * and unsettled owedRealizedPnl balances. These amounts are socialized among existing shareholders.
+     *
+     * @return int256 Total quantity to discount
+     */
     function _calculateOwedRealizedPnlDiscount(
         ISetToken _setToken,
         uint256 _setTokenQuantity
@@ -964,6 +1002,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             .preciseMul(_setTokenQuantity.toInt256());
     }
 
+    /**
+     * @dev Calculate current leverage ratio. This value is used to scale the amount of USDC to transfer
+     * in during issuance so new set holder funds are proportionate to the leverage ratio pre-established
+     * for the set.
+     *
+     * @return int256 Leverage ratio
+     */
     function _calculateCurrentLeverage(
         int256 baseBalance,
         int256 quoteBalance,
@@ -983,6 +1028,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
     }
 
+    /**
+     * @dev Sets the identity of the Perp accounts deposit collateral token. Reverts if there is
+     * an existing collateral balance. Only one collateral type is allowed.
+     */
     function _setCollateralToken(
       ISetToken _setToken,
       IERC20 _collateralToken
