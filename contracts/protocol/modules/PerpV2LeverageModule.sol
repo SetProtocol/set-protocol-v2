@@ -803,7 +803,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     )
       internal
     {
-        require(perpVault.balanceOf(address(_setToken)) == 0);
+        require(perpVault.balanceOf(address(_setToken)) == 0, "Existing collateral balance");
         collateralToken[_setToken] = _collateralToken;
     }
 
