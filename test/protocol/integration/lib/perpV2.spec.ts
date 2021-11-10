@@ -21,7 +21,7 @@ import { MAX_UINT_256, ZERO_BYTES, ADDRESS_ZERO, ZERO } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
-describe.only("PerpV2", () => {
+describe("PerpV2", () => {
   let owner: Account;
   let maker: Account;
   let deployer: DeployHelper;
@@ -449,7 +449,7 @@ describe.only("PerpV2", () => {
       expect(expectedDeltaAvailableQuote).to.eq(quotedDeltaAvailableQuote);
     });
 
-    it("should only simulates the trade", async () => {
+    it("should only simulate the trade", async () => {
       const previousQuoteBalance = await await perpSetup.accountBalance.getQuote(setToken.address, subjectVETH.address);
       await subject(false);
       const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectVETH.address);

@@ -48,7 +48,9 @@ import "hardhat/console.sol";
 /**
  * @title PerpLeverageModule
  * @author Set Protocol
- * @notice Smart contract that enables leveraged trading using the PerpV2 protocol.
+ * @notice Smart contract that enables leveraged trading using the PerpV2 protocol. Each
+ * SetToken can only manage a single Perp account, represented as a positive equity external position
+ * whose value is the net Perp account value denominated in the collateral token deposited into the Perp Protocol.
  */
 contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
@@ -80,20 +82,36 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /* ============ Events ============ */
 
+    /**
+     * @dev Emitted on lever
+     * @param _setToken         Instance of SetToken
+     * @param _baseToken        Virtual token minted by the Perp protocol
+     * @param _deltaBase        Change in baseToken position size resulting from trade
+     * @param _deltaQuote       Change in vUSDC position size resulting from trade
+     * @param _protocolFee      Quantity in collateral decimals sent to fee recipient during lever trade
+     */
     event LeverageIncreased(
         ISetToken indexed _setToken,
-        address indexed _baseToken,     // Virtual token minted by the Perp protocol
-        uint256 _deltaBase,             // Change in baseToken position size resulting from trade
-        uint256 _deltaQuote,            // Change in vUSDC position size resulting from trade
-        uint256 _protocolFee            // Quantity in collateral decimals sent to fee recipient during lever trade
+        address indexed _baseToken,
+        uint256 _deltaBase,
+        uint256 _deltaQuote,
+        uint256 _protocolFee
     );
 
+    /**
+     * @dev Emitted on delever
+     * @param _setToken         Instance of SetToken
+     * @param _baseToken        Virtual token minted by the Perp protocol
+     * @param _deltaBase        Change in baseToken position size resulting from trade
+     * @param _deltaQuote       Change in vUSDC position size resulting from trade
+     * @param _protocolFee      Quantity in collateral decimals sent to fee recipient during lever trade
+     */
     event LeverageDecreased(
         ISetToken indexed _setToken,
-        address indexed _baseToken,     // Virtual token minted by the Perp protocol
-        uint256 _deltaBase,             // Change in baseToken position size resulting from trade
-        uint256 _deltaQuote,            // Change in vUSDC position size resulting from trade
-        uint256 _protocolFee            // Quantity in collateral decimals sent to fee recipient during trade
+        address indexed _baseToken,
+        uint256 _deltaBase,
+        uint256 _deltaQuote,
+        uint256 _protocolFee
     );
 
     /**
@@ -157,13 +175,22 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /* ============ Constructor ============ */
 
+    /**
+     * @dev Sets external PerpV2 Protocol addresses.
+     * @param _controller               Address of controller contract
+     * @param _perpAccountBalance       Address of Perp AccountBalance contract
+     * @param _perpClearingHouse        Address of Perp ClearingHouse contract
+     * @param _perpExchange             Address of Perp Exchange contract
+     * @param _perpVault                Address of Perp Vault contract
+     * @param _perpQuoter               Address of Perp Quoter contract
+     */
     constructor(
         IController _controller,
         IAccountBalance _perpAccountBalance,
         IClearingHouse _perpClearingHouse,
         IExchange _perpExchange,
         IVault _perpVault,
-        IQuoter _perpQuoter
+        IQuoter _perpQuoter // TODO: REMOVE
     )
         public
         ModuleBase(_controller)
@@ -177,6 +204,25 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /* ============ External Functions ============ */
 
+    /**
+     * @dev MANAGER ONLY: Raises leverage ratio for a virtual token by increasing the magnitude of its position,
+     * Providing a positive value for `_baseQuantityUnits` buys vToken on UniswapV3 via Perp's ClearingHouse,
+     * Providing a negative value (when increasing leverage for an inverse position) sells the token.
+     * `_receiveQuoteQuantityUnits` defines a min-receive-like slippage bound for the amount of vUSDC quote
+     * asset the trade will either pay or receive as a result of the action.
+     *
+     * | ----------------------------------------------------------------------------------------------- |
+     * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
+     * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
+     * | Long  | Buy     | pay least amt. of vQuote  | upper bound of input quote  | positive            |
+     * | Short | Sell    | get most amt. of vQuote   | lower bound of output quote | negative            |
+     * | ----------------------------------------------------------------------------------------------- |
+     *
+     * @param _setToken                     Instance of the SetToken
+     * @param _baseToken                    Address virtual token being traded
+     * @param _baseQuantityUnits            Quantity of virtual token to trade in position units
+     * @param _receiveQuoteQuantityUnits    Max/min of vQuote asset to pay/receive when buying or selling
+     */
     function lever(
         ISetToken _setToken,
         address _baseToken,
@@ -214,6 +260,26 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
 
+    /**
+     * @dev MANAGER ONLY: Lowers leverage ratio for a virtual token by decreasing the magnitude of its position,
+     * Providing a positive value for `_baseQuantityUnits` sells vToken on UniswapV3 via Perp's ClearingHouse,
+     * Providing a negative value (when decreasing leverage for an inverse position) buys the token, reducing
+     * the size of its negative balance. `_receiveQuoteQuantityUnits` defines a min-receive-like slippage bound for
+     * the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
+     *
+     * | ----------------------------------------------------------------------------------------------- |
+     * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
+     * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
+     * | Long  | Sell    | get most amt. of vQuote   | lower bound of output quote | positive            |
+     * | Short | Buy     | pay least amt. of vQuote  | upper bound of input quote  | negative            |
+     * | ----------------------------------------------------------------------------------------------- |
+     *
+     * @param _setToken                     Instance of the SetToken
+     * @param _baseToken                    Address virtual token being traded
+     * @param _baseQuantityUnits            Quantity of virtual token to trade in position units
+     * @param _receiveQuoteQuantityUnits    Max/min of vQuote asset to pay/receive when buying or selling
+     */
+
     function delever(
         ISetToken _setToken,
         address _baseToken,
@@ -250,6 +316,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
     }
 
+    /**
+     * @dev MANAGER ONLY: Deposits default position collateral token into the PerpV2 Vault, increasing
+     * the size of the Perp account external position. This method is useful for establishing initial
+     * collateralization ratios, e.g the flow when setting up a 2X external position would be to deposit
+     * 100 units of USDC and execute a lever trade for ~200 vUSDC worth of vToken with the difference
+     * between these made up as automatically "issued" margin debt in the PerpV2 system.
+     *
+     * @param  _setToken                    Instance of the SetToken
+     * @param  _collateralQuantityUnits     Quantity of collateral to deposit in position units
+     */
     function deposit(
       ISetToken _setToken,
       uint256 _collateralQuantityUnits
@@ -261,6 +337,17 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         _deposit(_setToken, _collateralQuantityUnits);
     }
 
+    /**
+     * @dev MANAGER ONLY: Withdraws collateral token from the PerpV2 Vault to a default position on
+     * the SetToken. This method is useful when adjusting the overall composition of a Set which has
+     * a Perp account external position as one of several components.
+     *
+     * NOTE: Within PerpV2, `withdraw` settles `owedRealizedPnl` and any pending funding payments
+     * to the Perp vault prior to transfer.   // TODO: DOUBLE-CHECK THIS... and what are implications?
+     *
+     * @param  _setToken                    Instance of the SetToken
+     * @param  _collateralQuantityUnits     Quantity of collateral to withdraw in position units
+     */
     function withdraw(
       ISetToken _setToken,
       uint256 _collateralQuantityUnits
@@ -273,6 +360,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         _withdraw(_setToken, _collateralQuantityUnits, true);
     }
 
+    /**
+     * @dev MANAGER ONLY: Initializes this module to the SetToken. Sets the identity of collateral token used
+     * for deposits into PerpV2. Either the SetToken needs to be on the allowed list or anySetAllowed
+     * needs to be true. Only callable by the SetToken's manager.
+     *
+     * @param _setToken             Instance of the SetToken to initialize
+     * @param _collateralToken      Address of ERC20 token to use for PerpV2 collateral deposits
+     */
     function initialize(
         ISetToken _setToken,
         IERC20 _collateralToken
@@ -304,7 +399,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         _setCollateralToken(_setToken, _collateralToken);
     }
 
-
+    /**
+     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Deletes
+     * collateralToken and position mappings associated with SetToken.
+     *
+     * NOTE: Function will revert if there are any remaining collateral deposits in the PerpV2 vault.
+     */
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
         require(_getCollateralBalance(setToken) == 0, "Collateral balance remaining");
@@ -321,8 +421,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev MANAGER ONLY: Add registration of this module on the debt issuance module for the SetToken.
-     * Note: if the debt issuance module is not added to SetToken before this module is initialized, then this function
-     * needs to be called if the debt issuance module is later added and initialized to prevent state inconsistencies
+     * Note: if the debt issuance module is not added to SetToken before this module is initialized, then
+     * this function needs to be called if the debt issuance module is later added and initialized to prevent state
+     * inconsistencies
+     *
      * @param _setToken             Instance of the SetToken
      * @param _debtIssuanceModule   Debt issuance module address to register
      */
@@ -333,7 +435,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev GOVERNANCE ONLY: Enable/disable ability of a SetToken to initialize this module. Only callable by governance.
+     * @dev GOVERNANCE ONLY: Enable/disable ability of a SetToken to initialize this module.
+     *
      * @param _setToken             Instance of the SetToken
      * @param _status               Bool indicating if _setToken is allowed to initialize this module
      */
@@ -344,7 +447,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev GOVERNANCE ONLY: Toggle whether ANY SetToken is allowed to initialize this module. Only callable by governance.
+     * @dev GOVERNANCE ONLY: Toggle whether ANY SetToken is allowed to initialize this module.
+     *
      * @param _anySetAllowed             Bool indicating if ANY SetToken is allowed to initialize this module
      */
     function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
@@ -352,6 +456,20 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         emit AnySetAllowedUpdated(_anySetAllowed);
     }
 
+    /**
+     * @dev MANAGER ONLY: Sets the identity of the token used for deposits into the PerpV2 protocol.
+     * Because PerpV2 uses vUSDC as a universal quote asset (and only accepts USDC collateral in
+     * its initial version) simple Perp account positions will use USDC. However, there are applications
+     * like basis trading where depositing alternative tokens and shorting them in PerpV2 markets lets
+     * you create a delta neutral position. Because `collateralToken` is also configured during initialization
+     * this method would only be used if manager was switching from one Perp account strategy to another
+     * (or correcting an initialization error).
+     *
+     * NOTE: reverts if SetToken has an existing collateral balance in the Perp vault
+     *
+     * @param _setToken                 Instance of the SetToken
+     * @param _collateralToken          ERC20 token to use for PerpV2 collateral deposits
+     */
     function setCollateralToken(
       ISetToken _setToken,
       IERC20 _collateralToken
@@ -362,7 +480,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         _setCollateralToken(_setToken, _collateralToken);
     }
 
-
+    // TODO: WIP.... `moduleIssueHook` will trade on margin and set the external position unit to
+    // recoup its spend in the componentIssueHook. (Will also have slippage bounds?)
+    /**
+     * @dev MODULE ONLY: Hook called prior to issuance. Only callable by valid module.
+     * @param _setToken             Instance of the SetToken
+     * @param _setTokenQuantity     Quantity of Set to issue
+     */
     function moduleIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity
@@ -387,6 +511,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 0
             );
 
+            // TODO: ACTUALLY TRADE HERE....
             IQuoter.SwapResponse memory swapResponse = _simulateTrade(actionInfo);
 
             usdcAmountIn += _calculateUSDCAmountIn(
@@ -409,7 +534,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
     }
 
-
+    /**
+     * @dev MODULE ONLY: Hook called prior to redemption in the issuance module. Trades out of existing
+     * positions to make redemption capital withdrawable from PerpV2 vault. Sets the `externalPositionUnit`
+     * equal to the realizable value of account in position units (as measured by the trade outcomes for
+     * this redemption). Any `owedRealizedPnl` and pending funding payments are socialized in this step so
+     * that redeemer pays/receives their share of them.
+     *
+     * @param _setToken             Instance of the SetToken
+     * @param _setTokenQuantity     Quantity of SetToken to redeem
+     */
     function moduleRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity
@@ -473,7 +607,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
     }
 
-
+    // TODO: WIP.... This hook will likely not trade and just re-collateralize the Perp vault...
+    /**
+     * @dev MODULE ONLY: Hook called prior to looping through each component on issuance. Deposits
+     * collateral into Perp protocol from SetToken default position.
+     * @param _setToken             Instance of the SetToken
+     * @param _setTokenQuantity     Quantity of SetToken to issue
+     * @param _component            Address of deposit collateral component
+     */
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
@@ -506,6 +647,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
     }
 
+    /**
+     * @dev MODULE ONLY: Hook called prior to looping through each component on redemption. Withdraws
+     * collateral from Perp protocol to SetToken default position *without* updating the default position unit.
+     * Called by issuance module's `resolveEquityPositions` method which immediately transfers the collateral
+     * component from SetToken to redeemer after this hook executes.
+     *
+     * @param _setToken             Instance of the SetToken
+     * @param _setTokenQuantity     Quantity of SetToken to redeem
+     * @param _component            Address of deposit collateral component
+     */
     function componentRedeemHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
@@ -514,11 +665,25 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     ) external override onlyModule(_setToken) {
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
+
+        // TODO:
         _withdraw(_setToken, usdcTransferOutQuantityUnits, false);
     }
 
     /* ============ External Getter Functions ============ */
 
+    /**
+     * @dev Gets Perp positions open for SetToken. Returns a PositionInfo array representing all positions
+     * open for the SetToken
+     *
+     * @param _setToken         Instance of SetToken
+     *
+     * @return PositionInfo array, in which each element has properties for:
+     *
+     *         + baseToken address,
+     *         + baseToken position size (10**18)
+     *         + USDC quote asset position size (10**18).
+     */
     function getPositionInfo(ISetToken _setToken) public view returns (PositionInfo[] memory) {
         PositionInfo[] memory positionInfo = new PositionInfo[](positions[_setToken].length);
 
@@ -539,6 +704,18 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return positionInfo;
     }
 
+    /**
+     * @dev Gets Perp account info for SetToken. Returns an AccountInfo struct containing account wide
+     * (rather than position specific) balance info
+     *
+     * @param  _setToken            Instance of the SetToken
+     *
+     * @return accountInfo          struct with properties for:
+     *
+     *         + collateral balance (10**18, regardless of underlying collateral decimals)
+     *         + owed realized Pnl` (10**18)
+     *         + pending funding payments (10**18)
+     */
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
         accountInfo = AccountInfo({
             collateralBalance: _getCollateralBalance(_setToken),
@@ -547,6 +724,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         });
     }
 
+    /**
+     * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
+     *
+     * @param  _baseToken)          Address of virtual token to price
+     * @return price                Mid-point price of virtual token in UniswapV3 AMM market
+     */
     function getSpotPrice(address _baseToken) public view returns (uint256 price) {
         address pool = perpExchange.getPool(_baseToken);
         (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
