@@ -143,7 +143,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /* ============ State Variables ============ */
 
-    // PerpV2 contract which provides getters for base and quote balances, as well as owedRealizedPnl balance
+    // PerpV2 contract which provides getters for base, quote, and owedRealizedPnl balances
     IAccountBalance public immutable perpAccountBalance;
 
     // PerpV2 contract which provides a trading API
@@ -575,7 +575,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             ActionInfo memory actionInfo = _createAndValidateActionInfo(
                 _setToken,
                 positionInfo[i].baseToken,
-                baseTradeNotionalQuantity,
+                baseTradeNotionalQuantity.mul(-1),
                 0
             );
 
@@ -666,7 +666,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
-        // TODO:
+        // console.log(usdcTransferOutQuantityUnits, 'usdcTransferOutQuantityUnits');
+        // console.log(perpVault.balanceOf(address(_setToken)).toUint256(), 'balanceOf(_setToken)');
+
         _withdraw(_setToken, usdcTransferOutQuantityUnits, false);
     }
 
@@ -772,6 +774,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         uint256 initialCollateralPositionBalance = collateralToken[_setToken].balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
+
+        //console.log(notionalCollateralQuantity, 'notionalCollateralQuantity');
+        //console.log(perpVault.getFreeCollateral(address(_setToken)), 'freeCollateral');
 
         _setToken.invokeWithdraw(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
 
