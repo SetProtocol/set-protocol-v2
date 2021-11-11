@@ -36,7 +36,7 @@ import { IVault } from "../../interfaces/external/perp-v2/IVault.sol";
 import { IQuoter } from "../../interfaces/external/perp-v2/IQuoter.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
-import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
+import { IModuleIssuanceHookV2 } from "../../interfaces/IModuleIssuanceHookV2.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
@@ -52,7 +52,7 @@ import "hardhat/console.sol";
  * SetToken can only manage a single Perp account, represented as a positive equity external position
  * whose value is the net Perp account value denominated in the collateral token deposited into the Perp Protocol.
  */
-contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
+contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHookV2 {
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
     using AddressArrayUtils for address[];
@@ -702,6 +702,30 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
 
         return positionInfo;
+    }
+
+    function getIssuanceAdjustments(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        external
+        view
+        override
+        returns (int256[] memory)
+    {
+
+    }
+
+    function getRedemptionAdjustments(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        external
+        view
+        override
+        returns (int256[] memory)
+    {
+
     }
 
     /**
