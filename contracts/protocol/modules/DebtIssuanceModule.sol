@@ -417,6 +417,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     )
         external
         view
+        virtual
         returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         (
