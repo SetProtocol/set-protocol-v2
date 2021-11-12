@@ -204,6 +204,7 @@ export default class DeployModules {
     perpExchange: Address,
     perpVault: Address,
     perpQuoter: Address,
+    perpMarketRegistry: Address,
     libraryName: string,
     libraryAddress: Address
   ): Promise<PerpV2LeverageModule> {
@@ -219,7 +220,8 @@ export default class DeployModules {
       perpClearingHouse,
       perpExchange,
       perpVault,
-      perpQuoter
+      perpQuoter,
+      perpMarketRegistry
     );
   }
 }

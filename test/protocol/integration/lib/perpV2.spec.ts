@@ -135,9 +135,9 @@ describe("PerpV2", () => {
     }
 
     it("should create a USDC collateral balance", async () => {
-      const previousCollateralBalance = await perpSetup.vault.balanceOf(setToken.address);
+      const previousCollateralBalance = await perpSetup.vault.getBalance(setToken.address);
       await subject();
-      const currentCollateralBalance = await perpSetup.vault.balanceOf(setToken.address);
+      const currentCollateralBalance = await perpSetup.vault.getBalance(setToken.address);
       const expectedCollateralBalance = previousCollateralBalance.add(subjectAmountNotional);
       expect(currentCollateralBalance).to.eq(expectedCollateralBalance);
     });
@@ -201,10 +201,10 @@ describe("PerpV2", () => {
     }
 
     it("should withdraw USDC collateral and return USDC", async () => {
-      const previousCollateralBalance = await perpSetup.vault.balanceOf(setToken.address);
+      const previousCollateralBalance = await perpSetup.vault.getBalance(setToken.address);
       const previousUSDCBalance = await perpSetup.usdc.balanceOf(setToken.address);
       await subject();
-      const currentCollateralBalance = await perpSetup.vault.balanceOf(setToken.address);
+      const currentCollateralBalance = await perpSetup.vault.getBalance(setToken.address);
       const currentUSDCBalance = await perpSetup.usdc.balanceOf(setToken.address);
 
       const expectedCollateralBalance = previousCollateralBalance.sub(subjectAmountNotional);

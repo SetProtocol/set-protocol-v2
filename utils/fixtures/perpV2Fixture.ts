@@ -72,7 +72,7 @@ export class PerpV2Fixture {
   private _deployer: DeployHelper;
   private _ownerAddress: Address;
   private _ownerSigner: Signer;
-  private _feeTier: number = 10000; // From perp fixtures
+  private _feeTier: number = 10000; // From perp fixtures: 1%
   private _usdcDecimals: number; // From perp fixtures
   private _priceFeeds: any = {};
   private _pools: any = {};
@@ -98,6 +98,8 @@ export class PerpV2Fixture {
   public ethPriceFeed: ChainlinkAggregatorMock;
   public btcPriceFeed: ChainlinkAggregatorMock;
   public vQuote: PerpV2QuoteToken;
+  public feeTierPercent: BigNumber = ether(.01); // 1%
+
 
   constructor(provider: providers.Web3Provider | providers.JsonRpcProvider, ownerAddress: Address) {
     this._ownerAddress = ownerAddress;
@@ -156,7 +158,7 @@ export class PerpV2Fixture {
     await this.marketRegistry.initialize(this.uniV3Factory.address, this.vQuote.address);
 
     this.orderBook = await this._deployer.external.deployPerpV2OrderBook();
-    await this.orderBook.initialize(this.marketRegistry.address, this.vQuote.address);
+    await this.orderBook.initialize(this.marketRegistry.address);
 
     this.insuranceFund = await this._deployer.external.deployPerpV2InsuranceFund();
     await this.insuranceFund.initialize(this.usdc.address);
@@ -177,7 +179,6 @@ export class PerpV2Fixture {
 
     await this.accountBalance.initialize(
       this.clearingHouseConfig.address,
-      this.marketRegistry.address,
       this.exchange.address
     );
 
@@ -285,6 +286,7 @@ export class PerpV2Fixture {
       upperTick,
       minBase: 0,
       minQuote: 0,
+      useTakerPosition: false,
       deadline: constants.MaxUint256,
     });
   }
@@ -313,6 +315,7 @@ export class PerpV2Fixture {
       upperTick,
       minBase: 0,
       minQuote: 0,
+      useTakerPosition: false,
       deadline: constants.MaxUint256,
     });
   }
@@ -340,11 +343,18 @@ export class PerpV2Fixture {
   }
 
   public async getSwapQuote(baseToken: Address, baseQuantityUnits: BigNumber, isBuy: boolean):
-  Promise<{deltaBase: BigNumber; deltaQuote: BigNumber }> {
+  Promise<{
+    deltaBase: BigNumber;
+    deltaQuote: BigNumber;
+    exchangedPositionSize: BigNumber;
+    exchangedPositionNotional: BigNumber;
+  }> {
 
     const {
       deltaAvailableBase: deltaBase,
-      deltaAvailableQuote: deltaQuote
+      deltaAvailableQuote: deltaQuote,
+      exchangedPositionSize,
+      exchangedPositionNotional,
     } = await this.quoter
       .connect(this.maker.wallet)
       .callStatic
@@ -356,7 +366,7 @@ export class PerpV2Fixture {
         sqrtPriceLimitX96: 0
       });
 
-    return { deltaBase, deltaQuote };
+    return { deltaBase, deltaQuote, exchangedPositionSize, exchangedPositionNotional };
   }
 
   public async getCurrentLeverage(

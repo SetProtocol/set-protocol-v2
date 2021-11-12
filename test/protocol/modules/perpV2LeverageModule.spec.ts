@@ -101,6 +101,7 @@ describe("PerpV2LeverageModule", () => {
       perpSetup.exchange.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
+      perpSetup.marketRegistry.address,
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
       perpLib.address,
     );
@@ -120,6 +121,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectExchange: Address;
     let subjectVault: Address;
     let subjectQuoter: Address;
+    let subjectMarketRegistry: Address;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
@@ -128,6 +130,7 @@ describe("PerpV2LeverageModule", () => {
       subjectExchange = perpSetup.exchange.address;
       subjectVault = perpSetup.vault.address;
       subjectQuoter = perpSetup.quoter.address;
+      subjectMarketRegistry = perpSetup.marketRegistry.address;
     });
 
     async function subject(): Promise<PerpV2LeverageModule> {
@@ -138,6 +141,7 @@ describe("PerpV2LeverageModule", () => {
         subjectExchange,
         subjectVault,
         subjectQuoter,
+        subjectMarketRegistry,
         "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
         perpLib.address,
       );
@@ -532,6 +536,7 @@ describe("PerpV2LeverageModule", () => {
               collateralBalance: finalCollateralBalance
             } = await perpLeverageModule.getAccountInfo(subjectSetToken);
 
+            // Levering up from 0, delta quote is the new quote balance
             const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
             const feeAmountInQuoteDecimals = preciseMul(quoteBalance.mul(-1), feePercentage);
 
@@ -859,13 +864,20 @@ describe("PerpV2LeverageModule", () => {
           });
         });
 
-        // TODO: bizarre "not enough free collateral errors" when withdrawing
-        // the protocol fee after selling... needs investigation but this may be
-        // a bug upstream at Perp (possibly fix by updating their contracts here).
-        describe.skip("when a protocol fee is charged", async () => {
+        describe("when a protocol fee is charged", async () => {
           let feePercentage: BigNumber;
+          let idealDeltaQuote: BigNumber;
+          let actualDeltaQuote: BigNumber;
+          let protocolFeeInQuoteDecimals: BigNumber;
+          let insuranceFee: BigNumber;
+          let slippage: BigNumber;
+
 
           cacheBeforeEach(async () => {
+            // Sell ~5 USDC of vETH
+            subjectBaseTradeQuantityUnits = ether(.5);
+            subjectQuoteReceiveQuantityUnits = ether(4.95);
+
             feePercentage = ether(0.05);
             setup.controller = setup.controller.connect(owner.wallet);
 
@@ -874,6 +886,20 @@ describe("PerpV2LeverageModule", () => {
               ZERO,         // Fee type on trade function denoted as 0
               feePercentage
             );
+
+            const spotPrice = await perpSetup.getSpotPrice(subjectBaseToken);
+
+            idealDeltaQuote = preciseMul(subjectBaseTradeQuantityUnits, spotPrice);
+
+            ({ deltaQuote: actualDeltaQuote } = await perpSetup.getSwapQuote(
+              subjectBaseToken,
+              subjectBaseTradeQuantityUnits,
+              false
+            ));
+
+            protocolFeeInQuoteDecimals = preciseMul(actualDeltaQuote, feePercentage);
+            insuranceFee = preciseMul(idealDeltaQuote, perpSetup.feeTierPercent);
+            slippage = idealDeltaQuote.sub(actualDeltaQuote);
           });
 
           it("should withdraw the expected collateral amount from the Perp vault", async () => {
@@ -884,28 +910,28 @@ describe("PerpV2LeverageModule", () => {
             await subject();
 
             const {
-              collateralBalance: finalCollateralBalance
+              collateralBalance: finalCollateralBalance,
             } = await perpLeverageModule.getAccountInfo(subjectSetToken);
 
-            const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-            const feeAmountInQuoteDecimals = preciseMul(quoteBalance.mul(-1), feePercentage);
+            const expectedCollateralBalance = initialCollateralBalance
+              .sub(slippage)
+              .sub(insuranceFee)
+              .sub(protocolFeeInQuoteDecimals);
 
-            const expectedCollateralBalance = initialCollateralBalance.sub(feeAmountInQuoteDecimals);
             expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(toUSDCDecimals(expectedCollateralBalance), 1);
           });
 
-          it("should transfer the correct protocol fee to the protocol", async () => {
+          it("should transfer the correct protocol fee to the fee recipient", async () => {
             const feeRecipient = await setup.controller.feeRecipient();
             const initialFeeRecipientBalance = await usdc.balanceOf(feeRecipient);
 
             await subject();
 
-            const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-            const feeAmountInQuoteDecimals = preciseMul(quoteBalance.mul(-1), feePercentage);
-            const feeAmountInUSDCDecimals = toUSDCDecimals(feeAmountInQuoteDecimals);
-            const expectedFeeRecipientBalance = initialFeeRecipientBalance.add(feeAmountInUSDCDecimals);
-
             const finalFeeRecipientBalance = await usdc.balanceOf(feeRecipient);
+
+            const protocolFeeInUSDCDecimals = toUSDCDecimals(protocolFeeInQuoteDecimals);
+            const expectedFeeRecipientBalance = initialFeeRecipientBalance.add(protocolFeeInUSDCDecimals);
+
             expect(finalFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
           });
 
@@ -917,6 +943,8 @@ describe("PerpV2LeverageModule", () => {
             expect(initialUSDCDefaultPositionUnit).to.eq(finalUSDCDefaultPositionUnit);
           });
 
+          // TODO: swap quote is not identical to what returns from open position
+          // ex: Expected "4950247512375618780" to be equal 4950742586634282208
           it("should emit the correct LeverageDecreased event", async () => {
             /*
             const {
@@ -929,8 +957,7 @@ describe("PerpV2LeverageModule", () => {
 
             await expect(subject()).to.emit(perpLeverageModule, "LeverageDecreased");
 
-            // TODO: swap quote is not identical to what returns from open position
-            // ex: Expected "4950247512375618780" to be equal 4950742586634282208
+
             /*
             .withArgs(
               subjectSetToken,
@@ -1794,7 +1821,7 @@ describe("PerpV2LeverageModule", () => {
       // FIX: not enough free collateral when withdrawing ....
       // 4799940 withdraw quantity
       // 8686604 freeCollateral
-      it.skip("transfer the expected amount from Perp vault to SetToken", async () => {
+      it("transfer the expected amount from Perp vault to SetToken", async () => {
         const initialSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
 
         const externalUSDCPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -1807,12 +1834,12 @@ describe("PerpV2LeverageModule", () => {
         await subject();
 
         const finalSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
-        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.add(usdcToTransferOut);
+        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.add(toUSDCDecimals(usdcToTransferOut));
 
         expect(finalSetTokenUSDCBalance).eq(expectedSetTokenUSDCBalance);
       });
 
-      it.skip("should not update the USDC defaultPositionUnit", async () => {
+      it("should not update the USDC defaultPositionUnit", async () => {
         const initialSetTokenUSDCDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(subjectSetToken);
         await subject();
         const finalSetTokenUSDCDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(subjectSetToken);

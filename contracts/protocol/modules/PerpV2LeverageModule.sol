@@ -34,6 +34,7 @@ import { IClearingHouse } from "../../interfaces/external/perp-v2/IClearingHouse
 import { IExchange } from "../../interfaces/external/perp-v2/IExchange.sol";
 import { IVault } from "../../interfaces/external/perp-v2/IVault.sol";
 import { IQuoter } from "../../interfaces/external/perp-v2/IQuoter.sol";
+import { IMarketRegistry } from "../../interfaces/external/perp-v2/IMarketRegistry.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
@@ -155,8 +156,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // PerpV2 contract which handles deposits and withdrawals. Provides getter for collateral balances
     IVault public immutable perpVault;
 
-    // TODO - REMOVE: PerpV2 contract which makes it possible to simulate a trade before it occurs
+    // PerpV2 contract which makes it possible to simulate a trade before it occurs
     IQuoter public immutable perpQuoter;
+
+    // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
+    IMarketRegistry public immutable perpMarketRegistry;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
@@ -183,6 +187,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _perpExchange             Address of Perp Exchange contract
      * @param _perpVault                Address of Perp Vault contract
      * @param _perpQuoter               Address of Perp Quoter contract
+     * @param _perpMarketRegistry       Address of Perp MarketRegistry contract
      */
     constructor(
         IController _controller,
@@ -190,7 +195,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         IClearingHouse _perpClearingHouse,
         IExchange _perpExchange,
         IVault _perpVault,
-        IQuoter _perpQuoter // TODO: REMOVE
+        IQuoter _perpQuoter,
+        IMarketRegistry _perpMarketRegistry
     )
         public
         ModuleBase(_controller)
@@ -200,6 +206,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         perpExchange = _perpExchange;
         perpVault = _perpVault;
         perpQuoter = _perpQuoter;
+        perpMarketRegistry = _perpMarketRegistry;
     }
 
     /* ============ External Functions ============ */
@@ -667,7 +674,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
         // console.log(usdcTransferOutQuantityUnits, 'usdcTransferOutQuantityUnits');
-        // console.log(perpVault.balanceOf(address(_setToken)).toUint256(), 'balanceOf(_setToken)');
+        // console.log(perpVault.getBalance(address(_setToken)).toUint256(), 'balanceOf(_setToken)');
 
         _withdraw(_setToken, usdcTransferOutQuantityUnits, false);
     }
@@ -719,9 +726,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *         + pending funding payments (10**18)
      */
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
+        (int256 owedRealizedPnl, ) =  perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
+
         accountInfo = AccountInfo({
             collateralBalance: _getCollateralBalance(_setToken),
-            owedRealizedPnl: perpAccountBalance.getOwedRealizedPnl(address(_setToken)),
+            owedRealizedPnl: owedRealizedPnl,
             pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken))
         });
     }
@@ -733,7 +742,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @return price                Mid-point price of virtual token in UniswapV3 AMM market
      */
     function getSpotPrice(address _baseToken) public view returns (uint256 price) {
-        address pool = perpExchange.getPool(_baseToken);
+        address pool = perpMarketRegistry.getPool(_baseToken);
         (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
         uint256 priceX96 = _formatSqrtPriceX96ToPriceX96(sqrtPriceX96);
         return _formatX96ToX10_18(priceX96);
@@ -999,7 +1008,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns (int256)
     {
         // Calculate addtional usdcAmountIn and add to running total.
-        int256 owedRealizedPnl = perpAccountBalance.getOwedRealizedPnl(address(_setToken));
+        (int256 owedRealizedPnl, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
         return (owedRealizedPnl + pendingFundingPayments)
@@ -1043,7 +1052,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     )
       internal
     {
-        require(perpVault.balanceOf(address(_setToken)) == 0, "Existing collateral balance");
+        require(perpVault.getBalance(address(_setToken)) == 0, "Existing collateral balance");
         collateralToken[_setToken] = _collateralToken;
     }
 
@@ -1067,7 +1076,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     // TODO: Add logic here to convert non-USDC collateral into USDC
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
-        int256 balance = perpVault.balanceOf(address(_setToken));
+        int256 balance = perpVault.getBalance(address(_setToken));
         uint8 decimals = ERC20(address(collateralToken[_setToken])).decimals();
         return _parseCollateralToken(balance, decimals);
     }

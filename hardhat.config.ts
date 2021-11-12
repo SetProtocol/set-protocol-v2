@@ -33,12 +33,14 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: (process.env.FORK) ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
+      allowUnlimitedContractSize: true
     },
+    // TODO: investigate `allowUnlimitedContractSize` not getting picked up by the localhost client
     localhost: {
       url: "http://127.0.0.1:8545",
       timeout: 200000,
       gas: 12000000,
-      blockGasLimit: 12000000,
+      blockGasLimit: 12000000
     },
     kovan: {
       url: "https://kovan.infura.io/v3/" + process.env.INFURA_TOKEN,
@@ -73,7 +75,7 @@ const config: HardhatUserConfig = {
   // test performance for by hardcoding the gas into the abi at runtime
   // @ts-ignore
   externalGasMods: [
-    "external/abi/perp",
+    //"external/abi/perp",
   ],
 };
 
