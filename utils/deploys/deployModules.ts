@@ -14,6 +14,7 @@ import {
   IssuanceModule,
   NavIssuanceModule,
   SingleIndexModule,
+  SlippageIssuanceModule,
   StakingModule,
   StreamingFeeModule,
   TradeModule,
@@ -31,6 +32,7 @@ import { CompoundLeverageModule__factory } from "../../typechain/factories/Compo
 import { CustomOracleNavIssuanceModule__factory } from "../../typechain/factories/CustomOracleNavIssuanceModule__factory";
 import { DebtIssuanceModule__factory } from "../../typechain/factories/DebtIssuanceModule__factory";
 import { DebtIssuanceModuleV2__factory } from "../../typechain/factories/DebtIssuanceModuleV2__factory";
+import { SlippageIssuanceModule__factory } from "../../typechain/factories/SlippageIssuanceModule__factory";
 import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIndexModule__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
@@ -63,6 +65,10 @@ export default class DeployModules {
 
   public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModule> {
     return await new DebtIssuanceModuleV2__factory(this._deployerSigner).deploy(controller);
+  }
+
+  public async deploySlippageIssuanceModule(controller: Address): Promise<SlippageIssuanceModule> {
+    return await new SlippageIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployAmmModule(controller: Address): Promise<AmmModule> {

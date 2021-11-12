@@ -52,7 +52,7 @@ interface IModuleIssuanceHookV2 {
     )
         external
         view
-        returns (int256[] memory);
+        returns (int256[] memory, int256[] memory);
 
     function getRedemptionAdjustments(
         ISetToken _setToken,
@@ -60,5 +60,5 @@ interface IModuleIssuanceHookV2 {
     )
         external
         view
-        returns (int256[] memory);
+        returns (int256[] memory, int256[] memory);
 }
