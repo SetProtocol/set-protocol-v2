@@ -1589,6 +1589,58 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when short", async () => {
+      let totalSupply: BigNumber;
+      let baseTradeQuantityUnit: BigNumber;
+
+      cacheBeforeEach(async () => {
+        const spotPrice = await perpSetup.getSpotPrice(vETH.address);
+        totalSupply = await setToken.totalSupply();
+
+        const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+        const baseTradeQuantityNotional = preciseDiv(collateralBalance.mul(subjectLeverageRatio), spotPrice);
+
+        // Change sign to short on lever
+        baseTradeQuantityUnit = preciseDiv(baseTradeQuantityNotional, totalSupply).mul(-1);
+
+        const estimatedQuoteQuantityNotional =  preciseMul(baseTradeQuantityNotional, spotPrice);
+        const allowedSlippage = preciseMul(estimatedQuoteQuantityNotional, ether(.02));
+        const quoteReceiveQuantityUnit = preciseDiv(
+          estimatedQuoteQuantityNotional.sub(allowedSlippage),
+          totalSupply
+        );
+
+        await perpLeverageModule.connect(owner.wallet).lever(
+          setToken.address,
+          vETH.address,
+          baseTradeQuantityUnit,
+          quoteReceiveQuantityUnit
+        );
+      });
+
+      it("buys expected amount of vBase", async () => {
+        const {
+          baseBalance: initialBaseBalance
+        } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+
+        await subject();
+
+        const {
+          baseBalance: finalBaseBalance
+        } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+
+        const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+        const baseTokenSoldNotional = preciseMul(basePositionUnit, subjectSetQuantity);
+        const expectedBaseBalance = initialBaseBalance.sub(baseTokenSoldNotional);
+
+        expect(finalBaseBalance).eq(expectedBaseBalance);
+      });
+
+      it("set the expected externalPositionUnit", async () => {
+
+      });
+    });
+
     describe("when caller is not module", async () => {
       beforeEach(async () => subjectCaller = owner);
 
@@ -1818,9 +1870,6 @@ describe("PerpV2LeverageModule", () => {
           .moduleRedeemHook(subjectSetToken, subjectSetQuantity);
       });
 
-      // FIX: not enough free collateral when withdrawing ....
-      // 4799940 withdraw quantity
-      // 8686604 freeCollateral
       it("transfer the expected amount from Perp vault to SetToken", async () => {
         const initialSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
 

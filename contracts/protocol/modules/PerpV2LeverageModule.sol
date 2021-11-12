@@ -569,6 +569,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 totalFundingAndCarriedPnL = accountInfo.pendingFundingPayments + accountInfo.owedRealizedPnl;
         int256 owedRealizedPnlPositionUnit = totalFundingAndCarriedPnL.preciseDiv(_setToken.totalSupply().toInt256());
 
+        // TODO: all the sign changes in this block need to be mapped out and simplified...
         for (uint256 i = 0; i < positionInfo.length; i++) {
             // Calculate amount to trade
             int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
@@ -578,11 +579,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             int256 closeRatio = baseTradeNotionalQuantity.preciseDiv(positionInfo[i].baseBalance);
             int256 reducedOpenNotional = positionInfo[i].quoteBalance.preciseMul(closeRatio);
 
+            // Invert tradeQuantity sign to sell if long.
+            if (basePositionUnit >= 0) {
+                baseTradeNotionalQuantity = baseTradeNotionalQuantity.mul(-1);
+            }
+
             // Trade
             ActionInfo memory actionInfo = _createAndValidateActionInfo(
                 _setToken,
                 positionInfo[i].baseToken,
-                baseTradeNotionalQuantity.mul(-1),
+                baseTradeNotionalQuantity,
                 0
             );
 
