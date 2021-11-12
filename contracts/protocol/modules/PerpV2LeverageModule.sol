@@ -687,6 +687,52 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /* ============ External Getter Functions ============ */
 
+
+    /**
+     * @dev Gets the positive equity collateral externalPositionUnit that would be calculated for
+     * issuing a quantity of SetToken, representing the amount of collateral that would need to
+     * be transferred in per SetToken.
+     *
+     * @param _setToken             Instance of SetToken
+     * @param _setTokenQuantity     Number of sets to issue
+     *
+     * @return equityAdjustments array containing a single element and an empty debtAdjustments array
+     */
+
+    /*function getIssuanceAdjustments(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        external
+        view
+        returns (int256[] memory, int256[] memory)
+    {
+        // WIP
+        return ([],[]);
+    }*/
+
+    /**
+     * @dev Gets the positive equity collateral externalPositionUnit that would be calculated for
+     * redeeming a quantity of SetToken representing the amount of collateral returned per SetToken.
+     *
+     * @param _setToken             Instance of SetToken
+     * @param _setTokenQuantity     Number of sets to issue
+     *
+     * @return equityAdjustments array containing a single element and an empty debtAdjustments array
+     */
+
+    /*function getRedemptionAdjustments(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        external
+        view
+        returns (int256[] memory, int256[] memory)
+    {
+        // WIP
+        return ([],[]);
+    }*/
+
     /**
      * @dev Gets Perp positions open for SetToken. Returns a PositionInfo array representing all positions
      * open for the SetToken
