@@ -75,7 +75,7 @@ const config: HardhatUserConfig = {
   // test performance for by hardcoding the gas into the abi at runtime
   // @ts-ignore
   externalGasMods: [
-    //"external/abi/perp",
+    "external/abi/perp",
   ],
 };
 
