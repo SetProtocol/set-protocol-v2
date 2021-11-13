@@ -12,6 +12,7 @@ import {
   preciseMul,
   preciseMulCeil,
   bitcoin,
+  usdc,
 } from "@utils/index";
 import {
   addSnapshotBeforeRestoreAfterEach,
@@ -661,9 +662,11 @@ describe("SlippageIssuanceModule", () => {
         });
       });
 
-      describe("#issue", async () => {
+      describe.only("#issueWithSlippage", async () => {
         let subjectSetToken: Address;
         let subjectQuantity: BigNumber;
+        let subjectCheckedComponents: Address[];
+        let subjectMaxTokenAmountsIn: BigNumber[];
         let subjectTo: Address;
         let subjectCaller: Account;
 
@@ -678,14 +681,18 @@ describe("SlippageIssuanceModule", () => {
 
           subjectSetToken = setToken.address;
           subjectQuantity = ether(1);
+          subjectCheckedComponents = [];
+          subjectMaxTokenAmountsIn = [];
           subjectTo = recipient.address;
           subjectCaller = owner;
         });
 
         async function subject(): Promise<ContractTransaction> {
-          return slippageIssuance.connect(subjectCaller.wallet).issue(
+          return slippageIssuance.connect(subjectCaller.wallet).issueWithSlippage(
             subjectSetToken,
             subjectQuantity,
+            subjectCheckedComponents,
+            subjectMaxTokenAmountsIn,
             subjectTo,
           );
         }
@@ -876,13 +883,107 @@ describe("SlippageIssuanceModule", () => {
           });
         });
 
+        describe("when a max token amount in is submitted", async () => {
+          beforeEach(async () => {
+            const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+            const expectedWethFlows = preciseMul(mintQuantity, ether(1));
+
+            subjectCheckedComponents = [setup.weth.address];
+            subjectMaxTokenAmountsIn = [expectedWethFlows];
+          });
+
+          it("should mint SetTokens to the correct addresses", async () => {
+            await subject();
+
+            const feeQuantity = preciseMulCeil(subjectQuantity, issueFee);
+            const managerBalance = await setToken.balanceOf(feeRecipient.address);
+            const toBalance = await setToken.balanceOf(subjectTo);
+
+            expect(toBalance).to.eq(subjectQuantity);
+            expect(managerBalance).to.eq(feeQuantity);
+          });
+
+          it("should have the correct token balances", async () => {
+            const preMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
+            const preSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+            const preMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+            await subject();
+
+            const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+            const daiFlows = preciseMulCeil( mintQuantity, debtUnits);
+            const wethFlows = preciseMul(mintQuantity, ether(1));
+
+            const postMinterWethBalance = await setup.weth.balanceOf(subjectCaller.address);
+            const postSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+            const postMinterDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+            expect(postMinterWethBalance).to.eq(preMinterWethBalance.sub(wethFlows));
+            expect(postSetWethBalance).to.eq(preSetWethBalance.add(wethFlows));
+            expect(postMinterDaiBalance).to.eq(preMinterDaiBalance.add(daiFlows));
+            expect(postSetDaiBalance).to.eq(preSetDaiBalance);
+            expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.sub(daiFlows));
+          });
+
+          describe("but the required amount exceeds the max limit set", async () => {
+            beforeEach(async () => {
+              const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+              const expectedWethFlows = preciseMul(mintQuantity, ether(1));
+
+              subjectCheckedComponents = [setup.weth.address];
+              subjectMaxTokenAmountsIn = [expectedWethFlows.sub(1)];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Too many tokens required for issuance");
+            });
+          });
+
+          describe("but a specified component isn't part of the Set", async () => {
+            beforeEach(async () => {
+              subjectCheckedComponents = [setup.usdc.address];
+              subjectMaxTokenAmountsIn = [usdc(100)];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Limit passed for invalid component");
+            });
+          });
+
+          describe("but the array lengths mismatch", async () => {
+            beforeEach(async () => {
+              subjectCheckedComponents = [setup.weth.address];
+              subjectMaxTokenAmountsIn = [];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Array length mismatch");
+            });
+          });
+
+          describe("but there are duplicated in the components array", async () => {
+            beforeEach(async () => {
+              subjectCheckedComponents = [setup.weth.address, setup.weth.address];
+              subjectMaxTokenAmountsIn = [ether(1), ether(1)];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
+            });
+          });
+        });
+
         describe("when the issue quantity is 0", async () => {
           beforeEach(async () => {
             subjectQuantity = ZERO;
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Issue quantity must be > 0");
+            await expect(subject()).to.be.revertedWith("SetToken quantity must be > 0");
           });
         });
 
@@ -903,9 +1004,11 @@ describe("SlippageIssuanceModule", () => {
         });
       });
 
-      describe("#redeem", async () => {
+      describe.only("#redeemWithSlippage", async () => {
         let subjectSetToken: Address;
         let subjectQuantity: BigNumber;
+        let subjectCheckedComponents: Address[];
+        let subjectMinTokenAmountsOut: BigNumber[];
         let subjectTo: Address;
         let subjectCaller: Account;
 
@@ -924,19 +1027,23 @@ describe("SlippageIssuanceModule", () => {
 
           subjectSetToken = setToken.address;
           subjectQuantity = ether(1);
+          subjectCheckedComponents = [];
+          subjectMinTokenAmountsOut = [];
           subjectTo = recipient.address;
           subjectCaller = owner;
         });
 
         async function subject(): Promise<ContractTransaction> {
-          return slippageIssuance.connect(subjectCaller.wallet).redeem(
+          return slippageIssuance.connect(subjectCaller.wallet).redeemWithSlippage(
             subjectSetToken,
             subjectQuantity,
+            subjectCheckedComponents,
+            subjectMinTokenAmountsOut,
             subjectTo,
           );
         }
 
-        it("should mint SetTokens to the correct addresses", async () => {
+        it("should redeem SetTokens to the correct addresses", async () => {
           const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
           const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
 
@@ -1110,13 +1217,110 @@ describe("SlippageIssuanceModule", () => {
           });
         });
 
-        describe("when the issue quantity is 0", async () => {
+        describe("when a min token amount out is submitted", async () => {
+          beforeEach(async () => {
+            const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
+            const expectedWethFlows = preciseMul(mintQuantity, ether(1));
+
+            subjectCheckedComponents = [setup.weth.address];
+            subjectMinTokenAmountsOut = [expectedWethFlows];
+          });
+
+          it("should redeem SetTokens to the correct addresses", async () => {
+            const preManagerBalance = await setToken.balanceOf(feeRecipient.address);
+            const preCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+            await subject();
+
+            const feeQuantity = preciseMulCeil(subjectQuantity, redeemFee);
+            const postManagerBalance = await setToken.balanceOf(feeRecipient.address);
+            const postCallerBalance = await setToken.balanceOf(subjectCaller.address);
+
+            expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity));
+            expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
+          });
+
+          it("should have the correct token balances", async () => {
+            const preToWethBalance = await setup.weth.balanceOf(subjectTo);
+            const preSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+            const preRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const preSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const preExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+            await subject();
+
+            const redeemQuantity = preciseMul(subjectQuantity, ether(1).sub(redeemFee));
+            const daiFlows = preciseMulCeil(redeemQuantity, debtUnits);
+            const wethFlows = preciseMul(redeemQuantity, ether(1));
+
+            const postToWethBalance = await setup.weth.balanceOf(subjectTo);
+            const postSetWethBalance = await setup.weth.balanceOf(subjectSetToken);
+            const postRedeemerDaiBalance = await setup.dai.balanceOf(subjectCaller.address);
+            const postSetDaiBalance = await setup.dai.balanceOf(subjectSetToken);
+            const postExternalDaiBalance = await setup.dai.balanceOf(debtModule.address);
+
+            expect(postToWethBalance).to.eq(preToWethBalance.add(wethFlows));
+            expect(postSetWethBalance).to.eq(preSetWethBalance.sub(wethFlows));
+            expect(postRedeemerDaiBalance).to.eq(preRedeemerDaiBalance.sub(daiFlows));
+            expect(postSetDaiBalance).to.eq(preSetDaiBalance);
+            expect(postExternalDaiBalance).to.eq(preExternalDaiBalance.add(daiFlows));
+          });
+
+          describe("but the returned amount isn't enough", async () => {
+            beforeEach(async () => {
+              const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
+              const expectedWethFlows = preciseMul(mintQuantity, ether(1));
+
+              subjectCheckedComponents = [setup.weth.address];
+              subjectMinTokenAmountsOut = [expectedWethFlows.add(1)];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Too few tokens returned for redemption");
+            });
+          });
+
+          describe("but a specified component isn't part of the Set", async () => {
+            beforeEach(async () => {
+              subjectCheckedComponents = [setup.usdc.address];
+              subjectMinTokenAmountsOut = [usdc(100)];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Limit passed for invalid component");
+            });
+          });
+
+          describe("but the array lengths mismatch", async () => {
+            beforeEach(async () => {
+              subjectCheckedComponents = [setup.weth.address];
+              subjectMinTokenAmountsOut = [];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Array length mismatch");
+            });
+          });
+
+          describe("but there are duplicated in the components array", async () => {
+            beforeEach(async () => {
+              subjectCheckedComponents = [setup.weth.address, setup.weth.address];
+              subjectMinTokenAmountsOut = [ether(1), ether(1)];
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Cannot duplicate addresses");
+            });
+          });
+        });
+
+        describe("when the redeem quantity is 0", async () => {
           beforeEach(async () => {
             subjectQuantity = ZERO;
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Redeem quantity must be > 0");
+            await expect(subject()).to.be.revertedWith("SetToken quantity must be > 0");
           });
         });
 

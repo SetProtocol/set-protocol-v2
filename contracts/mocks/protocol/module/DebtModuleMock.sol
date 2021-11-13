@@ -95,7 +95,7 @@ contract DebtModuleMock is ModuleBase {
 
     function getIssuanceAdjustments(
         ISetToken _setToken,
-        uint256 _setTokenQuantity
+        uint256 /* _setTokenQuantity */
     )
         external
         view
@@ -114,7 +114,7 @@ contract DebtModuleMock is ModuleBase {
 
     function getRedemptionAdjustments(
         ISetToken _setToken,
-        uint256 _setTokenQuantity
+        uint256 /* _setTokenQuantity */
     )
         external
         view

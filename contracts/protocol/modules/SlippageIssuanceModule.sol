@@ -47,6 +47,129 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
 
     constructor(IController _controller) public DebtIssuanceModule(_controller) {}
 
+    /* ============ External Functions ============ */
+
+    /**
+     * Deposits components to the SetToken, replicates any external module component positions and mints 
+     * the SetToken. If the token has a debt position all collateral will be transferred in first then debt
+     * will be returned to the minting address. If specified, a fee will be charged on issuance.
+     *
+     * @param _setToken         Instance of the SetToken to issue
+     * @param _setQuantity         Quantity of SetToken to issue
+     * @param _to               Address to mint SetToken to
+     */
+    function issueWithSlippage(
+        ISetToken _setToken,
+        uint256 _setQuantity,
+        address[] memory _checkedComponents,
+        uint256[] memory _maxTokenAmountsIn,
+        address _to
+    )
+        external
+        virtual
+        nonReentrant
+        onlyValidAndInitializedSet(_setToken)
+    {
+        _validateInputs(_setQuantity, _checkedComponents, _maxTokenAmountsIn);
+
+        address hookContract = _callManagerPreIssueHooks(_setToken, _setQuantity, msg.sender, _to);
+
+        _callModulePreIssueHooks(_setToken, _setQuantity);
+
+        bool isIssue = true;
+
+        (
+            uint256 quantityWithFees,
+            uint256 managerFee,
+            uint256 protocolFee
+        ) = calculateTotalFees(_setToken, _setQuantity, isIssue);
+        
+        {
+            (
+                address[] memory components,
+                uint256[] memory equityUnits,
+                uint256[] memory debtUnits
+            ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityWithFees, isIssue);
+
+            _validateTokenTransferLimits(_checkedComponents, _maxTokenAmountsIn, components, equityUnits, isIssue);
+
+            _resolveEquityPositions(_setToken, quantityWithFees, _to, isIssue, components, equityUnits);
+            _resolveDebtPositions(_setToken, quantityWithFees, isIssue, components, debtUnits);
+            _resolveFees(_setToken, managerFee, protocolFee);
+        }
+
+        _setToken.mint(_to, _setQuantity);
+
+        emit SetTokenIssued(
+            _setToken,
+            msg.sender,
+            _to,
+            hookContract,
+            _setQuantity,
+            managerFee,
+            protocolFee
+        );
+    }
+
+    /**
+     * Returns components from the SetToken, unwinds any external module component positions and burns the SetToken.
+     * If the token has debt positions, the module transfers in the required debt amounts from the caller and uses
+     * those funds to repay the debts on behalf of the SetToken. All debt will be paid down first then equity positions
+     * will be returned to the minting address. If specified, a fee will be charged on redeem.
+     *
+     * @param _setToken         Instance of the SetToken to redeem
+     * @param _setQuantity         Quantity of SetToken to redeem
+     * @param _to               Address to send collateral to
+     */
+    function redeemWithSlippage(
+        ISetToken _setToken,
+        uint256 _setQuantity,
+        address[] memory _checkedComponents,
+        uint256[] memory _minTokenAmountsOut,
+        address _to
+    )
+        external
+        virtual        
+        nonReentrant
+        onlyValidAndInitializedSet(_setToken)
+    {
+        _validateInputs(_setQuantity, _checkedComponents, _minTokenAmountsOut);
+
+        _callModulePreRedeemHooks(_setToken, _setQuantity);
+
+        // Place burn after pre-redeem hooks because burning tokens may lead to false accounting of synced positions
+        _setToken.burn(msg.sender, _setQuantity);
+
+        bool isIssue = false;
+
+        (
+            uint256 quantityNetFees,
+            uint256 managerFee,
+            uint256 protocolFee
+        ) = calculateTotalFees(_setToken, _setQuantity, isIssue);
+
+        (
+            address[] memory components,
+            uint256[] memory equityUnits,
+            uint256[] memory debtUnits
+        ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityNetFees, isIssue);
+
+        _validateTokenTransferLimits(_checkedComponents, _minTokenAmountsOut, components, equityUnits, isIssue);
+
+        _resolveDebtPositions(_setToken, quantityNetFees, isIssue, components, debtUnits);
+        _resolveEquityPositions(_setToken, quantityNetFees, _to, isIssue, components, equityUnits);
+        _resolveFees(_setToken, managerFee, protocolFee);
+
+        emit SetTokenRedeemed(
+            _setToken,
+            msg.sender,
+            _to,
+            _setQuantity,
+            managerFee,
+            protocolFee
+        );
+    }
+
     function getRequiredComponentIssuanceUnits(
         ISetToken _setToken,
         uint256 _quantity
@@ -175,5 +298,45 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         }
 
         return (cumulativeEquityAdjustments, cumulativeDebtAdjustments);
+    }
+
+    function _validateTokenTransferLimits(
+        address[] memory _checkedComponents,
+        uint256[] memory _tokenTransferLimits,
+        address[] memory _components,
+        uint256[] memory _tokenTransferAmounts,
+        bool _isIssue
+    )
+        internal
+        pure
+    {
+        for(uint256 i = 0; i < _checkedComponents.length; i++) {
+            (uint256 componentIndex, bool isIn) = _components.indexOf(_checkedComponents[i]);
+
+            require(isIn, "Limit passed for invalid component");
+
+            if (_isIssue) {
+                require(_tokenTransferLimits[i] >= _tokenTransferAmounts[componentIndex], "Too many tokens required for issuance");
+            } else {
+                require(_tokenTransferLimits[i] <= _tokenTransferAmounts[componentIndex], "Too few tokens returned for redemption");
+            }
+        }
+    }
+
+    function _validateInputs(
+        uint256 _setQuantity,
+        address[] memory _components,
+        uint256[] memory _componentLimits
+    )
+        internal
+        pure
+    {
+        require(_setQuantity > 0, "SetToken quantity must be > 0");
+        
+        uint256 componentsLength = _components.length;
+        if (componentsLength > 0) {
+            require(componentsLength == _componentLimits.length, "Array length mismatch");
+            require(!_components.hasDuplicate(), "Cannot duplicate addresses");
+        }
     }
 }
