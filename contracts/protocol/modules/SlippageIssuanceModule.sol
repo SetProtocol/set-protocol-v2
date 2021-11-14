@@ -31,17 +31,16 @@ import { IssuanceValidationUtils } from "../lib/IssuanceValidationUtils.sol";
 import { Position } from "../lib/Position.sol";
 
 /**
- * @title DebtIssuanceModuleV2
+ * @title SlippageIssuanceModule
  * @author Set Protocol
  *
- * The DebtIssuanceModuleV2 is a module that enables users to issue and redeem SetTokens that contain default and all
- * external positions, including debt positions. Module hooks are added to allow for syncing of positions, and component
- * level hooks are added to ensure positions are replicated correctly. The manager can define arbitrary issuance logic
- * in the manager hook, as well as specify issue and redeem fees.
- * 
- * NOTE: 
- * The getRequiredComponentIssuanceUnits function on this module assumes that Default token balances will be synced on every issuance
- * and redemption. If token balances are not being synced it will over-estimate the amount of tokens required to issue a Set.
+ * The SlippageIssuanceModule is a module that enables users to issue and redeem SetTokens that requires a transaction that incurs slippage.
+ * in order to replicate the Set. Like the DebtIssuanceModule, module hooks are added to allow for syncing of positions, and component
+ * level hooks are added to ensure positions are replicated correctly. The manager can define arbitrary issuance logic in the manager hook,
+ * as well as specify issue and redeem fees. The getRequiredComponentIssuanceUnits and it's redemption counterpart now also include any
+ * changes to the position expected to happen during issuance thus providing much better estimations for positions that are synced or require
+ * a trade. It is worth noting that this module inherits from DebtIssuanceModule, consequently it can also be used for issuances that do NOT
+ * require slippage just by calling the issue and redeem endpoints.
  */
 contract SlippageIssuanceModule is DebtIssuanceModule {
 
@@ -55,7 +54,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
      * will be returned to the minting address. If specified, a fee will be charged on issuance.
      *
      * @param _setToken         Instance of the SetToken to issue
-     * @param _setQuantity         Quantity of SetToken to issue
+     * @param _setQuantity      Quantity of SetToken to issue
      * @param _to               Address to mint SetToken to
      */
     function issueWithSlippage(
@@ -332,7 +331,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         pure
     {
         require(_setQuantity > 0, "SetToken quantity must be > 0");
-        
+
         uint256 componentsLength = _components.length;
         if (componentsLength > 0) {
             require(componentsLength == _componentLimits.length, "Array length mismatch");
