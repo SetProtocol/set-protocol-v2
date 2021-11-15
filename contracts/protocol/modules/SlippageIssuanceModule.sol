@@ -232,7 +232,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
     }
 
     /**
-     * Calculates the amount of each component  thatwill be returned on redemption net of fees as well as how much debt needs to be paid down to
+     * Calculates the amount of each component that will be returned on redemption net of fees as well as how much debt needs to be paid down to
      * redeem. Overrides inherited function to take into account position updates from pre action module hooks (manager hooks not included).
      *
      * @param _setToken         Instance of the SetToken to issue
@@ -301,21 +301,25 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
             uint256[] memory debtUnits
         ) = _getTotalIssuanceUnits(_setToken);
 
-        // NOTE: components.length isn't stored in local variable to avoid stak too deep errors. Since this function is used
+        // NOTE: components.length isn't stored in local variable to avoid stack too deep errors. Since this function is used
         // by view functions intended to be queried off-chain this seems acceptable
         uint256[] memory totalEquityUnits = new uint256[](components.length);
         uint256[] memory totalDebtUnits = new uint256[](components.length);
         for (uint256 i = 0; i < components.length; i++) {
-            // Use preciseMulCeil to round up to ensure overcollateration when small issue quantities are provided
-            // and preciseMul to round down to ensure overcollateration when small redeem quantities are provided
+            // NOTE: If equityAdjustment is negative and exceeds debtUnits in absolute value this will revert
             uint256 adjustedEquityUnits = equityUnits[i].toInt256().add(_equityAdjustments[i]).toUint256();
 
+            // Use preciseMulCeil to round up to ensure overcollateration when small issue quantities are provided
+            // and preciseMul to round down to ensure overcollateration when small redeem quantities are provided
             totalEquityUnits[i] = _isIssue ?
                 adjustedEquityUnits.preciseMulCeil(_quantity) :
                 adjustedEquityUnits.preciseMul(_quantity);
 
+            // NOTE: If debtAdjustment is negative and exceeds debtUnits in absolute value this will revert
             uint256 adjustedDebtUnits = debtUnits[i].toInt256().add(_debtAdjustments[i]).toUint256();
-                
+
+            // Use preciseMulCeil to round up to ensure overcollateration when small redeem quantities are provided
+            // and preciseMul to round down to ensure overcollateration when small issue quantities are provided
             totalDebtUnits[i] = _isIssue ?
                 adjustedDebtUnits.preciseMul(_quantity) :
                 adjustedDebtUnits.preciseMulCeil(_quantity);

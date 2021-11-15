@@ -26,6 +26,8 @@ import { ISetToken } from "./ISetToken.sol";
  * CHANGELOG:
  *      - Added a module level issue hook that can be used to set state ahead of component level
  *        issue hooks
+ *      - Added view function that return expected positional adjustments during issue/redeem to
+ *        the issuance module in order to give more accurate token flow information
  */
 interface IModuleIssuanceHookV2 {
 
@@ -46,6 +48,19 @@ interface IModuleIssuanceHookV2 {
         bool _isEquity
     ) external;
 
+    /**
+     * Adjustments should return the NET CHANGE in POSITION UNITS for each component in the SetToken's
+     * components array. Each entry in the returned arrays should index to the same component in the
+     * SetToken's components array (called using getComponents()). Directional adjustments should be made
+     * according to the following table (i.e. returning a negative debt number means debt is reduced during
+     * issue/redeem):
+     * | ------------------------------------|
+     * | Type    |  Positive |  Negative     |
+     * | -----   |---------- | --------------|
+     * | Equity  | Add Equity| Equity Reduced|
+     * | Debt    | Add Debt  | Debt Reduced  |
+     * | ------------------------------------|
+     */
     function getIssuanceAdjustments(
         ISetToken _setToken,
         uint256 _setTokenQuantity
@@ -54,6 +69,19 @@ interface IModuleIssuanceHookV2 {
         view
         returns (int256[] memory, int256[] memory);
 
+    /**
+     * Adjustments should return the NET CHANGE in POSITION UNITS for each component in the SetToken's
+     * components array. Each entry in the returned arrays should index to the same component in the
+     * SetToken's components array (called using getComponents()). Directional adjustments should be made
+     * according to the following table (i.e. returning a negative debt number means debt is reduced during
+     * issue/redeem):
+     * | ------------------------------------|
+     * | Type    |  Positive |  Negative     |
+     * | -----   |---------- | --------------|
+     * | Equity  | Add Equity| Equity Reduced|
+     * | Debt    | Add Debt  | Debt Reduced  |
+     * | ------------------------------------|
+     */
     function getRedemptionAdjustments(
         ISetToken _setToken,
         uint256 _setTokenQuantity

@@ -477,6 +477,11 @@ describe("SlippageIssuanceModule", () => {
               daiDebtAdjustment = ether(1.5);
             });
 
+            after(async () => {
+              ethIssuanceAdjustment = ZERO;
+              daiDebtAdjustment = ZERO;
+            });
+
             it("should return the correct issue token amounts", async () => {
               const [components, equityFlows, debtFlows] = await subject();
 
@@ -500,6 +505,11 @@ describe("SlippageIssuanceModule", () => {
               daiDebtAdjustment = ether(1.5).mul(-1);
             });
 
+            after(async () => {
+              ethIssuanceAdjustment = ZERO;
+              daiDebtAdjustment = ZERO;
+            });
+
             it("should return the correct issue token amounts", async () => {
               const [components, equityFlows, debtFlows] = await subject();
 
@@ -514,6 +524,36 @@ describe("SlippageIssuanceModule", () => {
               expect(JSON.stringify(expectedComponents)).to.eq(JSON.stringify(components));
               expect(JSON.stringify(expectedEquityFlows)).to.eq(JSON.stringify(equityFlows));
               expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
+            });
+          });
+
+          describe("when equity positional adjustments lead to negative results", async () => {
+            before(async () => {
+              ethIssuanceAdjustment = ether(1.1).mul(-1);
+            });
+
+            after(async () => {
+              ethIssuanceAdjustment = ZERO;
+              daiDebtAdjustment = ZERO;
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("SafeCast: value must be positive");
+            });
+          });
+
+          describe("when debt positional adjustments lead to negative results", async () => {
+            before(async () => {
+              daiDebtAdjustment = ether(101).mul(-1);
+            });
+
+            after(async () => {
+              ethIssuanceAdjustment = ZERO;
+              daiDebtAdjustment = ZERO;
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("SafeCast: value must be positive");
             });
           });
         });
@@ -657,6 +697,36 @@ describe("SlippageIssuanceModule", () => {
               expect(JSON.stringify(expectedComponents)).to.eq(JSON.stringify(components));
               expect(JSON.stringify(expectedEquityFlows)).to.eq(JSON.stringify(equityFlows));
               expect(JSON.stringify(expectedDebtFlows)).to.eq(JSON.stringify(debtFlows));
+            });
+          });
+
+          describe("when equity positional adjustments lead to negative results", async () => {
+            before(async () => {
+              ethIssuanceAdjustment = ether(1.1).mul(-1);
+            });
+
+            after(async () => {
+              ethIssuanceAdjustment = ZERO;
+              daiDebtAdjustment = ZERO;
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("SafeCast: value must be positive");
+            });
+          });
+
+          describe("when debt positional adjustments lead to negative results", async () => {
+            before(async () => {
+              daiDebtAdjustment = ether(101).mul(-1);
+            });
+
+            after(async () => {
+              ethIssuanceAdjustment = ZERO;
+              daiDebtAdjustment = ZERO;
+            });
+
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("SafeCast: value must be positive");
             });
           });
         });
@@ -965,7 +1035,7 @@ describe("SlippageIssuanceModule", () => {
             });
           });
 
-          describe("but there are duplicated in the components array", async () => {
+          describe("but there are duplicates in the components array", async () => {
             beforeEach(async () => {
               subjectCheckedComponents = [setup.weth.address, setup.weth.address];
               subjectMaxTokenAmountsIn = [ether(1), ether(1)];
