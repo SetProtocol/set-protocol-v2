@@ -177,10 +177,7 @@ describe("PerpV2LeverageModule", () => {
       await debtIssuanceMock.initialize(setToken.address);
       await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
 
-      await perpLeverageModule.connect(owner.wallet).initialize(
-        setToken.address,
-        usdc.address
-      );
+      await perpLeverageModule.connect(owner.wallet).initialize(setToken.address);
 
       // Initialize mock module
       await setup.controller.addModule(mockModule.address);
@@ -258,7 +255,6 @@ describe("PerpV2LeverageModule", () => {
     let setToken: SetToken;
     let isAllowListed: boolean;
     let subjectSetToken: Address;
-    let subjectCollateralToken: Address;
     let subjectCaller: Account;
 
     const initializeContracts = async () => {
@@ -277,14 +273,12 @@ describe("PerpV2LeverageModule", () => {
 
     const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
-      subjectCollateralToken = usdc.address;
       subjectCaller = owner;
     };
 
     async function subject(): Promise<any> {
       return perpLeverageModule.connect(subjectCaller.wallet).initialize(
         subjectSetToken,
-        subjectCollateralToken
       );
     }
 
@@ -302,12 +296,12 @@ describe("PerpV2LeverageModule", () => {
         expect(isModuleEnabled).to.eq(true);
       });
 
-      it("should set the collateralToken mapping", async () => {
-        const initialCollateralToken = await perpLeverageModule.collateralToken(setToken.address);
+      it("should set the collateralToken", async () => {
+        const initialCollateralToken = await perpLeverageModule.collateralToken();
 
         await subject();
 
-        const finalCollateralToken = await perpLeverageModule.collateralToken(setToken.address);
+        const finalCollateralToken = await perpLeverageModule.collateralToken();
 
         expect(initialCollateralToken).to.eq(ADDRESS_ZERO);
         expect(finalCollateralToken).to.eq(usdc.address);
@@ -1122,10 +1116,7 @@ describe("PerpV2LeverageModule", () => {
       await perpLeverageModule.updateAllowedSetToken(subjectSetToken.address, true);
 
       if (isInitialized) {
-        await perpLeverageModule.initialize(
-          subjectSetToken.address,
-          usdc.address
-        );
+        await perpLeverageModule.initialize(subjectSetToken.address);
 
         const issueQuantity = ether(1);
         await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
@@ -1221,10 +1212,7 @@ describe("PerpV2LeverageModule", () => {
       await perpLeverageModule.updateAllowedSetToken(subjectSetToken.address, true);
 
       if (isInitialized) {
-        await perpLeverageModule.initialize(
-          subjectSetToken.address,
-          usdc.address
-        );
+        await perpLeverageModule.initialize(subjectSetToken.address);
 
         const issueQuantity = ether(1);
         await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
@@ -3440,10 +3428,7 @@ describe("PerpV2LeverageModule", () => {
       await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
       // Initialize module if set to true
       if (isInitialized) {
-        await perpLeverageModule.initialize(
-          setToken.address,
-          usdc.address
-        );
+        await perpLeverageModule.initialize(setToken.address);
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
       // Add other issuance mock after initializing PerpV2LeverageModule, so register is never called
@@ -3530,10 +3515,7 @@ describe("PerpV2LeverageModule", () => {
       await debtIssuanceMock.initialize(setToken.address);
       // Add SetToken to allow list
       await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
-      await perpLeverageModule.initialize(
-        setToken.address,
-        usdc.address
-      );
+      await perpLeverageModule.initialize(setToken.address);
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
 
       // Approve tokens to issuance module and call issue
@@ -3553,17 +3535,6 @@ describe("PerpV2LeverageModule", () => {
       await subject();
       const isModuleEnabled = await setToken.isInitializedModule(perpLeverageModule.address);
       expect(isModuleEnabled).to.be.false;
-    });
-
-    it("should delete the collateralToken mapping", async () => {
-      const initialCollateralToken = await perpLeverageModule.collateralToken(setToken.address);
-
-      await subject();
-
-      const finalCollateralToken = await perpLeverageModule.collateralToken(setToken.address);
-
-      expect(initialCollateralToken).to.eq(usdc.address);
-      expect(finalCollateralToken).to.eq(ADDRESS_ZERO);
     });
 
     it("should unregister on the debt issuance module", async () => {
@@ -3715,75 +3686,6 @@ describe("PerpV2LeverageModule", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
-      });
-    });
-  });
-
-  describe("#setCollateralToken", async () => {
-    let setToken: SetToken;
-    let subjectSetToken: Address;
-    let subjectCollateralToken: Address;
-    let subjectCaller: Account;
-
-    cacheBeforeEach(async function () {
-      setToken = await setup.createSetToken(
-        [usdc.address],
-        [ether(100)],
-        [perpLeverageModule.address, setup.issuanceModule.address, debtIssuanceMock.address]
-      );
-      await debtIssuanceMock.initialize(setToken.address);
-      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
-
-      await perpLeverageModule.initialize(
-        setToken.address,
-        usdc.address
-      );
-
-      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
-
-      // Approve tokens to issuance module and call issue
-      await usdc.approve(setup.issuanceModule.address, ether(100));
-      await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
-    });
-
-    beforeEach(async () => {
-      subjectSetToken = setToken.address;
-      subjectCollateralToken = await getRandomAddress();
-      subjectCaller = owner;
-    });
-
-    async function subject(): Promise<any> {
-      return perpLeverageModule
-        .connect(subjectCaller.wallet)
-        .setCollateralToken(subjectSetToken, subjectCollateralToken);
-    }
-
-    it("should update the collateral token", async () => {
-      const initialCollateralToken = await perpLeverageModule.collateralToken(subjectSetToken);
-      await subject();
-      const finalCollateralToken = await perpLeverageModule.collateralToken(subjectSetToken);
-
-      expect(initialCollateralToken).to.not.eq(finalCollateralToken);
-      expect(finalCollateralToken).to.eq(subjectCollateralToken);
-    });
-
-    describe("when the perp account has a collateral balance", async () => {
-      beforeEach(async () => {
-        await perpLeverageModule.deposit(subjectSetToken, ether(10));
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Existing collateral balance");
-      });
-    });
-
-    describe("when not called by the SetToken manager", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
       });
     });
   });

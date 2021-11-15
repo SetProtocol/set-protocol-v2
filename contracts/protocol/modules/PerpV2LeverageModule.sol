@@ -162,13 +162,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
     IMarketRegistry public immutable perpMarketRegistry;
 
+    // Token (USDC) used as a vault deposit, sourced from Perp Protocol in `initialize`.
+    IERC20 public collateralToken;
+
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) public positions;
-
-    // Mapping of SetTokens to the token used as a vault deposit. NOTE: only a single collateral type is allowed
-    // per SetToken at any given time.
-    mapping(ISetToken => IERC20) public collateralToken;
 
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
     mapping(ISetToken => bool) public allowedSetTokens;
@@ -253,8 +252,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
-        // TODO: Update externalPositionUnit for collateralToken ?
-
         _updatePositionList(_setToken, _baseToken);
 
         emit LeverageIncreased(
@@ -309,8 +306,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // TODO: Double-check deltas? Can we trust oppositeBoundAmount?
 
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
-
-        // TODO: Update externalPositionUnit for collateralToken ?
 
         _updatePositionList(_setToken, _baseToken);
 
@@ -368,16 +363,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev MANAGER ONLY: Initializes this module to the SetToken. Sets the identity of collateral token used
-     * for deposits into PerpV2. Either the SetToken needs to be on the allowed list or anySetAllowed
-     * needs to be true. Only callable by the SetToken's manager.
+     * @dev MANAGER ONLY: Initializes this module to the SetToken. Either the SetToken needs to be on the
+     * allowed list or anySetAllowed needs to be true.
      *
      * @param _setToken             Instance of the SetToken to initialize
-     * @param _collateralToken      Address of ERC20 token to use for PerpV2 collateral deposits
      */
     function initialize(
-        ISetToken _setToken,
-        IERC20 _collateralToken
+        ISetToken _setToken
     )
         external
         onlySetManager(_setToken, msg.sender)
@@ -403,12 +395,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
 
         // Set collateralToken
-        _setCollateralToken(_setToken, _collateralToken);
+        collateralToken = IERC20(perpVault.getSettlementToken());
     }
 
     /**
      * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Deletes
-     * collateralToken and position mappings associated with SetToken.
+     * position mappings associated with SetToken.
      *
      * NOTE: Function will revert if there are any remaining collateral deposits in the PerpV2 vault.
      */
@@ -417,7 +409,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         require(_getCollateralBalance(setToken) == 0, "Collateral balance remaining");
 
         delete positions[setToken]; // Should already be empty
-        delete collateralToken[setToken];
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
@@ -464,30 +455,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev MANAGER ONLY: Sets the identity of the token used for deposits into the PerpV2 protocol.
-     * Because PerpV2 uses vUSDC as a universal quote asset (and only accepts USDC collateral in
-     * its initial version) simple Perp account positions will use USDC. However, there are applications
-     * like basis trading where depositing alternative tokens and shorting them in PerpV2 markets lets
-     * you create a delta neutral position. Because `collateralToken` is also configured during initialization
-     * this method would only be used if manager was switching from one Perp account strategy to another
-     * (or correcting an initialization error).
-     *
-     * NOTE: reverts if SetToken has an existing collateral balance in the Perp vault
-     *
-     * @param _setToken                 Instance of the SetToken
-     * @param _collateralToken          ERC20 token to use for PerpV2 collateral deposits
-     */
-    function setCollateralToken(
-      ISetToken _setToken,
-      IERC20 _collateralToken
-    )
-      external
-      onlyManagerAndValidSet(ISetToken(_setToken))
-    {
-        _setCollateralToken(_setToken, _collateralToken);
-    }
-
-    /**
      * @dev MODULE ONLY: Hook called prior to issuance. Only callable by valid module.
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of Set to issue
@@ -504,7 +471,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
         _setToken.editExternalPositionUnit(
-            address(collateralToken[_setToken]),
+            address(collateralToken),
             address(this),
             newExternalPositionUnit
         );
@@ -532,7 +499,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
         _setToken.editExternalPositionUnit(
-            address(collateralToken[_setToken]),
+            address(collateralToken),
             address(this),
             newExternalPositionUnit
         );
@@ -727,7 +694,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
             int256 baseTradeNotionalQuantity = basePositionUnit.preciseMul(_setTokenQuantity.toInt256());
 
-            // Simulate trade to get its real cost
             ActionInfo memory actionInfo = _createAndValidateActionInfo(
                 _setToken,
                 positionInfo[i].baseToken,
@@ -745,7 +711,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 positionInfo[i]
             );
 
-            // Trade
+            // Execute or simulate trade
             (, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
 
             // Long trade slippage results in more negative quote received
@@ -845,19 +811,19 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Invoke deposit from SetToken using PerpV2 library. Creates a collateral deposit in Perp vault
      */
     function _deposit(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
-        uint256 initialCollateralPositionBalance = collateralToken[_setToken].balanceOf(address(_setToken));
+        uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
 
         _setToken.invokeApprove(
-            address(collateralToken[_setToken]),
+            address(collateralToken),
             address(perpVault),
             notionalCollateralQuantity
         );
 
-        _setToken.invokeDeposit(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
+        _setToken.invokeDeposit(perpVault, collateralToken, notionalCollateralQuantity);
 
         _setToken.calculateAndEditDefaultPosition(
-            address(collateralToken[_setToken]),
+            address(collateralToken),
             _setToken.totalSupply(),
             initialCollateralPositionBalance
         );
@@ -872,19 +838,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits, bool editDefaultPosition) internal {
         if (_collateralQuantityUnits == 0) return;
 
-        uint256 initialCollateralPositionBalance = collateralToken[_setToken].balanceOf(address(_setToken));
+        uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _formatCollateralQuantityUnits(_setToken, _collateralQuantityUnits);
 
-        //console.log(notionalCollateralQuantity, 'notionalCollateralQuantity');
-        //console.log(perpVault.getFreeCollateral(address(_setToken)), 'freeCollateral');
-
-        _setToken.invokeWithdraw(perpVault, collateralToken[_setToken], notionalCollateralQuantity);
+        _setToken.invokeWithdraw(perpVault, collateralToken, notionalCollateralQuantity);
 
         // Skip position editing in cases (like fee payment) where we withdraw and immediately
         // forward the amount to another recipient.
         if (editDefaultPosition) {
             _setToken.calculateAndEditDefaultPosition(
-                address(collateralToken[_setToken]),
+                address(collateralToken),
                 _setToken.totalSupply(),
                 initialCollateralPositionBalance
             );
@@ -953,8 +916,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         internal
         returns(uint256)
     {
-        IERC20 token = collateralToken[_setToken];
-
         uint256 protocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
         uint256 protocolFeeUnits = protocolFee.preciseDiv(_setToken.totalSupply());
 
@@ -962,10 +923,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         uint256 protocolFeeInCollateralDecimals = _formatCollateralToken(
             protocolFee,
-            ERC20(address(token)).decimals()
+            ERC20(address(collateralToken)).decimals()
         );
 
-        payProtocolFeeFromSetToken(_setToken, address(token), protocolFeeInCollateralDecimals);
+        payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFeeInCollateralDecimals);
 
         return protocolFeeInCollateralDecimals;
     }
@@ -1100,9 +1061,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         (int256 owedRealizedPnl, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
-        //console.log(owedRealizedPnl.toUint256(), 'owedRealizedPnl');
-        //console.log(pendingFundingPayments.toUint256(), 'pendingFundingPayments');
-
         return (owedRealizedPnl + pendingFundingPayments)
             .preciseDiv(_setToken.totalSupply().toInt256())
             .preciseMul(_setTokenQuantity.toInt256());
@@ -1138,20 +1096,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Sets the identity of the Perp accounts deposit collateral token. Reverts if there is
-     * an existing collateral balance. Only one collateral type is allowed.
-     */
-    function _setCollateralToken(
-      ISetToken _setToken,
-      IERC20 _collateralToken
-    )
-      internal
-    {
-        require(perpVault.getBalance(address(_setToken)) == 0, "Existing collateral balance");
-        collateralToken[_setToken] = _collateralToken;
-    }
-
-    /**
      * @dev Validate common requirements for lever and delever
      */
     function _validateCommon(ActionInfo memory _actionInfo) internal pure {
@@ -1159,23 +1103,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         require(_actionInfo.amount > 0, "Amount is 0");
     }
 
-    /**
-     * @dev Validates if a new asset can be added as collateral asset for given SetToken
-     */
-    function _validateNewCollateralAsset(ISetToken _setToken, IERC20 _asset) internal view {
-        // TODO:
-        // require collateral is a default component on SetToken
-        // require collateral is valid for deposit in PerpV2
-    }
-
-
-    // TODO: Add logic here to convert non-USDC collateral into USDC
+    // @dev Retrieves collateral balance as an an 18 decimal vUSDC quote value
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         int256 balance = perpVault.getBalance(address(_setToken));
-        uint8 decimals = ERC20(address(collateralToken[_setToken])).decimals();
+        uint8 decimals = ERC20(address(collateralToken)).decimals();
         return _parseCollateralToken(balance, decimals);
     }
 
+    // @dev Converts an 18 decimal collateral quantity unit into a 6 decimal USDC quantity that
+    // can be passed to Perp protocol's `deposit` and `withdraw` methods
     function _formatCollateralQuantityUnits(
         ISetToken _setToken,
         uint256 _collateralQuantityUnits
@@ -1186,10 +1122,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         uint256 notionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
 
-        uint8 decimals = ERC20(address(collateralToken[_setToken])).decimals();
-
-        //console.log(notionalQuantity, 'deposit notionalQuantity');
-        //console.log(_setToken.totalSupply(), 'setToken.totalSupply');
+        uint8 decimals = ERC20(address(collateralToken)).decimals();
 
         return _formatCollateralToken(
             notionalQuantity,
