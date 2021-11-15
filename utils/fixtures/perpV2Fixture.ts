@@ -41,6 +41,12 @@ import {
 import DeployHelper from "../deploys";
 import { Address } from "../types";
 
+import {
+  ZERO,
+  ZERO_BYTES,
+  MAX_UINT_256
+} from "@utils/constants";
+
 export interface TokensFixture {
   token0: PerpV2BaseToken;
   token1: PerpV2QuoteToken;
@@ -78,6 +84,7 @@ export class PerpV2Fixture {
   private _pools: any = {};
 
   public maker: Account;
+  public otherTrader: Account;
   public usdc: StandardTokenMock;
   public clearingHouse: PerpV2ClearingHouse;
   public orderBook: PerpV2OrderBook;
@@ -107,8 +114,10 @@ export class PerpV2Fixture {
     this._deployer = new DeployHelper(this._ownerSigner);
   }
 
-  public async initialize(_maker: Account): Promise<void> {
+  public async initialize(_maker: Account, _otherTrader: Account): Promise<void> {
     this.maker = _maker;
+    this.otherTrader = _otherTrader;
+
     this.usdc = await this._deployer.mocks.deployTokenMock(this._ownerAddress, ether("100000000000000"), 6);
     this._usdcDecimals = 6;
 
@@ -251,6 +260,11 @@ export class PerpV2Fixture {
     const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
     await this.usdc.mint(this.maker.address, makerCollateralAmount);
     await this.deposit(this.maker, BigNumber.from(ONE_MILLION), this.usdc);
+
+    // prepare collateral for maker
+    const otherCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
+    await this.usdc.mint(this.otherTrader.address, otherCollateralAmount);
+    await this.deposit(this.otherTrader, BigNumber.from(ONE_MILLION), this.usdc);
   }
 
   async deposit(sender: Account, amount: BigNumber, token: StandardTokenMock): Promise<void> {
@@ -346,27 +360,26 @@ export class PerpV2Fixture {
   Promise<{
     deltaBase: BigNumber;
     deltaQuote: BigNumber;
-    exchangedPositionSize: BigNumber;
-    exchangedPositionNotional: BigNumber;
   }> {
 
     const {
-      deltaAvailableBase: deltaBase,
-      deltaAvailableQuote: deltaQuote,
-      exchangedPositionSize,
-      exchangedPositionNotional,
-    } = await this.quoter
-      .connect(this.maker.wallet)
+      deltaBase,
+      deltaQuote,
+    } = await this.clearingHouse
+      .connect(this.otherTrader.wallet)
       .callStatic
-      .swap({
+      .openPosition({
         baseToken: baseToken,
         isBaseToQuote: !isBuy,
         isExactInput: !isBuy,
         amount: baseQuantityUnits,
-        sqrtPriceLimitX96: 0
+        oppositeAmountBound: ZERO,
+        deadline:  MAX_UINT_256,
+        sqrtPriceLimitX96: ZERO,
+        referralCode: ZERO_BYTES
       });
 
-    return { deltaBase, deltaQuote, exchangedPositionSize, exchangedPositionNotional };
+    return { deltaBase, deltaQuote };
   }
 
   public async getCurrentLeverage(

@@ -24,6 +24,7 @@ const expect = getWaffleExpect();
 describe("PerpV2", () => {
   let owner: Account;
   let maker: Account;
+  let otherTrader: Account;
   let deployer: DeployHelper;
 
   let perpLib: PerpV2;
@@ -39,6 +40,7 @@ describe("PerpV2", () => {
     [
       owner,
       maker,
+      otherTrader
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -55,7 +57,7 @@ describe("PerpV2", () => {
     await setup.controller.addModule(invokeLibMock.address);
 
     perpSetup = getPerpV2Fixture(owner.address);
-    await perpSetup.initialize(maker);
+    await perpSetup.initialize(maker, otherTrader);
 
     vETH = perpSetup.vETH;
 

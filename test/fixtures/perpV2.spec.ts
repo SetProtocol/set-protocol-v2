@@ -23,7 +23,7 @@ describe("PerpV2Fixture", () => {
   before(async () => {
     [ owner, maker, taker ] = await getAccounts();
     perpV2 = getPerpV2Fixture(owner.address);
-    await perpV2.initialize(maker);
+    await perpV2.initialize(maker, taker);
   });
 
   addSnapshotBeforeRestoreAfterEach();
