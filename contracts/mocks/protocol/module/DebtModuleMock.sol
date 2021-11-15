@@ -44,6 +44,8 @@ contract DebtModuleMock is ModuleBase {
     address public module;
     bool public moduleIssueHookCalled;
     bool public moduleRedeemHookCalled;
+    mapping(address=>int256) public equityIssuanceAdjustment;
+    mapping(address=>int256) public debtIssuanceAdjustment;
 
     constructor(IController _controller, address _module) public ModuleBase(_controller) {
         module = _module;
@@ -51,6 +53,14 @@ contract DebtModuleMock is ModuleBase {
 
     function addDebt(ISetToken _setToken, address _token, uint256 _amount) external {
         _setToken.editExternalPosition(_token, address(this), _amount.toInt256().mul(-1), "");
+    }
+
+    function addEquityIssuanceAdjustment(address _token, int256 _amount) external {
+        equityIssuanceAdjustment[_token] = _amount;
+    }
+
+    function addDebtIssuanceAdjustment(address _token, int256 _amount) external {
+        debtIssuanceAdjustment[_token] = _amount;
     }
 
     function moduleIssueHook(ISetToken /*_setToken*/, uint256 /*_setTokenQuantity*/) external { moduleIssueHookCalled = true; }
@@ -80,6 +90,45 @@ contract DebtModuleMock is ModuleBase {
         uint256 unitAmount = _setToken.getExternalPositionRealUnit(_component, address(this)).mul(-1).toUint256();
         uint256 notionalAmount = _setTokenQuantity.getDefaultTotalNotional(unitAmount);
         _setToken.invokeTransfer(_component, address(this), notionalAmount);
+    }
+
+
+    function getIssuanceAdjustments(
+        ISetToken _setToken,
+        uint256 /* _setTokenQuantity */
+    )
+        external
+        view
+        returns (int256[] memory, int256[] memory)
+    {
+        address[] memory components = _setToken.getComponents();
+        int256[] memory equityAdjustments = new int256[](components.length);
+        int256[] memory debtAdjustments = new int256[](components.length);
+        for(uint256 i = 0; i < components.length; i++) {
+            equityAdjustments[i] = equityIssuanceAdjustment[components[i]];
+            debtAdjustments[i] = debtIssuanceAdjustment[components[i]];
+        }
+
+        return (equityAdjustments, debtAdjustments);
+    }
+
+    function getRedemptionAdjustments(
+        ISetToken _setToken,
+        uint256 /* _setTokenQuantity */
+    )
+        external
+        view
+        returns (int256[] memory, int256[] memory)
+    {
+        address[] memory components = _setToken.getComponents();
+        int256[] memory equityAdjustments = new int256[](components.length);
+        int256[] memory debtAdjustments = new int256[](components.length);
+        for(uint256 i = 0; i < components.length; i++) {
+            equityAdjustments[i] = equityIssuanceAdjustment[components[i]];
+            debtAdjustments[i] = debtIssuanceAdjustment[components[i]];
+        }
+
+        return (equityAdjustments, debtAdjustments);
     }
 
     function initialize(ISetToken _setToken) external {

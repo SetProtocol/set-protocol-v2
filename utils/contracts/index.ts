@@ -78,6 +78,7 @@ export { SetTokenCreator } from "../../typechain/SetTokenCreator";
 export { SetValuer } from "../../typechain/SetValuer";
 export { SingleIndexModule } from "../../typechain/SingleIndexModule";
 export { SingularityNetToken } from "../../typechain/SingularityNetToken";
+export { SlippageIssuanceModule } from "../../typechain/SlippageIssuanceModule";
 export { SnapshotGovernanceAdapter } from "../../typechain/SnapshotGovernanceAdapter";
 export { StakingAdapterMock } from "../../typechain/StakingAdapterMock";
 export { StakingModule } from "../../typechain/StakingModule";
