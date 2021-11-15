@@ -662,7 +662,7 @@ describe("SlippageIssuanceModule", () => {
         });
       });
 
-      describe.only("#issueWithSlippage", async () => {
+      describe("#issueWithSlippage", async () => {
         let subjectSetToken: Address;
         let subjectQuantity: BigNumber;
         let subjectCheckedComponents: Address[];
@@ -1004,7 +1004,7 @@ describe("SlippageIssuanceModule", () => {
         });
       });
 
-      describe.only("#redeemWithSlippage", async () => {
+      describe("#redeemWithSlippage", async () => {
         let subjectSetToken: Address;
         let subjectQuantity: BigNumber;
         let subjectCheckedComponents: Address[];
