@@ -34,7 +34,7 @@ import { Position } from "../lib/Position.sol";
  * @title SlippageIssuanceModule
  * @author Set Protocol
  *
- * The SlippageIssuanceModule is a module that enables users to issue and redeem SetTokens that requires a transaction that incurs slippage.
+ * The SlippageIssuanceModule is a module that enables users to issue and redeem SetTokens that requires a transaction that incurs slippage
  * in order to replicate the Set. Like the DebtIssuanceModule, module hooks are added to allow for syncing of positions, and component
  * level hooks are added to ensure positions are replicated correctly. The manager can define arbitrary issuance logic in the manager hook,
  * as well as specify issue and redeem fees. The getRequiredComponentIssuanceUnits and it's redemption counterpart now also include any
@@ -306,7 +306,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         uint256[] memory totalEquityUnits = new uint256[](components.length);
         uint256[] memory totalDebtUnits = new uint256[](components.length);
         for (uint256 i = 0; i < components.length; i++) {
-            // NOTE: If equityAdjustment is negative and exceeds debtUnits in absolute value this will revert
+            // NOTE: If equityAdjustment is negative and exceeds equityUnits in absolute value this will revert
             uint256 adjustedEquityUnits = equityUnits[i].toInt256().add(_equityAdjustments[i]).toUint256();
 
             // Use preciseMulCeil to round up to ensure overcollateration when small issue quantities are provided
