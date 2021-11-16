@@ -19,6 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -26,7 +27,6 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
 import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
-
 
 import { PerpV2 } from "../integration/lib/PerpV2.sol";
 import { IAccountBalance } from "../../interfaces/external/perp-v2/IAccountBalance.sol";
@@ -56,6 +56,7 @@ import "hardhat/console.sol";
 contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
+    using SignedSafeMath for int256;
     using AddressArrayUtils for address[];
 
     /* ============ Structs ============ */
@@ -710,12 +711,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
             // When long, trade slippage results in more negative quote received
             // When short, trade slippage results in less positive quote received
-            int256 slippageQuantity = deltaQuote.toInt256() - idealDeltaQuote;
+            int256 slippageQuantity = deltaQuote.toInt256().sub(idealDeltaQuote);
 
-            usdcAmountIn += (slippageQuantity + idealDeltaQuote.preciseDiv(currentLeverage));
+            usdcAmountIn = usdcAmountIn.add(slippageQuantity.add(idealDeltaQuote.preciseDiv(currentLeverage)));
         }
 
-        usdcAmountIn += owedRealizedPnlDiscountQuantity;
+        usdcAmountIn = usdcAmountIn.add(owedRealizedPnlDiscountQuantity);
 
         return _abs(usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()));
     }
@@ -740,7 +741,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
 
         // Calculate already accrued PnL from non-issuance/redemption sources (ex: levering)
-        int256 totalFundingAndCarriedPnL = accountInfo.pendingFundingPayments + accountInfo.owedRealizedPnl;
+        int256 totalFundingAndCarriedPnL = accountInfo.pendingFundingPayments.add(accountInfo.owedRealizedPnl);
         int256 owedRealizedPnlPositionUnit = totalFundingAndCarriedPnL.preciseDiv(_setToken.totalSupply().toInt256());
 
         for (uint256 i = 0; i < positionInfo.length; i++) {
@@ -769,9 +770,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             // Calculate realized PnL for and add to running total.
             // When basePositionUnit is positive, position is long.
             if (basePositionUnit >= 0){
-                realizedPnl += reducedOpenNotional + deltaQuote.toInt256();
+                realizedPnl = realizedPnl.add(reducedOpenNotional.add(deltaQuote.toInt256()));
             } else {
-                realizedPnl += reducedOpenNotional - deltaQuote.toInt256();
+                realizedPnl = realizedPnl.add(reducedOpenNotional.sub(deltaQuote.toInt256()));
             }
         }
 
@@ -779,9 +780,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 collateralPositionUnit = _getCollateralBalance(_setToken).preciseDiv(_setToken.totalSupply().toInt256());
 
         int256 usdcToWithdraw =
-            collateralPositionUnit.preciseMul(_setTokenQuantity.toInt256()) +
-            owedRealizedPnlPositionUnit.preciseMul(_setTokenQuantity.toInt256()) +
-            realizedPnl;
+            collateralPositionUnit.preciseMul(_setTokenQuantity.toInt256())
+                .add(owedRealizedPnlPositionUnit.preciseMul(_setTokenQuantity.toInt256()))
+                .add(realizedPnl);
 
         return usdcToWithdraw.preciseDiv(_setTokenQuantity.toInt256());
     }
@@ -1014,13 +1015,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         for (uint256 i = 0; i < positionInfoArraySize; i++) {
             spotPrices[i] = getSpotPrice(_positionInfo[i].baseToken).toInt256();
-            totalPositionValue += _abs(_positionInfo[i].baseBalance.preciseMul(spotPrices[i]));
+            totalPositionValue = totalPositionValue.add(
+                _abs(_positionInfo[i].baseBalance.preciseMul(spotPrices[i]))
+            );
         }
 
         int256 currentLeverage = totalPositionValue.preciseDiv(
-            totalPositionValue +
-            perpAccountBalance.getNetQuoteBalance(address(_setToken)) +
-            _getCollateralBalance(_setToken)
+            totalPositionValue
+                .add(perpAccountBalance.getNetQuoteBalance(address(_setToken)))
+                .add(_getCollateralBalance(_setToken))
         );
 
         return (currentLeverage, spotPrices);
@@ -1044,7 +1047,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         (int256 owedRealizedPnl, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
-        return (owedRealizedPnl + pendingFundingPayments)
+        return (owedRealizedPnl.add(pendingFundingPayments))
             .preciseDiv(_setToken.totalSupply().toInt256())
             .preciseMul(_setTokenQuantity.toInt256());
     }
@@ -1091,10 +1094,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     function _parseCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
-        return amount.mul(int256(10**(18 - uint(decimals))));
+        return amount.mul(int256(10**(18 - (uint(decimals)))));
     }
 
     function _abs(int x) internal pure returns (int) {
-        return x >= 0 ? x : -x;
+        return x >= 0 ? x : x.mul(-1);
     }
 }
