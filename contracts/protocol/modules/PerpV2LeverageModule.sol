@@ -66,7 +66,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         bool isBaseToQuote;             // When true, `baseToken` is being sold, when false, bought
         bool isExactInput;              // When true, `amount` is the swap input, when false, the swap output
         int256 amount;                  // Quantity in 10**18 decimals
-        uint256 oppositeAmountBound;    // vUSDC receive quantity bound (see `_createAndValidateActionInfoNotional` for details)
+        uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createAndValidateActionInfoNotional` for details)
     }
 
     struct PositionInfo {
