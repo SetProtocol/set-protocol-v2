@@ -316,7 +316,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
                 adjustedEquityUnits.preciseMul(_quantity);
 
             // NOTE: If debtAdjustment is negative and exceeds debtUnits in absolute value this will revert
-            uint256 adjustedDebtUnits = debtUnits[i].toInt256().add(_debtAdjustments[i]).toUint256();
+            uint256 adjustedDebtUnits = debtUnits[i].toInt256().sub(_debtAdjustments[i]).toUint256();
 
             // Use preciseMulCeil to round up to ensure overcollateration when small redeem quantities are provided
             // and preciseMul to round down to ensure overcollateration when small issue quantities are provided

@@ -50,16 +50,9 @@ interface IModuleIssuanceHookV2 {
 
     /**
      * Adjustments should return the NET CHANGE in POSITION UNITS for each component in the SetToken's
-     * components array. Each entry in the returned arrays should index to the same component in the
-     * SetToken's components array (called using getComponents()). Directional adjustments should be made
-     * according to the following table (i.e. returning a negative debt number means debt is reduced during
-     * issue/redeem):
-     * | ------------------------------------|
-     * | Type    |  Positive |  Negative     |
-     * | -----   |---------- | --------------|
-     * | Equity  | Add Equity| Equity Reduced|
-     * | Debt    | Add Debt  | Debt Reduced  |
-     * | ------------------------------------|
+     * components array (i.e. if debt is greater than current debt position unit return negative number).
+     * Each entry in the returned arrays should index to the same component in the SetToken's components
+     * array (called using getComponents()).
      */
     function getIssuanceAdjustments(
         ISetToken _setToken,

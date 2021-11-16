@@ -27,7 +27,7 @@ import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe("SlippageIssuanceModule", () => {
+describe.only("SlippageIssuanceModule", () => {
   let owner: Account;
   let manager: Account;
   let feeRecipient: Account;
@@ -486,7 +486,7 @@ describe("SlippageIssuanceModule", () => {
               const [components, equityFlows, debtFlows] = await subject();
 
               const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.add(daiDebtAdjustment));
+              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.sub(daiDebtAdjustment));
               const wethFlows = preciseMul(mintQuantity, ether(1).add(ethIssuanceAdjustment));
 
               const expectedComponents = await setToken.getComponents();
@@ -514,7 +514,7 @@ describe("SlippageIssuanceModule", () => {
               const [components, equityFlows, debtFlows] = await subject();
 
               const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.add(daiDebtAdjustment));
+              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.sub(daiDebtAdjustment));
               const wethFlows = preciseMul(mintQuantity, ether(1).add(ethIssuanceAdjustment));
 
               const expectedComponents = await setToken.getComponents();
@@ -544,7 +544,7 @@ describe("SlippageIssuanceModule", () => {
 
           describe("when debt positional adjustments lead to negative results", async () => {
             before(async () => {
-              daiDebtAdjustment = ether(101).mul(-1);
+              daiDebtAdjustment = ether(101);
             });
 
             after(async () => {
@@ -664,7 +664,7 @@ describe("SlippageIssuanceModule", () => {
               const [components, equityFlows, debtFlows] = await subject();
 
               const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.add(daiDebtAdjustment));
+              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.sub(daiDebtAdjustment));
               const wethFlows = preciseMul(mintQuantity, ether(1).add(ethIssuanceAdjustment));
 
               const expectedComponents = await setToken.getComponents();
@@ -687,7 +687,7 @@ describe("SlippageIssuanceModule", () => {
               const [components, equityFlows, debtFlows] = await subject();
 
               const mintQuantity = preciseMul(subjectQuantity, ether(1).sub(issueFee));
-              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.add(daiDebtAdjustment));
+              const daiFlows = preciseMulCeil(mintQuantity, debtUnits.sub(daiDebtAdjustment));
               const wethFlows = preciseMul(mintQuantity, ether(1).add(ethIssuanceAdjustment));
 
               const expectedComponents = await setToken.getComponents();
@@ -717,7 +717,7 @@ describe("SlippageIssuanceModule", () => {
 
           describe("when debt positional adjustments lead to negative results", async () => {
             before(async () => {
-              daiDebtAdjustment = ether(101).mul(-1);
+              daiDebtAdjustment = ether(101);
             });
 
             after(async () => {
