@@ -787,22 +787,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return usdcToWithdraw.preciseDiv(_setTokenQuantity.toInt256());
     }
 
-    function _getReducedOpenNotional(
-        int256 _setTokenQuantity,
-        int256 _basePositionUnit,
-        PositionInfo memory _positionInfo
-    )
-        internal
-        pure
-        returns (int256)
-    {
-        int256 baseTradeNotionalQuantity = _setTokenQuantity.preciseMul(_basePositionUnit);
-
-        // Calculate amount quote debt will be reduced by
-        int256 closeRatio = baseTradeNotionalQuantity.preciseDiv(_positionInfo.baseBalance);
-        return _positionInfo.quoteBalance.preciseMul(closeRatio);
-    }
-
     /**
      * @dev Invoke deposit from SetToken using PerpV2 library. Creates a collateral deposit in Perp vault
      */
@@ -1027,6 +1011,24 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
 
         return (currentLeverage, spotPrices);
+    }
+
+    /**
+     * @dev Gets the ratio by which redemption will reduce open notional quote balance. This value
+     * is used to calculate realizedPnl of the asset sale in _executeModuleRedeemHook
+     */
+    function _getReducedOpenNotional(
+        int256 _setTokenQuantity,
+        int256 _basePositionUnit,
+        PositionInfo memory _positionInfo
+    )
+        internal
+        pure
+        returns (int256)
+    {
+        int256 baseTradeNotionalQuantity = _setTokenQuantity.preciseMul(_basePositionUnit);
+        int256 closeRatio = baseTradeNotionalQuantity.preciseDiv(_positionInfo.baseBalance);
+        return _positionInfo.quoteBalance.preciseMul(closeRatio);
     }
 
     /**
