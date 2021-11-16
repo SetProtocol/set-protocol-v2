@@ -984,14 +984,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      */
     function _updatePositionList(ISetToken _setToken, address _baseToken) internal {
         int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
-
-        // TODO: Add storage variants of contains, indexOf to AddressArrayUtils ?
         address[] memory positionList = positions[_setToken];
-        bool baseTokenExists = positionList.contains(_baseToken);
 
-        if (baseTokenExists && baseBalance == 0) {
+        if (positionList.contains(_baseToken) && baseBalance == 0) {
             positions[_setToken].removeStorage(_baseToken);
-        }  else if (!baseTokenExists) {
+        }  else if (!positionList.contains(_baseToken)) {
             positions[_setToken].push(_baseToken);
         }
     }
