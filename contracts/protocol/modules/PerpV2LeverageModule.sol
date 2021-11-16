@@ -1078,7 +1078,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         view
         returns (uint256)
     {
-        uint256 notionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
+        // Use preciseMulCeil here prevent rounding errors caused when notional amounts are converted
+        // to unit amounts and unpacked again as notional amounts here. (cf: _accrueProtocolFee)
+        uint256 notionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
 
         uint8 decimals = ERC20(address(collateralToken)).decimals();
 
