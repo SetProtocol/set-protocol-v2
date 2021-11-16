@@ -973,7 +973,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             oppositeAmountBound: _quoteReceiveQuantity
         });
 
-        _validateCommon(actionInfo);
+        require(actionInfo.amount != 0, "Amount is 0");
 
         return actionInfo;
     }
@@ -1047,15 +1047,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return (owedRealizedPnl + pendingFundingPayments)
             .preciseDiv(_setToken.totalSupply().toInt256())
             .preciseMul(_setTokenQuantity.toInt256());
-    }
-
-
-    /**
-     * @dev Validate common requirements for lever and delever
-     */
-    function _validateCommon(ActionInfo memory _actionInfo) internal pure {
-        // TODO: other validations....
-        require(_actionInfo.amount > 0, "Amount is 0");
     }
 
     // @dev Retrieves collateral balance as an an 18 decimal vUSDC quote value
