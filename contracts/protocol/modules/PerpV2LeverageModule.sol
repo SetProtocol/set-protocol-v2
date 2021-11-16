@@ -243,7 +243,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _receiveQuoteQuantityUnits
+            _receiveQuoteQuantityUnits,
+            true
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, false);
@@ -298,7 +299,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseQuantityUnits.mul(-1),
-            _receiveQuoteQuantityUnits
+            _receiveQuoteQuantityUnits,
+            true
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, false);
@@ -547,9 +549,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
-        // console.log(usdcTransferOutQuantityUnits, 'usdcTransferOutQuantityUnits');
-        // console.log(perpVault.getBalance(address(_setToken)).toUint256(), 'balanceOf(_setToken)');
-
         _withdraw(_setToken, usdcTransferOutQuantityUnits, false);
     }
 
@@ -690,6 +689,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setTokenQuantity
         );
 
+        (int256 currentLeverage, int256[] memory spotPrices) = _getCurrentLeverageAndSpotPrices(_setToken, positionInfo);
+
         for(uint i = 0; i < positionInfo.length; i++) {
             int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
             int256 baseTradeNotionalQuantity = basePositionUnit.preciseMul(_setTokenQuantity.toInt256());
@@ -698,24 +699,17 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 _setToken,
                 positionInfo[i].baseToken,
                 baseTradeNotionalQuantity,
-                0
+                0,
+                false
             );
 
-            // Calculate ideal quote trade and current leverage
-            (
-                int256 idealDeltaQuote,
-                int256 currentLeverage
-            ) = _getPreTradePositionData(
-                _setToken,
-                baseTradeNotionalQuantity,
-                positionInfo[i]
-            );
+            int256 idealDeltaQuote = baseTradeNotionalQuantity.preciseMul(spotPrices[i]);
 
             // Execute or simulate trade
             (, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
 
-            // Long trade slippage results in more negative quote received
-            // Short trade slippage results in less positive quote received
+            // When long, trade slippage results in more negative quote received
+            // When short, trade slippage results in less positive quote received
             int256 slippageQuantity = deltaQuote.toInt256() - idealDeltaQuote;
 
             usdcAmountIn += (slippageQuantity + idealDeltaQuote.preciseDiv(currentLeverage));
@@ -752,7 +746,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         for (uint256 i = 0; i < positionInfo.length; i++) {
             // Calculate amount to trade
             int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
-            int256 baseTradeNotionalQuantity = _setTokenQuantity.toInt256().preciseMul(basePositionUnit);
+            int256 baseTradeNotionalQuantity = basePositionUnit.preciseMul(_setTokenQuantity.toInt256());
 
             // Calculate amount quote debt will be reduced by
             int256 reducedOpenNotional = _getReducedOpenNotional(
@@ -766,7 +760,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 _setToken,
                 positionInfo[i].baseToken,
                 baseTradeNotionalQuantity.mul(-1),
-                0
+                0,
+                false
             );
 
             (,uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
@@ -932,14 +927,29 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Construct the ActionInfo struct for lever and delever
+     * @dev Construct the ActionInfo struct for trading. This method is used by lever, delever, issue and
+     * redeem. When levering and delevering, the quanities passed are unit values and the caller
+     * intends to scale the postion across the entire set supply. When issuing and redeeming,
+     * the notional quantity to trade has already been calculated by multiplying the
+     * mint/redeem quantity by the baseToken position unit.
+     *
+     * | ---------------------------------------------------------------------------------------------------------|
+     * | Action        | Type  | isB2Q | Exact In / Out | Amount    | Recieve Token | Receive Description         |
+     * | ------------- |-------|-------|----------------|-----------| ------------- | ----------------------------|
+     * | Increase pos. | Long  | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
+     * | Increase pos. | Short | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
+     * | Decrease pos. | Long  | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
+     * | Decrease pos. | Short | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
+     * |----------------------------------------------------------------------------------------------------------|
+     *
      * @return ActionInfo       Instance of constructed ActionInfo struct
      */
     function _createAndValidateActionInfo(
         ISetToken _setToken,
         address _baseToken,
-        int256 _baseTokenQuantityUnits,
-        uint256 _recieveQuoteQuantityUnits
+        int256 _baseTokenQuantity,
+        uint256 _quoteReceiveQuantity,
+        bool _isLeverOrDelever
     )
         internal
         view
@@ -947,47 +957,20 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         uint256 totalSupply = _setToken.totalSupply();
 
-        return _createAndValidateActionInfoNotional(
-            _setToken,
-            _baseToken,
-            _baseTokenQuantityUnits.preciseMul(totalSupply.toInt256()),
-            _recieveQuoteQuantityUnits.preciseMul(totalSupply)
-        );
-    }
+        if (_isLeverOrDelever) {
+            _baseTokenQuantity = _baseTokenQuantity.preciseMul(totalSupply.toInt256());
+            _quoteReceiveQuantity = _quoteReceiveQuantity.preciseMul(totalSupply);
+        }
 
-    /**
-     * @dev Construct the ActionInfo struct for lever and delever accepting notional units.
-     *
-     * | --------------------------------------------------------------------------------------------------|
-     * | Action |  Type | isB2Q | Exact In / Out | Amount    | Recieve Token | Receive Description         |
-     * | -------|-------|-------|----------------|-----------| ------------- | ----------------------------|
-     * | Buy    | Long  | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
-     * | Buy    | Short | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
-     * | Sell   | Long  | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
-     * | Sell   | Short | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
-     * |---------------------------------------------------------------------------------------------------|
-     *
-     * @return ActionInfo       Instance of constructed ActionInfo struct
-     */
-    function _createAndValidateActionInfoNotional(
-        ISetToken _setToken,
-        address _baseToken,
-        int256 _notionalBaseTokenQuantity,
-        uint256 _notionalQuoteReceiveQuantity
-    )
-        internal
-        pure
-        returns(ActionInfo memory)
-    {
-        bool isShort = _notionalBaseTokenQuantity < 0;
+        bool isShort = _baseTokenQuantity < 0;
 
         ActionInfo memory actionInfo = ActionInfo ({
             setToken: _setToken,
             baseToken: _baseToken,
             isBaseToQuote: isShort,
             isExactInput: isShort,
-            amount: _abs(_notionalBaseTokenQuantity),
-            oppositeAmountBound: _notionalQuoteReceiveQuantity
+            amount: _abs(_baseTokenQuantity),
+            oppositeAmountBound: _quoteReceiveQuantity
         });
 
         _validateCommon(actionInfo);
@@ -1014,33 +997,36 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Calculate current leverage and slippage-free amount of quote received for trade.
-     *
-     * @return int256 Amount of USDC to transfer in.
+     * @dev Calculates current leverage ratio and UniswapV3 market spot prices for each position.
+     * The leverage ratio is used to scale the amount of USDC to transfer in during issuance so new
+     * set holder funds are proportionate to the leverage ratio pre-established for the set. The spot
+     * prices are used to calculate the ideal amount of quote asset that would be received for trading
+     * a postion during issuance so we can isolate slippage issuers should pay.
      */
-    function _getPreTradePositionData(
+    function _getCurrentLeverageAndSpotPrices(
         ISetToken _setToken,
-        int256 _baseTradeQuantity,
-        PositionInfo memory _positionInfo
+        PositionInfo[] memory _positionInfo
     )
         internal
         view
-        returns(int256, int256)
+        returns(int256, int256[] memory)
     {
+        uint256 positionInfoArraySize = _positionInfo.length;
+        int256[] memory spotPrices = new int256[](positionInfoArraySize);
+        int256 totalPositionValue = 0;
 
-        // Calculate ideal quote cost e.g without slippage and Perp protocol fees
-        int256 spotPrice = getSpotPrice(_positionInfo.baseToken).toInt256();
-        int256 idealDeltaQuote = _abs(_baseTradeQuantity.preciseMul(spotPrice));
+        for (uint256 i = 0; i < positionInfoArraySize; i++) {
+            spotPrices[i] = getSpotPrice(_positionInfo[i].baseToken).toInt256();
+            totalPositionValue += _abs(_positionInfo[i].baseBalance.preciseMul(spotPrices[i]));
+        }
 
-        // Calculate current leverage
-        int256 currentLeverage = _calculateCurrentLeverage(
-            _positionInfo.baseBalance,
-            _positionInfo.quoteBalance,
-            _getCollateralBalance(_setToken),
-            spotPrice
+        int256 currentLeverage = totalPositionValue.preciseDiv(
+            totalPositionValue +
+            perpAccountBalance.getNetQuoteBalance(address(_setToken)) +
+            _getCollateralBalance(_setToken)
         );
 
-        return (idealDeltaQuote, currentLeverage);
+        return (currentLeverage, spotPrices);
     }
 
     /**
@@ -1066,34 +1052,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             .preciseMul(_setTokenQuantity.toInt256());
     }
 
-    /**
-     * @dev Calculate current leverage ratio. This value is used to scale the amount of USDC to transfer
-     * in during issuance so new set holder funds are proportionate to the leverage ratio pre-established
-     * for the set.
-     *
-     * @return int256 Leverage ratio
-     */
-    function _calculateCurrentLeverage(
-        int256 baseBalance,
-        int256 quoteBalance,
-        int256 collateralBalance,
-        int256 spotPrice
-    )
-        internal
-        pure
-        returns (int256)
-    {
-        int256 basePositionValue = baseBalance.preciseMul(spotPrice);
-
-        //console.log(basePositionValue.toUint256(), 'basePositionValue');
-        //console.log(quoteBalance.mul(-1).toUint256(), 'quoteBalance');
-
-        return basePositionValue.preciseDiv(
-            basePositionValue +
-            quoteBalance +
-            collateralBalance
-        );
-    }
 
     /**
      * @dev Validate common requirements for lever and delever

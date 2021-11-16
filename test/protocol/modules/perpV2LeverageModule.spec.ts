@@ -1306,9 +1306,10 @@ describe("PerpV2LeverageModule", () => {
     let subjectCaller: Account;
     let subjectSetQuantity: BigNumber;
 
+    // Start with initial total supply (2)
     const initializeContracts = async () => {
       collateralQuantity = ether(10);
-      setToken = await issueSetsAndDepositToPerp(collateralQuantity);
+      setToken = await issueSetsAndDepositToPerp(collateralQuantity, true, ether(2));
     };
 
     const initializeSubjectVariables = () => {
@@ -1394,6 +1395,8 @@ describe("PerpV2LeverageModule", () => {
 
           expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
         });
+
+
       });
 
       describe("when there is positive owedRealizedPnl", async () => {
@@ -1425,12 +1428,15 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          // owedRealizedPnl = 1_643_798_014_140_064_947
+          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
+          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
+          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnl),
+            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
             subjectSetQuantity
           );
 
@@ -1482,12 +1488,15 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          // owedRealizedPnl = -1_518_389_200_327_404_648
+          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
+          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
+          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnl),
+            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
             subjectSetQuantity
           );
 
@@ -1523,10 +1532,14 @@ describe("PerpV2LeverageModule", () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, "9.5");
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
+          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
+          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(pendingFunding),
+            usdcTransferInQuantity.add(pendingFundingDiscountNotional),
             subjectSetQuantity
           );
 
@@ -1560,10 +1573,14 @@ describe("PerpV2LeverageModule", () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, "15");
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
+          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
+          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(pendingFunding),
+            usdcTransferInQuantity.add(pendingFundingDiscountNotional),
             subjectSetQuantity
           );
 
@@ -1578,8 +1595,6 @@ describe("PerpV2LeverageModule", () => {
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
           // We expect pending funding to be greater than -1 USDC and discount applied
-
-          // Expected "7008016" to be within 1 of 7008050
           expect(pendingFunding).lt(ether(1));
           expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
         });
@@ -1657,6 +1672,24 @@ describe("PerpV2LeverageModule", () => {
           usdcTransferInQuantity = await calculateUSDCTransferIn();
         });
 
+        it("buys expected amount of vETH, vBTC", async () => {
+          const totalSupply = await setToken.totalSupply();
+          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const initialBalance = initialPositionInfo[0].baseBalance;
+
+          await subject();
+
+          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalBalance = finalPositionInfo[0].baseBalance;
+
+          const basePositionUnit = preciseDiv(initialBalance, totalSupply);
+          const baseBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
+
+          const expectedBalance = initialBalance.add(baseBoughtNotional);
+
+          expect(finalBalance).eq(expectedBalance);
+        });
+
         it("should set the expected USDC externalPositionUnit", async () => {
           const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
@@ -1680,6 +1713,7 @@ describe("PerpV2LeverageModule", () => {
         const totalSupply = await setToken.totalSupply();
         const positionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+        const netQuoteBalance = await perpSetup.accountBalance.getNetQuoteBalance(subjectSetToken);
 
         const vETHPositionInfo = positionInfo[0];
         const vBTCPositionInfo = positionInfo[1];
@@ -1690,50 +1724,55 @@ describe("PerpV2LeverageModule", () => {
         const vBTCPositionUnit = preciseDiv(vBTCPositionInfo.baseBalance, totalSupply);
         const vBTCTradeQuantityNotional = preciseMul(vBTCPositionUnit, subjectSetQuantity);
 
-        const vETHCurrentLeverage = await perpSetup.getCurrentLeverage(
-          subjectSetToken,
-          vETHPositionInfo,
-          collateralBalance
+        const vETHSpotPrice = await perpSetup.getSpotPrice(vETHPositionInfo.baseToken);
+        const vBTCSpotPrice = await perpSetup.getSpotPrice(vBTCPositionInfo.baseToken);
+
+        const vETHIdealQuote = preciseMul(vETHTradeQuantityNotional, vETHSpotPrice);
+        const vBTCIdealQuote = preciseMul(vBTCTradeQuantityNotional, vBTCSpotPrice);
+
+        const vETHPositionValue = preciseMul(vETHPositionInfo.baseBalance, vETHSpotPrice).abs();
+        const vBTCPositionValue = preciseMul(vBTCPositionInfo.baseBalance, vBTCSpotPrice).abs();
+
+        const totalPositionValue = vETHPositionValue.add(vBTCPositionValue);
+
+        const currentLeverage = preciseDiv(
+          totalPositionValue,
+
+          totalPositionValue
+            .add(netQuoteBalance)
+            .add(collateralBalance)
         );
 
-        const vBTCCurrentLeverage = await perpSetup.getCurrentLeverage(
-          subjectSetToken,
-          vBTCPositionInfo,
-          collateralBalance
-        );
-
-        const { deltaBase: vETHDeltaBase, deltaQuote: vETHDeltaQuote } = await perpSetup.getSwapQuote(
+        const { deltaQuote: vETHDeltaQuote } = await perpSetup.getSwapQuote(
           vETHPositionInfo.baseToken,
           vETHTradeQuantityNotional,
           true
         );
 
-        const { deltaBase: vBTCDeltaBase, deltaQuote: vBTCDeltaQuote } = await perpSetup.getSwapQuote(
+        const { deltaQuote: vBTCDeltaQuote } = await perpSetup.getSwapQuote(
           vBTCPositionInfo.baseToken,
           vBTCTradeQuantityNotional,
           true
         );
 
-        const vETHIdealQuote = preciseMul(vETHDeltaBase, await perpSetup.getSpotPrice(vETHPositionInfo.baseToken));
-        const vBTCIdealQuote = preciseMul(vBTCDeltaBase, await perpSetup.getSpotPrice(vBTCPositionInfo.baseToken));
-
         const vETHExpectedSlippage = vETHIdealQuote.sub(vETHDeltaQuote).mul(-1);
         const vBTCExpectedSlippage = vBTCIdealQuote.sub(vBTCDeltaQuote).mul(-1);
 
-        const vETHTotal = preciseDiv(vETHIdealQuote, vETHCurrentLeverage).add(vETHExpectedSlippage);
-        const vBTCTotal = preciseDiv(vBTCIdealQuote, vBTCCurrentLeverage).add(vBTCExpectedSlippage);
+        const vETHTotal = preciseDiv(vETHIdealQuote, currentLeverage).add(vETHExpectedSlippage);
+        const vBTCTotal = preciseDiv(vBTCIdealQuote, currentLeverage).add(vBTCExpectedSlippage);
 
         return vETHTotal.add(vBTCTotal);
       }
 
-      describe("when redeeming a single set", async () => {
+      cacheBeforeEach(async () => {
+        await leverUp(setToken, vETH.address, 2, ether(.02), true);
+        await leverUp(setToken, vBTC.address, 1, ether(.02), true);
+      });
+
+      describe("when issuing a single set", async () => {
         let usdcTransferOutQuantity: BigNumber;
 
         beforeEach(async () => {
-          // Set up as 2X Long, allow 2% slippage
-          await leverUp(setToken, vETH.address, 2, ether(.02), true);
-          await leverUp(setToken, vBTC.address, 1, ether(.02), true);
-
           usdcTransferOutQuantity = await calculateUSDCTransferOut();
         });
 
@@ -1776,7 +1815,61 @@ describe("PerpV2LeverageModule", () => {
           const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 3);
+        });
+      });
+
+      describe("when issuing multiple sets", async () => {
+        let usdcTransferOutQuantity: BigNumber;
+
+        beforeEach(async () => {
+          subjectSetQuantity = ether(2);
+
+          // Deposit more collateral to avoid NEFC error
+          await perpLeverageModule.deposit(subjectSetToken, ether(30));
+          usdcTransferOutQuantity = await calculateUSDCTransferOut();
+        });
+
+        it("buys expected amount of vETH, vBTC", async () => {
+          const totalSupply = await setToken.totalSupply();
+          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+
+          const initialVETHBalance = initialPositionInfo[0].baseBalance;
+          const initialVBTCBalance = initialPositionInfo[1].baseBalance;
+
+          await subject();
+
+          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalVETHBalance = finalPositionInfo[0].baseBalance;
+          const finalVBTCBalance = finalPositionInfo[1].baseBalance;
+
+          const vETHPositionUnit = preciseDiv(initialVETHBalance, totalSupply);
+          const vBTCPositionUnit = preciseDiv(initialVBTCBalance, totalSupply);
+
+          const vETHBoughtNotional = preciseMul(vETHPositionUnit, subjectSetQuantity);
+          const vBTCBoughtNotional = preciseMul(vBTCPositionUnit, subjectSetQuantity);
+
+          const expectedVETHBalance = initialVETHBalance.add(vETHBoughtNotional);
+          const expectedVBTCBalance = initialVBTCBalance.add(vBTCBoughtNotional);
+
+          expect(finalVETHBalance).eq(expectedVETHBalance);
+          expect(finalVBTCBalance).eq(expectedVBTCBalance);
+        });
+
+        it("should set the expected USDC externalPositionUnit", async () => {
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectSetQuantity);
+
+          await subject();
+
+          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
+            usdc.address,
+            perpLeverageModule.address
+          );
+
+          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
+          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
+
+          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 3);
         });
       });
 
@@ -1784,10 +1877,6 @@ describe("PerpV2LeverageModule", () => {
         let usdcTransferOutQuantity: BigNumber;
 
         beforeEach(async () => {
-          // Set up as 2X / 1X Long, allow 2% slippage
-          await leverUp(setToken, vETH.address, 2, ether(.02), true);
-          await leverUp(setToken, vBTC.address, 1, ether(.02), true);
-
           usdcTransferOutQuantity = await calculateUSDCTransferOut();
         });
 
@@ -1823,10 +1912,6 @@ describe("PerpV2LeverageModule", () => {
 
       describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
-          // Set up as 2X Long, allow 2% slippage
-          await leverUp(setToken, vETH.address, 2, ether(.02), true);
-          await leverUp(setToken, vBTC.address, 1, ether(.02), true);
-
           // Move price up by maker buying 20k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
@@ -1889,7 +1974,7 @@ describe("PerpV2LeverageModule", () => {
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
           expect(owedRealizedPnl).gt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 200);
         });
       });
     });
@@ -1997,11 +2082,15 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
+          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
+          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
+          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnl),
+            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
             subjectSetQuantity
           );
 
@@ -2049,11 +2138,15 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
+          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
+          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
+          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnl),
+            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
             subjectSetQuantity
           );
 
@@ -2076,23 +2169,26 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when there is positive pending funding", async () => {
-        let usdcTransferInQuantity: BigNumber;
-
         beforeEach(async () => {
           // Set up as 2X Short, allow 2% slippage
           baseToken = vETH.address;
           await leverUp(setToken, baseToken, 2, ether(.02), false);
-          usdcTransferInQuantity = await calculateUSDCTransferIn();
         });
 
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, "10.5");
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
+          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
+          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
+
+          const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.sub(pendingFunding),
+            usdcTransferInQuantity.sub(pendingFundingDiscountNotional),
             subjectSetQuantity
           );
 
@@ -2112,23 +2208,26 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when there is negative pending funding", async () => {
-        let usdcTransferInQuantity: BigNumber;
-
         beforeEach(async () => {
           // Set up as 2X Short, allow 2% slippage
           baseToken = vETH.address;
           await leverUp(setToken, baseToken, 2, ether(.02), false);
-          usdcTransferInQuantity = await calculateUSDCTransferIn();
         });
 
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, "5");
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
+          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
+          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
+
+          const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.sub(pendingFunding),
+            usdcTransferInQuantity.sub(pendingFundingDiscountNotional),
             subjectSetQuantity
           );
 
@@ -2223,9 +2322,10 @@ describe("PerpV2LeverageModule", () => {
     let subjectSetQuantity: BigNumber;
     let subjectCaller: Account;
 
+    // Start with initial total supply (2)
     const initializeContracts = async () => {
       collateralQuantity = ether(10);
-      setToken = await issueSetsAndDepositToPerp(collateralQuantity);
+      setToken = await issueSetsAndDepositToPerp(collateralQuantity, true, ether(2));
     };
 
     const initializeSubjectVariables = () => {
@@ -2343,7 +2443,6 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          // owedRealizedPnl = 1_643_798_014_140_064_947
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
           const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
           const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
@@ -2365,10 +2464,6 @@ describe("PerpV2LeverageModule", () => {
           const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
-          // We expect owedRealized to be greater than 1 USDC and increased value of set paid by
-          // issuer.
-
-          // Failing:  Expected "18684173" to be within 20 of 18684136
           expect(owedRealizedPnl).gt(ether(1));
           expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
         });
@@ -2403,7 +2498,6 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          // owedRealizedPnl = 1_643_798_014_140_064_947
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
           const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
           const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
@@ -2425,9 +2519,6 @@ describe("PerpV2LeverageModule", () => {
           const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
-          // We expect owedRealizedPnl to be less than 1 USDC and discount paid to issuer
-
-          // Failing:   Expected "2613821" to be within 1 of 2613840
           expect(owedRealizedPnl).lt(ether(1).mul(-1));
           expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
         });
@@ -2466,7 +2557,6 @@ describe("PerpV2LeverageModule", () => {
           const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
-          // Failing: Expected "11008108" to be within 1 of 11008097
           expect(pendingFunding).gt(0);
           expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
         });
@@ -2505,9 +2595,6 @@ describe("PerpV2LeverageModule", () => {
           const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
-          // We expect pending funding to be greater than -1 USDC and discount applied
-
-          // Expected "7008016" to be within 1 of 7008050
           expect(pendingFunding).lt(ether(1));
           expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
         });
@@ -2652,14 +2739,15 @@ describe("PerpV2LeverageModule", () => {
         return collateralQuantityNotional.add(totalRealizedPnl).abs();
       }
 
+      cacheBeforeEach(async () => {
+        await leverUp(setToken, vETH.address, 2, ether(.02), true);
+        await leverUp(setToken, vBTC.address, 1, ether(.02), true);
+      });
+
       describe("when redeeming a single set", async () => {
         let usdcTransferOutQuantity: BigNumber;
 
         beforeEach(async () => {
-          // Set up as 2X Long, allow 2% slippage
-          await leverUp(setToken, vETH.address, 2, ether(.02), true);
-          await leverUp(setToken, vBTC.address, 1, ether(.02), true);
-
           usdcTransferOutQuantity = await calculateUSDCTransferOut();
         });
 
@@ -2706,14 +2794,64 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
+      describe("when issuing multiple sets", async () => {
+        let usdcTransferOutQuantity: BigNumber;
+
+        beforeEach(async () => {
+          subjectSetQuantity = ether(2);
+
+          // Deposit more collateral to avoid NEFC error
+          await perpLeverageModule.deposit(subjectSetToken, ether(30));
+          usdcTransferOutQuantity = await calculateUSDCTransferOut();
+        });
+
+        it("buys expected amount of vETH, vBTC", async () => {
+          const totalSupply = await setToken.totalSupply();
+          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+
+          const initialVETHBalance = initialPositionInfo[0].baseBalance;
+          const initialVBTCBalance = initialPositionInfo[1].baseBalance;
+
+          await subject();
+
+          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalVETHBalance = finalPositionInfo[0].baseBalance;
+          const finalVBTCBalance = finalPositionInfo[1].baseBalance;
+
+          const vETHPositionUnit = preciseDiv(initialVETHBalance, totalSupply);
+          const vBTCPositionUnit = preciseDiv(initialVBTCBalance, totalSupply);
+
+          const vETHBoughtNotional = preciseMul(vETHPositionUnit, subjectSetQuantity);
+          const vBTCBoughtNotional = preciseMul(vBTCPositionUnit, subjectSetQuantity);
+
+          const expectedVETHBalance = initialVETHBalance.sub(vETHBoughtNotional);
+          const expectedVBTCBalance = initialVBTCBalance.sub(vBTCBoughtNotional);
+
+          expect(finalVETHBalance).eq(expectedVETHBalance);
+          expect(finalVBTCBalance).eq(expectedVBTCBalance);
+        });
+
+        it("should set the expected USDC externalPositionUnit", async () => {
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectSetQuantity);
+
+          await subject();
+
+          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
+            usdc.address,
+            perpLeverageModule.address
+          );
+
+          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
+          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
+
+          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 3);
+        });
+      });
+
       describe("when there is positive pending funding", async () => {
         let usdcTransferOutQuantity: BigNumber;
 
         beforeEach(async () => {
-          // Set up as 2X / 1X Long, allow 2% slippage
-          await leverUp(setToken, vETH.address, 2, ether(.02), true);
-          await leverUp(setToken, vBTC.address, 1, ether(.02), true);
-
           usdcTransferOutQuantity = await calculateUSDCTransferOut();
         });
 
@@ -2749,10 +2887,6 @@ describe("PerpV2LeverageModule", () => {
 
       describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
-          // Set up as 2X Long, allow 2% slippage
-          await leverUp(setToken, vETH.address, 2, ether(.02), true);
-          await leverUp(setToken, vBTC.address, 1, ether(.02), true);
-
           // Move price up by maker buying 20k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
@@ -2883,8 +3017,6 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          // Not perfect... needs investigation.
-          // 10008085936690386266 vs 10008085658829252928
           const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
           const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
 
