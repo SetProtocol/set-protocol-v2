@@ -218,6 +218,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * `_receiveQuoteQuantityUnits` defines a min-receive-like slippage bound for the amount of vUSDC quote
      * asset the trade will either pay or receive as a result of the action.
      *
+     * NOTE: This method doesn't update the externalPositionUnit because the EPU for this module is a function of
+     * UniswapV3 virtual token market prices and needs to be generated on the fly to be meaningful.
+     *
      * | ----------------------------------------------------------------------------------------------- |
      * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
      * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
@@ -272,6 +275,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * Providing a negative value (when decreasing leverage for an inverse position) buys the token, reducing
      * the size of its negative balance. `_receiveQuoteQuantityUnits` defines a min-receive-like slippage bound for
      * the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
+     *
+     * NOTE: This method doesn't update the externalPositionUnit because the EPU for this module is a function of
+     * UniswapV3 virtual token market prices and needs to be generated on the fly to be meaningful.
      *
      * | ----------------------------------------------------------------------------------------------- |
      * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
@@ -422,6 +428,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev MANAGER ONLY: Add registration of this module on the debt issuance module for the SetToken.
+     *
      * Note: if the debt issuance module is not added to SetToken before this module is initialized, then
      * this function needs to be called if the debt issuance module is later added and initialized to prevent state
      * inconsistencies
@@ -807,8 +814,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken.totalSupply(),
             initialCollateralPositionBalance
         );
-
-        // TODO: Update externalPositionUnit for collateralToken ?
     }
 
     /**
@@ -832,8 +837,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 initialCollateralPositionBalance
             );
         }
-
-        // TODO: Update externalPositionUnit for collateralToken ?
     }
 
     /**
