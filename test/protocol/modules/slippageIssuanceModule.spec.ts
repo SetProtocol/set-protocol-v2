@@ -25,7 +25,7 @@ import { ContractTransaction } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe.only("SlippageIssuanceModule", () => {
+describe("SlippageIssuanceModule", () => {
   let owner: Account;
   let manager: Account;
   let feeRecipient: Account;
