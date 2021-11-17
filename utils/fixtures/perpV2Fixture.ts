@@ -389,12 +389,14 @@ export class PerpV2Fixture {
   ): Promise<BigNumber> {
     const price = await this.getSpotPrice(_positionInfo.baseToken);
 
-    const basePositionValue = preciseMul(_positionInfo.baseBalance, price);
+    const basePositionAbsoluteValue = preciseMul(_positionInfo.baseBalance, price).abs();
+    const basePositionNetValue = preciseMul(_positionInfo.baseBalance, price);
+
 
     return preciseDiv(
-      basePositionValue,
+      basePositionAbsoluteValue,
 
-      basePositionValue
+      basePositionNetValue
         .add(_positionInfo.quoteBalance)
         .add(_collateralBalance)
     );

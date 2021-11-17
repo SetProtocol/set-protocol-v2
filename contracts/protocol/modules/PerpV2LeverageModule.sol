@@ -741,22 +741,33 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 false
             );
 
-            int256 idealDeltaQuote = baseTradeNotionalQuantity.preciseMul(spotPrices[i]);
+            int256 idealDeltaQuote = _abs(baseTradeNotionalQuantity.preciseMul(spotPrices[i]));
 
             // Execute or simulate trade
             (, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
 
+            // Calculate slippage quantity as a positive value
             // When long, trade slippage results in more negative quote received
             // When short, trade slippage results in less positive quote received
-            int256 slippageQuantity = deltaQuote.toInt256().sub(idealDeltaQuote);
+            int256 slippageQuantity;
+            if (basePositionUnit >= 0) {
+                slippageQuantity = deltaQuote.toInt256().sub(idealDeltaQuote);
+            } else {
+                slippageQuantity = idealDeltaQuote.sub(deltaQuote.toInt256());
+            }
 
+            // Add slippage quantity to leverage scaled cost and update running usdcAmountIn total
+            // `currentLeverage` is always positive, with ~2X represented as ~2 * 10**18
             usdcAmountIn = usdcAmountIn.add(slippageQuantity.add(idealDeltaQuote.preciseDiv(currentLeverage)));
         }
 
+        // Add carried owedRealizedPnL and pendingFunding discounts.
+        // These may be negative or positive and must be earned or paid for by existing set holders.
         usdcAmountIn = usdcAmountIn.add(owedRealizedPnlDiscountQuantity);
 
+        // Return value in collateral decimals (e.g USDC = 6)
         return _formatCollateralToken(
-            _abs(usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256())),
+            usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
             ERC20(address(collateralToken)).decimals()
         );
     }
@@ -1050,17 +1061,26 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         uint256 positionInfoArraySize = _positionInfo.length;
         int256[] memory spotPrices = new int256[](positionInfoArraySize);
-        int256 totalPositionValue = 0;
+        int256 totalPositionAbsoluteValue = 0;
+        int256 totalPositionNetValue = 0;
 
+        // Sum the absolute value of basePositions. These are positive when long, negative when short
         for (uint256 i = 0; i < positionInfoArraySize; i++) {
             spotPrices[i] = getSpotPrice(_positionInfo[i].baseToken).toInt256();
-            totalPositionValue = totalPositionValue.add(
+
+            totalPositionAbsoluteValue = totalPositionAbsoluteValue.add(
                 _abs(_positionInfo[i].baseBalance.preciseMul(spotPrices[i]))
+            );
+            totalPositionNetValue = totalPositionNetValue.add(
+                _positionInfo[i].baseBalance.preciseMul(spotPrices[i])
             );
         }
 
-        int256 currentLeverage = totalPositionValue.preciseDiv(
-            totalPositionValue
+        // leverage = vAssets / (vAssets - vDebt + collateral)
+        // vAsset value is postive when long, negative when short
+        // vQuote balance is negative when long, positive when short
+        int256 currentLeverage = totalPositionAbsoluteValue.preciseDiv(
+            totalPositionNetValue
                 .add(perpAccountBalance.getNetQuoteBalance(address(_setToken)))
                 .add(_getCollateralBalance(_setToken))
         );
