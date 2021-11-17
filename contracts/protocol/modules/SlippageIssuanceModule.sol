@@ -19,16 +19,10 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-
 import { DebtIssuanceModule } from "./DebtIssuanceModule.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IModuleIssuanceHookV2 } from "../../interfaces/IModuleIssuanceHookV2.sol";
-import { Invoke } from "../lib/Invoke.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IssuanceValidationUtils } from "../lib/IssuanceValidationUtils.sol";
-import { Position } from "../lib/Position.sol";
 
 /**
  * @title SlippageIssuanceModule
