@@ -580,9 +580,23 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         external
         returns (int256[] memory, int256[] memory _)
     {
-        int256[] memory adjustments = new int256[](1);
-        adjustments[0] = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, true);
-        return (adjustments, _);
+        address[] memory components = _setToken.getComponents();
+        int256[] memory equityAdjustments = new int256[](components.length);
+        int256[] memory debtAdjustments = new int256[](components.length);
+
+        (uint256 index, bool found) = components.indexOf(address(collateralToken));
+
+        require(found, "Perp collateral token is not component");
+
+        int256 currentExternalPositionUnit = _setToken.getExternalPositionRealUnit(
+            address(collateralToken),
+            address(this)
+        );
+
+        int256 newExternalPositionUnit = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, true);
+        equityAdjustments[index] = newExternalPositionUnit.sub(currentExternalPositionUnit);
+
+        return (equityAdjustments, debtAdjustments);
     }
 
     /**
@@ -601,9 +615,23 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         external
         returns (int256[] memory, int256[] memory _)
     {
-        int256[] memory adjustments = new int256[](1);
-        adjustments[0] = _executeModuleRedemptionHook(_setToken, _setTokenQuantity, true);
-        return (adjustments, _);
+        address[] memory components = _setToken.getComponents();
+        int256[] memory equityAdjustments = new int256[](components.length);
+        int256[] memory debtAdjustments = new int256[](components.length);
+
+        (uint256 index, bool found) = components.indexOf(address(collateralToken));
+
+        require(found, "Perp collateral token is not component");
+
+        int256 currentExternalPositionUnit = _setToken.getExternalPositionRealUnit(
+            address(collateralToken),
+            address(this)
+        );
+
+        int256 newExternalPositionUnit = _executeModuleRedemptionHook(_setToken, _setTokenQuantity, true);
+        equityAdjustments[index] = newExternalPositionUnit.sub(currentExternalPositionUnit);
+
+        return (equityAdjustments, debtAdjustments);
     }
 
     /**

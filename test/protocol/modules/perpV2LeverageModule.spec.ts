@@ -15,6 +15,7 @@ import { PerpV2BaseToken } from "@utils/contracts/perpV2";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
+  bitcoin,
   usdc as usdcUnits,
   preciseDiv,
   preciseMul
@@ -168,8 +169,8 @@ describe("PerpV2LeverageModule", () => {
     issueQuantity: BigNumber = ether(1),
   ): Promise<SetToken> {
     const setToken = await setup.createSetToken(
-      [usdc.address],
-      [usdcUnits(100)],
+      [setup.wbtc.address, usdc.address, setup.weth.address],
+      [bitcoin(10), usdcUnits(100), ether(10)],
       [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
     );
 
@@ -3791,12 +3792,50 @@ describe("PerpV2LeverageModule", () => {
           expect(initialBaseBalance).eq(finalBaseBalance);
         });
 
-        it("should return the expected USDC adjustment unit", async () => {
-          const expectedAdjustmentUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
+        it("should return adjustment arrays of the correct length with value in correct position", async () => {
+          const components = await setToken.getComponents();
+          const expectedAdjustmentsLength = components.length;
 
-          const actualAdjustmentUnit = (await subject())[0][0];
+          const adjustments = await subject();
+
+          const equityAdjustmentsLength = adjustments[0].length;
+          const debtAdjustmentsLength = adjustments[1].length;
+          const wbtcAdjustment = adjustments[0][0];
+          const usdcAdjustment = adjustments[0][1];
+
+          expect(equityAdjustmentsLength).eq(expectedAdjustmentsLength);
+          expect(debtAdjustmentsLength).eq(debtAdjustmentsLength);
+          expect(wbtcAdjustment).eq(ZERO);
+          expect(usdcAdjustment).gt(ZERO);
+        });
+
+        it("should return the expected USDC adjustment unit", async () => {
+          const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+          const newExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
+          const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
+
+          const actualAdjustmentUnit = (await subject())[0][1];
 
           expect(actualAdjustmentUnit).to.be.closeTo(expectedAdjustmentUnit, 1);
+        });
+
+        describe("when the set token doesn't contain the collateral token", async () => {
+          beforeEach(async () => {
+            const otherSetToken = await setup.createSetToken(
+              [setup.wbtc.address],
+              [bitcoin(10)],
+              [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+            );
+            await debtIssuanceMock.initialize(otherSetToken.address);
+            await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+            await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+            subjectSetToken = otherSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Perp collateral token is not component");
+          });
         });
       });
     });
@@ -3877,12 +3916,50 @@ describe("PerpV2LeverageModule", () => {
           expect(initialBaseBalance).eq(finalBaseBalance);
         });
 
-        it("should return the expected USDC adjustment unit", async () => {
-          const expectedAdjustmentUnit = preciseDiv(usdcTransferOutQuantity, subjectSetQuantity);
+        it("should return adjustment arrays of the correct length with value in correct position", async () => {
+          const components = await setToken.getComponents();
+          const expectedAdjustmentsLength = components.length;
 
-          const actualAdjustmentUnit = (await subject())[0][0];
+          const adjustments = await subject();
+
+          const equityAdjustmentsLength = adjustments[0].length;
+          const debtAdjustmentsLength = adjustments[1].length;
+          const wbtcAdjustment = adjustments[0][0];
+          const usdcAdjustment = adjustments[0][1];
+
+          expect(equityAdjustmentsLength).eq(expectedAdjustmentsLength);
+          expect(debtAdjustmentsLength).eq(debtAdjustmentsLength);
+          expect(wbtcAdjustment).eq(ZERO);
+          expect(usdcAdjustment).lt(ZERO);
+        });
+
+        it("should return the expected USDC adjustment unit", async () => {
+          const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+          const newExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectSetQuantity);
+          const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
+
+          const actualAdjustmentUnit = (await subject())[0][1];
 
           expect(actualAdjustmentUnit).to.be.closeTo(expectedAdjustmentUnit, 1);
+        });
+
+        describe("when the set token doesn't contain the collateral token", async () => {
+          beforeEach(async () => {
+            const otherSetToken = await setup.createSetToken(
+              [setup.wbtc.address],
+              [bitcoin(10)],
+              [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+            );
+            await debtIssuanceMock.initialize(otherSetToken.address);
+            await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+            await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+            subjectSetToken = otherSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Perp collateral token is not component");
+          });
         });
       });
     });
