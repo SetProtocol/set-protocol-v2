@@ -433,7 +433,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectQuoteReceiveQuantityUnits: BigNumber;
 
     const initializeContracts = async () => {
-      depositQuantity = ether(10);
+      depositQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
     };
 
@@ -509,8 +509,8 @@ describe("PerpV2LeverageModule", () => {
             const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
             const quoteBalanceMin = preciseMul(subjectBaseTradeQuantityUnits,spotPrice);
 
-            expect(collateralBalance).to.eq(depositQuantity);
-            expect(quoteBalanceMin).to.be.gt(depositQuantity);
+            expect(toUSDCDecimals(collateralBalance)).to.eq(depositQuantity);
+            expect(toUSDCDecimals(quoteBalanceMin)).to.be.gt(depositQuantity);
             expect(positionInfo.baseBalance).to.eq(subjectBaseTradeQuantityUnits);
             expect(positionInfo.quoteBalance.mul(-1)).to.be.gt(depositQuantity);
             expect(positionInfo.quoteBalance.mul(-1)).to.be.gt(quoteBalanceMin);
@@ -733,7 +733,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectQuoteReceiveQuantityUnits: BigNumber;
 
     const initializeContracts = async () => {
-      depositQuantity = ether(10);
+      depositQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
     };
 
@@ -1128,7 +1128,7 @@ describe("PerpV2LeverageModule", () => {
     const initializeSubjectVariables = () => {
       subjectCaller = owner;
       subjectDepositAmount = 1;
-      subjectDepositQuantity = ether(subjectDepositAmount); // 1 USDC in 10**18
+      subjectDepositQuantity = usdcUnits(subjectDepositAmount);
     };
 
     async function subject(): Promise<any> {
@@ -1157,8 +1157,8 @@ describe("PerpV2LeverageModule", () => {
         } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
 
 
-        const expectedCollateralBalance = initialCollateralBalance.add(subjectDepositQuantity);
-        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
+        const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(subjectDepositQuantity);
+        expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
       });
 
       it("should update the USDC defaultPositionUnit", async () => {
@@ -1168,6 +1168,15 @@ describe("PerpV2LeverageModule", () => {
 
         const expectedDefaultPosition = initialDefaultPosition.sub(usdcUnits(subjectDepositAmount));
         expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+      });
+
+      it("should update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        const expectedDefaultPosition = initialExternalPositionUnit.add(subjectDepositQuantity);
+        expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
       });
 
       describe("when not called by manager", async () => {
@@ -1222,14 +1231,14 @@ describe("PerpV2LeverageModule", () => {
         // Deposit 10 USDC
         await perpLeverageModule
           .connect(owner.wallet)
-          .deposit(subjectSetToken.address, ether(10));
+          .deposit(subjectSetToken.address, usdcUnits(10));
       }
     };
 
     const initializeSubjectVariables = (withdrawAmount: number = 5) => {
       subjectWithdrawAmount = withdrawAmount;
       subjectCaller = owner;
-      subjectWithdrawQuantity = ether(withdrawAmount); // USDC in 10**18
+      subjectWithdrawQuantity = usdcUnits(withdrawAmount);
     };
 
     async function subject(): Promise<any> {
@@ -1251,8 +1260,8 @@ describe("PerpV2LeverageModule", () => {
         await subject();
         const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
 
-        const expectedCollateralBalance = initialCollateralBalance.sub(subjectWithdrawQuantity);
-        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
+        const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).sub(subjectWithdrawQuantity);
+        expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
       });
 
       it("should update the USDC defaultPositionUnit", async () => {
@@ -1262,6 +1271,15 @@ describe("PerpV2LeverageModule", () => {
 
         const expectedDefaultPosition = initialDefaultPosition.add(usdcUnits(subjectWithdrawAmount));
         expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+      });
+
+      it("should update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        const expectedExternalPositionUnit = initialExternalPositionUnit.sub(subjectWithdrawQuantity);
+        expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
       });
 
       describe("when withdraw amount is 0", async () => {
@@ -1308,7 +1326,7 @@ describe("PerpV2LeverageModule", () => {
 
     // Start with initial total supply (2)
     const initializeContracts = async () => {
-      collateralQuantity = ether(10);
+      collateralQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(collateralQuantity, true, ether(2));
     };
 
@@ -1351,7 +1369,7 @@ describe("PerpV2LeverageModule", () => {
         const idealQuote = preciseMul(deltaBase, await perpSetup.getSpotPrice(baseToken));
         const expectedSlippage = idealQuote.sub(deltaQuote).mul(-1);
 
-        return preciseDiv(idealQuote, currentLeverage).add(expectedSlippage);
+        return toUSDCDecimals(preciseDiv(idealQuote, currentLeverage).add(expectedSlippage));
       }
 
       describe("when issuing a single set", async () => {
@@ -1390,10 +1408,7 @@ describe("PerpV2LeverageModule", () => {
 
           // Not perfect... needs investigation. Not even consistent??? e.g off by one occasionally
           // 10008085936690386266 vs 10008085658829252928
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
 
 
@@ -1436,7 +1451,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
+            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -1447,15 +1462,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          // We expect owedRealized to be greater than 1 USDC and increased value of set paid by
-          // issuer.
-
-          // Failing:  Expected "18684173" to be within 20 of 18684136
           expect(owedRealizedPnl).gt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -1496,7 +1504,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
+            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -1507,14 +1515,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          // We expect owedRealizedPnl to be less than 1 USDC and discount paid to issuer
-
-          // Failing:   Expected "2613821" to be within 1 of 2613840
           expect(owedRealizedPnl).lt(ether(1).mul(-1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -1539,7 +1541,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(pendingFundingDiscountNotional),
+            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -1550,12 +1552,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          // Failing: Expected "11008108" to be within 1 of 11008097
           expect(pendingFunding).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -1580,7 +1578,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(pendingFundingDiscountNotional),
+            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -1591,12 +1589,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          // We expect pending funding to be greater than -1 USDC and discount applied
           expect(pendingFunding).lt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -1652,11 +1646,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          // Failing: Expected "14208232" to be within 1 of 14208209
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -1700,10 +1690,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
     });
@@ -1761,7 +1748,7 @@ describe("PerpV2LeverageModule", () => {
         const vETHTotal = preciseDiv(vETHIdealQuote, currentLeverage).add(vETHExpectedSlippage);
         const vBTCTotal = preciseDiv(vBTCIdealQuote, currentLeverage).add(vBTCExpectedSlippage);
 
-        return vETHTotal.add(vBTCTotal);
+        return toUSDCDecimals(vETHTotal.add(vBTCTotal));
       }
 
       cacheBeforeEach(async () => {
@@ -1812,10 +1799,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 3);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 3);
         });
       });
 
@@ -1826,7 +1810,7 @@ describe("PerpV2LeverageModule", () => {
           subjectSetQuantity = ether(2);
 
           // Deposit more collateral to avoid NEFC error
-          await perpLeverageModule.deposit(subjectSetToken, ether(30));
+          await perpLeverageModule.deposit(subjectSetToken, usdcUnits(30));
           usdcTransferOutQuantity = await calculateUSDCTransferOut();
         });
 
@@ -1866,10 +1850,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 3);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 3);
         });
       });
 
@@ -1891,7 +1872,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingNotionalShare = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(pendingFundingNotionalShare),
+            usdcTransferOutQuantity.add(toUSDCDecimals(pendingFundingNotionalShare)),
             subjectSetQuantity
           );
 
@@ -1902,11 +1883,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(pendingFunding).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -1959,7 +1937,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferOutQuantity = await calculateUSDCTransferOut();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(owedRealizedPnlShareNotional),
+            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
             subjectSetQuantity
           );
 
@@ -1970,11 +1948,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(owedRealizedPnl).gt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 200);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 200);
         });
       });
     });
@@ -2003,7 +1978,7 @@ describe("PerpV2LeverageModule", () => {
         const idealQuote = preciseMul(deltaBase, await perpSetup.getSpotPrice(baseToken));
         const expectedSlippage = idealQuote.sub(deltaQuote).mul(-1);
 
-        return preciseDiv(idealQuote, currentLeverage).add(expectedSlippage).abs();
+        return toUSDCDecimals(preciseDiv(idealQuote, currentLeverage).add(expectedSlippage).abs());
       }
 
       async function subject(): Promise<any> {
@@ -2046,10 +2021,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
 
@@ -2090,7 +2062,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
+            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -2101,11 +2073,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2146,7 +2115,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(owedRealizedPnlDiscountNotional),
+            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -2157,14 +2126,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          // We expect owedRealizedPnl to be less than 1 USDC and discount paid to issuer
-
-          // Failing:  Expected "-17199655" to be within 20 of -17198080
           expect(owedRealizedPnl).lt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2188,7 +2151,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.sub(pendingFundingDiscountNotional),
+            usdcTransferInQuantity.sub(toUSDCDecimals(pendingFundingDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -2199,11 +2162,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(pendingFunding).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2227,7 +2187,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferInQuantity = await calculateUSDCTransferIn();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.sub(pendingFundingDiscountNotional),
+            usdcTransferInQuantity.sub(toUSDCDecimals(pendingFundingDiscountNotional)),
             subjectSetQuantity
           );
 
@@ -2238,12 +2198,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          // We expect pending funding to be greater than -1 USDC and discount applied
           expect(pendingFunding).lt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2285,11 +2241,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          // Failing: Expected "-5898129" to be within 30 of -5895534
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
     });
@@ -2324,7 +2276,7 @@ describe("PerpV2LeverageModule", () => {
 
     // Start with initial total supply (2)
     const initializeContracts = async () => {
-      collateralQuantity = ether(10);
+      collateralQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(collateralQuantity, true, ether(2));
     };
 
@@ -2368,7 +2320,7 @@ describe("PerpV2LeverageModule", () => {
 
         const expectedSlippage = deltaQuote.sub(idealQuote);
 
-        return preciseDiv(idealQuote, currentLeverage).add(expectedSlippage);
+        return toUSDCDecimals(preciseDiv(idealQuote, currentLeverage).add(expectedSlippage));
       }
 
       describe("when redeeming a single set", async () => {
@@ -2405,12 +2357,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          // Not perfect... needs investigation. Not even consistent??? e.g off by one occasionally
-          // 10008085936690386266 vs 10008085658829252928
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
 
@@ -2450,7 +2397,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferOutQuantity = await calculateUSDCTransferOut();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(owedRealizedPnlShareNotional),
+            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
             subjectSetQuantity
           );
 
@@ -2461,11 +2408,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(owedRealizedPnl).gt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2505,7 +2449,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferOutQuantity = await calculateUSDCTransferOut();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(owedRealizedPnlShareNotional),
+            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
             subjectSetQuantity
           );
 
@@ -2516,11 +2460,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(owedRealizedPnl).lt(ether(1).mul(-1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2543,7 +2484,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingNotionalShare = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(pendingFundingNotionalShare),
+            usdcTransferOutQuantity.add(toUSDCDecimals(pendingFundingNotionalShare)),
             subjectSetQuantity
           );
 
@@ -2554,11 +2495,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(pendingFunding).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2581,7 +2519,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingNotionalShare = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(pendingFundingNotionalShare),
+            usdcTransferOutQuantity.add(toUSDCDecimals(pendingFundingNotionalShare)),
             subjectSetQuantity
           );
 
@@ -2592,11 +2530,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(pendingFunding).lt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2652,11 +2587,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          // Failing: Expected "14208232" to be within 1 of 14208209
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2682,10 +2613,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
     });
@@ -2736,7 +2664,7 @@ describe("PerpV2LeverageModule", () => {
 
         const totalRealizedPnl = vETHRealizedPnl.add(vBTCRealizedPnl);
 
-        return collateralQuantityNotional.add(totalRealizedPnl).abs();
+        return toUSDCDecimals(collateralQuantityNotional.add(totalRealizedPnl).abs());
       }
 
       cacheBeforeEach(async () => {
@@ -2787,10 +2715,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
 
@@ -2801,7 +2726,7 @@ describe("PerpV2LeverageModule", () => {
           subjectSetQuantity = ether(2);
 
           // Deposit more collateral to avoid NEFC error
-          await perpLeverageModule.deposit(subjectSetToken, ether(30));
+          await perpLeverageModule.deposit(subjectSetToken, usdcUnits(30));
           usdcTransferOutQuantity = await calculateUSDCTransferOut();
         });
 
@@ -2841,10 +2766,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 3);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 3);
         });
       });
 
@@ -2866,7 +2788,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingNotionalShare = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(pendingFundingNotionalShare),
+            usdcTransferOutQuantity.add(toUSDCDecimals(pendingFundingNotionalShare)),
             subjectSetQuantity
           );
 
@@ -2877,11 +2799,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(pendingFunding).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -2934,7 +2853,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferOutQuantity = await calculateUSDCTransferOut();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(owedRealizedPnlShareNotional),
+            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
             subjectSetQuantity
           );
 
@@ -2945,11 +2864,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(owedRealizedPnl).gt(ether(1));
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
     });
@@ -2980,7 +2896,7 @@ describe("PerpV2LeverageModule", () => {
           ? reducedOpenNotional.add(deltaQuote)
           : reducedOpenNotional.sub(deltaQuote);
 
-        return collateralQuantityNotional.add(realizedPnl).abs();
+        return toUSDCDecimals(collateralQuantityNotional.add(realizedPnl).abs());
       }
 
       describe("when issuing a single set", async () => {
@@ -3017,10 +2933,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
 
@@ -3061,7 +2974,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferOutQuantity = await calculateUSDCTransferOut();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(owedRealizedPnlShareNotional),
+            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
             subjectSetQuantity
           );
 
@@ -3072,11 +2985,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -3116,7 +3026,7 @@ describe("PerpV2LeverageModule", () => {
           const usdcTransferOutQuantity = await calculateUSDCTransferOut();
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(owedRealizedPnlShareNotional),
+            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
             subjectSetQuantity
           );
 
@@ -3127,11 +3037,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(owedRealizedPnl).lt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -3154,7 +3061,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingNotionalShare = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(pendingFundingNotionalShare),
+            usdcTransferOutQuantity.add(toUSDCDecimals(pendingFundingNotionalShare)),
             subjectSetQuantity
           );
 
@@ -3165,11 +3072,8 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           expect(pendingFunding).gt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -3192,7 +3096,7 @@ describe("PerpV2LeverageModule", () => {
           const pendingFundingNotionalShare = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(pendingFundingNotionalShare),
+            usdcTransferOutQuantity.add(toUSDCDecimals(pendingFundingNotionalShare)),
             subjectSetQuantity
           );
 
@@ -3203,12 +3107,9 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
           // We expect pending funding to be greater than -1 USDC and discount applied
           expect(pendingFunding).lt(0);
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -3264,10 +3165,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 100);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
@@ -3293,10 +3191,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          const externalPositionUnitUSDC = toUSDCDecimals(externalPositionUnit);
-          const expectedExternalPositionUnitUSDC = toUSDCDecimals(expectedExternalPositionUnit);
-
-          expect(externalPositionUnitUSDC).to.be.closeTo(expectedExternalPositionUnitUSDC, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
     });
@@ -3328,7 +3223,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectCaller: Account;
 
     const initializeContracts = async () => {
-      collateralQuantity = ether(10);
+      collateralQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(collateralQuantity);
     };
 
@@ -3373,7 +3268,7 @@ describe("PerpV2LeverageModule", () => {
         await subject();
 
         const finalSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
-        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.sub(toUSDCDecimals(usdcToTransferOut));
+        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.sub(usdcToTransferOut);
 
         expect(finalSetTokenUSDCBalance).eq(expectedSetTokenUSDCBalance);
       });
@@ -3385,7 +3280,7 @@ describe("PerpV2LeverageModule", () => {
         const finalDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);
 
         const depositQuantity = preciseMul(externalPositionUnit, subjectSetQuantity);
-        const expectedDefaultPosition = initialDefaultPosition.sub(toUSDCDecimals(depositQuantity));
+        const expectedDefaultPosition = initialDefaultPosition.sub(depositQuantity);
         expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
       });
     });
@@ -3413,7 +3308,7 @@ describe("PerpV2LeverageModule", () => {
         await subject();
 
         const finalSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
-        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.sub(toUSDCDecimals(usdcToTransferOut));
+        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.sub(usdcToTransferOut);
 
         expect(finalSetTokenUSDCBalance).eq(expectedSetTokenUSDCBalance);
       });
@@ -3425,7 +3320,7 @@ describe("PerpV2LeverageModule", () => {
         const finalDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);
 
         const depositQuantity = preciseMul(externalPositionUnit, subjectSetQuantity);
-        const expectedDefaultPosition = initialDefaultPosition.sub(toUSDCDecimals(depositQuantity));
+        const expectedDefaultPosition = initialDefaultPosition.sub(depositQuantity);
         expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
       });
     });
@@ -3459,7 +3354,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectCaller: Account;
 
     const initializeContracts = async () => {
-      collateralQuantity = ether(10);
+      collateralQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(collateralQuantity);
     };
 
@@ -3504,7 +3399,7 @@ describe("PerpV2LeverageModule", () => {
         await subject();
 
         const finalSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
-        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.add(toUSDCDecimals(usdcToTransferOut));
+        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.add(usdcToTransferOut);
 
         expect(finalSetTokenUSDCBalance).eq(expectedSetTokenUSDCBalance);
       });
@@ -3677,7 +3572,7 @@ describe("PerpV2LeverageModule", () => {
 
     describe("when collateral balance exists", async () => {
       beforeEach(async () => {
-        await perpLeverageModule.deposit(setToken.address, ether(10));
+        await perpLeverageModule.deposit(setToken.address, usdcUnits(10));
       });
 
       it("should revert", async () => {
@@ -3831,7 +3726,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectSetQuantity: BigNumber;
 
     const initializeContracts = async () => {
-      collateralQuantity = ether(10);
+      collateralQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(collateralQuantity);
     };
 
@@ -3875,7 +3770,7 @@ describe("PerpV2LeverageModule", () => {
         const idealQuote = preciseMul(deltaBase, await perpSetup.getSpotPrice(baseToken));
         const expectedSlippage = idealQuote.sub(deltaQuote).mul(-1);
 
-        return preciseDiv(idealQuote, currentLeverage).add(expectedSlippage);
+        return toUSDCDecimals(preciseDiv(idealQuote, currentLeverage).add(expectedSlippage));
       }
 
       describe("when issuing a single set", async () => {
@@ -3901,12 +3796,7 @@ describe("PerpV2LeverageModule", () => {
 
           const actualAdjustmentUnit = (await subject())[0][0];
 
-          // Not perfect... needs investigation. Not even consistent??? e.g off by one occasionally
-          // 10008085936690386266 vs 10008085658829252928
-          const actualAdjustmentUnitUSDC = toUSDCDecimals(actualAdjustmentUnit);
-          const expectedAdjustmentUnitUSDC = toUSDCDecimals(expectedAdjustmentUnit);
-
-          expect(actualAdjustmentUnitUSDC).to.be.closeTo(expectedAdjustmentUnitUSDC, 1);
+          expect(actualAdjustmentUnit).to.be.closeTo(expectedAdjustmentUnit, 1);
         });
       });
     });
@@ -3921,7 +3811,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectCaller: Account;
 
     const initializeContracts = async () => {
-      collateralQuantity = ether(10);
+      collateralQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(collateralQuantity);
     };
 
@@ -3966,7 +3856,7 @@ describe("PerpV2LeverageModule", () => {
 
         const expectedSlippage = deltaQuote.sub(idealQuote);
 
-        return preciseDiv(idealQuote, currentLeverage).add(expectedSlippage);
+        return toUSDCDecimals(preciseDiv(idealQuote, currentLeverage).add(expectedSlippage));
       }
 
       describe("when redeeming a single set", async () => {
@@ -3992,12 +3882,7 @@ describe("PerpV2LeverageModule", () => {
 
           const actualAdjustmentUnit = (await subject())[0][0];
 
-          // Not perfect... needs investigation. Not even consistent??? e.g off by one occasionally
-          // 10008085936690386266 vs 10008085658829252928
-          const actualAdjustmentUnitUSDC = toUSDCDecimals(actualAdjustmentUnit);
-          const expectedAdjustmentUnitUSDC = toUSDCDecimals(expectedAdjustmentUnit);
-
-          expect(actualAdjustmentUnitUSDC).to.be.closeTo(expectedAdjustmentUnitUSDC, 1);
+          expect(actualAdjustmentUnit).to.be.closeTo(expectedAdjustmentUnit, 1);
         });
       });
     });
@@ -4018,7 +3903,7 @@ describe("PerpV2LeverageModule", () => {
     let expectedVBTCDeltaQuote: BigNumber;
 
     beforeEach(async () => {
-      expectedDepositQuantity = ether(100);
+      expectedDepositQuantity = usdcUnits(100);
 
       setToken = await issueSetsAndDepositToPerp(expectedDepositQuantity);
 
@@ -4080,7 +3965,7 @@ describe("PerpV2LeverageModule", () => {
     let expectedDepositQuantity: BigNumber;
 
     beforeEach(async () => {
-      expectedDepositQuantity = ether(10);
+      expectedDepositQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(expectedDepositQuantity);
       subjectSetToken = setToken.address;
     });
@@ -4092,7 +3977,7 @@ describe("PerpV2LeverageModule", () => {
     it("should return account info", async () => {
       const accountInfo = await subject();
 
-      expect(accountInfo.collateralBalance).eq(expectedDepositQuantity);
+      expect(toUSDCDecimals(accountInfo.collateralBalance)).eq(expectedDepositQuantity);
       expect(accountInfo.owedRealizedPnl).eq(0);
       expect(accountInfo.pendingFundingPayments).eq(0);
     });
