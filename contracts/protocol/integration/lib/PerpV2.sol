@@ -35,6 +35,19 @@ library PerpV2 {
 
     /* ============ External ============ */
 
+    /**
+     * Gets Perp vault `deposit` calldata
+     *
+     * When invoked, calldata deposits an `_amountNotional` of collateral asset into the Perp Protocol vault
+     *
+     * @param  _vault               Perp protocol vault
+     * @param  _asset               Collateral asset to deposit
+     * @param  _amountNotional      Notional amount in collateral decimals to deposit
+     *
+     * @return address              Vault address
+     * @return uint256              Call value
+     * @return calldata             Deposit calldata
+     */
     function getDepositCalldata(
         IVault _vault,
         IERC20 _asset,
@@ -53,6 +66,16 @@ library PerpV2 {
         return (address(_vault), 0, callData);
     }
 
+    /**
+     * Invoke `deposit` on Vault from SetToken
+     *
+     * Deposits an `_amountNotional` of collateral asset into the Perp Protocol vault
+     *
+     * @param _setToken             Address of the SetToken
+     * @param _vault                Address of Perp Protocol vault contract
+     * @param _asset                The address of the collateral asset to deposit
+     * @param _amountNotional       Notional amount in collateral decimals to deposit
+     */
     function invokeDeposit(
         ISetToken _setToken,
         IVault _vault,
@@ -70,6 +93,19 @@ library PerpV2 {
         _setToken.invoke(address(_vault), 0, depositCalldata);
     }
 
+    /**
+     * Get Perp Vault `withdraw` method calldata
+     *
+     * When invoked, calldata withdraws an `_amountNotional` of collateral asset from the Perp protocol vault
+     *
+     * @param _vault                Address of the Perp Protocol vault contract
+     * @param _asset                The address of the collateral asset to withdraw
+     * @param _amountNotional       The notional amount in collateral decimals to be withdrawn
+     *
+     * @return address              Vault contract address
+     * @return uint256              Call value
+     * @return bytes                Withdraw calldata
+     */
     function getWithdrawCalldata(
         IVault _vault,
         IERC20 _asset,
@@ -88,6 +124,16 @@ library PerpV2 {
         return (address(_vault), 0, callData);
     }
 
+    /**
+     * Invoke `withdraw` on Vault from SetToken
+     *
+     * Withdraws an `_amountNotional` of collateral asset from the Perp protocol vault
+     *
+     * @param _setToken         Address of the SetToken
+     * @param _vault            Address of the Perp Protocol vault contract
+     * @param _asset            The address of the collateral asset to withdraw
+     * @param _amountNotional   The notional amount in collateral decimals to be withdrawn     *
+     */
     function invokeWithdraw(
         ISetToken _setToken,
         IVault _vault,
@@ -105,6 +151,19 @@ library PerpV2 {
         _setToken.invoke(address(_vault), 0, withdrawCalldata);
     }
 
+    /**
+     * Get Perp ClearingHouse `openPosition` method calldata
+     *
+     * When invoked, calldata executes a trade via the Perp protocol ClearingHouse contract
+     *
+     * @param _clearingHouse        Address of the Clearinghouse contract
+     * @param _params               OpenPositionParams struct. For details see definition
+     *                              in contracts/interfaces/external/perp-v2/IClearingHouse.sol
+     *
+     * @return address              ClearingHouse contract address
+     * @return uint256              Call value
+     * @return bytes                `openPosition` calldata
+     */
     function getOpenPositionCalldata(
         IClearingHouse _clearingHouse,
         IClearingHouse.OpenPositionParams memory _params
@@ -121,6 +180,19 @@ library PerpV2 {
         return (address(_clearingHouse), 0, callData);
     }
 
+    /**
+     * Invoke `openPosition` on ClearingHouse from SetToken
+     *
+     * Executes a trade via the Perp protocol ClearingHouse contract
+     *
+     * @param _setToken             Address of the SetToken
+     * @param _clearingHouse        Address of the Clearinghouse contract
+     * @param _params               OpenPositionParams struct. For details see definition
+     *                              in contracts/interfaces/external/perp-v2/IClearingHouse.sol
+     *
+     * @return deltaBase            Positive or negative change in base token balance resulting from trade
+     * @return deltaQuote           Positive or negative change in quote token balance resulting from trade
+     */
     function invokeOpenPosition(
         ISetToken _setToken,
         IClearingHouse _clearingHouse,
@@ -138,6 +210,19 @@ library PerpV2 {
         return abi.decode(returnValue, (uint256,uint256));
     }
 
+    /**
+     * Get Perp Quoter `swap` method calldata
+     *
+     * When invoked, calldata simulates a trade on the Perp exchange via the Perp periphery contract Quoter
+     *
+     * @param _quoter               Address of the Quoter contract
+     * @param _params               SwapParams struct. For details see definition
+     *                              in contracts/interfaces/external/perp-v2/IQuoter.sol
+     *
+     * @return address              ClearingHouse contract address
+     * @return uint256              Call value
+     * @return bytes                `swap` calldata
+     */
     function getSwapCalldata(
         IQuoter _quoter,
         IQuoter.SwapParams memory _params
@@ -154,6 +239,19 @@ library PerpV2 {
         return (address(_quoter), 0, callData);
     }
 
+    /**
+     * Invoke `swap` method on Perp Quoter contract
+     *
+     * Simulates a trade on the Perp exchange via the Perp periphery contract Quoter
+     *
+     * @param _setToken             Address of the SetToken
+     * @param _quoter               Address of the Quoter contract
+     * @param _params               SwapParams struct. For details see definition
+     *                              in contracts/interfaces/external/perp-v2/IQuoter.sol
+     *
+     * @return swapResponse         Struct which includes deltaAvailableBase and deltaAvailableQuote
+     *                              properties (equiv. to deltaQuote, deltaBase) returned from `openPostion`
+     */
     function invokeSwap(
         ISetToken _setToken,
         IQuoter _quoter,
