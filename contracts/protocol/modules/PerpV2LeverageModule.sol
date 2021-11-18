@@ -1067,6 +1067,38 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Calculate the total amount to discount an issuance purchase by given pending funding payments
      * and unsettled owedRealizedPnl balances. These amounts are socialized among existing shareholders.
      *
+     * NOTE: OwedRealizedPnl and PendingFunding values can be either positive or negative
+     *
+     * OwedRealizedPnl
+     * ---------------
+     * Accrues when trades (like lever and delever) execute and result in a profit or loss per the table
+     * below. Each withdrawal zeros out `owedRealizedPnl`, settling it to the vault.
+     *
+     * | -------------------------------------------------- |
+     * | Position Type | AMM Spot Price | Action | Value    |
+     * | ------------- | -------------- | ------ | -------  |
+     * | Long          | Rises          | Sell   | Positive |
+     * | Long          | Falls          | Sell   | Negative |
+     * | Short         | Rises          | Buy    | Negative |
+     * | Short         | Falls          | Buy    | Positive |
+     * | -------------------------------------------------- |
+     *
+     *
+     * PendingFunding
+     * --------------
+     * The direction of this flow is determined by the difference between virtual asset UniV3 spot prices and
+     * their parent asset's broader market price (as represented by a Chainlink oracle), per the table below.
+     * Each trade zeroes out `pendingFunding`, settling it to owedRealizedPnl.
+     *
+     * | --------------------------------------- |
+     * | Position Type | Oracle Price | Value    |
+     * | ------------- | ------------ | -------- |
+     * | Long          | Below AMM    | Positive |
+     * | Long          | Above AMM    | Negative |
+     * | Short         | Below AMM    | Negative |
+     * | Short         | Above AMM    | Positive |
+     * | --------------------------------------- |
+     *
      * @return int256 Total quantity to discount
      */
     function _calculateOwedRealizedPnlDiscount(
@@ -1077,7 +1109,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         view
         returns (int256)
     {
-        // Calculate addtional usdcAmountIn and add to running total.
         (int256 owedRealizedPnl, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
