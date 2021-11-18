@@ -1263,22 +1263,51 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         return (equityAdjustments, debtAdjustments);
     }
 
+    /**
+     * @dev Converts a UniswapV3 sqrtPriceX96 value to a priceX96 value. This method is borrowed from
+     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getSpotPrice` while generating a
+     * PRECISE_UNIT vAsset market price
+     */
     function _formatSqrtPriceX96ToPriceX96(uint160 sqrtPriceX96) internal pure returns (uint256) {
         return FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
     }
 
+    /**
+     * @dev Converts a UniswapV3 X96 format price into a PRECISE_UNIT price. This method is borrowed from
+     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getSpotPrice` while generating a
+     * PRECISE_UNIT vAsset market price
+     */
     function _formatX96ToX10_18(uint256 valueX96) internal pure returns (uint256) {
         return FullMath.mulDiv(valueX96, 1 ether, FixedPoint96.Q96);
     }
 
+    /**
+     * @dev Converts a uint256 PRECISE_UNIT quote quantity into an alternative decimal format. In Perp all
+     * assets are 18 decimal quantities we need to represent as 6 decimal USDC quantities when setting
+     * position units or withdrawing from Perp's Vault contract.
+     *
+     * This method is borrowed from PerpProtocol's `lushan` repo in lib/SettlementTokenMath
+     */
     function _formatCollateralToken(uint256 amount, uint8 decimals) internal pure returns (uint256) {
         return amount.div(10**(18 - uint(decimals)));
     }
 
+    /**
+     * @dev Converts an int256 PRECISE_UNIT quote quantity into an alternative decimal format. In Perp all
+     * assets are 18 decimal quantities we need to represent as 6 decimal USDC quantities when setting
+     * position units or withdrawing from Perp's Vault contract.
+     *
+     * This method is borrowed from PerpProtocol's `lushan` repo in lib/SettlementTokenMath
+     */
     function _formatCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
         return amount.div(int256(10**(18 - uint(decimals))));
     }
 
+    /**
+     * @dev Converts an arbitrarily decimalized quantity into a PRECISE_UNIT quantity. In Perp the vault
+     * balance is represented as a 6 decimals USDC quantity which we need to consume in PRECISE_UNIT
+     * format when calculating values like the external position unit and current leverage.
+     */
     function _parseCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
         return amount.mul(int256(10**(18 - (uint(decimals)))));
     }
