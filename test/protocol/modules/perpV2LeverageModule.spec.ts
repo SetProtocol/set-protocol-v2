@@ -106,6 +106,7 @@ describe("PerpV2LeverageModule", () => {
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
+      perpSetup.usdc.address,
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
       perpLib.address,
     );
@@ -203,6 +204,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectVault: Address;
     let subjectQuoter: Address;
     let subjectMarketRegistry: Address;
+    let subjectCollateralToken: Address;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
@@ -212,6 +214,7 @@ describe("PerpV2LeverageModule", () => {
       subjectVault = perpSetup.vault.address;
       subjectQuoter = perpSetup.quoter.address;
       subjectMarketRegistry = perpSetup.marketRegistry.address;
+      subjectCollateralToken = perpSetup.usdc.address;
     });
 
     async function subject(): Promise<PerpV2LeverageModule> {
@@ -223,6 +226,7 @@ describe("PerpV2LeverageModule", () => {
         subjectVault,
         subjectQuoter,
         subjectMarketRegistry,
+        subjectCollateralToken,
         "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
         perpLib.address,
       );
@@ -235,7 +239,7 @@ describe("PerpV2LeverageModule", () => {
       expect(controller).to.eq(subjectController);
     });
 
-    it("should set the correct PerpV2 contracts", async () => {
+    it("should set the correct PerpV2 contracts and collateralToken", async () => {
       const perpLeverageModule = await subject();
 
       const perpAccountBalance = await perpLeverageModule.perpAccountBalance();
@@ -243,12 +247,15 @@ describe("PerpV2LeverageModule", () => {
       const perpExchange = await perpLeverageModule.perpExchange();
       const perpVault = await perpLeverageModule.perpVault();
       const perpQuoter = await perpLeverageModule.perpQuoter();
+      const collateralToken = await perpLeverageModule.collateralToken();
 
       expect(perpAccountBalance).to.eq(perpSetup.accountBalance.address);
       expect(perpClearingHouse).to.eq(perpSetup.clearingHouse.address);
       expect(perpExchange).to.eq(perpSetup.exchange.address);
       expect(perpVault).to.eq(perpSetup.vault.address);
       expect(perpQuoter).to.eq(perpSetup.quoter.address);
+      expect(collateralToken).to.eq(perpSetup.usdc.address);
+
     });
   });
 
@@ -295,17 +302,6 @@ describe("PerpV2LeverageModule", () => {
         await subject();
         const isModuleEnabled = await setToken.isInitializedModule(perpLeverageModule.address);
         expect(isModuleEnabled).to.eq(true);
-      });
-
-      it("should set the collateralToken", async () => {
-        const initialCollateralToken = await perpLeverageModule.collateralToken();
-
-        await subject();
-
-        const finalCollateralToken = await perpLeverageModule.collateralToken();
-
-        expect(initialCollateralToken).to.eq(ADDRESS_ZERO);
-        expect(finalCollateralToken).to.eq(usdc.address);
       });
 
       it("should register on the debt issuance module", async () => {

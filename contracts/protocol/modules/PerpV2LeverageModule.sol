@@ -151,7 +151,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     IMarketRegistry public immutable perpMarketRegistry;
 
     // Token (USDC) used as a vault deposit, sourced from Perp Protocol in `initialize`.
-    IERC20 public collateralToken;
+    IERC20 public immutable collateralToken;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
@@ -175,6 +175,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _perpVault                Address of Perp Vault contract
      * @param _perpQuoter               Address of Perp Quoter contract
      * @param _perpMarketRegistry       Address of Perp MarketRegistry contract
+     * @param _collateralToken          Address of token accepted by Perp vault as collateral
      */
     constructor(
         IController _controller,
@@ -183,7 +184,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         IExchange _perpExchange,
         IVault _perpVault,
         IQuoter _perpQuoter,
-        IMarketRegistry _perpMarketRegistry
+        IMarketRegistry _perpMarketRegistry,
+        IERC20 _collateralToken
     )
         public
         ModuleBase(_controller)
@@ -194,6 +196,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         perpVault = _perpVault;
         perpQuoter = _perpQuoter;
         perpMarketRegistry = _perpMarketRegistry;
+        collateralToken = _collateralToken;
     }
 
     /* ============ External Functions ============ */
@@ -340,9 +343,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         for(uint256 i = 0; i < modules.length; i++) {
             try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
         }
-
-        // Set collateralToken
-        collateralToken = IERC20(perpVault.getSettlementToken());
     }
 
     /**
