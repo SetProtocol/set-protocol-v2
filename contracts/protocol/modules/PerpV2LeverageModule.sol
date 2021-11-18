@@ -282,6 +282,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
       nonReentrant
       onlyManagerAndValidSet(_setToken)
     {
+        require(_collateralQuantityUnits > 0, "Deposit amount is 0");
         _depositAndUpdateState(_setToken, _collateralQuantityUnits);
     }
 

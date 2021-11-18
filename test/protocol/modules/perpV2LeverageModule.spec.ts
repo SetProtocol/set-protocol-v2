@@ -1068,6 +1068,16 @@ describe("PerpV2LeverageModule", () => {
         expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
       });
 
+      describe("when deposit amount is 0", async () => {
+        beforeEach(() => {
+          subjectDepositQuantity = usdcUnits(0);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Deposit amount is 0");
+        });
+      });
+
       describe("when not called by manager", async () => {
         beforeEach(async () => {
           subjectCaller = await getRandomAccount();
