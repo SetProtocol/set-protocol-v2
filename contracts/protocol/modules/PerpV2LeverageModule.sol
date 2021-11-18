@@ -282,7 +282,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
       nonReentrant
       onlyManagerAndValidSet(_setToken)
     {
-        _deposit(_setToken, _collateralQuantityUnits);
+        _depositAndUpdateState(_setToken, _collateralQuantityUnits);
     }
 
     /**
@@ -305,7 +305,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
       onlyManagerAndValidSet(_setToken)
     {
         require(_collateralQuantityUnits > 0, "Withdraw amount is 0");
-        _withdraw(_setToken, _collateralQuantityUnits, true);
+        _withdrawAndUpdateState(_setToken, _collateralQuantityUnits);
     }
 
     /**
@@ -494,7 +494,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
-        _withdraw(_setToken, usdcTransferOutQuantityUnits, false);
+        _withdraw(_setToken, usdcTransferOutQuantityUnits);
     }
 
     /* ============ External Getter Functions ============ */
@@ -771,6 +771,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Invoke deposit from SetToken using PerpV2 library. Creates a collateral deposit in Perp vault
+     * Updates the collateral token default position unit. This function is called directly by
+     * the componentIssue hook, skipping external position unit setting because that method is assumed
+     * to be the end of a call sequence (e.g manager will not need to read the updated value)
      */
     function _deposit(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
@@ -789,9 +792,21 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken.totalSupply(),
             initialCollateralPositionBalance
         );
+    }
 
-        // Set USDC externalPositionUnit so Manager contracts have a value they can base calculations
-        // for further trading on within the same transaction
+    /**
+     * Approves and deposits collateral into Perp vault and additionally sets USDC externalPositionUnit
+     * so Manager contracts have a value they can base calculations for further trading on within the
+     * same transaction. This flow is used when invoking the external `deposit` function.
+     */
+    function _depositAndUpdateState(
+        ISetToken _setToken,
+        uint256 _collateralQuantityUnits
+    )
+        internal
+    {
+        _deposit(_setToken, _collateralQuantityUnits);
+
         _setToken.editExternalPositionUnit(
             address(collateralToken),
             address(this),
@@ -801,28 +816,41 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Invoke withdraw from SetToken using PerpV2 library. Withdraws collateral token from Perp vault
-     * into a default position. Optionally updates the collateral asset's default position unit.
+     * into a default position. This function is called directly by _accrueFee and _moduleRedeemHook,
+     * skipping position unit state updates because the funds withdrawn to SetToken are immediately
+     * forwarded to `feeRecipient` and SetToken owner respectively.
      */
-    function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits, bool editDefaultPosition) internal {
+    function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
         if (_collateralQuantityUnits == 0) return;
 
-        uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
         uint256 notionalCollateralQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
 
         _setToken.invokeWithdraw(perpVault, collateralToken, notionalCollateralQuantity);
+    }
 
-        // Skip position editing in cases (like fee payment) where we withdraw and immediately
-        // forward the amount to another recipient.
-        if (editDefaultPosition) {
-            _setToken.calculateAndEditDefaultPosition(
-                address(collateralToken),
-                _setToken.totalSupply(),
-                initialCollateralPositionBalance
-            );
-        }
+    /**
+     * Withdraws collateral from Perp vault to SetToken and additionally sets both the USDC
+     * externalPositionUnit (so Manager contracts have a value they can base calculations for further
+     * trading on within the same transaction), and the collateral token default position unit.
+     * This flow is used when invoking the external `withdraw` function.
+     */
+    function _withdrawAndUpdateState(
+        ISetToken _setToken,
+        uint256 _collateralQuantityUnits
 
-        // Set USDC externalPositionUnit so Manager contracts have a value they can base calculations
-        // for further trading on within the same transaction
+    )
+        internal
+    {
+        uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
+
+        _withdraw(_setToken, _collateralQuantityUnits);
+
+        _setToken.calculateAndEditDefaultPosition(
+            address(collateralToken),
+            _setToken.totalSupply(),
+            initialCollateralPositionBalance
+        );
+
         _setToken.editExternalPositionUnit(
             address(collateralToken),
             address(this),
@@ -898,7 +926,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         uint256 protocolFeeUnits = protocolFeeInCollateralDecimals.preciseDiv(_setToken.totalSupply());
 
-        _withdraw(_setToken, protocolFeeUnits, false);
+        _withdraw(_setToken, protocolFeeUnits);
 
         payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFeeInCollateralDecimals);
 

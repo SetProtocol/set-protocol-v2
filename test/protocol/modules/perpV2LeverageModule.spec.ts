@@ -502,6 +502,22 @@ describe("PerpV2LeverageModule", () => {
               expectedIsBuy
             );
           });
+
+          it("should not update the USDC defaultPositionUnit", async () => {
+            const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+            await subject();
+            const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+
+            expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
+          });
+
+          it("should not update the USDC externalPositionUnit", async () => {
+            const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+            await subject();
+            const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+            expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+          });
         });
 
         describe("when trading on margin", async () => {
@@ -3298,6 +3314,14 @@ describe("PerpV2LeverageModule", () => {
         const expectedDefaultPosition = initialDefaultPosition.sub(depositQuantity);
         expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
       });
+
+      it("should not update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
     });
 
     describe("when short", () => {
@@ -3425,6 +3449,14 @@ describe("PerpV2LeverageModule", () => {
         const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
 
         expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
+      });
+
+      it("should not update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
       });
     });
 
