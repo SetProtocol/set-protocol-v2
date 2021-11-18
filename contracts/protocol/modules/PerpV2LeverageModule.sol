@@ -470,9 +470,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         override
         onlyModule(_setToken)
     {
-        // Deposit collateral from SetToken into PerpV2
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
-        uint256 usdcTransferInQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
+        uint256 usdcTransferInQuantityUnits = _setTokenQuantity.preciseMulCeil(externalPositionUnit.toUint256());
+
         _deposit(_setToken, usdcTransferInQuantityUnits);
     }
 
