@@ -468,9 +468,9 @@ describe("PerpV2LeverageModule", () => {
             const expectedQuoteBalance =
               (await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, true)).deltaQuote;
 
-            const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+            const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
             await subject();
-            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             expect(initialPositionInfo.length).to.eq(0);
             expect(finalPositionInfo.baseBalance).gt(0);
@@ -533,7 +533,7 @@ describe("PerpV2LeverageModule", () => {
 
             await subject();
 
-            const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
             const expectedBaseBalance = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
             // Check that a levered trade happened
@@ -561,7 +561,7 @@ describe("PerpV2LeverageModule", () => {
 
             await subject();
 
-            const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
             expect(positionInfo.baseBalance).to.eq(expectedBaseBalance);
           });
         });
@@ -594,13 +594,13 @@ describe("PerpV2LeverageModule", () => {
 
           it("long trade should increase the position size", async () => {
             const totalSupply = await setToken.totalSupply();
-            const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+            const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
             const expectedDeltaBase = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
             const expectedBaseBalance = initialPositionInfo[0].baseBalance.add(expectedDeltaBase);
 
             await subject();
 
-            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             expect(initialPositionInfo.length).to.eq(1);
             expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
@@ -631,11 +631,11 @@ describe("PerpV2LeverageModule", () => {
               false
             );
 
-            const initialPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             await subject();
 
-            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
             const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
             const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
 
@@ -656,9 +656,9 @@ describe("PerpV2LeverageModule", () => {
             });
 
             it("should remove the position from the positions array", async () => {
-              const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+              const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
               await subject();
-              const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+              const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
 
               expect(initialPositionInfo.length).eq(1);
               expect(finalPositionInfo.length).eq(0);
@@ -696,7 +696,7 @@ describe("PerpV2LeverageModule", () => {
             } = await perpLeverageModule.getAccountInfo(subjectSetToken);
 
             // Levering up from 0, the absolute value of position quote balance is size of our trade
-            const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const { quoteBalance } = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
             const feeAmountInQuoteDecimals = preciseMul(quoteBalance.abs(), feePercentage);
 
             const expectedCollateralBalance = initialCollateralBalance.sub(feeAmountInQuoteDecimals);
@@ -709,7 +709,7 @@ describe("PerpV2LeverageModule", () => {
 
             await subject();
 
-            const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const { quoteBalance } = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
             const feeAmountInQuoteDecimals = preciseMul(quoteBalance.mul(-1), feePercentage);
             const feeAmountInUSDCDecimals = toUSDCDecimals(feeAmountInQuoteDecimals);
             const expectedFeeRecipientBalance = initialFeeRecipientBalance.add(feeAmountInUSDCDecimals);
@@ -774,9 +774,9 @@ describe("PerpV2LeverageModule", () => {
             false
           )).deltaQuote;
 
-          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           await subject();
-          const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
           expect(initialPositionInfo.length).to.eq(0);
           expect(finalPositionInfo.baseBalance).lt(0);
@@ -829,11 +829,11 @@ describe("PerpV2LeverageModule", () => {
               false
             );
 
-            const initialPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             await subject();
 
-            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
             const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
             const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
 
@@ -854,9 +854,9 @@ describe("PerpV2LeverageModule", () => {
             });
 
             it("should remove the position from the positions array", async () => {
-              const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+              const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
               await subject();
-              const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+              const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
 
               expect(initialPositionInfo.length).eq(1);
               expect(finalPositionInfo.length).eq(0);
@@ -876,13 +876,13 @@ describe("PerpV2LeverageModule", () => {
 
           it("short trade should increase the position size", async () => {
             const totalSupply = await setToken.totalSupply();
-            const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+            const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
             const expectedDeltaBase = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
             const expectedBaseBalance = initialPositionInfo[0].baseBalance.add(expectedDeltaBase);
 
             await subject();
 
-            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             expect(initialPositionInfo.length).to.eq(1);
             expect(initialPositionInfo[0].baseBalance).gt(finalPositionInfo.baseBalance);
@@ -920,7 +920,7 @@ describe("PerpV2LeverageModule", () => {
             } = await perpLeverageModule.getAccountInfo(subjectSetToken);
 
             // Levering up from 0, the position quote balance is size of our trade
-            const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const { quoteBalance } = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
             const feeAmountInQuoteDecimals = preciseMul(quoteBalance, feePercentage);
 
             const expectedCollateralBalance = initialCollateralBalance.sub(feeAmountInQuoteDecimals);
@@ -1244,7 +1244,7 @@ describe("PerpV2LeverageModule", () => {
       let baseToken: Address;
 
       async function calculateUSDCTransferIn() {
-        const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+        const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
         const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
         const baseTradeQuantityNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -1280,9 +1280,9 @@ describe("PerpV2LeverageModule", () => {
         it("buys expected amount of vBase", async () => {
           const totalSupply = await setToken.totalSupply();
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
           const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -1497,7 +1497,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("test assumptions and preconditions should be correct", async () => {
-          let positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          let positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           let collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const initialLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -1515,7 +1515,7 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const finalLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -1541,9 +1541,9 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, await setToken.totalSupply());
           const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -1591,12 +1591,12 @@ describe("PerpV2LeverageModule", () => {
 
         it("buys expected amount of vETH, vBTC", async () => {
           const totalSupply = await setToken.totalSupply();
-          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           const initialBalance = initialPositionInfo[0].baseBalance;
 
           await subject();
 
-          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           const finalBalance = finalPositionInfo[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBalance, totalSupply);
@@ -1625,7 +1625,7 @@ describe("PerpV2LeverageModule", () => {
     describe("when long, multiple positions", async () => {
       async function calculateUSDCTransferOut() {
         const totalSupply = await setToken.totalSupply();
-        const positionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+        const positionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
         const netQuoteBalance = await perpSetup.accountBalance.getNetQuoteBalance(subjectSetToken);
 
@@ -1692,14 +1692,14 @@ describe("PerpV2LeverageModule", () => {
 
         it("buys expected amount of vETH, vBTC", async () => {
           const totalSupply = await setToken.totalSupply();
-          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
 
           const initialVETHBalance = initialPositionInfo[0].baseBalance;
           const initialVBTCBalance = initialPositionInfo[1].baseBalance;
 
           await subject();
 
-          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           const finalVETHBalance = finalPositionInfo[0].baseBalance;
           const finalVBTCBalance = finalPositionInfo[1].baseBalance;
 
@@ -1743,14 +1743,14 @@ describe("PerpV2LeverageModule", () => {
 
         it("buys expected amount of vETH, vBTC", async () => {
           const totalSupply = await setToken.totalSupply();
-          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
 
           const initialVETHBalance = initialPositionInfo[0].baseBalance;
           const initialVBTCBalance = initialPositionInfo[1].baseBalance;
 
           await subject();
 
-          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           const finalVETHBalance = finalPositionInfo[0].baseBalance;
           const finalVBTCBalance = finalPositionInfo[1].baseBalance;
 
@@ -1885,7 +1885,7 @@ describe("PerpV2LeverageModule", () => {
       let baseToken: Address;
 
       async function calculateUSDCTransferIn() {
-        const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+        const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
         const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
         const baseTradeQuantityNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -1927,9 +1927,9 @@ describe("PerpV2LeverageModule", () => {
         it("shorts expected amount of vBase", async () => {
           const totalSupply = await setToken.totalSupply();
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
           const baseTokenSoldNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -2137,7 +2137,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("test assumptions and preconditions should be correct", async () => {
-          let positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          let positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           let collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const initialLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -2155,7 +2155,7 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const finalLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -2181,9 +2181,9 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, await setToken.totalSupply());
           const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -2272,7 +2272,7 @@ describe("PerpV2LeverageModule", () => {
       let baseToken: Address;
 
       async function calculateUSDCTransferOut() {
-        const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+        const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
         const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
         const baseTradeQuantityNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -2309,9 +2309,9 @@ describe("PerpV2LeverageModule", () => {
         it("sells expected amount of vBase", async () => {
           const totalSupply = await setToken.totalSupply();
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
           const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -2516,7 +2516,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("test assumptions and preconditions should be correct", async () => {
-          let positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          let positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           let collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const initialLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -2534,7 +2534,7 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const finalLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -2560,9 +2560,9 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, await setToken.totalSupply());
           const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -2627,7 +2627,7 @@ describe("PerpV2LeverageModule", () => {
     describe("when long, multiple positions", async () => {
       async function calculateUSDCTransferOut() {
         const totalSupply = await setToken.totalSupply();
-        const positionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+        const positionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
         const vETHPositionInfo = positionInfo[0];
@@ -2687,14 +2687,14 @@ describe("PerpV2LeverageModule", () => {
 
         it("sells expected amount of vETH, vBTC", async () => {
           const totalSupply = await setToken.totalSupply();
-          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
 
           const initialVETHBalance = initialPositionInfo[0].baseBalance;
           const initialVBTCBalance = initialPositionInfo[1].baseBalance;
 
           await subject();
 
-          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           const finalVETHBalance = finalPositionInfo[0].baseBalance;
           const finalVBTCBalance = finalPositionInfo[1].baseBalance;
 
@@ -2738,14 +2738,14 @@ describe("PerpV2LeverageModule", () => {
 
         it("buys expected amount of vETH, vBTC", async () => {
           const totalSupply = await setToken.totalSupply();
-          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const initialPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
 
           const initialVETHBalance = initialPositionInfo[0].baseBalance;
           const initialVBTCBalance = initialPositionInfo[1].baseBalance;
 
           await subject();
 
-          const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+          const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           const finalVETHBalance = finalPositionInfo[0].baseBalance;
           const finalVBTCBalance = finalPositionInfo[1].baseBalance;
 
@@ -2880,7 +2880,7 @@ describe("PerpV2LeverageModule", () => {
       let baseToken: Address;
 
       async function calculateUSDCTransferOut() {
-        const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+        const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
         const collateralPositionUnit = preciseDiv(collateralBalance, await setToken.totalSupply());
@@ -2918,9 +2918,9 @@ describe("PerpV2LeverageModule", () => {
         it("buys expected amount of vBase", async () => {
           const totalSupply = await setToken.totalSupply();
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
           const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -3125,7 +3125,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("test assumptions and preconditions should be correct", async () => {
-          let positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          let positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           let collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const initialLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -3143,7 +3143,7 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+          positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
           collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
           const finalLeverage = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo, collateralBalance);
@@ -3169,9 +3169,9 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, await setToken.totalSupply());
           const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -3803,7 +3803,7 @@ describe("PerpV2LeverageModule", () => {
       let baseToken: Address;
 
       async function calculateUSDCTransferIn() {
-        const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+        const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
         const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
         const baseTradeQuantityNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -3837,9 +3837,9 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("does *not* change the vBase balance", async () => {
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           expect(initialBaseBalance).eq(finalBaseBalance);
         });
@@ -3945,7 +3945,7 @@ describe("PerpV2LeverageModule", () => {
       let baseToken: Address;
 
       async function calculateUSDCTransferOut() {
-        const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+        const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
         const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
         const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
         const baseTradeQuantityNotional = preciseMul(basePositionUnit, subjectSetQuantity);
@@ -3980,9 +3980,9 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should *not* alter the vBase balance", async () => {
-          const initialBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0].baseBalance;
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           expect(initialBaseBalance).eq(finalBaseBalance);
         });
@@ -4055,7 +4055,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getPositionInfo", () => {
+  describe("#getPositionNotionalInfo", () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
 
@@ -4063,8 +4063,6 @@ describe("PerpV2LeverageModule", () => {
     let expectedVBTCToken: Address;
     let expectedVETHTradeQuantityUnits: BigNumber;
     let expectedVBTCTradeQuantityUnits: BigNumber;
-    let expectedVETHQuoteReceiveQuantityUnits: BigNumber;
-    let expectedVBTCQuoteReceiveQuantityUnits: BigNumber;
     let expectedDepositQuantity: BigNumber;
     let expectedVETHDeltaQuote: BigNumber;
     let expectedVBTCDeltaQuote: BigNumber;
@@ -4079,8 +4077,6 @@ describe("PerpV2LeverageModule", () => {
       expectedVBTCToken = vBTC.address;
       expectedVETHTradeQuantityUnits = ether(1);
       expectedVBTCTradeQuantityUnits = ether(1);
-      expectedVETHQuoteReceiveQuantityUnits = ether(10.15);
-      expectedVBTCQuoteReceiveQuantityUnits = ether(50.575);
 
       ({ deltaQuote: expectedVETHDeltaQuote } = await perpSetup.getSwapQuote(
         expectedVETHToken,
@@ -4094,23 +4090,26 @@ describe("PerpV2LeverageModule", () => {
         true
       ));
 
+      const vETHQuoteReceiveQuantityUnits = ether(10.15);
+      const vBTCQuoteReceiveQuantityUnits = ether(50.575);
+
       await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVETHToken,
         expectedVETHTradeQuantityUnits,
-        expectedVETHQuoteReceiveQuantityUnits
+        vETHQuoteReceiveQuantityUnits
       );
 
       await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVBTCToken,
         expectedVBTCTradeQuantityUnits,
-        expectedVBTCQuoteReceiveQuantityUnits
+        vBTCQuoteReceiveQuantityUnits
       );
     });
 
     async function subject(): Promise<any> {
-      return perpLeverageModule.getPositionInfo(subjectSetToken);
+      return perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
     }
 
     it("should return info for multiple positions", async () => {
@@ -4123,6 +4122,73 @@ describe("PerpV2LeverageModule", () => {
       expect(positionInfo[1].baseBalance).eq(expectedVBTCTradeQuantityUnits);
       expect(positionInfo[0].quoteBalance).eq(expectedVETHDeltaQuote.mul(-1));
       expect(positionInfo[1].quoteBalance).eq(expectedVBTCDeltaQuote.mul(-1));
+    });
+  });
+
+  describe("#getPositionUnitInfo", () => {
+    let setToken: SetToken;
+    let issueQuantity: BigNumber;
+    let subjectSetToken: Address;
+
+    let expectedVETHToken: Address;
+    let expectedVBTCToken: Address;
+    let expectedVETHTradeQuantityUnits: BigNumber;
+    let expectedVBTCTradeQuantityUnits: BigNumber;
+    let expectedDepositQuantity: BigNumber;
+    let expectedVETHQuoteUnits: BigNumber;
+    let expectedVBTCQuoteUnits: BigNumber;
+
+    beforeEach(async () => {
+      issueQuantity = ether(2);
+      expectedDepositQuantity = usdcUnits(100);
+
+      // Issue 2 sets
+      setToken = await issueSetsAndDepositToPerp(expectedDepositQuantity, true, issueQuantity);
+
+      subjectSetToken = setToken.address;
+      expectedVETHToken = vETH.address;
+      expectedVBTCToken = vBTC.address;
+      expectedVETHTradeQuantityUnits = preciseDiv(ether(1), issueQuantity);
+      expectedVBTCTradeQuantityUnits = preciseDiv(ether(1), issueQuantity);
+
+      const vETHQuoteReceiveQuantityUnits = preciseDiv(ether(10.15), issueQuantity);
+      const vBTCQuoteReceiveQuantityUnits = preciseDiv(ether(50.575), issueQuantity);
+
+      await perpLeverageModule.connect(owner.wallet).trade(
+        subjectSetToken,
+        expectedVETHToken,
+        expectedVETHTradeQuantityUnits,
+        vETHQuoteReceiveQuantityUnits
+      );
+
+      await perpLeverageModule.connect(owner.wallet).trade(
+        subjectSetToken,
+        expectedVBTCToken,
+        expectedVBTCTradeQuantityUnits,
+        vBTCQuoteReceiveQuantityUnits
+      );
+
+      const vETHQuoteBalance = await perpSetup.accountBalance.getQuote(subjectSetToken, expectedVETHToken);
+      const vBTCQuoteBalance = await perpSetup.accountBalance.getQuote(subjectSetToken, expectedVBTCToken);
+
+      expectedVETHQuoteUnits = preciseDiv(vETHQuoteBalance, issueQuantity);
+      expectedVBTCQuoteUnits = preciseDiv(vBTCQuoteBalance, issueQuantity);
+    });
+
+    async function subject(): Promise<any> {
+      return perpLeverageModule.getPositionUnitInfo(subjectSetToken);
+    }
+
+    it("should return info for multiple positions", async () => {
+      const positionInfo = await subject();
+
+      expect(positionInfo.length).eq(2);
+      expect(positionInfo[0].baseToken).eq(expectedVETHToken);
+      expect(positionInfo[1].baseToken).eq(expectedVBTCToken);
+      expect(positionInfo[0].baseUnit).eq(expectedVETHTradeQuantityUnits);
+      expect(positionInfo[1].baseUnit).eq(expectedVBTCTradeQuantityUnits);
+      expect(positionInfo[0].quoteUnit).eq(expectedVETHQuoteUnits);
+      expect(positionInfo[1].quoteUnit).eq(expectedVBTCQuoteUnits);
     });
   });
 

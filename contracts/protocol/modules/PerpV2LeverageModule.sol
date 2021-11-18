@@ -70,10 +70,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createAndValidateActionInfoNotional` for details)
     }
 
-    struct PositionInfo {
+    struct PositionNotionalInfo {
         address baseToken;              // Virtual token minted by the Perp protocol
-        int256 baseBalance;             // Position size in 10**18 decimals. When negative, position is short
-        int256 quoteBalance;            // vUSDC "debt" minted to open position. When positive, position is short
+        int256 baseBalance;             // Base position notional quantity in 10**18 decimals. When negative, position is short
+        int256 quoteBalance;            // vUSDC "debt" notional quantity minted to open position. When positive, position is short
+    }
+
+    struct PositionUnitInfo {
+        address baseToken;              // Virtual token minted by the Perp protocol
+        int256 baseUnit;                // Base position unit. When negative, position is short
+        int256 quoteUnit;               // vUSDC "debt" position unit. When positive, position is short
     }
 
     struct AccountInfo {
@@ -564,22 +570,21 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Gets Perp positions open for SetToken. Returns a PositionInfo array representing all positions
-     * open for the SetToken
+     * @dev Returns a PositionUnitNotionalInfo array representing all positions open for the SetToken.
      *
      * @param _setToken         Instance of SetToken
      *
-     * @return PositionInfo array, in which each element has properties for:
+     * @return PositionUnitInfo array, in which each element has properties:
      *
-     *         + baseToken address,
-     *         + baseToken position size (10**18)
-     *         + USDC quote asset position size (10**18).
+     *         + baseToken: address,
+     *         + baseBalance:  baseToken balance as notional quantity (10**18)
+     *         + quoteBalance: USDC quote asset balance as notional quantity (10**18)
      */
-    function getPositionInfo(ISetToken _setToken) public view returns (PositionInfo[] memory) {
-        PositionInfo[] memory positionInfo = new PositionInfo[](positions[_setToken].length);
+    function getPositionNotionalInfo(ISetToken _setToken) public view returns (PositionNotionalInfo[] memory) {
+        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positions[_setToken].length);
 
         for(uint i = 0; i < positions[_setToken].length; i++){
-            positionInfo[i] = PositionInfo({
+            positionInfo[i] = PositionNotionalInfo({
                 baseToken: positions[_setToken][i],
                 baseBalance: perpAccountBalance.getBase(
                     address(_setToken),
@@ -594,6 +599,41 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         return positionInfo;
     }
+
+    /**
+     * @dev Returns a PositionUnitInfo array representing all positions open for the SetToken.
+     *
+     * @param _setToken         Instance of SetToken
+     *
+     * @return PositionUnitInfo array, in which each element has properties:
+     *
+     *         + baseToken: address,
+     *         + baseUnit:  baseToken balance as position unit (10**18)
+     *         + quoteUnit: USDC quote asset balance as position unit (10**18)
+     */
+    function getPositionUnitInfo(ISetToken _setToken) public view returns (PositionUnitInfo[] memory) {
+        int256 totalSupply = _setToken.totalSupply().toInt256();
+        PositionUnitInfo[] memory positionInfo = new PositionUnitInfo[](positions[_setToken].length);
+
+        for(uint i = 0; i < positions[_setToken].length; i++){
+            positionInfo[i] = PositionUnitInfo({
+                baseToken: positions[_setToken][i],
+
+                baseUnit: perpAccountBalance.getBase(
+                    address(_setToken),
+                    positions[_setToken][i]
+                ).preciseDiv(totalSupply),
+
+                quoteUnit: perpAccountBalance.getQuote(
+                    address(_setToken),
+                    positions[_setToken][i]
+                ).preciseDiv(totalSupply)
+            });
+        }
+
+        return positionInfo;
+    }
+
 
     /**
      * @dev Gets Perp account info for SetToken. Returns an AccountInfo struct containing account wide
@@ -649,7 +689,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         int256 usdcAmountIn = 0;
 
-        PositionInfo[] memory positionInfo = getPositionInfo(_setToken);
+        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
 
         int256 owedRealizedPnlDiscountQuantity = _calculateOwedRealizedPnlDiscount(
             _setToken,
@@ -717,7 +757,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         int256 realizedPnl = 0;
 
-        PositionInfo[] memory positionInfo = getPositionInfo(_setToken);
+        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
 
         // Calculate already accrued PnL from non-issuance/redemption sources (ex: levering)
@@ -1010,7 +1050,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      */
     function _getCurrentLeverageAndSpotPrices(
         ISetToken _setToken,
-        PositionInfo[] memory _positionInfo
+        PositionNotionalInfo[] memory _positionInfo
     )
         internal
         view
@@ -1052,7 +1092,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function _getReducedOpenNotional(
         int256 _setTokenQuantity,
         int256 _basePositionUnit,
-        PositionInfo memory _positionInfo
+        PositionNotionalInfo memory _positionInfo
     )
         internal
         pure
@@ -1122,7 +1162,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * SetToken
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
-        PositionInfo[] memory positionInfo = getPositionInfo(_setToken);
+        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
         int256 totalPositionValue = 0;
 
