@@ -3834,8 +3834,10 @@ describe("PerpV2LeverageModule", () => {
         });
 
         describe("when the set token doesn't contain the collateral token", async () => {
+          let otherSetToken: SetToken;
+
           beforeEach(async () => {
-            const otherSetToken = await setup.createSetToken(
+            otherSetToken = await setup.createSetToken(
               [setup.wbtc.address],
               [bitcoin(10)],
               [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
@@ -3847,8 +3849,25 @@ describe("PerpV2LeverageModule", () => {
             subjectSetToken = otherSetToken.address;
           });
 
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Perp collateral token is not component");
+          it("should return empty arrays", async () => {
+            const components = await otherSetToken.getComponents();
+            const adjustments = await subject();
+
+            const expectedAdjustmentsLength = 2;
+            const expectedAdjustmentValue = ZERO;
+            const expectedAdjustmentsArrayLength = components.length;
+
+            expect(adjustments.length).eq(expectedAdjustmentsLength);
+            expect(adjustments[0].length).eq(expectedAdjustmentsArrayLength);
+            expect(adjustments[1].length).eq(expectedAdjustmentsArrayLength);
+
+            for (const adjustment of adjustments[0]) {
+              expect(adjustment).eq(expectedAdjustmentValue);
+            }
+
+            for (const adjustment of adjustments[1]) {
+              expect(adjustment).eq(expectedAdjustmentValue);
+            }
           });
         });
       });
@@ -3958,8 +3977,10 @@ describe("PerpV2LeverageModule", () => {
         });
 
         describe("when the set token doesn't contain the collateral token", async () => {
+          let otherSetToken: SetToken;
+
           beforeEach(async () => {
-            const otherSetToken = await setup.createSetToken(
+            otherSetToken = await setup.createSetToken(
               [setup.wbtc.address],
               [bitcoin(10)],
               [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
@@ -3971,8 +3992,25 @@ describe("PerpV2LeverageModule", () => {
             subjectSetToken = otherSetToken.address;
           });
 
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Perp collateral token is not component");
+          it("should return empty arrays", async () => {
+            const components = await otherSetToken.getComponents();
+            const adjustments = await subject();
+
+            const expectedAdjustmentsLength = 2;
+            const expectedAdjustmentValue = ZERO;
+            const expectedAdjustmentsArrayLength = components.length;
+
+            expect(adjustments.length).eq(expectedAdjustmentsLength);
+            expect(adjustments[0].length).eq(expectedAdjustmentsArrayLength);
+            expect(adjustments[1].length).eq(expectedAdjustmentsArrayLength);
+
+            for (const adjustment of adjustments[0]) {
+              expect(adjustment).eq(expectedAdjustmentValue);
+            }
+
+            for (const adjustment of adjustments[1]) {
+              expect(adjustment).eq(expectedAdjustmentValue);
+            }
           });
         });
       });

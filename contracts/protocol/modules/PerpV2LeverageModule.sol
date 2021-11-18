@@ -514,25 +514,21 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 _setTokenQuantity
     )
         external
-        returns (int256[] memory, int256[] memory _)
+        returns (int256[] memory, int256[] memory)
     {
-        address[] memory components = _setToken.getComponents();
-        int256[] memory equityAdjustments = new int256[](components.length);
-        int256[] memory debtAdjustments = new int256[](components.length);
+        (
+            int256 newExternalPositionUnit,
+            uint256 collateralComponentIndex,
+            bool hasCollateralToken
+        ) = _executeModuleIssuanceHookSimulation(_setToken, _setTokenQuantity);
 
-        (uint256 index, bool found) = components.indexOf(address(collateralToken));
-
-        require(found, "Perp collateral token is not component");
-
-        int256 currentExternalPositionUnit = _setToken.getExternalPositionRealUnit(
-            address(collateralToken),
-            address(this)
+        return _formatAdjustments(
+            _setToken,
+            _setToken.getExternalPositionRealUnit(address(collateralToken), address(this)),
+            newExternalPositionUnit,
+            collateralComponentIndex,
+            hasCollateralToken
         );
-
-        int256 newExternalPositionUnit = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, true);
-        equityAdjustments[index] = newExternalPositionUnit.sub(currentExternalPositionUnit);
-
-        return (equityAdjustments, debtAdjustments);
     }
 
     /**
@@ -551,23 +547,19 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         external
         returns (int256[] memory, int256[] memory _)
     {
-        address[] memory components = _setToken.getComponents();
-        int256[] memory equityAdjustments = new int256[](components.length);
-        int256[] memory debtAdjustments = new int256[](components.length);
+        (
+            int256 newExternalPositionUnit,
+            uint256 collateralComponentIndex,
+            bool hasCollateralToken
+        ) = _executeModuleRedemptionHookSimulation(_setToken, _setTokenQuantity);
 
-        (uint256 index, bool found) = components.indexOf(address(collateralToken));
-
-        require(found, "Perp collateral token is not component");
-
-        int256 currentExternalPositionUnit = _setToken.getExternalPositionRealUnit(
-            address(collateralToken),
-            address(this)
+        return _formatAdjustments(
+            _setToken,
+            _setToken.getExternalPositionRealUnit(address(collateralToken), address(this)),
+            newExternalPositionUnit,
+            collateralComponentIndex,
+            hasCollateralToken
         );
-
-        int256 newExternalPositionUnit = _executeModuleRedemptionHook(_setToken, _setTokenQuantity, true);
-        equityAdjustments[index] = newExternalPositionUnit.sub(currentExternalPositionUnit);
-
-        return (equityAdjustments, debtAdjustments);
     }
 
     /**
@@ -1094,12 +1086,81 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
     }
 
-
     // @dev Retrieves collateral balance as an an 18 decimal vUSDC quote value
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         int256 balance = perpVault.getBalance(address(_setToken));
         uint8 decimals = ERC20(address(collateralToken)).decimals();
         return _parseCollateralToken(balance, decimals);
+    }
+
+    /**
+     * @dev Executes moduleIssuanceHook as a simulation, checking first that the SetToken contains
+     * the collateral token. When successful, returns externalPositionUnit as calculated from the issuance
+     * trade outcome, index of collateral token on the components array, and a boolean `true` flag indicating
+     * collateral token check was ok. When collateral token is missing returns 0, 0, and false.
+     */
+    function _executeModuleIssuanceHookSimulation(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        internal
+        returns (int256, uint256, bool)
+    {
+        (uint256 index, bool hasCollateralToken) = _setToken.getComponents().indexOf(address(collateralToken));
+
+        return (hasCollateralToken)
+            ? (_executeModuleIssuanceHook(_setToken, _setTokenQuantity, true), index, hasCollateralToken)
+            : (0, 0, hasCollateralToken);
+    }
+
+    /**
+     * @dev Executes moduleRedemptionHook as a simulation, checking first that the SetToken contains
+     * the collateral token. When successful, returns externalPositionUnit as calculated from the redemption
+     * trade outcome, index of collateral token on the components array, and a boolean `true` flag indicating
+     * collateral token check was ok. When collateral token is missing returns 0, 0, and false.
+     */
+    function _executeModuleRedemptionHookSimulation(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity
+    )
+        internal
+        returns (int256, uint256, bool)
+    {
+        (uint256 index, bool hasCollateralToken) = _setToken.getComponents().indexOf(address(collateralToken));
+
+        return (hasCollateralToken)
+            ? (_executeModuleRedemptionHook(_setToken, _setTokenQuantity, true), index, hasCollateralToken)
+            : (0, 0, hasCollateralToken);
+    }
+
+    /**
+     * @dev Returns issuance or redemption adjustments in the format expected by `SlippageIssuanceModule`.
+     * The last recorded externalPositionUnit (current) is subtracted from a dynamically generated
+     * externalPositionUnit (new) and set in an `equityAdjustments` array which is the same length as
+     * the SetToken's components array, at the same index the collateral token occupies in the components
+     * array. All other values are left unset (0). An empty-value components length debtAdjustments
+     * array is also returned.
+     */
+    function _formatAdjustments(
+        ISetToken _setToken,
+        int256 _currentExternalPositionUnit,
+        int256 _newExternalPositionUnit,
+        uint256 _index,
+        bool hasCollateralToken
+    )
+        internal
+        view
+        returns (int256[] memory, int256[] memory)
+    {
+        address[] memory components = _setToken.getComponents();
+        int256[] memory equityAdjustments = new int256[](components.length);
+        int256[] memory debtAdjustments = new int256[](components.length);
+
+        if (hasCollateralToken) {
+            equityAdjustments[_index] = _newExternalPositionUnit.sub(_currentExternalPositionUnit);
+        }
+
+        return (equityAdjustments, debtAdjustments);
     }
 
     function _formatSqrtPriceX96ToPriceX96(uint160 sqrtPriceX96) internal pure returns (uint256) {
