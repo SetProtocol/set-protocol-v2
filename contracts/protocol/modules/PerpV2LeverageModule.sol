@@ -92,29 +92,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _deltaBase        Change in baseToken position size resulting from trade
      * @param _deltaQuote       Change in vUSDC position size resulting from trade
      * @param _protocolFee      Quantity in collateral decimals sent to fee recipient during lever trade
+     * @param _isBuy            True when baseToken is being bought, false when being sold
      */
-    event LeverageIncreased(
+    event PerpTrade(
         ISetToken indexed _setToken,
         address indexed _baseToken,
         uint256 _deltaBase,
         uint256 _deltaQuote,
-        uint256 _protocolFee
-    );
-
-    /**
-     * @dev Emitted on delever
-     * @param _setToken         Instance of SetToken
-     * @param _baseToken        Virtual token minted by the Perp protocol
-     * @param _deltaBase        Change in baseToken position size resulting from trade
-     * @param _deltaQuote       Change in vUSDC position size resulting from trade
-     * @param _protocolFee      Quantity in collateral decimals sent to fee recipient during lever trade
-     */
-    event LeverageDecreased(
-        ISetToken indexed _setToken,
-        address indexed _baseToken,
-        uint256 _deltaBase,
-        uint256 _deltaQuote,
-        uint256 _protocolFee
+        uint256 _protocolFee,
+        bool _isBuy
     );
 
     /**
@@ -215,13 +201,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev MANAGER ONLY: Raises leverage ratio for a virtual token by increasing the magnitude of its position,
      * Providing a positive value for `_baseQuantityUnits` buys vToken on UniswapV3 via Perp's ClearingHouse,
-     * Providing a negative value (when increasing leverage for an inverse position) sells the token.
-     * `_receiveQuoteQuantityUnits` defines a min-receive-like slippage bound for the amount of vUSDC quote
-     * asset the trade will either pay or receive as a result of the action.
+     * Providing a negative value sells the token. `_receiveQuoteQuantityUnits` defines a min-receive-like slippage
+     * bound for the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
      *
      * NOTE: This method doesn't update the externalPositionUnit because the EPU for this module is a function of
      * UniswapV3 virtual token market prices and needs to be generated on the fly to be meaningful.
      *
+     * As a user when levering, e.g increasing the magnitude of your position, you'd trade as below
      * | ----------------------------------------------------------------------------------------------- |
      * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
      * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
@@ -229,12 +215,20 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * | Short | Sell    | get most amt. of vQuote   | lower bound of output quote | negative            |
      * | ----------------------------------------------------------------------------------------------- |
      *
+     * As a user when delevering, e.g decreasing the magnitude of your position, you'd trade as below
+     * | ----------------------------------------------------------------------------------------------- |
+     * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
+     * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
+     * | Long  | Sell    | get most amt. of vQuote   | upper bound of input quote  | negative            |
+     * | Short | Buy     | pay least amt. of vQuote  | lower bound of output quote | positive            |
+     * | ----------------------------------------------------------------------------------------------- |
+     *
      * @param _setToken                     Instance of the SetToken
      * @param _baseToken                    Address virtual token being traded
      * @param _baseQuantityUnits            Quantity of virtual token to trade in position units
      * @param _receiveQuoteQuantityUnits    Max/min of vQuote asset to pay/receive when buying or selling
      */
-    function lever(
+    function trade(
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
@@ -260,71 +254,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         _updatePositionList(_setToken, _baseToken);
 
-        emit LeverageIncreased(
+        emit PerpTrade(
             _setToken,
             _baseToken,
             deltaBase,
             deltaQuote,
-            protocolFee
-        );
-    }
-
-
-    /**
-     * @dev MANAGER ONLY: Lowers leverage ratio for a virtual token by decreasing the magnitude of its position,
-     * Providing a positive value for `_baseQuantityUnits` sells vToken on UniswapV3 via Perp's ClearingHouse,
-     * Providing a negative value (when decreasing leverage for an inverse position) buys the token, reducing
-     * the size of its negative balance. `_receiveQuoteQuantityUnits` defines a min-receive-like slippage bound for
-     * the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
-     *
-     * NOTE: This method doesn't update the externalPositionUnit because the EPU for this module is a function of
-     * UniswapV3 virtual token market prices and needs to be generated on the fly to be meaningful.
-     *
-     * | ----------------------------------------------------------------------------------------------- |
-     * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
-     * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
-     * | Long  | Sell    | get most amt. of vQuote   | lower bound of output quote | positive            |
-     * | Short | Buy     | pay least amt. of vQuote  | upper bound of input quote  | negative            |
-     * | ----------------------------------------------------------------------------------------------- |
-     *
-     * @param _setToken                     Instance of the SetToken
-     * @param _baseToken                    Address virtual token being traded
-     * @param _baseQuantityUnits            Quantity of virtual token to trade in position units
-     * @param _receiveQuoteQuantityUnits    Max/min of vQuote asset to pay/receive when buying or selling
-     */
-
-    function delever(
-        ISetToken _setToken,
-        address _baseToken,
-        int256 _baseQuantityUnits,
-        uint256 _receiveQuoteQuantityUnits
-    )
-        external
-        nonReentrant
-        onlyManagerAndValidSet(_setToken)
-    {
-        ActionInfo memory actionInfo = _createAndValidateActionInfo(
-            _setToken,
-            _baseToken,
-            _baseQuantityUnits.mul(-1),
-            _receiveQuoteQuantityUnits,
-            true
-        );
-
-        (uint256 deltaBase, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, false);
-
-        // TODO: Double-check deltas? Can we trust oppositeBoundAmount?
-
-        uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
-
-        _updatePositionList(_setToken, _baseToken);
-
-        emit LeverageDecreased(
-            _setToken,
-            _baseToken,
-            deltaBase,
-            deltaQuote,
-            protocolFee
+            protocolFee,
+            _baseQuantityUnits > 0
         );
     }
 

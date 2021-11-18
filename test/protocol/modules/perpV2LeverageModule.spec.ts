@@ -152,7 +152,7 @@ describe("PerpV2LeverageModule", () => {
       totalSupply
     );
 
-    await perpLeverageModule.connect(owner.wallet).lever(
+    await perpLeverageModule.connect(owner.wallet).trade(
       setToken.address,
       baseToken,
       baseTradeQuantityUnit,
@@ -422,7 +422,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#lever", () => {
+  describe("#trade", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
     let depositQuantity: BigNumber;
@@ -448,7 +448,7 @@ describe("PerpV2LeverageModule", () => {
     beforeEach(initializeSubjectVariables);
 
     async function subject(): Promise<any> {
-      return await perpLeverageModule.connect(subjectCaller.wallet).lever(
+      return await perpLeverageModule.connect(subjectCaller.wallet).trade(
         subjectSetToken,
         subjectBaseToken,
         subjectBaseTradeQuantityUnits,
@@ -465,31 +465,41 @@ describe("PerpV2LeverageModule", () => {
             subjectQuoteReceiveQuantityUnits = ether(10.15);
           });
 
-          it("should open a position", async () => {
+          it("should open the expected position", async () => {
+            const totalSupply = await setToken.totalSupply();
+
+            const expectedBaseBalance = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+            const expectedQuoteBalance =
+              (await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, true)).deltaQuote;
+
             const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
             await subject();
             const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
 
             expect(initialPositionInfo.length).to.eq(0);
-            expect(finalPositionInfo.baseBalance).eq(subjectBaseTradeQuantityUnits);
+            expect(finalPositionInfo.baseBalance).gt(0);
             expect(finalPositionInfo.quoteBalance).lt(0);
+            expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+            expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance.mul(-1));
             expect(finalPositionInfo.quoteBalance.mul(-1)).lt(subjectQuoteReceiveQuantityUnits);
           });
 
-          it("should emit the correct LeverageIncreased event", async () => {
+          it("should emit the correct PerpTrade event", async () => {
             const {
               deltaBase: expectedDeltaBase,
               deltaQuote: expectedDeltaQuote
             } = await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, true);
 
             const expectedProtocolFee = ether(0);
+            const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "LeverageIncreased").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
               expectedDeltaQuote,
-              expectedProtocolFee
+              expectedProtocolFee,
+              expectedIsBuy
             );
           });
         });
@@ -501,20 +511,27 @@ describe("PerpV2LeverageModule", () => {
             subjectQuoteReceiveQuantityUnits = ether(20.3);
           });
 
-          it("should open a position", async () => {
-            const spotPrice = await perpSetup.getSpotPrice(subjectBaseToken);
-            const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+          it("should open expected position", async () => {
+            const totalSupply = await setToken.totalSupply();
+            const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+            const quoteBalanceMin = preciseMul(subjectQuoteReceiveQuantityUnits, totalSupply);
+
+            const expectedQuoteBalance =
+              (await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, true)).deltaQuote;
 
             await subject();
 
             const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-            const quoteBalanceMin = preciseMul(subjectBaseTradeQuantityUnits,spotPrice);
+            const expectedBaseBalance = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
+            // Check that a levered trade happened
             expect(toUSDCDecimals(collateralBalance)).to.eq(depositQuantity);
             expect(toUSDCDecimals(quoteBalanceMin)).to.be.gt(depositQuantity);
-            expect(positionInfo.baseBalance).to.eq(subjectBaseTradeQuantityUnits);
-            expect(positionInfo.quoteBalance.mul(-1)).to.be.gt(depositQuantity);
-            expect(positionInfo.quoteBalance.mul(-1)).to.be.gt(quoteBalanceMin);
+
+            // Check balances
+            expect(positionInfo.baseBalance).to.eq(expectedBaseBalance);
+            expect(positionInfo.quoteBalance.mul(-1)).eq(expectedQuoteBalance);
+            expect(positionInfo.quoteBalance.mul(-1)).to.be.lt(quoteBalanceMin);
           });
         });
 
@@ -527,20 +544,13 @@ describe("PerpV2LeverageModule", () => {
           });
 
           it("should open position for the expected amount", async () => {
-            const spotPrice = await perpSetup.getSpotPrice(subjectBaseToken);
+            const totalSupply = await setToken.totalSupply();
+            const expectedBaseBalance = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
             await subject();
+
             const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-
-            const totalSupply = await setToken.totalSupply();
-            const positionValueUnits = preciseMul(spotPrice, subjectBaseTradeQuantityUnits);
-
-            const expectedBaseBalance = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
-            const expectedQuoteBalanceMin = preciseMul(subjectBaseTradeQuantityUnits, positionValueUnits);
-
-            expect(totalSupply).to.be.gt(1);
             expect(positionInfo.baseBalance).to.eq(expectedBaseBalance);
-            expect(positionInfo.quoteBalance.mul(-1)).to.be.gt(expectedQuoteBalanceMin);
           });
         });
 
@@ -554,6 +564,93 @@ describe("PerpV2LeverageModule", () => {
           it("should revert", async () => {
             // ClearingHouse: too much quote received when long
             await expect(subject()).to.be.revertedWith("CH_TMRL");
+          });
+        });
+
+        describe("when an existing position is long", async () => {
+          beforeEach(async () => {
+            subjectBaseTradeQuantityUnits = ether(1);
+            subjectQuoteReceiveQuantityUnits = ether(10.15);
+
+            await perpLeverageModule.connect(subjectCaller.wallet).trade(
+              subjectSetToken,
+              subjectBaseToken,
+              subjectBaseTradeQuantityUnits,
+              subjectQuoteReceiveQuantityUnits
+            );
+          });
+
+          it("long trade should increase the position size", async () => {
+            const totalSupply = await setToken.totalSupply();
+            const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+            const expectedDeltaBase = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+            const expectedBaseBalance = initialPositionInfo[0].baseBalance.add(expectedDeltaBase);
+
+            await subject();
+
+            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+
+            expect(initialPositionInfo.length).to.eq(1);
+            expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+          });
+        });
+
+        describe("when an existing position is short", async () => {
+          beforeEach(async () => {
+            // Short ~10 USDC vETH
+            await perpLeverageModule.connect(subjectCaller.wallet).trade(
+              subjectSetToken,
+              subjectBaseToken,
+              ether(-1),
+              ether(9.85)
+            );
+
+            subjectBaseTradeQuantityUnits = ether(.5);
+            subjectQuoteReceiveQuantityUnits = ether(5.15);
+          });
+
+          it("long trade should reduce the position", async () => {
+            const totalSupply = await setToken.totalSupply();
+            const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+
+            const { deltaBase } = await perpSetup.getSwapQuote(
+              subjectBaseToken,
+              baseTradeQuantityNotional,
+              false
+            );
+
+            const initialPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+
+            await subject();
+
+            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
+            const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
+
+            const expectedBaseBalance = initialPositionInfo.baseBalance.add(deltaBase);
+            const expectedQuoteBalance = initialPositionInfo.quoteBalance.add(reducedOpenNotional);
+
+            expect(finalPositionInfo.baseBalance).gt(initialPositionInfo.baseBalance);
+            expect(finalPositionInfo.quoteBalance).lt(initialPositionInfo.quoteBalance);
+
+            expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+            expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
+          });
+
+          describe("when the position is zeroed out", async () => {
+            beforeEach(async () => {
+              subjectBaseTradeQuantityUnits = ether(1);
+              subjectQuoteReceiveQuantityUnits = ether(10.15);
+            });
+
+            it("should remove the position from the positions array", async () => {
+              const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+              await subject();
+              const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+
+              expect(initialPositionInfo.length).eq(1);
+              expect(finalPositionInfo.length).eq(0);
+            });
           });
         });
 
@@ -586,9 +683,9 @@ describe("PerpV2LeverageModule", () => {
               collateralBalance: finalCollateralBalance
             } = await perpLeverageModule.getAccountInfo(subjectSetToken);
 
-            // Levering up from 0, delta quote is the new quote balance
+            // Levering up from 0, the absolute value of position quote balance is size of our trade
             const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-            const feeAmountInQuoteDecimals = preciseMul(quoteBalance.mul(-1), feePercentage);
+            const feeAmountInQuoteDecimals = preciseMul(quoteBalance.abs(), feePercentage);
 
             const expectedCollateralBalance = initialCollateralBalance.sub(feeAmountInQuoteDecimals);
             expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(toUSDCDecimals(expectedCollateralBalance), 1);
@@ -617,20 +714,22 @@ describe("PerpV2LeverageModule", () => {
             expect(initialUSDCDefaultPositionUnit).to.eq(finalUSDCDefaultPositionUnit);
           });
 
-          it("should emit the correct LeverageIncreased event", async () => {
+          it("should emit the correct PerpTrade event", async () => {
             const {
               deltaBase: expectedDeltaBase,
               deltaQuote: expectedDeltaQuote
             } = await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, true);
 
             const expectedProtocolFee = toUSDCDecimals(preciseMul(expectedDeltaQuote, feePercentage));
+            const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "LeverageIncreased").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
               expectedDeltaQuote,
-              expectedProtocolFee
+              expectedProtocolFee,
+              expectedIsBuy
             );
           });
         });
@@ -644,35 +743,6 @@ describe("PerpV2LeverageModule", () => {
             await expect(subject()).to.be.revertedWith("Amount is 0");
           });
         });
-
-        describe("when the caller is not the SetToken manager", async () => {
-          beforeEach(async () => {
-            subjectCaller = await getRandomAccount();
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-          });
-        });
-
-        describe("when SetToken is not valid", async () => {
-          beforeEach(async () => {
-            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-              [perpSetup.usdc.address],
-              [usdcUnits(100)],
-              [perpLeverageModule.address],
-              owner.address
-            );
-
-            subjectSetToken = nonEnabledSetToken.address;
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-          });
-
-          afterEach(() => subjectSetToken = setToken.address);
-        });
       });
 
       describe("when short", () => {
@@ -682,19 +752,171 @@ describe("PerpV2LeverageModule", () => {
           subjectQuoteReceiveQuantityUnits = ether(9.85);
         });
 
-        it("should open a position", async () => {
-          const spotPrice = await perpSetup.getSpotPrice(subjectBaseToken);
+        it("should open the expected position", async () => {
+          const totalSupply = await setToken.totalSupply();
+          const expectedBaseBalance = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
+          const expectedQuoteBalance = (await perpSetup.getSwapQuote(
+            subjectBaseToken,
+            subjectBaseTradeQuantityUnits.mul(-1),
+            false
+          )).deltaQuote;
+
+          const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
           await subject();
+          const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
 
-          const positionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-          const quoteBalanceMax = preciseMul(subjectBaseTradeQuantityUnits,spotPrice).mul(-1);
-
-          expect(positionInfo.baseBalance).to.eq(subjectBaseTradeQuantityUnits);
-          expect(positionInfo.quoteBalance).to.be.lt(quoteBalanceMax);
+          expect(initialPositionInfo.length).to.eq(0);
+          expect(finalPositionInfo.baseBalance).lt(0);
+          expect(finalPositionInfo.quoteBalance).gt(0);
+          expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+          expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
+          expect(finalPositionInfo.quoteBalance).gt(subjectQuoteReceiveQuantityUnits);
         });
 
-        describe("when short and slippage is greater than allowed", async () => {
+        it("should emit the correct PerpTrade event", async () => {
+          const {
+            deltaBase: expectedDeltaBase,
+            deltaQuote: expectedDeltaQuote
+          } = await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits.mul(-1), false);
+
+          const expectedProtocolFee = ether(0);
+          const expectedIsBuy = false;
+
+          await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
+            subjectSetToken,
+            subjectBaseToken,
+            expectedDeltaBase,
+            expectedDeltaQuote,
+            expectedProtocolFee,
+            expectedIsBuy
+          );
+        });
+
+        describe("when an existing position is long", async () => {
+          beforeEach(async () => {
+            await perpLeverageModule.connect(subjectCaller.wallet).trade(
+              subjectSetToken,
+              subjectBaseToken,
+              ether(1),
+              ether(10.15)
+            );
+
+            // Partial close
+            subjectBaseTradeQuantityUnits = ether(-.5);
+            subjectQuoteReceiveQuantityUnits = ether(4.85);
+          });
+
+          it("short trade should reduce the position", async () => {
+            const totalSupply = await setToken.totalSupply();
+            const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+
+            const { deltaBase } = await perpSetup.getSwapQuote(
+              subjectBaseToken,
+              baseTradeQuantityNotional.mul(-1),
+              false
+            );
+
+            const initialPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+
+            await subject();
+
+            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
+            const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
+
+            const expectedBaseBalance = initialPositionInfo.baseBalance.sub(deltaBase);
+            const expectedQuoteBalance = initialPositionInfo.quoteBalance.add(reducedOpenNotional);
+
+            expect(finalPositionInfo.baseBalance).lt(initialPositionInfo.baseBalance);
+            expect(finalPositionInfo.quoteBalance).gt(initialPositionInfo.quoteBalance);
+
+            expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+            expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
+          });
+
+          describe("when the position is zeroed out", async () => {
+            beforeEach(async () => {
+              subjectBaseTradeQuantityUnits = ether(-1);
+              subjectQuoteReceiveQuantityUnits = ether(9.85);
+            });
+
+            it("should remove the position from the positions array", async () => {
+              const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+              await subject();
+              const finalPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+
+              expect(initialPositionInfo.length).eq(1);
+              expect(finalPositionInfo.length).eq(0);
+            });
+          });
+        });
+
+        describe("when an existing position is short", async () => {
+          beforeEach(async () => {
+            await perpLeverageModule.connect(subjectCaller.wallet).trade(
+              subjectSetToken,
+              subjectBaseToken,
+              ether(-1),
+              ether(9.85)
+            );
+          });
+
+          it("short trade should increase the position size", async () => {
+            const totalSupply = await setToken.totalSupply();
+            const initialPositionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
+            const expectedDeltaBase = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+            const expectedBaseBalance = initialPositionInfo[0].baseBalance.add(expectedDeltaBase);
+
+            await subject();
+
+            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+
+            expect(initialPositionInfo.length).to.eq(1);
+            expect(initialPositionInfo[0].baseBalance).gt(finalPositionInfo.baseBalance);
+            expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+          });
+        });
+
+        describe("when a protocol fee is charged", async () => {
+          let feePercentage: BigNumber;
+
+          cacheBeforeEach(async () => {
+            feePercentage = ether(0.05);
+            setup.controller = setup.controller.connect(owner.wallet);
+
+            await setup.controller.addFee(
+              perpLeverageModule.address,
+              ZERO,         // Fee type on trade function denoted as 0
+              feePercentage
+            );
+
+            // Short ~10 USDC of vETH
+            subjectBaseTradeQuantityUnits = ether(-1);
+            subjectQuoteReceiveQuantityUnits = ether(9.85);
+          });
+
+          it("should withdraw the expected collateral amount from the Perp vault", async () => {
+            const {
+              collateralBalance: initialCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+            await subject();
+
+            const {
+              collateralBalance: finalCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+            // Levering up from 0, the position quote balance is size of our trade
+            const { quoteBalance } = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
+            const feeAmountInQuoteDecimals = preciseMul(quoteBalance, feePercentage);
+
+            const expectedCollateralBalance = initialCollateralBalance.sub(feeAmountInQuoteDecimals);
+            expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(toUSDCDecimals(expectedCollateralBalance), 1);
+          });
+        });
+
+        describe("when slippage is greater than allowed", async () => {
           beforeEach(async () => {
             // Short ~10 USDC of vETH, slippage incurred as smaller positive quote delta
             subjectBaseTradeQuantityUnits = ether(-1);
@@ -709,380 +931,30 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when module is not initialized", async () => {
+    describe("when the caller is not the SetToken manager", async () => {
       beforeEach(async () => {
-        isInitialized = false;
-        await initializeContracts();
-        await initializeSubjectVariables();
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      });
+    });
+
+    describe("when SetToken is not valid", async () => {
+      beforeEach(async () => {
+        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+          [perpSetup.usdc.address],
+          [usdcUnits(100)],
+          [perpLeverageModule.address],
+          owner.address
+        );
+
+        subjectSetToken = nonEnabledSetToken.address;
       });
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-  });
-
-  describe("#delever", () => {
-    let setToken: SetToken;
-    let isInitialized: boolean = true;
-    let depositQuantity: BigNumber;
-
-    let subjectSetToken: Address;
-    let subjectCaller: Account;
-    let subjectBaseToken: Address;
-    let subjectBaseTradeQuantityUnits: BigNumber;
-    let subjectQuoteReceiveQuantityUnits: BigNumber;
-
-    const initializeContracts = async () => {
-      depositQuantity = usdcUnits(10);
-      setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
-    };
-
-    const initializeSubjectVariables = async () => {
-      subjectSetToken = setToken.address;
-      subjectCaller = owner;
-      subjectBaseToken = vETH.address;
-    };
-
-    cacheBeforeEach(initializeContracts);
-    beforeEach(initializeSubjectVariables);
-
-    async function subject(): Promise<any> {
-      return await perpLeverageModule.connect(subjectCaller.wallet).delever(
-        subjectSetToken,
-        subjectBaseToken,
-        subjectBaseTradeQuantityUnits,
-        subjectQuoteReceiveQuantityUnits
-      );
-    }
-
-    describe("when module is initialized (Long)", async () => {
-      describe("when long", () => {
-        cacheBeforeEach(async () => {
-          await perpLeverageModule.lever(
-            subjectSetToken,
-            subjectBaseToken,
-            ether(1),
-            ether(10.15)
-          );
-        });
-
-        describe("when total supply is 1", async () => {
-          beforeEach(async () => {
-            // Sell ~5 USDC of vETH
-            subjectBaseTradeQuantityUnits = ether(.5);
-            subjectQuoteReceiveQuantityUnits = ether(4.95);
-          });
-
-          it("should reduce a position", async () => {
-            const {
-              deltaBase: expectedDeltaBase
-            } = await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, false);
-
-            const initialPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-
-            await subject();
-
-            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-            const closeRatio = preciseDiv(subjectBaseTradeQuantityUnits, initialPositionInfo.baseBalance);
-            const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
-
-            const expectedBaseBalance = initialPositionInfo.baseBalance.sub(expectedDeltaBase);
-            const expectedQuoteBalance = initialPositionInfo.quoteBalance.sub(reducedOpenNotional);
-
-            expect(finalPositionInfo.baseBalance).lt(initialPositionInfo.baseBalance);
-            expect(finalPositionInfo.quoteBalance).gt(initialPositionInfo.quoteBalance);
-
-            expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
-            expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
-          });
-
-          it("should emit the correct LeverageDecreased event", async () => {
-            /* const {
-              deltaBase: expectedDeltaBase,
-              deltaQuote: expectedDeltaQuote,
-            } = await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, false);
-
-            const expectedProtocolFee = ether(0);*/
-
-
-            await subject();
-            await expect(subject()).to.emit(perpLeverageModule, "LeverageDecreased");
-
-            // TODO: swap quote is not identical to what returns from open position
-            // ex: Expected "4950247512375618780" to be equal 4950742586634282208
-            /*
-            .withArgs(
-              subjectSetToken,
-              subjectBaseToken,
-              expectedDeltaBase,
-              expectedDeltaQuote,
-              expectedProtocolFee
-            );*/
-
-          });
-        });
-
-        describe("when total supply is 2", async () => {
-          beforeEach(async () => {
-            await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
-
-            subjectBaseTradeQuantityUnits = ether(.25);
-            subjectQuoteReceiveQuantityUnits = ether(2.45);
-          });
-
-          it("should reduce the position", async () => {
-            const totalSupply = await setToken.totalSupply();
-            const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
-
-            const { deltaBase } = await perpSetup.getSwapQuote(
-              subjectBaseToken,
-              baseTradeQuantityNotional,
-              false
-            );
-
-            const initialPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-
-            await subject();
-
-            const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-            const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
-            const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
-
-            const expectedBaseBalance = initialPositionInfo.baseBalance.sub(deltaBase);
-            const expectedQuoteBalance = initialPositionInfo.quoteBalance.sub(reducedOpenNotional);
-
-            expect(finalPositionInfo.baseBalance).lt(initialPositionInfo.baseBalance);
-            expect(finalPositionInfo.quoteBalance).gt(initialPositionInfo.quoteBalance);
-
-            expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
-            expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
-          });
-        });
-
-        describe("when slippage is greater than allowed", async () => {
-          beforeEach(async () => {
-            subjectBaseTradeQuantityUnits = ether(.5);
-            subjectQuoteReceiveQuantityUnits = ether(5);
-          });
-
-          // ClearingHouse: too little quote received when short
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("CH_TLRS");
-          });
-        });
-
-        describe("when the position is closed out", async () => {
-          beforeEach(async () => {
-            subjectBaseTradeQuantityUnits = ether(1);
-            subjectQuoteReceiveQuantityUnits = ether(9.85);
-          });
-
-          it("should update the positions mapping (removing vETH)", async () => {
-            await subject();
-
-            const positionInfo = await perpLeverageModule.getPositionInfo(subjectSetToken);
-            expect(positionInfo.length).eq(0);
-          });
-        });
-
-        describe("when a protocol fee is charged", async () => {
-          let feePercentage: BigNumber;
-          let idealDeltaQuote: BigNumber;
-          let actualDeltaQuote: BigNumber;
-          let protocolFeeInQuoteDecimals: BigNumber;
-          let insuranceFee: BigNumber;
-          let slippage: BigNumber;
-
-
-          cacheBeforeEach(async () => {
-            subjectBaseTradeQuantityUnits = ether(.5);
-            subjectQuoteReceiveQuantityUnits = ether(4.95);
-
-            feePercentage = ether(0.05);
-            setup.controller = setup.controller.connect(owner.wallet);
-
-            await setup.controller.addFee(
-              perpLeverageModule.address,
-              ZERO,         // Fee type on trade function denoted as 0
-              feePercentage
-            );
-
-            const spotPrice = await perpSetup.getSpotPrice(subjectBaseToken);
-
-            idealDeltaQuote = preciseMul(subjectBaseTradeQuantityUnits, spotPrice);
-
-            ({ deltaQuote: actualDeltaQuote } = await perpSetup.getSwapQuote(
-              subjectBaseToken,
-              subjectBaseTradeQuantityUnits,
-              false
-            ));
-
-            protocolFeeInQuoteDecimals = preciseMul(actualDeltaQuote, feePercentage);
-            insuranceFee = preciseMul(idealDeltaQuote, perpSetup.feeTierPercent);
-            slippage = idealDeltaQuote.sub(actualDeltaQuote);
-          });
-
-          it("should withdraw the expected collateral amount from the Perp vault", async () => {
-            const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
-            await subject();
-            const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
-
-
-            const expectedCollateralBalance = initialCollateralBalance
-              .sub(slippage)
-              .sub(insuranceFee)
-              .sub(protocolFeeInQuoteDecimals);
-
-            expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(toUSDCDecimals(expectedCollateralBalance), 1);
-          });
-
-          it("should transfer the correct protocol fee to the fee recipient", async () => {
-            const feeRecipient = await setup.controller.feeRecipient();
-            const initialFeeRecipientBalance = await usdc.balanceOf(feeRecipient);
-
-            await subject();
-
-            const finalFeeRecipientBalance = await usdc.balanceOf(feeRecipient);
-
-            const protocolFeeInUSDCDecimals = toUSDCDecimals(protocolFeeInQuoteDecimals);
-            const expectedFeeRecipientBalance = initialFeeRecipientBalance.add(protocolFeeInUSDCDecimals);
-
-            expect(finalFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
-          });
-
-          it("should not change the value of the SetToken USDC defaultPositionUnit", async() => {
-            const initialUSDCDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-            await subject();
-            const finalUSDCDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-
-            expect(initialUSDCDefaultPositionUnit).to.eq(finalUSDCDefaultPositionUnit);
-          });
-
-          // TODO: swap quote is not identical to what returns from open position
-          // ex: Expected "4950247512375618780" to be equal 4950742586634282208
-          it("should emit the correct LeverageDecreased event", async () => {
-            /*
-            const {
-              deltaBase: expectedDeltaBase,
-              deltaQuote: expectedDeltaQuote
-            } = await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, true);
-
-            const expectedProtocolFee = toUSDCDecimals(preciseMul(expectedDeltaQuote, feePercentage));
-             */
-
-            await expect(subject()).to.emit(perpLeverageModule, "LeverageDecreased");
-
-
-            /*
-            .withArgs(
-              subjectSetToken,
-              subjectBaseToken,
-              expectedDeltaBase,
-              expectedDeltaQuote
-              expectedProtocolFee
-            );
-             */
-          });
-        });
-
-        describe("when amount of token to trade is 0", async () => {
-          beforeEach(async () => {
-            subjectBaseTradeQuantityUnits = ZERO;
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Amount is 0");
-          });
-        });
-
-        describe("when the caller is not the SetToken manager", async () => {
-          beforeEach(async () => {
-            subjectCaller = await getRandomAccount();
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-          });
-        });
-
-        describe("when SetToken is not valid", async () => {
-          beforeEach(async () => {
-            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-              [perpSetup.usdc.address],
-              [usdcUnits(100)],
-              [perpLeverageModule.address],
-              owner.address
-            );
-
-            subjectSetToken = nonEnabledSetToken.address;
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-          });
-
-          afterEach(() => subjectSetToken = setToken.address);
-        });
-      });
-    });
-
-    describe("when short", async () => {
-      cacheBeforeEach(async () => {
-        await perpLeverageModule.lever(
-          subjectSetToken,
-          subjectBaseToken,
-          ether(-1),
-          ether(9.85)
-        );
-      });
-
-      describe("when total supply is 1", async () => {
-        beforeEach(async () => {
-          // Buy ~5 USDC of vETH
-          subjectBaseTradeQuantityUnits = ether(-.5);
-          subjectQuoteReceiveQuantityUnits = ether(5.15);
-        });
-
-        it("should reduce the magnitude of the short position", async () => {
-          const {
-            deltaBase
-          } = await perpSetup.getSwapQuote(
-            subjectBaseToken,
-            subjectBaseTradeQuantityUnits.mul(-1),
-            true // Long
-          );
-
-          const initialPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-
-          await subject();
-
-          const finalPositionInfo = (await perpLeverageModule.getPositionInfo(subjectSetToken))[0];
-          const closeRatio = preciseDiv(subjectBaseTradeQuantityUnits, initialPositionInfo.baseBalance);
-          const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
-
-          const expectedBaseBalance = initialPositionInfo.baseBalance.add(deltaBase);
-          const expectedQuoteBalance = initialPositionInfo.quoteBalance.sub(reducedOpenNotional);
-
-          expect(finalPositionInfo.baseBalance).gt(initialPositionInfo.baseBalance);
-          expect(finalPositionInfo.quoteBalance).lt(initialPositionInfo.quoteBalance);
-
-          expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
-          expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
-        });
-      });
-
-      describe("when slippage is greater than allowed", async () => {
-        // Buy ~5 USDC of vETH: slippage incurred as larger negative quote delta
-        beforeEach(async () => {
-          subjectBaseTradeQuantityUnits = ether(-5);
-          subjectQuoteReceiveQuantityUnits = ether(5);
-        });
-
-        // ClearingHouse: too much quote received when long
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("CH_TMRL");
-        });
       });
     });
 
@@ -1434,11 +1306,11 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          // Delever a little, booking profit to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Sell a little, booking profit to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
+            ether(-.4),
             ether(4)
           );
         });
@@ -1487,12 +1359,12 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          // delever up a little, booking loss to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Sell a little, booking loss to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
-            ether(2)
+            ether(-.4),
+            ether(1)
           );
         });
 
@@ -1947,18 +1819,18 @@ describe("PerpV2LeverageModule", () => {
           });
 
           // Delever a little, booking profit to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
+            ether(-.4),
             ether(4)
           );
 
-          await perpLeverageModule.connect(owner.wallet).delever(
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
-            vETH.address,
-            ether(.4),
-            ether(4)
+            vBTC.address,
+            ether(-.2),
+            ether(2)
           );
         });
 
@@ -2064,25 +1936,24 @@ describe("PerpV2LeverageModule", () => {
           baseToken = vETH.address;
           await leverUp(setToken, baseToken, 2, ether(.02), false);
 
-          // Move price up by maker buying 20k USDC of vETH
-          // Post trade spot price rises from ~10 USDC to 14_356_833_358_751_766_356
+          // Move price down by maker selling 10k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
-            isBaseToQuote: false,     // long
-            isExactInput: true,       // `amount` is USDC
-            amount: ether(20000),
+            isBaseToQuote: true,     // short
+            isExactInput: false,     // `amount` is USDC
+            amount: ether(10000),
             oppositeAmountBound: ZERO,
             deadline:  MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
 
-          // Delever a little, booking profit to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Buy a little, booking profit to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
-            ether(4)
+            ether(.1),
+            ether(2)
           );
         });
 
@@ -2117,12 +1988,11 @@ describe("PerpV2LeverageModule", () => {
           baseToken = vETH.address;
           await leverUp(setToken, baseToken, 2, ether(.02), false);
 
-          // Move price down by maker selling 20k USDC of vETH
-          // Post trade spot price rises from ~10 USDC to 6_370_910_537_702_299_856
+          // Move price up by maker buying 20k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
-            isBaseToQuote: true,       // short
-            isExactInput: false,       // `amount` is USDC
+            isBaseToQuote: false,       // long
+            isExactInput: true,         // `amount` is USDC
             amount: ether(10000),
             oppositeAmountBound: ZERO,
             deadline:  MAX_UINT_256,
@@ -2130,12 +2000,12 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          // delever up a little, booking loss to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Buy a little, booking loss to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
             ether(.1),
-            ether(.5)
+            ether(2)
           );
         });
 
@@ -2461,11 +2331,11 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          // Delever a little, booking profit to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Sell a little, booking profit to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
+            ether(-.4),
             ether(4)
           );
         });
@@ -2506,19 +2376,19 @@ describe("PerpV2LeverageModule", () => {
             baseToken: vETH.address,
             isBaseToQuote: true,       // short
             isExactInput: false,       // `amount` is USDC
-            amount: ether(20000),
+            amount: ether(10000),
             oppositeAmountBound: ZERO,
             deadline:  MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
 
-          // delever up a little, booking loss to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Sell a little, booking loss to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
-            ether(2)
+            ether(-.2),
+            ether(1)
           );
         });
 
@@ -2541,7 +2411,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(owedRealizedPnl).lt(ether(1).mul(-1));
+          expect(owedRealizedPnl).lt(0);
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
@@ -2943,18 +2813,18 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
-          // Delever a little, booking profit to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Sell a little, booking profit to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
+            ether(-.4),
             ether(4)
           );
 
-          await perpLeverageModule.connect(owner.wallet).delever(
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vBTC.address,
-            ether(.4),
+            ether(-.4),
             ether(4)
           );
         });
@@ -3057,25 +2927,24 @@ describe("PerpV2LeverageModule", () => {
           baseToken = vETH.address;
           await leverUp(setToken, baseToken, 2, ether(.02), false);
 
-          // Move price up by maker buying 20k USDC of vETH
-          // Post trade spot price rises from ~10 USDC to 14_356_833_358_751_766_356
+          // Move price down by maker buying 10k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
-            isBaseToQuote: false,     // long
-            isExactInput: true,       // `amount` is USDC
-            amount: ether(20000),
+            isBaseToQuote: true,       // short
+            isExactInput: false,       // `amount` is USDC
+            amount: ether(10000),
             oppositeAmountBound: ZERO,
             deadline:  MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
 
-          // Delever a little, booking profit to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Buy a little, booking profit to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
-            ether(4)
+            ether(.1),
+            ether(2)
           );
         });
 
@@ -3110,24 +2979,23 @@ describe("PerpV2LeverageModule", () => {
           baseToken = vETH.address;
           await leverUp(setToken, baseToken, 2, ether(.02), false);
 
-          // Move price down by maker selling 20k USDC of vETH
-          // Post trade spot price rises from ~10 USDC to 6_370_910_537_702_299_856
+          // Move price up by maker buy 10k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
-            isBaseToQuote: true,       // short
-            isExactInput: false,       // `amount` is USDC
-            amount: ether(20000),
+            isBaseToQuote: false,       // long
+            isExactInput: true,         // `amount` is USDC
+            amount: ether(10000),
             oppositeAmountBound: ZERO,
             deadline:  MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
 
-          // delever up a little, booking loss to owedRealizedPnl
-          await perpLeverageModule.connect(owner.wallet).delever(
+          // Buy a little, booking loss to owedRealizedPnl
+          await perpLeverageModule.connect(owner.wallet).trade(
             subjectSetToken,
             vETH.address,
-            ether(.4),
+            ether(.1),
             ether(2)
           );
         });
@@ -4150,14 +4018,14 @@ describe("PerpV2LeverageModule", () => {
         true
       ));
 
-      await perpLeverageModule.connect(owner.wallet).lever(
+      await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVETHToken,
         expectedVETHTradeQuantityUnits,
         expectedVETHQuoteReceiveQuantityUnits
       );
 
-      await perpLeverageModule.connect(owner.wallet).lever(
+      await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVBTCToken,
         expectedVBTCTradeQuantityUnits,
