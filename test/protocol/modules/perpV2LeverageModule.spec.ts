@@ -1309,8 +1309,6 @@ describe("PerpV2LeverageModule", () => {
           // 10008085936690386266 vs 10008085658829252928
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
-
-
       });
 
       describe("when there is positive owedRealizedPnl", async () => {
@@ -3612,43 +3610,6 @@ describe("PerpV2LeverageModule", () => {
         const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
 
         expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
-      });
-    });
-
-    describe("when total supply is 0", async () => {
-      let otherSetToken: SetToken;
-
-      beforeEach(async () => {
-        otherSetToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcUnits(10)],
-          [perpLeverageModule.address, debtIssuanceMock.address]
-        );
-        await debtIssuanceMock.initialize(otherSetToken.address);
-        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
-        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
-
-        // Initialize mock module
-        await otherSetToken.addModule(mockModule.address);
-        await otherSetToken.connect(mockModule.wallet).initializeModule();
-
-        subjectSetToken = otherSetToken.address;
-      });
-
-      it("should withdraw nothing", async () => {
-        const {
-          collateralBalance: initialCollateralBalance
-        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
-
-        await subject();
-
-        const {
-          collateralBalance: finalCollateralBalance
-        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
-
-        const expectedCollateralBalance = ZERO;
-        expect(initialCollateralBalance).to.eq(finalCollateralBalance);
-        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
       });
     });
 

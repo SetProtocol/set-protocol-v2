@@ -509,8 +509,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         IERC20 _component,
         bool /* isEquity */
     ) external override onlyModule(_setToken) {
-        if (_setToken.totalSupply() == 0) return;
-
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
