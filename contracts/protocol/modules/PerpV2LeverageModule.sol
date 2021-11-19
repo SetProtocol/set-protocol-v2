@@ -486,7 +486,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         onlyModule(_setToken)
     {
         if (_setToken.totalSupply() == 0) return;
-        console.log("at top of component issue hook");
 
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferInQuantityUnits = _setTokenQuantity.preciseMulCeil(externalPositionUnit.toUint256());
@@ -510,8 +509,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         IERC20 _component,
         bool /* isEquity */
     ) external override onlyModule(_setToken) {
-        console.log("at top of component redeem hook");
-
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
@@ -701,8 +698,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         internal
         returns (int256)
     {
-        console.log(_isSimulation, "_isSimulation: @ _executeModuleIssuanceHook");
-
         int256 usdcAmountIn = 0;
 
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
@@ -771,8 +766,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         internal
         returns (int256)
     {
-        console.log(_isSimulation, "_isSimulation: @ _executeModuleRedemptionHook");
-
         int256 realizedPnl = 0;
 
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
@@ -866,10 +859,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         _deposit(_setToken, _collateralQuantityUnits);
 
-        _setToken.editExternalPositionUnit(
+        _setToken.editExternalPosition(
             address(collateralToken),
             address(this),
-            _calculateExternalPositionUnit(_setToken)
+            _calculateExternalPositionUnit(_setToken),
+            ""
         );
     }
 
@@ -910,10 +904,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             initialCollateralPositionBalance
         );
 
-        _setToken.editExternalPositionUnit(
+        _setToken.editExternalPosition(
             address(collateralToken),
             address(this),
-            _calculateExternalPositionUnit(_setToken)
+            _calculateExternalPositionUnit(_setToken),
+            ""
         );
     }
 

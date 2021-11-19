@@ -131,6 +131,7 @@ describe("PerpV2LeverageModule", () => {
     depositQuantityUnit: BigNumber,
     isInitialized: boolean = true,
     issueQuantity: BigNumber = ether(1),
+    skipMockModuleInitialization = false
   ): Promise<SetToken> {
     const setToken = await setup.createSetToken(
       [setup.wbtc.address, usdc.address, setup.weth.address],
@@ -145,9 +146,11 @@ describe("PerpV2LeverageModule", () => {
       await perpLeverageModule.connect(owner.wallet).initialize(setToken.address);
 
       // Initialize mock module
-      await setup.controller.addModule(mockModule.address);
-      await setToken.addModule(mockModule.address);
-      await setToken.connect(mockModule.wallet).initializeModule();
+      if (!skipMockModuleInitialization) {
+        await setup.controller.addModule(mockModule.address);
+        await setToken.addModule(mockModule.address);
+        await setToken.connect(mockModule.wallet).initializeModule();
+      }
 
       await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
@@ -511,20 +514,34 @@ describe("PerpV2LeverageModule", () => {
         });
 
         describe("when total supply is 2", async () => {
-          beforeEach(async () => {
-            await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
+          let issueQuantity: BigNumber;
+          let otherSetToken: SetToken;
 
+          beforeEach(async () => {
+            depositQuantity = usdcUnits(10);
+            issueQuantity = ether(2);
+
+            otherSetToken = await issueSetsAndDepositToPerp(
+              depositQuantity,
+              isInitialized,
+              issueQuantity,
+              true
+            );
+
+            subjectSetToken = otherSetToken.address;
             subjectBaseTradeQuantityUnits = ether(1);
             subjectQuoteReceiveQuantityUnits = ether(10.15);
           });
 
           it("should open position for the expected amount", async () => {
-            const totalSupply = await setToken.totalSupply();
+            const totalSupply = await otherSetToken.totalSupply();
             const expectedBaseBalance = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
             await subject();
 
             const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+
+            expect(totalSupply).eq(issueQuantity);
             expect(positionInfo.baseBalance).to.eq(expectedBaseBalance);
           });
         });
@@ -1009,6 +1026,19 @@ describe("PerpV2LeverageModule", () => {
         expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
       });
 
+      it("should add Perp as an external position module", async () => {
+        const initialExternalModules = await subjectSetToken.getExternalPositionModules(usdc.address);
+        await subject();
+        const finalExternalPositionModules = await subjectSetToken.getExternalPositionModules(usdc.address);
+
+        const expectedExternalPositionModule = perpLeverageModule.address;
+
+        expect(initialExternalModules.length).eq(0);
+        expect(finalExternalPositionModules.length).eq(1);
+        expect(finalExternalPositionModules[0]).eq(expectedExternalPositionModule);
+
+      });
+
       it("should update the USDC defaultPositionUnit", async () => {
         const initialDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);
         await subject();
@@ -1086,8 +1116,8 @@ describe("PerpV2LeverageModule", () => {
   });
 
   describe("#withdraw", () => {
+    let depositQuantity: BigNumber;
     let subjectSetToken: SetToken;
-    let subjectWithdrawAmount: number;
     let subjectWithdrawQuantity: BigNumber;
     let subjectCaller: Account;
     let isInitialized: boolean;
@@ -1111,16 +1141,16 @@ describe("PerpV2LeverageModule", () => {
         await setup.issuanceModule.issue(subjectSetToken.address, issueQuantity, owner.address);
 
         // Deposit 10 USDC
+        depositQuantity = usdcUnits(10);
         await perpLeverageModule
           .connect(owner.wallet)
-          .deposit(subjectSetToken.address, usdcUnits(10));
+          .deposit(subjectSetToken.address, depositQuantity);
       }
     };
 
-    const initializeSubjectVariables = (withdrawAmount: number = 5) => {
-      subjectWithdrawAmount = withdrawAmount;
+    const initializeSubjectVariables = () => {
       subjectCaller = owner;
-      subjectWithdrawQuantity = usdcUnits(withdrawAmount);
+      subjectWithdrawQuantity = usdcUnits(5);
     };
 
     async function subject(): Promise<any> {
@@ -1151,7 +1181,7 @@ describe("PerpV2LeverageModule", () => {
         await subject();
         const finalDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);;
 
-        const expectedDefaultPosition = initialDefaultPosition.add(usdcUnits(subjectWithdrawAmount));
+        const expectedDefaultPosition = initialDefaultPosition.add(subjectWithdrawQuantity);
         expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
       });
 
@@ -1166,12 +1196,26 @@ describe("PerpV2LeverageModule", () => {
 
       describe("when withdraw amount is 0", async () => {
         beforeEach(() => {
-          const withdrawAmount = 0;
-          initializeSubjectVariables(withdrawAmount);
+          subjectWithdrawQuantity = usdcUnits(0);
         });
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Withdraw amount is 0");
+        });
+      });
+
+      describe("when the entire amount is withdrawn", async () => {
+        beforeEach(() => {
+          subjectWithdrawQuantity = depositQuantity;
+        });
+
+        it("should remove Perp as an external position module", async () => {
+          const initialExternalModules = await subjectSetToken.getExternalPositionModules(usdc.address);
+          await subject();
+          const finalExternalPositionModules = await subjectSetToken.getExternalPositionModules(usdc.address);
+
+          expect(initialExternalModules.length).eq(1);
+          expect(finalExternalPositionModules.length).eq(0);
         });
       });
 

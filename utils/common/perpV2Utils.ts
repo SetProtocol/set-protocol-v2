@@ -60,7 +60,7 @@ export async function leverUp(
   return baseTradeQuantityUnit;
 }
 
-// Returns notional amount of USDC to transfer in on redeem. Handles multiple positions, long and short.
+// Returns notional amount of USDC to transfer in on issue. Handles multiple positions, long and short.
 export async function calculateUSDCTransferIn(
   setToken: SetToken,
   setQuantity: BigNumber,
