@@ -292,6 +292,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
       onlyManagerAndValidSet(_setToken)
     {
         require(_collateralQuantityUnits > 0, "Deposit amount is 0");
+        require(_setToken.totalSupply() > 0, "SetToken supply is 0");
+
         _depositAndUpdateState(_setToken, _collateralQuantityUnits);
     }
 
@@ -315,6 +317,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
       onlyManagerAndValidSet(_setToken)
     {
         require(_collateralQuantityUnits > 0, "Withdraw amount is 0");
+        require(_setToken.totalSupply() > 0, "SetToken supply is 0");
+
         _withdrawAndUpdateState(_setToken, _collateralQuantityUnits);
     }
 
@@ -421,6 +425,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         override
         onlyModule(_setToken)
     {
+        if (_setToken.totalSupply() == 0) return;
+
         int256 newExternalPositionUnit = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, false);
 
         // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
@@ -429,6 +435,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             address(this),
             newExternalPositionUnit
         );
+
     }
 
     /**
@@ -449,6 +456,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         override
         onlyModule(_setToken)
     {
+        if (_setToken.totalSupply() == 0) return;
+
         int256 newExternalPositionUnit = _executeModuleRedemptionHook(_setToken, _setTokenQuantity, false);
 
         // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
@@ -476,6 +485,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         override
         onlyModule(_setToken)
     {
+        if (_setToken.totalSupply() == 0) return;
+
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferInQuantityUnits = _setTokenQuantity.preciseMulCeil(externalPositionUnit.toUint256());
 
@@ -498,6 +509,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         IERC20 _component,
         bool /* isEquity */
     ) external override onlyModule(_setToken) {
+        if (_setToken.totalSupply() == 0) return;
+
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
         uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 

@@ -1048,6 +1048,30 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when total supply is 0", async () => {
+      let otherSetToken: SetToken;
+
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address]
+        );
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        subjectSetToken = otherSetToken;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("SetToken supply is 0");
+      });
+    });
+
     describe("when module is not initialized", async () => {
       beforeEach(async () => {
         isInitialized = false;
@@ -1159,6 +1183,30 @@ describe("PerpV2LeverageModule", () => {
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
         });
+      });
+    });
+
+    describe("when total supply is 0", async () => {
+      let otherSetToken: SetToken;
+
+      cacheBeforeEach(initializeContracts);
+      beforeEach(() => initializeSubjectVariables());
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address]
+        );
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        subjectSetToken = otherSetToken;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("SetToken supply is 0");
       });
     });
 
@@ -2175,6 +2223,37 @@ describe("PerpV2LeverageModule", () => {
 
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
+      });
+    });
+
+    describe("when total supply is 0", async () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address]
+        );
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        // Initialize mock module
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should not update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        const expectedExternalPositionUnit = ZERO;
+        expect(initialExternalPositionUnit).to.eq(finalExternalPositionUnit);
+        expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
       });
     });
 
@@ -3199,6 +3278,37 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when total supply is 0", async () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address]
+        );
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        // Initialize mock module
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should not update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        const expectedExternalPositionUnit = ZERO;
+        expect(initialExternalPositionUnit).to.eq(finalExternalPositionUnit);
+        expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
+      });
+    });
+
     describe("when caller is not module", async () => {
       beforeEach(async () => subjectCaller = owner);
 
@@ -3354,6 +3464,52 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when total supply is 0", async () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address]
+        );
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        // Initialize mock module
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should deposit nothing", async () => {
+        const {
+          collateralBalance: initialCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+        await subject();
+
+        const {
+          collateralBalance: finalCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+        const expectedCollateralBalance = ZERO;
+        expect(initialCollateralBalance).to.eq(finalCollateralBalance);
+        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
+      });
+
+      it("should not change the USDC defaultPositionUnit", async () => {
+        const initialDefaultPositionUnit = await otherSetToken.getDefaultPositionRealUnit(usdc.address);
+        await subject();
+        const finalDefaultPositionUnit = await otherSetToken.getDefaultPositionRealUnit(usdc.address);
+
+        expect(initialDefaultPositionUnit).gt(ZERO);
+        expect(initialDefaultPositionUnit).to.eq(finalDefaultPositionUnit);
+      });
+    });
+
     describe("when caller is not module", async () => {
       beforeEach(async () => {
         subjectCaller = owner;
@@ -3456,6 +3612,43 @@ describe("PerpV2LeverageModule", () => {
         const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
 
         expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
+    });
+
+    describe("when total supply is 0", async () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address]
+        );
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        // Initialize mock module
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should withdraw nothing", async () => {
+        const {
+          collateralBalance: initialCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+        await subject();
+
+        const {
+          collateralBalance: finalCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+        const expectedCollateralBalance = ZERO;
+        expect(initialCollateralBalance).to.eq(finalCollateralBalance);
+        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
       });
     });
 
