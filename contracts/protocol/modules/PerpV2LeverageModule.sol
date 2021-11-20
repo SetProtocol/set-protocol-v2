@@ -488,9 +488,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         if (_setToken.totalSupply() == 0) return;
 
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
-        uint256 usdcTransferInQuantityUnits = _setTokenQuantity.preciseMulCeil(externalPositionUnit.toUint256());
+        uint256 usdcTransferInNotionalQuantity = _setTokenQuantity.preciseMulCeil(externalPositionUnit.toUint256());
 
-        _deposit(_setToken, usdcTransferInQuantityUnits);
+        _deposit(_setToken, usdcTransferInNotionalQuantity);
     }
 
     /**
@@ -510,9 +510,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         bool /* isEquity */
     ) external override onlyModule(_setToken) {
         int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
-        uint256 usdcTransferOutQuantityUnits = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
+        uint256 usdcTransferOutNotionalQuantity = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
-        _withdraw(_setToken, usdcTransferOutQuantityUnits);
+        _withdraw(_setToken, usdcTransferOutNotionalQuantity);
     }
 
     /* ============ External Getter Functions ============ */
@@ -827,17 +827,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * the componentIssue hook, skipping external position unit setting because that method is assumed
      * to be the end of a call sequence (e.g manager will not need to read the updated value)
      */
-    function _deposit(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
+    function _deposit(ISetToken _setToken, uint256 _collateralNotionalQuantity) internal {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
-        uint256 notionalCollateralQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
 
         _setToken.invokeApprove(
             address(collateralToken),
             address(perpVault),
-            notionalCollateralQuantity
+            _collateralNotionalQuantity
         );
 
-        _setToken.invokeDeposit(perpVault, collateralToken, notionalCollateralQuantity);
+        _setToken.invokeDeposit(perpVault, collateralToken, _collateralNotionalQuantity);
 
         _setToken.calculateAndEditDefaultPosition(
             address(collateralToken),
@@ -847,9 +846,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * Approves and deposits collateral into Perp vault and additionally sets USDC externalPositionUnit
+     * Approves and deposits collateral units into Perp vault and additionally sets USDC externalPositionUnit
      * so Manager contracts have a value they can base calculations for further trading on within the
-     * same transaction. This flow is used when invoking the external `deposit` function.
+     * same transaction.
+     *
+     * NOTE: This flow is only used when invoking the external `deposit` function - it converts collateral
+     * quantity units into a notional quantity.
      */
     function _depositAndUpdateState(
         ISetToken _setToken,
@@ -857,7 +859,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     )
         internal
     {
-        _deposit(_setToken, _collateralQuantityUnits);
+        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
+
+        _deposit(_setToken, collateralNotionalQuantity);
 
         _setToken.editExternalPosition(
             address(collateralToken),
@@ -873,19 +877,19 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * skipping position unit state updates because the funds withdrawn to SetToken are immediately
      * forwarded to `feeRecipient` and SetToken owner respectively.
      */
-    function _withdraw(ISetToken _setToken, uint256 _collateralQuantityUnits) internal {
-        if (_collateralQuantityUnits == 0) return;
+    function _withdraw(ISetToken _setToken, uint256 _collateralNotionalQuantity) internal {
+        if (_collateralNotionalQuantity == 0) return;
 
-        uint256 notionalCollateralQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
-
-        _setToken.invokeWithdraw(perpVault, collateralToken, notionalCollateralQuantity);
+        _setToken.invokeWithdraw(perpVault, collateralToken, _collateralNotionalQuantity);
     }
 
     /**
-     * Withdraws collateral from Perp vault to SetToken and additionally sets both the USDC
+     * Withdraws collateral units from Perp vault to SetToken and additionally sets both the USDC
      * externalPositionUnit (so Manager contracts have a value they can base calculations for further
      * trading on within the same transaction), and the collateral token default position unit.
-     * This flow is used when invoking the external `withdraw` function.
+     *
+     * NOTE: This flow is only used when invoking the external `withdraw` function - it converts
+     * a collateral units quantity into a notional quantity before invoking withdraw.
      */
     function _withdrawAndUpdateState(
         ISetToken _setToken,
@@ -895,6 +899,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         internal
     {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
+        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
 
         _withdraw(_setToken, _collateralQuantityUnits);
 
@@ -978,9 +983,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             ERC20(address(collateralToken)).decimals()
         );
 
-        uint256 protocolFeeUnits = protocolFeeInCollateralDecimals.preciseDiv(_setToken.totalSupply());
-
-        _withdraw(_setToken, protocolFeeUnits);
+        _withdraw(_setToken, protocolFeeInCollateralDecimals);
 
         payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFeeInCollateralDecimals);
 
