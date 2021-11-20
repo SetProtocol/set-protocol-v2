@@ -661,10 +661,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
         (int256 owedRealizedPnl, ) =  perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
 
+        // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
+        // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
+        // We are flipping its sign here to reflect its settlement value.
         accountInfo = AccountInfo({
             collateralBalance: _getCollateralBalance(_setToken),
             owedRealizedPnl: owedRealizedPnl,
-            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)),
+            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).mul(-1),
             netQuoteBalance: perpAccountBalance.getNetQuoteBalance(address(_setToken))
         });
     }
@@ -1149,10 +1152,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * | --------------------------------------- |
      * | Position Type | Oracle Price | Value    |
      * | ------------- | ------------ | -------- |
-     * | Long          | Below AMM    | Positive |
-     * | Long          | Above AMM    | Negative |
-     * | Short         | Below AMM    | Negative |
-     * | Short         | Above AMM    | Positive |
+     * | Long          | Below AMM    | Negative |
+     * | Long          | Above AMM    | Positive |
+     * | Short         | Below AMM    | Positive |
+     * | Short         | Above AMM    | Negative |
      * | --------------------------------------- |
      *
      * @return int256 Total quantity to discount
