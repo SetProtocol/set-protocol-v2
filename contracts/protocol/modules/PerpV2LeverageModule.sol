@@ -904,7 +904,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
         uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
 
-        _withdraw(_setToken, _collateralQuantityUnits);
+        _withdraw(_setToken, collateralNotionalQuantity);
 
         _setToken.calculateAndEditDefaultPosition(
             address(collateralToken),
