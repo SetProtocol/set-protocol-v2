@@ -32,7 +32,7 @@ import {
 } from "@utils/test/index";
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "ethers";
-import { ADDRESS_ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
@@ -139,10 +139,37 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     );
   }
 
+  async function calculateTotalSlippage(setToken: SetToken, setQuantity: BigNumber): Promise<BigNumber> {
+    let totalExpectedSlippage = BigNumber.from(0);
+    const allPositionInfo = await perpLeverageModule.getPositionNotionalInfo(setToken.address);
+
+    for (const positionInfo of allPositionInfo) {
+      const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
+      const baseTradeQuantityNotional = preciseMul(basePositionUnit, setQuantity);
+      const isLong = (basePositionUnit.gte(ZERO));
+
+      const { deltaBase, deltaQuote } = await perpSetup.getSwapQuote(
+        positionInfo.baseToken,
+        baseTradeQuantityNotional.abs(),
+        isLong
+      );
+
+      const idealQuote = preciseMul(deltaBase, await perpSetup.getSpotPrice(positionInfo.baseToken));
+
+      const expectedSlippage = (isLong)
+        ? idealQuote.sub(deltaQuote).mul(-1)
+        : idealQuote.sub(deltaQuote);
+
+      totalExpectedSlippage = totalExpectedSlippage.add(expectedSlippage);
+    }
+
+    return totalExpectedSlippage;
+  }
+
   describe("#issuance", async () => {
     let setToken: SetToken;
     let issueFee: BigNumber;
-    let usdcDefaultPositionUnits: BigNumber;
+    let usdcDefaultPositionUnit: BigNumber;
 
     let subjectSetToken: Address;
     let subjectQuantity: BigNumber;
@@ -150,8 +177,31 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     let subjectMaxTokenAmountsIn: BigNumber[];
     let subjectTo: Address;
     let subjectCaller: Account;
-    let subjectDepositAmount: BigNumber;
     let issueQuantity: BigNumber;
+
+    const initializeContracts = async function() {
+      usdcDefaultPositionUnit = usdcUnits(10);
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcDefaultPositionUnit],
+        [perpLeverageModule.address, slippageIssuanceModule.address]
+      );
+      issueFee = ether(0.005);
+      await slippageIssuanceModule.initialize(
+        setToken.address,
+        ether(0.02),
+        issueFee,
+        ether(0.005),
+        feeRecipient.address,
+        ADDRESS_ZERO
+      );
+      // Add SetToken to allow list
+      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+      await perpLeverageModule.initialize(setToken.address);
+
+      // Approve tokens to issuance module and call issue
+      await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
+    };
 
     async function subject(): Promise<ContractTransaction> {
       return slippageIssuanceModule.connect(subjectCaller.wallet).issueWithSlippage(
@@ -164,36 +214,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     }
 
     context("when there is a default usdc position with 0 supply", async () => {
-      cacheBeforeEach(async () => {
-        usdcDefaultPositionUnits = usdcUnits(100);
-        setToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcDefaultPositionUnits],
-          [perpLeverageModule.address, slippageIssuanceModule.address]
-        );
-        issueFee = ether(0.005);
-        await slippageIssuanceModule.initialize(
-          setToken.address,
-          ether(0.02),
-          issueFee,
-          ether(0.005),
-          feeRecipient.address,
-          ADDRESS_ZERO
-        );
-        // Add SetToken to allow list
-        await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
-        await perpLeverageModule.initialize(setToken.address);
-
-        // Approve tokens to issuance module and call issue
-        await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
-
-        // Issue 1 SetToken
-        issueQuantity = ether(1);
-      });
-
+      cacheBeforeEach(initializeContracts);
       beforeEach(() => {
         subjectSetToken = setToken.address;
-        subjectQuantity = issueQuantity;
+        subjectQuantity = ether(1);
         subjectCheckedComponents = [];
         subjectMaxTokenAmountsIn = [];
         subjectTo = owner.address;
@@ -212,7 +236,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         expect(currentPositions.length).to.eq(1);
         expect(newFirstPosition.component).to.eq(usdc.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(usdcDefaultPositionUnits);
+        expect(newFirstPosition.unit).to.eq(usdcDefaultPositionUnit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
@@ -234,7 +258,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         await subject();
 
         const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-        const usdcFlows = preciseMul(mintQuantity, usdcDefaultPositionUnits);
+        const usdcFlows = preciseMul(mintQuantity, usdcDefaultPositionUnit);
 
         const postMinterUSDCBalance = await usdc.balanceOf(subjectCaller.address);
         const postSetUSDCBalance = await usdc.balanceOf(subjectSetToken);
@@ -244,39 +268,19 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       });
     });
 
-    context("when there is a default USDC position and external USDC position", async () => {
+    context("when there is only an external USDC position and totalSupply is 1", async () => {
       let baseToken: Address;
       let depositQuantityUnit: BigNumber;
       let usdcTransferInQuantity: BigNumber;
 
-      cacheBeforeEach(async () => {
-        usdcDefaultPositionUnits = usdcUnits(100);
-        setToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcDefaultPositionUnits],
-          [perpLeverageModule.address, slippageIssuanceModule.address]
-        );
-        issueFee = ether(0.005);
-        await slippageIssuanceModule.initialize(
-          setToken.address,
-          ether(0.02),
-          issueFee,
-          ether(0.005),
-          feeRecipient.address,
-          ADDRESS_ZERO
-        );
-        // Add SetToken to allow list
-        await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
-        await perpLeverageModule.initialize(setToken.address);
+      cacheBeforeEach(initializeContracts);
 
-        // Approve tokens to issuance module and call issue
-        await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
-
+      beforeEach(async () => {
         // Issue 1 SetToken
         issueQuantity = ether(1);
         await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
-        depositQuantityUnit = usdcUnits(10);
+        depositQuantityUnit = usdcDefaultPositionUnit;
         await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
 
         // Lever up
@@ -292,17 +296,29 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           true
         );
 
+        subjectSetToken = setToken.address;
         subjectCheckedComponents = [];
         subjectMaxTokenAmountsIn = [];
+        subjectTo = owner.address;
+        subjectCaller = owner;
+      });
+
+      describe("starting test assumptions", async () => {
+        it("should be correct", async() => {
+          const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
+            usdc.address,
+            perpLeverageModule.address
+          );
+
+          expect(defaultPositionUnit).eq(ZERO);
+          expect(externalPositionUnit).eq(depositQuantityUnit);
+        });
       });
 
       describe("when minting a single set", () => {
         beforeEach(async () => {
-          subjectSetToken = setToken.address;
           subjectQuantity = ether(1);
-          subjectTo = owner.address;
-          subjectCaller = owner;
-          subjectDepositAmount = depositQuantityUnit;
 
           usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -312,16 +328,15 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           );
         });
 
-        it("should update the USDC defaultPositionUnit", async () => {
-          const initialDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);
+        it("should not update the USDC defaultPositionUnit", async () => {
+          const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
           await subject();
-          const finalDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);;
+          const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);;
 
-          const expectedDefaultPosition = initialDefaultPosition.sub(toUSDCDecimals(subjectDepositAmount));
-          expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+          expect(finalDefaultPositionUnit).to.eq(initialDefaultPositionUnit);
         });
 
-        it("should set the expected USDC externalPositionUnit", async () => {
+        it("should have set the expected USDC externalPositionUnit", async () => {
           const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
 
           await subject();
@@ -331,6 +346,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             perpLeverageModule.address
           );
 
+          // externalPositionUnit = 10_008_105;
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
 
@@ -348,15 +364,146 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           expect(finalBaseBalance).eq(expectedBaseBalance);
         });
 
-        // Component issue hook is not running....
-        // Expected "10050000" to be equal 20058105
-        it.skip("should deposit the expected amount into the Perp vault", async () => {
+        it("should deposit the expected amount into the Perp vault", async () => {
           const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
           await subject();
           const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
-          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(usdcTransferInQuantity);
-          expect(toUSDCDecimals(finalCollateralBalance)).eq(expectedCollateralBalance);
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            true
+          ))[0];
+
+          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, usdcTransferInQuantity);
+
+          // usdcTransferIn        = 10_008_105
+          // feeAdjustedTransferIn = 10_058_145
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
+          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
+        });
+      });
+
+      describe("when minting multiple sets", () => {
+        beforeEach(async () => {
+          subjectQuantity = ether(2);
+
+          usdcTransferInQuantity = await calculateUSDCTransferIn(
+            setToken,
+            subjectQuantity,
+            perpLeverageModule,
+            perpSetup
+          );
+        });
+
+        it("should have set the expected USDC externalPositionUnit", async () => {
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+
+          await subject();
+
+          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
+            usdc.address,
+            perpLeverageModule.address
+          );
+
+          // externalPositionUnit = 10_008_105;
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
+        });
+
+        it("have the expected virtual token balance", async () => {
+          const totalSupply = await setToken.totalSupply();
+
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          await subject();
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+
+          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
+          const expectedBaseBalance = initialBaseBalance.add(baseTokenBoughtNotional);
+
+          expect(finalBaseBalance).eq(expectedBaseBalance);
+        });
+
+        it("should deposit the expected amount into the Perp vault", async () => {
+          const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+          await subject();
+          const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            true
+          ))[0];
+
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+
+          // usdcTransferIn        = 20_024_302
+          // feeAdjustedTransferIn = 20_124_423
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
+          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
+        });
+
+        it("should deposit the expected amount into the Perp vault", async () => {
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            true
+          ))[0];
+
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+
+          const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+          await subject();
+          const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          // usdcTransferIn        = 20_024_302
+          // feeAdjustedTransferIn = 20_124_423
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
+          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
+        });
+
+        // This is slightly off ... over a tenth of a penny.
+        it.skip("should not incur a premium", async () => {
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            true
+          ))[0];
+
+          // Model says premium should be calculated as (usdcTransferIn / amountMinted)
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+          const feeAdjustedExternalPositionUnit = preciseDiv(feeAdjustedTransferIn, issueQuantityWithFees);
+
+          // Slippage will be paid by the issuer, but get reflected as debt in the quote balance.
+          const totalSlippageAndFees = await calculateTotalSlippage(setToken, subjectQuantity);
+          const totalSlippagePositionUnit = preciseDiv(totalSlippageAndFees, subjectQuantity);
+
+          const feeAndSlippageAdjustedExternalPositionUnit = feeAdjustedExternalPositionUnit
+            .sub(toUSDCDecimals(totalSlippagePositionUnit));
+
+          await subject();
+
+          // Calculate value of set
+          const accountInfo = await perpLeverageModule.getAccountInfo(subjectSetToken);
+          const spotPrice = await perpSetup.getSpotPrice(baseToken);
+          const baseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          const notionalBaseValue = preciseMul(baseBalance, spotPrice);
+
+          const totalSetValue = notionalBaseValue
+            .add(accountInfo.netQuoteBalance)
+            .add(accountInfo.collateralBalance)
+            .add(accountInfo.owedRealizedPnl);
+
+          const valuePerSet = preciseDiv(totalSetValue, await setToken.totalSupply());
+          const valuePerSetUSDC = toUSDCDecimals(valuePerSet);
+
+          // feeAdjustedExternalPositionUnit            = 10012150
+          // feeAndSlippageAdjustedExternalPositionUnit =  9801960
+          // valuePerSet                                =  9818624
+          expect(valuePerSetUSDC).eq(feeAndSlippageAdjustedExternalPositionUnit);
         });
       });
 
@@ -365,11 +512,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         // Minting 3 sets raises interim leverage ratio to > 80 USDC Asset / 10 USDC collateral
         // We know from spec scenario testing that the effective limit is ~ 9.1X
         beforeEach(async () => {
-          subjectSetToken = setToken.address;
           subjectQuantity = ether(3);
-          subjectTo = owner.address;
-          subjectCaller = owner;
-          subjectDepositAmount = depositQuantityUnit;
         });
 
         // Calculated leverage = 8_702_210_816_139_153_672
@@ -384,11 +527,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
       describe("when flash-issuing at high margin (failure)", async () => {
         beforeEach(async () => {
-          subjectSetToken = setToken.address;
           subjectQuantity = ether(3.5);
-          subjectTo = owner.address;
-          subjectCaller = owner;
-          subjectDepositAmount = depositQuantityUnit;
         });
 
         // Calculated leverage = 9_911_554_370_685_102_958
@@ -406,8 +545,11 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
   describe("#redemption", async () => {
     let setToken: SetToken;
-    let issueFee: BigNumber;
-    let usdcDefaultPositionUnits: BigNumber;
+    let baseToken: Address;
+    let redeemFee: BigNumber;
+    let depositQuantityUnit: BigNumber;
+    let usdcDefaultPositionUnit: BigNumber;
+    let usdcTransferOutQuantity: BigNumber;
 
     let subjectSetToken: Address;
     let subjectQuantity: BigNumber;
@@ -416,6 +558,30 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     let subjectTo: Address;
     let subjectCaller: Account;
     let issueQuantity: BigNumber;
+
+    const initializeContracts = async function() {
+      usdcDefaultPositionUnit = usdcUnits(10);
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcDefaultPositionUnit],
+        [perpLeverageModule.address, slippageIssuanceModule.address]
+      );
+      redeemFee = ether(0.005);
+      await slippageIssuanceModule.initialize(
+        setToken.address,
+        ether(0.02),
+        ether(0.005),
+        redeemFee,
+        feeRecipient.address,
+        ADDRESS_ZERO
+      );
+      // Add SetToken to allow list
+      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+      await perpLeverageModule.initialize(setToken.address);
+
+      // Approve tokens to issuance module and call issue
+      await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
+    };
 
     async function subject(): Promise<ContractTransaction> {
       return slippageIssuanceModule.connect(subjectCaller.wallet).redeemWithSlippage(
@@ -427,39 +593,19 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       );
     }
 
-    context("when a default usdc position and redeem will take supply to 0", async () => {
-      cacheBeforeEach(async () => {
-        usdcDefaultPositionUnits = usdcUnits(100);
-        setToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcDefaultPositionUnits],
-          [perpLeverageModule.address, slippageIssuanceModule.address]
-        );
-        issueFee = ether(0.005);
-        await slippageIssuanceModule.initialize(
-          setToken.address,
-          ether(0.02),
-          issueFee,
-          ether(0.005),
-          feeRecipient.address,
-          ADDRESS_ZERO
-        );
-        // Add SetToken to allow list
-        await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
-        await perpLeverageModule.initialize(setToken.address);
+    context("when there is only an external USDC position and redeem will take supply to 0", async () => {
+      cacheBeforeEach(initializeContracts);
 
-        // Approve tokens to issuance module and call issue
-        await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
-
+      beforeEach(async () => {
         // Issue 1 SetToken
         issueQuantity = ether(1);
         await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
-        const depositQuantityUnit = usdcUnits(10);
+        depositQuantityUnit = usdcUnits(10);
         await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
 
         // Lever up 2X
-        const baseToken = vETH.address;
+        baseToken = vETH.address;
         await leverUp(
           setToken,
           perpLeverageModule,
@@ -470,21 +616,20 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           ether(.02),
           true
         );
-      });
 
-      beforeEach(async () => {
         subjectSetToken = setToken.address;
         subjectQuantity = issueQuantity;
         subjectCheckedComponents = [];
         subjectMaxTokenAmountsIn = [];
         subjectTo = owner.address;
         subjectCaller = owner;
-      });
 
-      // Component redeem hook not firing ...
-      it.skip("should have the expected collateral position", async () => {
-        await subject();
-        // const newPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+        usdcTransferOutQuantity = await calculateUSDCTransferOut(
+          setToken,
+          subjectQuantity,
+          perpLeverageModule,
+          perpSetup
+        );
       });
 
       it("should not update the USDC defaultPositionUnit", async () => {
@@ -495,13 +640,15 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
       });
 
-      // This wrong ... still showing a balance of 9597918
-      it.skip("should not update the USDC externalPositionUnit", async () => {
+      it("should have updated the USDC externalPositionUnit", async () => {
         const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
         await subject();
         const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
 
-        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+        const expectedExternalPositionUnit = usdcTransferOutQuantity;
+
+        expect(initialExternalPositionUnit).not.eq(finalExternalPositionUnit);
+        expect(finalExternalPositionUnit).eq(expectedExternalPositionUnit);
       });
 
       it("should have the expected virtual token balance", async () => {
@@ -518,53 +665,101 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         expect(finalBaseBalance).eq(expectedBaseBalance);
       });
 
-      // Component redeem hook is not running....
-      it.skip("should have emptied the Perp vault", async () => {
-        const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+      it("should not have updated the setToken USDC token balance", async () => {
+        const initialUSDCBalance = await usdc.balanceOf(subjectSetToken);
         await subject();
-        const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+        const finalUSDCBalance = await usdc.balanceOf(subjectSetToken);
 
-        expect(initialCollateralBalance).gt(0);
-        expect(finalCollateralBalance).eq(0);
+        expect(initialUSDCBalance).eq(finalUSDCBalance);
+      });
+
+      describe("withdrawal", () => {
+        let feeAdjustedTransferOutUSDC: BigNumber;
+        let realizedPnlUSDC: BigNumber;
+
+        beforeEach(async() => {
+          // Calculate fee adjusted usdcTransferOut
+          const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            false
+          ))[0];
+
+          feeAdjustedTransferOutUSDC = preciseMul(redeemQuantityWithFees, usdcTransferOutQuantity);
+
+          // Calculate realizedPnl, which is negative in this case. The amount is debited from collateral
+          // returned to redeemer *and* debited from the Perp account collateral balance because
+          // withdraw performs a settlement.
+          const baseUnit = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0].baseUnit;
+          const baseTradeQuantityNotional = preciseMul(baseUnit, subjectQuantity);
+          const { deltaQuote } = await perpSetup.getSwapQuote(
+            baseToken,
+            baseTradeQuantityNotional,
+            false
+          );
+
+          const {
+            baseBalance,
+            quoteBalance
+          } = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+          const closeRatio = preciseDiv(baseTradeQuantityNotional, baseBalance);
+          const reducedOpenNotional = preciseMul(quoteBalance, closeRatio);
+
+          realizedPnlUSDC = toUSDCDecimals(reducedOpenNotional.add(deltaQuote));
+        });
+
+        it("should withdraw the expected amount from the Perp vault", async () => {
+          const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+          await subject();
+          const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          const initialCollateralBalanceUSDC = toUSDCDecimals(initialCollateralBalance);
+          const finalCollateralBalanceUSDC = toUSDCDecimals(finalCollateralBalance);
+
+          const expectedCollateralBalanceUSDC = initialCollateralBalanceUSDC
+            .sub(feeAdjustedTransferOutUSDC)
+            .add(realizedPnlUSDC);
+
+          expect(finalCollateralBalanceUSDC).to.be.closeTo(expectedCollateralBalanceUSDC, 1);
+        });
+
+        it("should not update the setToken USDC token balance", async () => {
+          const initialUSDCBalance = await usdc.balanceOf(subjectSetToken);
+          await subject();
+          const finalUSDCBalance = await usdc.balanceOf(subjectSetToken);
+
+          expect(initialUSDCBalance).eq(0);
+          expect(finalUSDCBalance).eq(initialUSDCBalance);
+        });
+
+        it("should have transferred expected USDC to set token holder", async () => {
+          const initialOwnerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+          await subject();
+          const finalOwnerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+
+          const expectedUSDCBalance = initialOwnerUSDCBalance.add(feeAdjustedTransferOutUSDC);
+          expect(finalOwnerUSDCBalance).eq(expectedUSDCBalance);
+        });
       });
     });
 
-    context("when a default usdc position and redeem will take supply to 1", async () => {
+    context("when there is only an external USDC position and redeem will take supply to 1", async () => {
       let depositQuantityUnit: BigNumber;
       let usdcTransferOutQuantity: BigNumber;
 
-      cacheBeforeEach(async () => {
-        usdcDefaultPositionUnits = usdcUnits(100);
-        setToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcDefaultPositionUnits],
-          [perpLeverageModule.address, slippageIssuanceModule.address]
-        );
-        issueFee = ether(0.005);
-        await slippageIssuanceModule.initialize(
-          setToken.address,
-          ether(0.02),
-          issueFee,
-          ether(0.005),
-          feeRecipient.address,
-          ADDRESS_ZERO
-        );
-        // Add SetToken to allow list
-        await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
-        await perpLeverageModule.initialize(setToken.address);
+      cacheBeforeEach(initializeContracts);
 
-        // Approve tokens to issuance module and call issue
-        await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
-
-        // Issue 1 SetToken
+      beforeEach(async () => {
+        // Issue 2 SetTokens
         issueQuantity = ether(2);
         await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
-        depositQuantityUnit = usdcUnits(10);
+        // Deposit entire default position
+        depositQuantityUnit = usdcDefaultPositionUnit;
         await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
 
         // Lever up 2X
-        const baseToken = vETH.address;
+        baseToken = vETH.address;
         await leverUp(
           setToken,
           perpLeverageModule,
@@ -575,11 +770,9 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           ether(.02),
           true
         );
-      });
 
-      beforeEach(async () => {
         subjectSetToken = setToken.address;
-        subjectQuantity = issueQuantity;
+        subjectQuantity = ether(1);
         subjectCheckedComponents = [];
         subjectMaxTokenAmountsIn = [];
         subjectTo = owner.address;
@@ -591,15 +784,6 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           perpLeverageModule,
           perpSetup
         );
-      });
-
-      it.skip("should update the setToken USDC token balance", async () => {
-        // const initialUSDCBalance = await usdc.balanceOf(subjectSetToken);
-        await subject();
-        // const finalUSDCBalance = await usdc.balanceOf(subjectSetToken);
-
-        // initialUSDCBalance      = 180_900_000
-        // usdcTransferOutQuantity =  19_195_715
       });
 
       it("should not update the USDC defaultPositionUnit", async () => {
@@ -619,7 +803,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         // finalExternalPositionUnit   =  9_597_857
 
         const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);
-        expect(initialExternalPositionUnit).eq(depositQuantityUnit);
+        expect(initialExternalPositionUnit).eq(usdcDefaultPositionUnit);
         expect(finalExternalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
       });
 
@@ -637,17 +821,118 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         expect(finalBaseBalance).eq(expectedBaseBalance);
       });
 
-      // Component issue and redeem hooks not running....
-      it.skip("should reduced the Perp vault by expected amount", async () => {
-        const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+      // This is slightly off ... over a tenth of a penny.
+      it.skip("should not incur a premium", async () => {
+        const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+          subjectSetToken,
+          subjectQuantity,
+          false
+        ))[0];
+
+        // Model says premium should be calculated as (usdcTransferIn / amountMinted)
+        const externalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);
+        const feeAdjustedTransferOut = preciseMul(redeemQuantityWithFees, externalPositionUnit);
+        const feeAdjustedExternalPositionUnit = preciseDiv(feeAdjustedTransferOut, redeemQuantityWithFees);
+
+        // Slippage will be paid by the redeemer
+        const totalSlippageAndFees = await calculateTotalSlippage(setToken, subjectQuantity);
+        const totalSlippagePositionUnit = preciseDiv(totalSlippageAndFees, subjectQuantity);
+
+        const feeAndSlippageAdjustedExternalPositionUnit = feeAdjustedExternalPositionUnit
+          .add(toUSDCDecimals(totalSlippagePositionUnit));
+
         await subject();
-        const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
-        // usdcTransferOutQuantity                    = 19_195_715
-        // toUSDCDecimals(initialCollateralBalance))  = 20_100_000
+        // Calculate value of set
+        const accountInfo = await perpLeverageModule.getAccountInfo(subjectSetToken);
+        const spotPrice = await perpSetup.getSpotPrice(baseToken);
+        const baseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+        const notionalBaseValue = preciseMul(baseBalance, spotPrice);
 
-        const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).sub(usdcTransferOutQuantity);
-        expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 1);
+        const totalSetValue = notionalBaseValue
+          .add(accountInfo.netQuoteBalance)
+          .add(accountInfo.collateralBalance)
+          .add(accountInfo.owedRealizedPnl);
+
+        const valuePerSet = preciseDiv(totalSetValue, await setToken.totalSupply());
+        const valuePerSetUSDC = toUSDCDecimals(valuePerSet);
+
+        // feeAdjustedTransferOut                     = 9_553_810
+        // valuePerSetUSDC                            = 9_796_973
+        // feeAndSlippageAdjustedExternalPositionUnit = 9_808_047
+
+        expect(valuePerSetUSDC).eq(feeAndSlippageAdjustedExternalPositionUnit);
+      });
+
+      describe("withdrawal", () => {
+        let feeAdjustedTransferOutUSDC: BigNumber;
+        let realizedPnlUSDC: BigNumber;
+
+        beforeEach(async() => {
+          // Calculate fee adjusted usdcTransferOut
+          const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            false
+          ))[0];
+
+          feeAdjustedTransferOutUSDC = preciseMul(redeemQuantityWithFees, usdcTransferOutQuantity);
+
+          // Calculate realizedPnl, which is negative in this case. The amount is debited from collateral
+          // returned to redeemer *and* debited from the Perp account collateral balance because
+          // withdraw performs a settlement.
+          const baseUnit = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0].baseUnit;
+          const baseTradeQuantityNotional = preciseMul(baseUnit, subjectQuantity);
+          const { deltaQuote } = await perpSetup.getSwapQuote(
+            baseToken,
+            baseTradeQuantityNotional,
+            false
+          );
+
+          const {
+            baseBalance,
+            quoteBalance
+          } = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+          const closeRatio = preciseDiv(baseTradeQuantityNotional, baseBalance);
+          const reducedOpenNotional = preciseMul(quoteBalance, closeRatio);
+
+          realizedPnlUSDC = toUSDCDecimals(reducedOpenNotional.add(deltaQuote));
+        });
+
+        it("should withdraw the expected amount from the Perp vault", async () => {
+          const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+          await subject();
+          const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          const initialCollateralBalanceUSDC = toUSDCDecimals(initialCollateralBalance);
+          const finalCollateralBalanceUSDC = toUSDCDecimals(finalCollateralBalance);
+
+          // realizedPnl            = -398179
+          // feeAdjustedTransferOut = 9553810
+          const expectedCollateralBalanceUSDC = initialCollateralBalanceUSDC
+            .sub(feeAdjustedTransferOutUSDC)
+            .add(realizedPnlUSDC);
+
+          expect(finalCollateralBalanceUSDC).to.be.closeTo(expectedCollateralBalanceUSDC, 1);
+        });
+
+        it("should not update the setToken USDC token balance", async () => {
+          const initialUSDCBalance = await usdc.balanceOf(subjectSetToken);
+          await subject();
+          const finalUSDCBalance = await usdc.balanceOf(subjectSetToken);
+
+          expect(initialUSDCBalance).eq(0);
+          expect(finalUSDCBalance).eq(initialUSDCBalance);
+        });
+
+        it("should have transferred expected USDC to set token holder", async () => {
+          const initialOwnerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+          await subject();
+          const finalOwnerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+
+          const expectedUSDCBalance = initialOwnerUSDCBalance.add(feeAdjustedTransferOutUSDC);
+          expect(finalOwnerUSDCBalance).to.be.closeTo(expectedUSDCBalance, 1);
+        });
       });
     });
   });
