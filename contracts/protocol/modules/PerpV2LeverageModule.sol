@@ -764,7 +764,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         usdcAmountIn = usdcAmountIn.add(owedRealizedPnlDiscountQuantity);
 
         // Return value in collateral decimals (e.g USDC = 6)
-        return _formatCollateralToken(
+        return _fromPreciseUnitToDecimals(
             usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
             ERC20(address(collateralToken)).decimals()
         );
@@ -832,7 +832,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 .add(owedRealizedPnlPositionUnit.preciseMul(_setTokenQuantity.toInt256()))
                 .add(realizedPnl);
 
-        return _formatCollateralToken(
+        return _fromPreciseUnitToDecimals(
             usdcToWithdraw.preciseDiv(_setTokenQuantity.toInt256()),
             ERC20(address(collateralToken)).decimals()
         );
@@ -993,7 +993,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns(uint256)
     {
         uint256 protocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
-        uint256 protocolFeeInCollateralDecimals = _formatCollateralToken(
+        uint256 protocolFeeInCollateralDecimals = _fromPreciseUnitToDecimals(
             protocolFee,
             ERC20(address(collateralToken)).decimals()
         );
@@ -1235,7 +1235,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             .add(accountInfo.pendingFundingPayments)
             .preciseDiv(_setToken.totalSupply().toInt256());
 
-        return _formatCollateralToken(
+        return _fromPreciseUnitToDecimals(
             externalPositionUnitInPrecisionDecimals,
             ERC20(address(collateralToken)).decimals()
         );
@@ -1245,7 +1245,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         int256 balance = perpVault.getBalance(address(_setToken));
         uint8 decimals = ERC20(address(collateralToken)).decimals();
-        return _parseCollateralToken(balance, decimals);
+        return _toPreciseUnitsFromDecimals(balance, decimals);
     }
 
     /**
@@ -1343,7 +1343,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *
      * This method is borrowed from PerpProtocol's `lushan` repo in lib/SettlementTokenMath
      */
-    function _formatCollateralToken(uint256 amount, uint8 decimals) internal pure returns (uint256) {
+    function _fromPreciseUnitToDecimals(uint256 amount, uint8 decimals) internal pure returns (uint256) {
         return amount.div(10**(18 - uint(decimals)));
     }
 
@@ -1354,7 +1354,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *
      * This method is borrowed from PerpProtocol's `lushan` repo in lib/SettlementTokenMath
      */
-    function _formatCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
+    function _fromPreciseUnitToDecimals(int256 amount, uint8 decimals) internal pure returns (int256) {
         return amount.div(int256(10**(18 - uint(decimals))));
     }
 
@@ -1363,7 +1363,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * balance is represented as a 6 decimals USDC quantity which we need to consume in PRECISE_UNIT
      * format when calculating values like the external position unit and current leverage.
      */
-    function _parseCollateralToken(int256 amount, uint8 decimals) internal pure returns (int256) {
+    function _toPreciseUnitsFromDecimals(int256 amount, uint8 decimals) internal pure returns (int256) {
         return amount.mul(int256(10**(18 - (uint(decimals)))));
     }
 
