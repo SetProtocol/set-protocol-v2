@@ -1042,12 +1042,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Construct the ActionInfo struct for trading. This method takes NOTIONAL token amounts and creates
      * the struct. If the _baseTokenQuantity is less than zero then we are selling the baseToken.
      *
-     * | ----------------------------------------------------------------------------|
-     * | Action  | isB2Q  | Exact In / Out | Amount    | Opposit Bound Description   |
-     * | ------- |--------|----------------|-----------|---------------------------- |
-     * | Sell    | true   | exact input    | baseToken | Min quote to receive        |
-     * | Buy     | false  | exact output   | baseToken | Max quote to pay            |
-     * |-----------------------------------------------------------------------------|
+     * | ---------------------------------------------------------------------------------------------|
+     * | Action  | isShort | isB2Q  | Exact In / Out        | Amount    | Opposit Bound Description   |
+     * | ------- |---------|--------|-----------------------|-----------|---------------------------- |
+     * | Sell    |  true   | true   | exact input (true)    | baseToken | Min quote to receive        |
+     * | Buy     |  false  | false  | exact output (false)  | baseToken | Max quote to pay            |
+     * |----------------------------------------------------------------------------------------------|
      *
      * @param _setToken                 Instance of the SetToken
      * @param _baseToken                Address of base token being traded into/out of
