@@ -114,7 +114,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
   // Helper to calculate how leveraged the Perp account gets as it mints tokens on margin
   async function calculateFlashLeverage(setToken: Address, setQuantity: BigNumber): Promise<BigNumber> {
-    const spotPrice = await perpLeverageModule.getSpotPrice(vETH.address);
+    const spotPrice = await perpLeverageModule.getAMMSpotPrice(vETH.address);
     const { collateralBalance } = await perpLeverageModule.getAccountInfo(setToken);
     const positionNotionalInfo = (await perpLeverageModule.getPositionNotionalInfo(setToken))[0];
     const positionUnitInfo = (await perpLeverageModule.getPositionUnitInfo(setToken))[0];

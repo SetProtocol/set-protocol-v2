@@ -1357,7 +1357,7 @@ describe("PerpV2LeverageModule", () => {
           expect(finalBaseBalance).eq(expectedBaseBalance);
         });
 
-        it.only("should set the expected USDC externalPositionUnit", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
           const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
@@ -4771,7 +4771,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getSpotPrice", () => {
+  describe("#getAMMSpotPrice", () => {
     let subjectVETHToken: Address;
     let subjectVBTCToken: Address;
 
@@ -4781,7 +4781,7 @@ describe("PerpV2LeverageModule", () => {
     });
 
     async function subject(vToken: Address): Promise<BigNumber> {
-      return perpLeverageModule.getSpotPrice(vToken);
+      return perpLeverageModule.getAMMSpotPrice(vToken);
     }
 
     it("should get the mid-point price for vETH", async () => {

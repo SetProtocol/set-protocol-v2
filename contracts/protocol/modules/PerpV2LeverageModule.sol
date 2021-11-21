@@ -695,7 +695,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param  _baseToken)          Address of virtual token to price
      * @return price                Mid-point price of virtual token in UniswapV3 AMM market
      */
-    function getSpotPrice(address _baseToken) public view returns (uint256 price) {
+    function getAMMSpotPrice(address _baseToken) public view returns (uint256 price) {
         address pool = perpMarketRegistry.getPool(_baseToken);
         (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
         uint256 priceX96 = _formatSqrtPriceX96ToPriceX96(sqrtPriceX96);
@@ -1097,7 +1097,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         // Sum the absolute value of basePositions. These are positive when long, negative when short
         for (uint256 i = 0; i < positionInfoArraySize; i++) {
-            spotPrices[i] = getSpotPrice(_positionInfo[i].baseToken).toInt256();
+            spotPrices[i] = getAMMSpotPrice(_positionInfo[i].baseToken).toInt256();
 
             totalPositionAbsoluteValue = totalPositionAbsoluteValue.add(
                 _abs(_positionInfo[i].baseBalance.preciseMul(spotPrices[i]))
@@ -1201,7 +1201,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 totalPositionValue = 0;
 
         for (uint i = 0; i < positionInfo.length; i++ ) {
-            int256 spotPrice = getSpotPrice(positionInfo[i].baseToken).toInt256();
+            int256 spotPrice = getAMMSpotPrice(positionInfo[i].baseToken).toInt256();
             totalPositionValue = totalPositionValue.add(
                 _abs(positionInfo[i].baseBalance.preciseMul(spotPrice))
             );
@@ -1299,7 +1299,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Converts a UniswapV3 sqrtPriceX96 value to a priceX96 value. This method is borrowed from
-     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getSpotPrice` while generating a
+     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getAMMSpotPrice` while generating a
      * PRECISE_UNIT vAsset market price
      */
     function _formatSqrtPriceX96ToPriceX96(uint160 sqrtPriceX96) internal pure returns (uint256) {
@@ -1308,7 +1308,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Converts a UniswapV3 X96 format price into a PRECISE_UNIT price. This method is borrowed from
-     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getSpotPrice` while generating a
+     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getAMMSpotPrice` while generating a
      * PRECISE_UNIT vAsset market price
      */
     function _formatX96ToX10_18(uint256 valueX96) internal pure returns (uint256) {
