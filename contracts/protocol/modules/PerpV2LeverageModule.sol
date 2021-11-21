@@ -49,9 +49,18 @@ import "hardhat/console.sol";
 /**
  * @title PerpLeverageModule
  * @author Set Protocol
- * @notice Smart contract that enables leveraged trading using the PerpV2 protocol. Each
- * SetToken can only manage a single Perp account, represented as a positive equity external position
- * whose value is the net Perp account value denominated in the collateral token deposited into the Perp Protocol.
+ * @notice Smart contract that enables leveraged trading using the PerpV2 protocol. Each SetToken can only manage a single Perp account
+ * represented as a positive equity external position whose value is the net Perp account value denominated in the collateral token
+ * deposited into the Perp Protocol. This module only allows Perp positions to be collateralized by one asset, USDC, set on deployment of
+ * this contract (see collateralToken) however it can take positions simultaneuosly in multiple base assets.
+ * 
+ * Upon issuance and redemption positions are not EXACTLY replicated like for other position types since a trade is necessary to enter/exit
+ * the position on behalf of the issuer/redeemer. Any cost of entering/exiting the position (slippage) is carried by the issuer/redeemer.
+ * Any pending funding costs or PnL is carried by the current token holders. To be used safely this module MUST issue using the
+ * SlippageIssuanceModule or else issue and redeem transaction could be sandwich attacked.
+ *
+ * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
+ * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  */
 contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
@@ -156,7 +165,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
     IMarketRegistry public immutable perpMarketRegistry;
 
-    // Token (USDC) used as a vault deposit, sourced from Perp Protocol in `initialize`.
+    // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's setllement and collateral token
     IERC20 public immutable collateralToken;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
@@ -213,8 +222,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * Providing a negative value sells the token. `_receiveQuoteQuantityUnits` defines a min-receive-like slippage
      * bound for the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
      *
-     * NOTE: This method doesn't update the externalPositionUnit because the EPU for this module is a function of
-     * UniswapV3 virtual token market prices and needs to be generated on the fly to be meaningful.
+     * NOTE: This method doesn't update the externalPositionUnit because it is a function of UniswapV3 virtual
+     * token market prices and needs to be generated on the fly to be meaningful.
      *
      * As a user when levering, e.g increasing the magnitude of your position, you'd trade as below
      * | ----------------------------------------------------------------------------------------------- |
@@ -413,7 +422,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev MODULE ONLY: Hook called prior to issuance. Only callable by valid module.
+     * @dev MODULE ONLY: Hook called prior to issuance. Only callable by valid module. Should only be called ONCE
+     * during issue. Trades into current positions and sets the collateralToken's externalPositionUnit so that
+     * issuance module can transfer in the right amount of collateral accounting for accrued fees/pnl and slippage
+     * incurred during issuance. Any pending funding payments and accrued owedRealizedPnl are attributed to current
+     * Set holders.
+     *
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of Set to issue
      */
@@ -429,13 +443,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         int256 newExternalPositionUnit = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, false);
 
-        // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
+        // Set collateralToken externalPositionUnit such that DIM can use it for transfer calculation
         _setToken.editExternalPositionUnit(
             address(collateralToken),
             address(this),
             newExternalPositionUnit
         );
-
     }
 
     /**
@@ -443,7 +456,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * positions to make redemption capital withdrawable from PerpV2 vault. Sets the `externalPositionUnit`
      * equal to the realizable value of account in position units (as measured by the trade outcomes for
      * this redemption). Any `owedRealizedPnl` and pending funding payments are socialized in this step so
-     * that redeemer pays/receives their share of them.
+     * that redeemer pays/receives their share of them. Should only be called ONCE during redeem.
      *
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of SetToken to redeem
@@ -635,12 +648,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         for(uint i = 0; i < positions[_setToken].length; i++){
             positionInfo[i] = PositionUnitInfo({
                 baseToken: positions[_setToken][i],
-
                 baseUnit: perpAccountBalance.getBase(
                     address(_setToken),
                     positions[_setToken][i]
                 ).preciseDiv(totalSupply),
-
                 quoteUnit: perpAccountBalance.getQuote(
                     address(_setToken),
                     positions[_setToken][i]
@@ -816,7 +827,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             }
         }
 
-        // Calculate amount of USDC to withdraw
+        // Calculate amount of collateral to withdraw
         int256 collateralPositionUnit = _getCollateralBalance(_setToken).preciseDiv(_setToken.totalSupply().toInt256());
 
         int256 usdcToWithdraw =
@@ -847,9 +858,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * Approves and deposits collateral units into Perp vault and additionally sets USDC externalPositionUnit
-     * so Manager contracts have a value they can base calculations for further trading on within the
-     * same transaction.
+     * Approves and deposits collateral units into Perp vault and additionally sets collateral token externalPositionUnit
+     * so Manager contracts have a value they can base calculations for further trading on within the same transaction.
      *
      * NOTE: This flow is only used when invoking the external `deposit` function - it converts collateral
      * quantity units into a notional quantity.
@@ -892,7 +902,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * Withdraws collateral units from Perp vault to SetToken and additionally sets both the USDC
+     * Withdraws collateral units from Perp vault to SetToken and additionally sets both the collateralToken
      * externalPositionUnit (so Manager contracts have a value they can base calculations for further
      * trading on within the same transaction), and the collateral token default position unit.
      *
@@ -1067,7 +1077,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Calculates current leverage ratio and UniswapV3 market spot prices for each position.
-     * The leverage ratio is used to scale the amount of USDC to transfer in during issuance so new
+     * The leverage ratio is used to scale the amount of collateralToken to transfer in during issuance so new
      * set holder funds are proportionate to the leverage ratio pre-established for the set. The spot
      * prices are used to calculate the ideal amount of quote asset that would be received for trading
      * a postion during issuance so we can isolate slippage issuers should pay.
@@ -1182,7 +1192,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Calculates the sum USDC denominated market-prices assets and debt for the Perp account per
+     * @dev Calculates the sum of collateralToken denominated market-prices of assets and debt for the Perp account per
      * SetToken
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
