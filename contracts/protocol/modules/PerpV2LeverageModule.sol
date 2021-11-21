@@ -552,19 +552,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         external
         returns (int256[] memory, int256[] memory)
     {
-        (
-            int256 newExternalPositionUnit,
-            uint256 collateralComponentIndex,
-            bool hasCollateralToken
-        ) = _executeModuleIssuanceHookSimulation(_setToken, _setTokenQuantity);
+        address[] memory components = _setToken.getComponents();
 
-        return _formatAdjustments(
-            _setToken,
-            _setToken.getExternalPositionRealUnit(address(collateralToken), address(this)),
-            newExternalPositionUnit,
-            collateralComponentIndex,
-            hasCollateralToken
-        );
+        if (positions[_setToken].length > 0) {
+            int256 newExternalPositionUnit = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, true);
+            return _formatAdjustments(_setToken, components, newExternalPositionUnit);
+        } else {
+            return _formatAdjustments(_setToken, components, 0);
+        }
     }
 
     /**
@@ -583,19 +578,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         external
         returns (int256[] memory, int256[] memory _)
     {
-        (
-            int256 newExternalPositionUnit,
-            uint256 collateralComponentIndex,
-            bool hasCollateralToken
-        ) = _executeModuleRedemptionHookSimulation(_setToken, _setTokenQuantity);
+        address[] memory components = _setToken.getComponents();
 
-        return _formatAdjustments(
-            _setToken,
-            _setToken.getExternalPositionRealUnit(address(collateralToken), address(this)),
-            newExternalPositionUnit,
-            collateralComponentIndex,
-            hasCollateralToken
-        );
+        if (positions[_setToken].length > 0) {
+            int256 newExternalPositionUnit = _executeModuleRedemptionHook(_setToken, _setTokenQuantity, true);
+            return _formatAdjustments(_setToken, components, newExternalPositionUnit);
+        } else {
+            return _formatAdjustments(_setToken, components, 0);
+        }
     }
 
     /**
@@ -1246,46 +1236,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Executes moduleIssuanceHook as a simulation, checking first that the SetToken contains
-     * the collateral token. When successful, returns externalPositionUnit as calculated from the issuance
-     * trade outcome, index of collateral token on the components array, and a boolean `true` flag indicating
-     * collateral token check was ok. When collateral token is missing returns 0, 0, and false.
-     */
-    function _executeModuleIssuanceHookSimulation(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity
-    )
-        internal
-        returns (int256, uint256, bool)
-    {
-        (uint256 index, bool hasCollateralToken) = _setToken.getComponents().indexOf(address(collateralToken));
-
-        return (hasCollateralToken)
-            ? (_executeModuleIssuanceHook(_setToken, _setTokenQuantity, true), index, hasCollateralToken)
-            : (0, 0, hasCollateralToken);
-    }
-
-    /**
-     * @dev Executes moduleRedemptionHook as a simulation, checking first that the SetToken contains
-     * the collateral token. When successful, returns externalPositionUnit as calculated from the redemption
-     * trade outcome, index of collateral token on the components array, and a boolean `true` flag indicating
-     * collateral token check was ok. When collateral token is missing returns 0, 0, and false.
-     */
-    function _executeModuleRedemptionHookSimulation(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity
-    )
-        internal
-        returns (int256, uint256, bool)
-    {
-        (uint256 index, bool hasCollateralToken) = _setToken.getComponents().indexOf(address(collateralToken));
-
-        return (hasCollateralToken)
-            ? (_executeModuleRedemptionHook(_setToken, _setTokenQuantity, true), index, hasCollateralToken)
-            : (0, 0, hasCollateralToken);
-    }
-
-    /**
      * @dev Returns issuance or redemption adjustments in the format expected by `SlippageIssuanceModule`.
      * The last recorded externalPositionUnit (current) is subtracted from a dynamically generated
      * externalPositionUnit (new) and set in an `equityAdjustments` array which is the same length as
@@ -1295,25 +1245,29 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      */
     function _formatAdjustments(
         ISetToken _setToken,
-        int256 _currentExternalPositionUnit,
-        int256 _newExternalPositionUnit,
-        uint256 _index,
-        bool hasCollateralToken
+        address[] memory _components,
+        int256 _newExternalPositionUnit
     )
         internal
         view
         returns (int256[] memory, int256[] memory)
     {
-        address[] memory components = _setToken.getComponents();
-        int256[] memory equityAdjustments = new int256[](components.length);
-        int256[] memory debtAdjustments = new int256[](components.length);
+        int256[] memory equityAdjustments = new int256[](_components.length);
+        int256[] memory debtAdjustments = new int256[](_components.length);
 
-        if (hasCollateralToken) {
-            equityAdjustments[_index] = _newExternalPositionUnit.sub(_currentExternalPositionUnit);
+        (uint256 index, bool isIn) = _components.indexOf(address(collateralToken));
+
+        if (isIn) {
+            int256 currentExternalPositionUnit = _setToken.getExternalPositionRealUnit(
+                address(collateralToken),
+                address(this)
+            );
+
+            equityAdjustments[index] = _newExternalPositionUnit.sub(currentExternalPositionUnit);
         }
 
         return (equityAdjustments, debtAdjustments);
-    }
+    } 
 
     /**
      * @dev Converts a UniswapV3 sqrtPriceX96 value to a priceX96 value. This method is borrowed from
