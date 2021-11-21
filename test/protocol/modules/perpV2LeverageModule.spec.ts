@@ -3437,15 +3437,14 @@ describe("PerpV2LeverageModule", () => {
         expect(finalSetTokenUSDCBalance).eq(expectedSetTokenUSDCBalance);
       });
 
-      it("should update the USDC defaultPositionUnit", async () => {
-        const externalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+      it("should not update the USDC defaultPositionUnit", async () => {
         const initialDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);
+
         await subject();
+
         const finalDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);
 
-        const depositQuantity = preciseMul(externalPositionUnit, subjectSetQuantity);
-        const expectedDefaultPosition = initialDefaultPosition.sub(depositQuantity);
-        expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+        expect(finalDefaultPosition).to.eq(initialDefaultPosition);
       });
 
       it("should not update the USDC externalPositionUnit", async () => {
@@ -3494,15 +3493,14 @@ describe("PerpV2LeverageModule", () => {
         expect(finalSetTokenUSDCBalance).eq(expectedSetTokenUSDCBalance);
       });
 
-      it("should update the USDC defaultPositionUnit", async () => {
-        const externalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+      it("should not update the USDC defaultPositionUnit", async () => {
         const initialDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);
+
         await subject();
+
         const finalDefaultPosition = await setToken.getDefaultPositionRealUnit(usdc.address);
 
-        const depositQuantity = preciseMul(externalPositionUnit, subjectSetQuantity);
-        const expectedDefaultPosition = initialDefaultPosition.sub(depositQuantity);
-        expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+        expect(finalDefaultPosition).to.eq(initialDefaultPosition);
       });
     });
 

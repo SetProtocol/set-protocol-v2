@@ -831,8 +831,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * to be the end of a call sequence (e.g manager will not need to read the updated value)
      */
     function _deposit(ISetToken _setToken, uint256 _collateralNotionalQuantity) internal {
-        uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
-
         _setToken.invokeApprove(
             address(collateralToken),
             address(perpVault),
@@ -840,12 +838,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         );
 
         _setToken.invokeDeposit(perpVault, collateralToken, _collateralNotionalQuantity);
-
-        _setToken.calculateAndEditDefaultPosition(
-            address(collateralToken),
-            _setToken.totalSupply(),
-            initialCollateralPositionBalance
-        );
     }
 
     /**
@@ -862,9 +854,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     )
         internal
     {
+        uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
         uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
 
         _deposit(_setToken, collateralNotionalQuantity);
+
+        _setToken.calculateAndEditDefaultPosition(
+            address(collateralToken),
+            _setToken.totalSupply(),
+            initialCollateralPositionBalance
+        );
 
         _setToken.editExternalPosition(
             address(collateralToken),
