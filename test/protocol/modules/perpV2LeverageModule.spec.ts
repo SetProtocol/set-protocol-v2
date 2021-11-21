@@ -4756,6 +4756,9 @@ describe("PerpV2LeverageModule", () => {
       expectedDepositQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(expectedDepositQuantity);
       subjectSetToken = setToken.address;
+
+      await leverUp(setToken, perpLeverageModule, perpSetup, owner, vETH.address, 2, ether(0.02), true);
+      await increaseTimeAsync(ONE_DAY_IN_SECONDS);
     });
 
     async function subject(): Promise<any> {
@@ -4763,11 +4766,15 @@ describe("PerpV2LeverageModule", () => {
     }
 
     it("should return account info", async () => {
+      const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(setToken.address);
+
       const accountInfo = await subject();
+
+      const expectedFunding = pendingFunding.mul(-1);
 
       expect(toUSDCDecimals(accountInfo.collateralBalance)).eq(expectedDepositQuantity);
       expect(accountInfo.owedRealizedPnl).eq(0);
-      expect(accountInfo.pendingFundingPayments).eq(0);
+      expect(accountInfo.pendingFundingPayments).eq(expectedFunding);
     });
   });
 
