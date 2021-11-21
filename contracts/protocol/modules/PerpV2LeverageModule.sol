@@ -217,7 +217,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /* ============ External Functions ============ */
 
     /**
-     * @dev MANAGER ONLY: Raises leverage ratio for a virtual token by increasing the magnitude of its position,
+     * @dev MANAGER ONLY: Allows manager to buy or sell perps to change exposure to the underlying baseToken.
      * Providing a positive value for `_baseQuantityUnits` buys vToken on UniswapV3 via Perp's ClearingHouse,
      * Providing a negative value sells the token. `_receiveQuoteQuantityUnits` defines a min-receive-like slippage
      * bound for the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
@@ -716,7 +716,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setTokenQuantity
         );
 
-        (int256 currentLeverage, int256[] memory spotPrices) = _getCurrentLeverageAndSpotPrices(_setToken, positionInfo);
+        (int256 currentLeverage, int256[] memory spotPrices) = _getCurrentAccountLeverageAndSpotPrices(_setToken, positionInfo);
 
         for(uint i = 0; i < positionInfo.length; i++) {
             int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
@@ -1080,13 +1080,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Calculates current leverage ratio and UniswapV3 market spot prices for each position.
-     * The leverage ratio is used to scale the amount of collateralToken to transfer in during issuance so new
-     * set holder funds are proportionate to the leverage ratio pre-established for the set. The spot
+     * @dev Calculates current account leverage and UniswapV3 market spot prices for each position.
+     * The account leverage is used to scale the amount of collateralToken to transfer in during issuance so new
+     * set holder funds are proportionate to the account leverage pre-established for the set. The spot
      * prices are used to calculate the ideal amount of quote asset that would be received for trading
      * a postion during issuance so we can isolate slippage issuers should pay.
      */
-    function _getCurrentLeverageAndSpotPrices(
+    function _getCurrentAccountLeverageAndSpotPrices(
         ISetToken _setToken,
         PositionNotionalInfo[] memory _positionInfo
     )
@@ -1112,16 +1112,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             );
         }
 
-        // leverage = vAssets / (vAssets - vDebt + collateral)
+        // account leverage = vAssets / (vAssets - vDebt + collateral)
         // vAsset value is postive when long, negative when short
         // vQuote balance is negative when long, positive when short
-        int256 currentLeverage = totalPositionAbsoluteValue.preciseDiv(
+        int256 currentAccountLeverage = totalPositionAbsoluteValue.preciseDiv(
             totalPositionNetValue
                 .add(perpAccountBalance.getNetQuoteBalance(address(_setToken)))
                 .add(_getCollateralBalance(_setToken))
         );
 
-        return (currentLeverage, spotPrices);
+        return (currentAccountLeverage, spotPrices);
     }
 
     /**

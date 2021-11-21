@@ -4334,7 +4334,7 @@ describe("PerpV2LeverageModule", () => {
   });
 
   // This method uses the same flow as #moduleIssueHook, except the trade is router via QuoterSwap
-  describe.only("#getIssuanceAdjustments", () => {
+  describe("#getIssuanceAdjustments", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -4470,7 +4470,7 @@ describe("PerpV2LeverageModule", () => {
   });
 
   // This method uses the same flow as #moduleRedeemHook, except the trade is router via QuoterSwap
-  describe.only("#getRedemptionAdjustments", () => {
+  describe("#getRedemptionAdjustments", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
