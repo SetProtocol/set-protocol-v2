@@ -76,7 +76,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         bool isBaseToQuote;             // When true, `baseToken` is being sold, when false, bought
         bool isExactInput;              // When true, `amount` is the swap input, when false, the swap output
         int256 amount;                  // Quantity in 10**18 decimals
-        uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createAndValidateActionInfoNotional` for details)
+        uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createAndValidateActionInfoNotionalNotional` for details)
     }
 
     struct PositionNotionalInfo {
@@ -260,8 +260,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _receiveQuoteQuantityUnits,
-            true
+            _receiveQuoteQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, false);
@@ -733,12 +732,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
             int256 baseTradeNotionalQuantity = basePositionUnit.preciseMul(_setTokenQuantity.toInt256());
 
-            ActionInfo memory actionInfo = _createAndValidateActionInfo(
+            ActionInfo memory actionInfo = _createAndValidateActionInfoNotional(
                 _setToken,
                 positionInfo[i].baseToken,
                 baseTradeNotionalQuantity,
-                0,
-                false
+                0
             );
 
             int256 idealDeltaQuote = _abs(baseTradeNotionalQuantity.preciseMul(spotPrices[i]));
@@ -808,12 +806,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             );
 
             // Trade, inverting notional quantity sign because we are reducing position
-            ActionInfo memory actionInfo = _createAndValidateActionInfo(
+            ActionInfo memory actionInfo = _createAndValidateActionInfoNotional(
                 _setToken,
                 positionInfo[i].baseToken,
                 baseTradeNotionalQuantity.mul(-1),
-                0,
-                false
+                0
             );
 
             (,uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
@@ -1009,44 +1006,72 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Construct the ActionInfo struct for trading. This method is used by lever, delever, issue and
-     * redeem. When levering and delevering, the quanities passed are unit values and the caller
-     * intends to scale the postion across the entire set supply. When issuing and redeeming,
-     * the notional quantity to trade has already been calculated by multiplying the
-     * mint/redeem quantity by the baseToken position unit.
+     * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to 
+     *  _createAndValidateActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert.
      *
-     * | ---------------------------------------------------------------------------------------------------------|
-     * | Action        | Type  | isB2Q | Exact In / Out | Amount    | Recieve Token | Receive Description         |
-     * | ------------- |-------|-------|----------------|-----------| ------------- | ----------------------------|
-     * | Increase pos. | Long  | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
-     * | Increase pos. | Short | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
-     * | Decrease pos. | Long  | true  | exact input    | baseToken | quoteToken    | lower bound of output quote |
-     * | Decrease pos. | Short | false | exact output   | baseToken | quoteToken    | upper bound of input quote  |
-     * |----------------------------------------------------------------------------------------------------------|
+     * @param _setToken             Instance of the SetToken
+     * @param _baseToken            Address of base token being traded into/out of
+     * @param _baseTokenUnits       Quantity of baseToken to trade in PositionUnits
+     * @param _quoteReceiveUnits    Quantity of quote to receive if selling base and pay if buying, in PositionUnits
      *
-     * @return ActionInfo       Instance of constructed ActionInfo struct
+     * @return ActionInfo           Instance of constructed ActionInfo struct
      */
     function _createAndValidateActionInfo(
         ISetToken _setToken,
         address _baseToken,
-        int256 _baseTokenQuantity,
-        uint256 _quoteReceiveQuantity,
-        bool _isLeverOrDelever
+        int256 _baseTokenUnits,
+        uint256 _quoteReceiveUnits
     )
         internal
         view
         returns(ActionInfo memory)
     {
+        require(_baseTokenUnits != 0, "Amount is 0");
+
         uint256 totalSupply = _setToken.totalSupply();
 
-        if (_isLeverOrDelever) {
-            _baseTokenQuantity = _baseTokenQuantity.preciseMul(totalSupply.toInt256());
-            _quoteReceiveQuantity = _quoteReceiveQuantity.preciseMul(totalSupply);
-        }
+        return _createAndValidateActionInfoNotional(
+            _setToken,
+            _baseToken,
+            _baseTokenUnits.preciseMul(totalSupply.toInt256()),
+            _quoteReceiveUnits.preciseMul(totalSupply)
+        );
+    }
 
+    /**
+     * @dev Construct the ActionInfo struct for trading. This method takes NOTIONAL token amounts and creates
+     * the struct. If the _baseTokenQuantity is less than zero then we are selling the baseToken.
+     *
+     * | ----------------------------------------------------------------------------|
+     * | Action  | isB2Q  | Exact In / Out | Amount    | Opposit Bound Description   |
+     * | ------- |--------|----------------|-----------|---------------------------- |
+     * | Sell    | true   | exact input    | baseToken | Min quote to receive        |
+     * | Buy     | false  | exact output   | baseToken | Max quote to pay            |
+     * |-----------------------------------------------------------------------------|
+     *
+     * @param _setToken                 Instance of the SetToken
+     * @param _baseToken                Address of base token being traded into/out of
+     * @param _baseTokenQuantity        Notional quantity of baseToken to trade
+     * @param _quoteReceiveQuantity     Notional quantity of quote to receive if selling base and pay if buying
+     *
+     * @return ActionInfo               Instance of constructed ActionInfo struct
+     */
+    function _createAndValidateActionInfoNotional(
+        ISetToken _setToken,
+        address _baseToken,
+        int256 _baseTokenQuantity,
+        uint256 _quoteReceiveQuantity
+    )
+        internal
+        pure
+        returns(ActionInfo memory)
+    {
+        // NOT checking that _baseTokenQuantity != 0 here because for places this is directly called
+        // (issue/redeem hooks) we know they position cannot be 0. We check in _createAndValidateActionInfo
+        // that quantity is 0 for inputs to trade.
         bool isShort = _baseTokenQuantity < 0;
 
-        ActionInfo memory actionInfo = ActionInfo ({
+        return ActionInfo({
             setToken: _setToken,
             baseToken: _baseToken,
             isBaseToQuote: isShort,
@@ -1054,10 +1079,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             amount: _abs(_baseTokenQuantity),
             oppositeAmountBound: _quoteReceiveQuantity
         });
-
-        require(actionInfo.amount != 0, "Amount is 0");
-
-        return actionInfo;
     }
 
     /**
