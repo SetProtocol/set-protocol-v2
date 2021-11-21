@@ -1170,7 +1170,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         (int256 owedRealizedPnl, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
-        return (owedRealizedPnl.add(pendingFundingPayments))
+        return (owedRealizedPnl.sub(pendingFundingPayments))
             .preciseDiv(_setToken.totalSupply().toInt256())
             .preciseMul(_setTokenQuantity.toInt256());
     }

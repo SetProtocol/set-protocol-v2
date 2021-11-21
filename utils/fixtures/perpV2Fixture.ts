@@ -334,10 +334,10 @@ export class PerpV2Fixture {
     });
   }
 
-  public async setBaseTokenOraclePrice(baseToken: PerpV2BaseToken, price: string): Promise<void> {
+  public async setBaseTokenOraclePrice(baseToken: PerpV2BaseToken, price: BigNumber): Promise<void> {
     await this._priceFeeds[baseToken.address].setRoundData(
       0,
-      utils.parseUnits(price, this._usdcDecimals),
+      price,
       0,
       0,
       0

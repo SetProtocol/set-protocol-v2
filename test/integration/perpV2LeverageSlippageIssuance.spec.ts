@@ -73,14 +73,14 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     usdc = perpSetup.usdc;
 
     // Create liquidity
-    await perpSetup.setBaseTokenOraclePrice(vETH, "10");
+    await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10));
     await perpSetup.initializePoolWithLiquidityWide(
       vETH,
       ether(10_000),
       ether(100_000)
     );
 
-    await perpSetup.setBaseTokenOraclePrice(vBTC, "20");
+    await perpSetup.setBaseTokenOraclePrice(vBTC, usdcUnits(20));
     await perpSetup.initializePoolWithLiquidityWide(
       vBTC,
       ether(10_000),

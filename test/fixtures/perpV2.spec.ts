@@ -2,7 +2,7 @@ import "module-alias/register";
 
 import { utils, constants, BigNumber } from "ethers";
 import { Account } from "@utils/test/types";
-import { ether } from "@utils/common";
+import { ether, usdc } from "@utils/common";
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
@@ -113,7 +113,7 @@ describe("PerpV2Fixture", () => {
     const vETHAmount = ether(10_000);
     const vQuoteAmount = ether(100_000);
 
-    const subjectOraclePrice = "15.15";
+    const subjectOraclePrice = usdc(15.15);
 
     beforeEach(async () => {
       await perpV2.usdc.mint(taker.address, utils.parseUnits(takerCollateralWholeUnitAmount, 6));
