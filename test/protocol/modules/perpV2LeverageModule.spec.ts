@@ -46,7 +46,7 @@ import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe.only("PerpV2LeverageModule", () => {
+describe("PerpV2LeverageModule", () => {
   let owner: Account;
   let maker: Account;
   let otherTrader: Account;
@@ -3751,6 +3751,7 @@ describe.only("PerpV2LeverageModule", () => {
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
 
     const initializeContracts = async () => {
@@ -3762,6 +3763,7 @@ describe.only("PerpV2LeverageModule", () => {
       subjectSetToken = setToken.address;
       subjectCaller = mockModule;
       subjectSetQuantity = ether(1);
+      subjectIsEquity = true;
     };
 
     cacheBeforeEach(initializeContracts);
@@ -3772,7 +3774,7 @@ describe.only("PerpV2LeverageModule", () => {
         subjectSetToken,
         subjectSetQuantity,
         usdc.address,
-        true // unused
+        subjectIsEquity
       );
     }
 
@@ -3880,24 +3882,9 @@ describe.only("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when total supply is 0", async () => {
-      let otherSetToken: SetToken;
-
+    describe("when isEquity is false", async () => {
       beforeEach(async () => {
-        otherSetToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcUnits(10)],
-          [perpLeverageModule.address, debtIssuanceMock.address]
-        );
-        await debtIssuanceMock.initialize(otherSetToken.address);
-        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
-        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
-
-        // Initialize mock module
-        await otherSetToken.addModule(mockModule.address);
-        await otherSetToken.connect(mockModule.wallet).initializeModule();
-
-        subjectSetToken = otherSetToken.address;
+        subjectIsEquity = false;
       });
 
       it("should deposit nothing", async () => {
@@ -3911,18 +3898,7 @@ describe.only("PerpV2LeverageModule", () => {
           collateralBalance: finalCollateralBalance
         } = await perpLeverageModule.getAccountInfo(subjectSetToken);
 
-        const expectedCollateralBalance = ZERO;
         expect(initialCollateralBalance).to.eq(finalCollateralBalance);
-        expect(finalCollateralBalance).to.eq(expectedCollateralBalance);
-      });
-
-      it("should not change the USDC defaultPositionUnit", async () => {
-        const initialDefaultPositionUnit = await otherSetToken.getDefaultPositionRealUnit(usdc.address);
-        await subject();
-        const finalDefaultPositionUnit = await otherSetToken.getDefaultPositionRealUnit(usdc.address);
-
-        expect(initialDefaultPositionUnit).gt(ZERO);
-        expect(initialDefaultPositionUnit).to.eq(finalDefaultPositionUnit);
       });
     });
 
@@ -3952,6 +3928,7 @@ describe.only("PerpV2LeverageModule", () => {
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
+    let subjectIsEquity: boolean;
     let subjectCaller: Account;
 
     const initializeContracts = async () => {
@@ -3963,6 +3940,7 @@ describe.only("PerpV2LeverageModule", () => {
       subjectSetToken = setToken.address;
       subjectCaller = mockModule;
       subjectSetQuantity = ether(.5); // Sell half
+      subjectIsEquity = true;
     };
 
     cacheBeforeEach(initializeContracts);
@@ -3973,7 +3951,7 @@ describe.only("PerpV2LeverageModule", () => {
         subjectSetToken,
         subjectSetQuantity,
         usdc.address,
-        true // unused
+        subjectIsEquity
       );
     }
 
@@ -4028,6 +4006,26 @@ describe.only("PerpV2LeverageModule", () => {
         const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
 
         expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
+    });
+
+    describe("when isEquity is false", async () => {
+      beforeEach(async () => {
+        subjectIsEquity = false;
+      });
+
+      it("should deposit nothing", async () => {
+        const {
+          collateralBalance: initialCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+        await subject();
+
+        const {
+          collateralBalance: finalCollateralBalance
+        } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+        expect(initialCollateralBalance).to.eq(finalCollateralBalance);
       });
     });
 

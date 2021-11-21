@@ -479,18 +479,18 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ISetToken _setToken,
         uint256 _setTokenQuantity,
         IERC20 _component,
-        bool /* isEquity */
+        bool _isEquity
     )
         external
         override
         onlyModule(_setToken)
     {
-        if (_setToken.totalSupply() == 0) return;
+        if (_isEquity) {
+            int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
+            uint256 usdcTransferInNotionalQuantity = _setTokenQuantity.preciseMulCeil(externalPositionUnit.toUint256());
 
-        int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
-        uint256 usdcTransferInNotionalQuantity = _setTokenQuantity.preciseMulCeil(externalPositionUnit.toUint256());
-
-        _deposit(_setToken, usdcTransferInNotionalQuantity);
+            _deposit(_setToken, usdcTransferInNotionalQuantity);
+        }
     }
 
     /**
@@ -507,12 +507,18 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ISetToken _setToken,
         uint256 _setTokenQuantity,
         IERC20 _component,
-        bool /* isEquity */
-    ) external override onlyModule(_setToken) {
-        int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
-        uint256 usdcTransferOutNotionalQuantity = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
+        bool _isEquity
+    ) 
+        external
+        override
+        onlyModule(_setToken)
+    {
+        if (_isEquity) {
+            int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this));
+            uint256 usdcTransferOutNotionalQuantity = _setTokenQuantity.preciseMul(externalPositionUnit.toUint256());
 
-        _withdraw(_setToken, usdcTransferOutNotionalQuantity);
+            _withdraw(_setToken, usdcTransferOutNotionalQuantity);
+        }
     }
 
     /* ============ External Getter Functions ============ */
