@@ -747,12 +747,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             // Calculate slippage quantity as a positive value
             // When long, trade slippage results in more negative quote received
             // When short, trade slippage results in less positive quote received
-            int256 slippageQuantity;
-            if (basePositionUnit >= 0) {
-                slippageQuantity = deltaQuote.toInt256().sub(idealDeltaQuote);
-            } else {
-                slippageQuantity = idealDeltaQuote.sub(deltaQuote.toInt256());
-            }
+            int256 slippageQuantity = basePositionUnit >= 0 ? deltaQuote.toInt256().sub(idealDeltaQuote) :
+                idealDeltaQuote.sub(deltaQuote.toInt256());
 
             // Add slippage quantity to leverage scaled cost and update running usdcAmountIn total
             // `currentLeverage` is always positive, with ~2X represented as ~2 * 10**18
@@ -817,11 +813,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
             // Calculate realized PnL for and add to running total.
             // When basePositionUnit is positive, position is long.
-            if (basePositionUnit >= 0){
-                realizedPnl = realizedPnl.add(reducedOpenNotional.add(deltaQuote.toInt256()));
-            } else {
-                realizedPnl = realizedPnl.add(reducedOpenNotional.sub(deltaQuote.toInt256()));
-            }
+            realizedPnl = basePositionUnit >= 0 ? realizedPnl.add(reducedOpenNotional.add(deltaQuote.toInt256())) :
+                realizedPnl.add(reducedOpenNotional.sub(deltaQuote.toInt256()));
         }
 
         // Calculate amount of collateral to withdraw
@@ -1120,11 +1113,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         for (uint256 i = 0; i < positionInfoArraySize; i++) {
             spotPrices[i] = getAMMSpotPrice(_positionInfo[i].baseToken).toInt256();
 
+            int256 baseTokenNotionalValue = _positionInfo[i].baseBalance.preciseMul(spotPrices[i]);
             totalPositionAbsoluteValue = totalPositionAbsoluteValue.add(
-                _abs(_positionInfo[i].baseBalance.preciseMul(spotPrices[i]))
+                _abs(baseTokenNotionalValue)
             );
             totalPositionNetValue = totalPositionNetValue.add(
-                _positionInfo[i].baseBalance.preciseMul(spotPrices[i])
+                baseTokenNotionalValue
             );
         }
 
@@ -1207,6 +1201,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         (int256 owedRealizedPnl, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
+        // We subtract funding here since a positive value from Perp means funding is owed and the issuer should not pay
+        // for that funding. In getAccountInfo we negate this value, we don't call getAccountInfo here so we don't make
+        // any unnecessary external calls
         return (owedRealizedPnl.sub(pendingFundingPayments))
             .preciseDiv(_setToken.totalSupply().toInt256())
             .preciseMul(_setTokenQuantity.toInt256());
