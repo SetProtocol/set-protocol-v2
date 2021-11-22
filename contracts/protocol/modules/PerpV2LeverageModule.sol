@@ -53,7 +53,7 @@ import "hardhat/console.sol";
  * represented as a positive equity external position whose value is the net Perp account value denominated in the collateral token
  * deposited into the Perp Protocol. This module only allows Perp positions to be collateralized by one asset, USDC, set on deployment of
  * this contract (see collateralToken) however it can take positions simultaneuosly in multiple base assets.
- * 
+ *
  * Upon issuance and redemption positions are not EXACTLY replicated like for other position types since a trade is necessary to enter/exit
  * the position on behalf of the issuer/redeemer. Any cost of entering/exiting the position (slippage) is carried by the issuer/redeemer.
  * Any pending funding costs or PnL is carried by the current token holders. To be used safely this module MUST issue using the
@@ -520,7 +520,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 _setTokenQuantity,
         IERC20 _component,
         bool _isEquity
-    ) 
+    )
         external
         override
         onlyModule(_setToken)
@@ -665,7 +665,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *         + pending funding payments (10**18)
      */
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
-        (int256 owedRealizedPnl, ) =  perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
+        (int256 owedRealizedPnl,, ) =  perpAccountBalance.getPnlAndPendingFee(address(_setToken));
+        (int256 netQuoteBalance, ) =  perpAccountBalance.getNetQuoteBalanceAndPendingFee(address(_setToken));
 
         // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
@@ -674,7 +675,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             collateralBalance: _getCollateralBalance(_setToken),
             owedRealizedPnl: owedRealizedPnl,
             pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).mul(-1),
-            netQuoteBalance: perpAccountBalance.getNetQuoteBalance(address(_setToken))
+            netQuoteBalance: netQuoteBalance
         });
     }
 
@@ -989,7 +990,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to 
+     * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to
      *  _createAndValidateActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert.
      *
      * @param _setToken             Instance of the SetToken
@@ -1115,9 +1116,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // account leverage = vAssets / (vAssets - vDebt + collateral)
         // vAsset value is postive when long, negative when short
         // vQuote balance is negative when long, positive when short
+        (int256 netQuoteBalance, ) = perpAccountBalance.getNetQuoteBalanceAndPendingFee(address(_setToken));
         int256 currentAccountLeverage = totalPositionAbsoluteValue.preciseDiv(
             totalPositionNetValue
-                .add(perpAccountBalance.getNetQuoteBalance(address(_setToken)))
+                .add(netQuoteBalance)
                 .add(_getCollateralBalance(_setToken))
         );
 
@@ -1188,7 +1190,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         view
         returns (int256)
     {
-        (int256 owedRealizedPnl, ) = perpAccountBalance.getOwedAndUnrealizedPnl(address(_setToken));
+        (int256 owedRealizedPnl,,) = perpAccountBalance.getPnlAndPendingFee(address(_setToken));
         int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
 
         // We subtract funding here since a positive value from Perp means funding is owed and the issuer should not pay
@@ -1267,7 +1269,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
 
         return (equityAdjustments, debtAdjustments);
-    } 
+    }
 
     /**
      * @dev Converts a UniswapV3 sqrtPriceX96 value to a priceX96 value. This method is borrowed from
