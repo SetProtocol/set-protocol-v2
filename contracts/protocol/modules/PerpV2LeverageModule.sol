@@ -168,6 +168,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's setllement and collateral token
     IERC20 public immutable collateralToken;
 
+    // Decimals of collateral token. We set this in the constructor for later reading
+    uint8 public immutable collateralDecimals;
+
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) public positions;
@@ -178,6 +181,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list.
     // Updateable by governance.
     bool public anySetAllowed;
+
 
     /* ============ Constructor ============ */
 
@@ -190,7 +194,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _perpVault                Address of Perp Vault contract
      * @param _perpQuoter               Address of Perp Quoter contract
      * @param _perpMarketRegistry       Address of Perp MarketRegistry contract
-     * @param _collateralToken          Address of token accepted by Perp vault as collateral
      */
     constructor(
         IController _controller,
@@ -199,19 +202,22 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         IExchange _perpExchange,
         IVault _perpVault,
         IQuoter _perpQuoter,
-        IMarketRegistry _perpMarketRegistry,
-        IERC20 _collateralToken
+        IMarketRegistry _perpMarketRegistry
     )
         public
         ModuleBase(_controller)
     {
+        // Use temp variables to initialize immutables
+        address tempCollateralToken = IVault(_perpVault).getSettlementToken();
+        collateralToken = IERC20(tempCollateralToken);
+        collateralDecimals = ERC20(tempCollateralToken).decimals();
+
         perpAccountBalance = _perpAccountBalance;
         perpClearingHouse = _perpClearingHouse;
         perpExchange = _perpExchange;
         perpVault = _perpVault;
         perpQuoter = _perpQuoter;
         perpMarketRegistry = _perpMarketRegistry;
-        collateralToken = _collateralToken;
     }
 
     /* ============ External Functions ============ */
@@ -753,7 +759,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // Return value in collateral decimals (e.g USDC = 6)
         return _fromPreciseUnitToDecimals(
             usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
-            ERC20(address(collateralToken)).decimals()
+            collateralDecimals
         );
     }
 
@@ -818,7 +824,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         return _fromPreciseUnitToDecimals(
             usdcToWithdraw.preciseDiv(_setTokenQuantity.toInt256()),
-            ERC20(address(collateralToken)).decimals()
+            collateralDecimals
         );
     }
 
@@ -970,7 +976,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 protocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
         uint256 protocolFeeInCollateralDecimals = _fromPreciseUnitToDecimals(
             protocolFee,
-            ERC20(address(collateralToken)).decimals()
+            collateralDecimals
         );
 
         _withdraw(_setToken, protocolFeeInCollateralDecimals);
@@ -1217,15 +1223,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         return _fromPreciseUnitToDecimals(
             externalPositionUnitInPrecisionDecimals,
-            ERC20(address(collateralToken)).decimals()
+            collateralDecimals
         );
     }
 
     // @dev Retrieves collateral balance as an an 18 decimal vUSDC quote value
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         int256 balance = perpVault.getBalance(address(_setToken));
-        uint8 decimals = ERC20(address(collateralToken)).decimals();
-        return _toPreciseUnitsFromDecimals(balance, decimals);
+        return _toPreciseUnitsFromDecimals(balance, collateralDecimals);
     }
 
     /**

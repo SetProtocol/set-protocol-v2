@@ -109,7 +109,6 @@ describe("PerpV2LeverageModule", () => {
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
-      perpSetup.usdc.address,
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
       perpLib.address,
     );
@@ -175,7 +174,6 @@ describe("PerpV2LeverageModule", () => {
     let subjectVault: Address;
     let subjectQuoter: Address;
     let subjectMarketRegistry: Address;
-    let subjectCollateralToken: Address;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
@@ -185,7 +183,6 @@ describe("PerpV2LeverageModule", () => {
       subjectVault = perpSetup.vault.address;
       subjectQuoter = perpSetup.quoter.address;
       subjectMarketRegistry = perpSetup.marketRegistry.address;
-      subjectCollateralToken = perpSetup.usdc.address;
     });
 
     async function subject(): Promise<PerpV2LeverageModule> {
@@ -197,7 +194,6 @@ describe("PerpV2LeverageModule", () => {
         subjectVault,
         subjectQuoter,
         subjectMarketRegistry,
-        subjectCollateralToken,
         "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
         perpLib.address,
       );
@@ -219,6 +215,7 @@ describe("PerpV2LeverageModule", () => {
       const perpVault = await perpLeverageModule.perpVault();
       const perpQuoter = await perpLeverageModule.perpQuoter();
       const collateralToken = await perpLeverageModule.collateralToken();
+      const collateralDecimals = await perpLeverageModule.collateralDecimals();
 
       expect(perpAccountBalance).to.eq(perpSetup.accountBalance.address);
       expect(perpClearingHouse).to.eq(perpSetup.clearingHouse.address);
@@ -226,7 +223,7 @@ describe("PerpV2LeverageModule", () => {
       expect(perpVault).to.eq(perpSetup.vault.address);
       expect(perpQuoter).to.eq(perpSetup.quoter.address);
       expect(collateralToken).to.eq(perpSetup.usdc.address);
-
+      expect(collateralDecimals).to.eq(await perpSetup.usdc.decimals());
     });
   });
 
