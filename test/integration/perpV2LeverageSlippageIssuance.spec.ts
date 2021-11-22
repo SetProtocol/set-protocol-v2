@@ -976,7 +976,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           await setToken.removeModule(perpLeverageModule.address);
           const finalModules = await setToken.getModules();
 
-          expect(finalModules.includes(perpLeverageModule)).eq(false);
+          expect(finalModules.includes(perpLeverageModule.address)).eq(false);
           expect(finalBaseUnit).eq(ZERO);
           expect(finalCollateralBalance).eq(ZERO);
         });
