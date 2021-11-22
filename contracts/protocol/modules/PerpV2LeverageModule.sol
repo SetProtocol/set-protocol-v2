@@ -263,7 +263,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _receiveQuoteQuantityUnits
         );
 
-        (uint256 deltaBase, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, false);
+        (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
 
         // TODO: Double-check deltas? Can we trust oppositeBoundAmount?
 
@@ -733,7 +733,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             int256 idealDeltaQuote = _abs(baseTradeNotionalQuantity.preciseMul(spotPrices[i]));
 
             // Execute or simulate trade
-            (, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
+            (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
 
             // Calculate slippage quantity as a positive value
             // When long, trade slippage results in more negative quote received
@@ -800,7 +800,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 0
             );
 
-            (,uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
+            (,uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
 
             // Calculate realized PnL for and add to running total.
             // When basePositionUnit is positive, position is long.
@@ -921,18 +921,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @return uint256     The base position delta resulting from the trade
      * @return uint256     The quote asset position delta resulting from the trade
      */
-    function _executeOrSimulateTrade(
-        ActionInfo memory _actionInfo,
-        bool _isSimulation
-    )
-        internal
-        returns (uint256, uint256)
-    {
-
-        if (_isSimulation) {
-            IQuoter.SwapResponse memory swapResponse = _simulateTrade(_actionInfo);
-            return (swapResponse.deltaAvailableBase, swapResponse.deltaAvailableQuote);
-        }
+    function _executeTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
 
         IClearingHouse.OpenPositionParams memory params = IClearingHouse.OpenPositionParams({
             baseToken: _actionInfo.baseToken,
@@ -951,9 +940,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Formats Perp Periphery Quoter.swap call and executes via SetToken (and PerpV2 lib)
-     * @return swapResponse   Includes the base and quote position deltas resulting from the trade
+     * @return uint256     The base position delta resulting from the trade
+     * @return uint256     The quote asset position delta resulting from the trade
      */
-    function _simulateTrade(ActionInfo memory _actionInfo) internal returns (IQuoter.SwapResponse memory) {
+    function _simulateTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
         IQuoter.SwapParams memory params = IQuoter.SwapParams({
             baseToken: _actionInfo.baseToken,
             isBaseToQuote: _actionInfo.isBaseToQuote,
@@ -962,7 +952,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             sqrtPriceLimitX96: 0
         });
 
-        return _actionInfo.setToken.invokeSwap(perpQuoter, params);
+        IQuoter.SwapResponse memory swapResponse = _actionInfo.setToken.invokeSwap(perpQuoter, params);
+        return (swapResponse.deltaAvailableBase, swapResponse.deltaAvailableQuote);
     }
 
     /**
