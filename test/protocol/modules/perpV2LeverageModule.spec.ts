@@ -1479,7 +1479,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).lt(ether(1).mul(-1));
-          expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
 
@@ -1703,7 +1703,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 5);
         });
       });
     });
