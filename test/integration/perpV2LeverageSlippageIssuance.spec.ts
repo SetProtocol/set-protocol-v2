@@ -935,10 +935,15 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         });
 
         // Total supply is 1 as we try to close out the Perp account
-        // Not working.... NEFC (this may be a bug fixed in v0.14.0-staging)
-        it.skip("should be possible to withdraw dust and remove the module", async () => {
+        it("should be possible to withdraw dust and remove the module", async () => {
+          // Redeem to `1`
           await subject();
 
+          // Check precondition
+          const initialModules = await setToken.getModules();
+          expect(initialModules.includes(perpLeverageModule.address)).eq(true);
+
+          // Trade to `0`
           const {
             baseUnit: initialBaseUnit
           } = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0];
@@ -954,15 +959,26 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             baseUnit: finalBaseUnit
           } = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0];
 
-          expect(finalBaseUnit).eq(ZERO);
-
+          // Withdraw remaining free collateral
           const freeCollateral = await perpSetup.vault.getFreeCollateral(subjectSetToken);
+          const freeCollateralPositionUnit = preciseDiv(freeCollateral, await setToken.totalSupply());
 
-          // Throws V_NEFC
-          // baseUnit       =       0
-          // quoteUnit      =     -20
           // freeCollateral = 9737806
-          await perpLeverageModule.connect(owner.wallet).withdraw(subjectSetToken, freeCollateral);
+          await perpLeverageModule
+            .connect(owner.wallet)
+            .withdraw(subjectSetToken, freeCollateralPositionUnit);
+
+          const {
+            collateralBalance: finalCollateralBalance
+          } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+
+          /// Remove module
+          await setToken.removeModule(perpLeverageModule.address);
+          const finalModules = await setToken.getModules();
+
+          expect(finalModules.includes(perpLeverageModule)).eq(false);
+          expect(finalBaseUnit).eq(ZERO);
+          expect(finalCollateralBalance).eq(ZERO);
         });
       });
     });
