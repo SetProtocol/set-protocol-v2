@@ -712,7 +712,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
 
-        int256 owedRealizedPnlDiscountQuantity = _calculateOwedRealizedPnlDiscount(
+        int256 owedRealizedPnlDiscountQuantity = _calculateNetDiscount(
             _setToken,
             _setTokenQuantity
         );
@@ -1173,7 +1173,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *
      * @return int256 Total quantity to discount
      */
-    function _calculateOwedRealizedPnlDiscount(
+    function _calculateNetDiscount(
         ISetToken _setToken,
         uint256 _setTokenQuantity
     )
