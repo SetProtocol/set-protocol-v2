@@ -180,7 +180,7 @@ export class PerpV2Fixture {
       this.marketRegistry.address,
       this.orderBook.address,
       this.clearingHouseConfig.address,
-      this.insuranceFund.address,
+      this.insuranceFund.address
     );
 
     this.exchange.setAccountBalance(this.accountBalance.address);
@@ -237,8 +237,10 @@ export class PerpV2Fixture {
       this.vQuote.address,
       this.uniV3Factory.address,
       this.exchange.address,
-      this.accountBalance.address,
+      this.accountBalance.address
     );
+
+    await this.vault.setClearingHouse(this.clearingHouse.address);
 
     this.quoter = await this._deployer.external.deployPerpV2Quoter();
     await this.quoter.initialize(this.marketRegistry.address);
@@ -300,7 +302,7 @@ export class PerpV2Fixture {
       upperTick,
       minBase: 0,
       minQuote: 0,
-      useTakerPosition: false,
+      useTakerBalance: false,
       deadline: constants.MaxUint256,
     });
   }
@@ -329,7 +331,7 @@ export class PerpV2Fixture {
       upperTick,
       minBase: 0,
       minQuote: 0,
-      useTakerPosition: false,
+      useTakerBalance: false,
       deadline: constants.MaxUint256,
     });
   }
@@ -361,7 +363,6 @@ export class PerpV2Fixture {
     deltaBase: BigNumber;
     deltaQuote: BigNumber;
   }> {
-
     const {
       deltaBase,
       deltaQuote,

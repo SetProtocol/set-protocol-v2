@@ -73,7 +73,7 @@ export async function calculateUSDCTransferIn(
 
   const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
   const collateralBalance = (await module.getAccountInfo(setToken.address)).collateralBalance;
-  const netQuoteBalance = await fixture.accountBalance.getNetQuoteBalance(setToken.address);
+  const { netQuoteBalance } = await fixture.accountBalance.getNetQuoteBalanceAndPendingFee(setToken.address);
 
   for (const positionInfo of allPositionInfo) {
     const spotPrice = await fixture.getSpotPrice(positionInfo.baseToken);
