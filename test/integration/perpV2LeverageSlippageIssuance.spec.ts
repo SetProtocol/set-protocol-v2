@@ -933,6 +933,37 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const expectedUSDCBalance = initialOwnerUSDCBalance.add(feeAdjustedTransferOutUSDC);
           expect(finalOwnerUSDCBalance).to.be.closeTo(expectedUSDCBalance, 1);
         });
+
+        // Total supply is 1 as we try to close out the Perp account
+        // Not working.... NEFC (this may be a bug fixed in v0.14.0-staging)
+        it.skip("should be possible to withdraw dust and remove the module", async () => {
+          await subject();
+
+          const {
+            baseUnit: initialBaseUnit
+          } = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0];
+
+          await perpLeverageModule.connect(owner.wallet).trade(
+            subjectSetToken,
+            baseToken,
+            initialBaseUnit.mul(-1),
+            ZERO
+          );
+
+          const {
+            baseUnit: finalBaseUnit
+          } = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0];
+
+          expect(finalBaseUnit).eq(ZERO);
+
+          const freeCollateral = await perpSetup.vault.getFreeCollateral(subjectSetToken);
+
+          // Throws V_NEFC
+          // baseUnit       =       0
+          // quoteUnit      =     -20
+          // freeCollateral = 9737806
+          await perpLeverageModule.connect(owner.wallet).withdraw(subjectSetToken, freeCollateral);
+        });
       });
     });
   });
