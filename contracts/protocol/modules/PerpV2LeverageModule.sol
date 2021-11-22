@@ -1086,42 +1086,21 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * prices are used to calculate the ideal amount of quote asset that would be received for trading
      * a postion during issuance so we can isolate slippage issuers should pay.
      */
-    function _getCurrentAccountLeverageAndSpotPrices(
+    function _getAMMSpotPrices(
         ISetToken _setToken,
         PositionNotionalInfo[] memory _positionInfo
     )
         internal
         view
-        returns(int256, int256[] memory)
+        returns(int256[] memory)
     {
         uint256 positionInfoArraySize = _positionInfo.length;
         int256[] memory spotPrices = new int256[](positionInfoArraySize);
-        int256 totalPositionAbsoluteValue = 0;
-        int256 totalPositionNetValue = 0;
 
-        // Sum the absolute value of basePositions. These are positive when long, negative when short
         for (uint256 i = 0; i < positionInfoArraySize; i++) {
             spotPrices[i] = getAMMSpotPrice(_positionInfo[i].baseToken).toInt256();
-
-            int256 baseTokenNotionalValue = _positionInfo[i].baseBalance.preciseMul(spotPrices[i]);
-            totalPositionAbsoluteValue = totalPositionAbsoluteValue.add(
-                _abs(baseTokenNotionalValue)
-            );
-            totalPositionNetValue = totalPositionNetValue.add(
-                baseTokenNotionalValue
-            );
         }
-
-        // account leverage = vAssets / (vAssets - vDebt + collateral)
-        // vAsset value is postive when long, negative when short
-        // vQuote balance is negative when long, positive when short
-        int256 currentAccountLeverage = totalPositionAbsoluteValue.preciseDiv(
-            totalPositionNetValue
-                .add(perpAccountBalance.getNetQuoteBalance(address(_setToken)))
-                .add(_getCollateralBalance(_setToken))
-        );
-
-        return (currentAccountLeverage, spotPrices);
+        return spotPrices;
     }
 
     /**
