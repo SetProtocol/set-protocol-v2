@@ -10,7 +10,7 @@ import {
 import { UniswapYieldHook__factory } from "../../typechain/factories/UniswapYieldHook__factory";
 import { AssetLimitHook__factory } from "../../typechain/factories/AssetLimitHook__factory";
 import { AMMSplitter__factory } from "../../typechain/factories/AMMSplitter__factory";
-import { Address } from "@utils/types";
+import { Address } from "../types";
 
 export default class DeployProduct {
   private _deployerSigner: Signer;

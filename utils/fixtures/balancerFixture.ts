@@ -1,7 +1,7 @@
 import DeployHelper from "../deploys";
 import { BigNumber, Signer, ContractTransaction, providers } from "ethers";
 import { Address } from "../types";
-import { Account } from "@utils/test/types";
+import { Account } from "../test/types";
 
 import {
   BFactory,

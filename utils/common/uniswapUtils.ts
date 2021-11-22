@@ -3,7 +3,7 @@ import { UniswapV2Pair, SetToken, StakingRewards, StandardTokenMock, WETH9, Unis
 import { ZERO } from "../constants";
 import { ether, preciseMul } from "../index";
 import { preciseDiv } from "./mathUtils";
-import { Address } from "@utils/types";
+import { Address } from "../types";
 
 const MINIMUM_LIQUIDITY = BigNumber.from(1000);
 export const calculateLPTokensIssued = async(

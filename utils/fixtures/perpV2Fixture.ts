@@ -45,7 +45,7 @@ import {
   ZERO,
   ZERO_BYTES,
   MAX_UINT_256
-} from "@utils/constants";
+} from "../constants";
 
 export interface TokensFixture {
   token0: PerpV2BaseToken;

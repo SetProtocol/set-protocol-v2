@@ -1,16 +1,16 @@
-import { Address } from "@utils/types";
-import { Account } from "@utils/test/types";
+import { Address } from "../types";
+import { Account } from "../test/types";
 import { BigNumber } from "ethers";
 
 import {
   ether,
   preciseDiv,
   preciseMul
-} from "@utils/index";
+} from "../index";
 
-import { ZERO } from "@utils/constants";
-import { PerpV2LeverageModule, SetToken } from "@utils/contracts";
-import { PerpV2Fixture } from "@utils/fixtures";
+import { ZERO } from "../constants";
+import { PerpV2LeverageModule, SetToken } from "../contracts";
+import { PerpV2Fixture } from "../fixtures";
 
 
 // Converts PRECISE_UNIT value into USDC decimals value
