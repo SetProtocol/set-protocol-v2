@@ -707,16 +707,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         internal
         returns (int256)
     {
-        int256 usdcAmountIn = 0;
+        AccountInfo memory accountInfo = getAccountInfo(_setToken);
+        
+        int256 usdcAmountIn = accountInfo.collateralBalance
+            .add(accountInfo.owedRealizedPnl)
+            .add(accountInfo.pendingFundingPayments)
+            .add(accountInfo.netQuoteBalance)
+            .preciseDiv(_setToken.totalSupply().toInt256())
+            .preciseMul(_setTokenQuantity.toInt256());
 
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-
-        int256 owedRealizedPnlDiscountQuantity = _calculateOwedRealizedPnlDiscount(
-            _setToken,
-            _setTokenQuantity
-        );
-
-        (int256 currentLeverage, int256[] memory spotPrices) = _getCurrentAccountLeverageAndSpotPrices(_setToken, positionInfo);
 
         for(uint i = 0; i < positionInfo.length; i++) {
             int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
@@ -729,26 +729,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 0
             );
 
-            int256 idealDeltaQuote = _abs(baseTradeNotionalQuantity.preciseMul(spotPrices[i]));
-
             // Execute or simulate trade
             (, uint256 deltaQuote) = _executeOrSimulateTrade(actionInfo, _isSimulation);
 
-            // Calculate slippage quantity as a positive value
-            // When long, trade slippage results in more negative quote received
-            // When short, trade slippage results in less positive quote received
-            int256 slippageQuantity = basePositionUnit >= 0 ? deltaQuote.toInt256().sub(idealDeltaQuote) :
-                idealDeltaQuote.sub(deltaQuote.toInt256());
-
-            // Add slippage quantity to leverage scaled cost and update running usdcAmountIn total
-            // `currentLeverage` is always positive, with ~2X represented as ~2 * 10**18
-            usdcAmountIn = usdcAmountIn.add(slippageQuantity.add(idealDeltaQuote.preciseDiv(currentLeverage)));
+            usdcAmountIn = usdcAmountIn.add(deltaQuote.toInt256());
         }
-
-        // Add carried owedRealizedPnL and pendingFunding discounts.
-        // These may be negative or positive and must be earned or paid for by existing set holders.
-        usdcAmountIn = usdcAmountIn.add(owedRealizedPnlDiscountQuantity);
-
+        
         // Return value in collateral decimals (e.g USDC = 6)
         return _fromPreciseUnitToDecimals(
             usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
@@ -1080,30 +1066,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Calculates current account leverage and UniswapV3 market spot prices for each position.
-     * The account leverage is used to scale the amount of collateralToken to transfer in during issuance so new
-     * set holder funds are proportionate to the account leverage pre-established for the set. The spot
-     * prices are used to calculate the ideal amount of quote asset that would be received for trading
-     * a postion during issuance so we can isolate slippage issuers should pay.
-     */
-    function _getAMMSpotPrices(
-        ISetToken _setToken,
-        PositionNotionalInfo[] memory _positionInfo
-    )
-        internal
-        view
-        returns(int256[] memory)
-    {
-        uint256 positionInfoArraySize = _positionInfo.length;
-        int256[] memory spotPrices = new int256[](positionInfoArraySize);
-
-        for (uint256 i = 0; i < positionInfoArraySize; i++) {
-            spotPrices[i] = getAMMSpotPrice(_positionInfo[i].baseToken).toInt256();
-        }
-        return spotPrices;
-    }
-
-    /**
      * @dev Gets the ratio by which redemption will reduce open notional quote balance. This value
      * is used to calculate realizedPnl of the asset sale in _executeModuleRedeemHook
      */
@@ -1203,6 +1165,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         return _fromPreciseUnitToDecimals(
             externalPositionUnitInPrecisionDecimals,
+            // Let's cache this value instead of fetching it multiple times
             ERC20(address(collateralToken)).decimals()
         );
     }
