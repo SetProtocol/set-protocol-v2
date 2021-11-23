@@ -1876,7 +1876,7 @@ describe("PerpV2LeverageModule", () => {
         let usdcTransferInQuantity: BigNumber;
 
         beforeEach(async () => {
-          usdcTransferInQuantity = usdcTransferInQuantity = await calculateUSDCTransferIn(
+          usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
