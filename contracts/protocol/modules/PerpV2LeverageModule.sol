@@ -755,7 +755,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             // idealDeltaQuote, +ve for existing long position, -ve for existing short position
             int256 idealDeltaQuote = baseTradeNotionalQuantity.preciseMul(spotPrice);
 
-            // Execute or simulate trade
+            // Execute or simulate trade.
+            // `deltaQuote` is always a positive number
             (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
 
             // Calculate slippage quantity as a positive value
@@ -819,6 +820,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 0
             );
 
+            // Execute or simulate trade.
+            // `deltaQuote` is always a positive number
             (,uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
 
             // Calculate realized PnL for and add to running total.
