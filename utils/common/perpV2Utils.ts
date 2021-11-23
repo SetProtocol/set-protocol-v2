@@ -67,33 +67,29 @@ export async function calculateUSDCTransferIn(
   module: PerpV2LeverageModule,
   fixture: PerpV2Fixture,
 ) {
-  let totalPositionAbsoluteValue = BigNumber.from(0);
-  let totalPositionNetValue = BigNumber.from(0);
-  let usdcAmountIn = BigNumber.from(0);
-
-  const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
-  const collateralBalance = (await module.getAccountInfo(setToken.address)).collateralBalance;
-  const { netQuoteBalance } = await fixture.accountBalance.getNetQuoteBalanceAndPendingFee(setToken.address);
-
-  for (const positionInfo of allPositionInfo) {
-    const spotPrice = await fixture.getSpotPrice(positionInfo.baseToken);
-    const positionValue = preciseMul(positionInfo.baseBalance, spotPrice);
-    totalPositionAbsoluteValue = totalPositionAbsoluteValue.add(positionValue.abs());
-    totalPositionNetValue = totalPositionNetValue.add(positionValue);
-  }
-
-  const currentLeverage = preciseDiv(
-    totalPositionAbsoluteValue,
-
-    totalPositionNetValue
-      .add(netQuoteBalance)
-      .add(collateralBalance)
+  const accountInfo = await module.getAccountInfo(setToken.address);
+  const totalCollateralValue = accountInfo.collateralBalance
+  .add(accountInfo.pendingFundingPayments)
+  .add(accountInfo.netQuoteBalance)
+  
+  const totalSupply = await setToken.totalSupply();
+  let usdcAmountIn = preciseMul(
+    preciseDiv(totalCollateralValue, totalSupply),
+    setQuantity
   );
+  
+
+  console.log('---utils values---');
+  console.log(accountInfo.collateralBalance.toString());
+  console.log(accountInfo.pendingFundingPayments.toString());
+  console.log(accountInfo.netQuoteBalance.toString());
+  console.log(usdcAmountIn.toString())
+
+  const allPositionInfo = await module.getPositionUnitInfo(setToken.address);
 
   for (const positionInfo of allPositionInfo) {
-    const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
-    const baseTradeQuantityNotional = preciseMul(basePositionUnit, setQuantity);
-    const isLong = (basePositionUnit.gte(ZERO));
+    const baseTradeQuantityNotional = preciseMul(positionInfo.baseUnit, setQuantity);
+    const isLong = (baseTradeQuantityNotional.gte(ZERO));
 
     const { deltaBase, deltaQuote } = await fixture.getSwapQuote(
       positionInfo.baseToken,
@@ -101,13 +97,15 @@ export async function calculateUSDCTransferIn(
       isLong
     );
 
-    const idealQuote = preciseMul(deltaBase, await fixture.getSpotPrice(positionInfo.baseToken));
+    const idealQuote = preciseMul(baseTradeQuantityNotional, await fixture.getSpotPrice(positionInfo.baseToken));
 
-    const expectedSlippage = (isLong)
-      ? idealQuote.sub(deltaQuote).mul(-1)
-      : idealQuote.sub(deltaQuote);
-
-    usdcAmountIn = usdcAmountIn.add(preciseDiv(idealQuote, currentLeverage).add(expectedSlippage));
+    const expectedSlippage = isLong
+      ? deltaQuote.sub(idealQuote).mul(-1)
+      : idealQuote.abs().sub(deltaQuote);
+    
+    console.log(idealQuote.toString())
+    console.log(deltaQuote.toString())
+    usdcAmountIn = usdcAmountIn.add(idealQuote).add(expectedSlippage);
   }
 
   return toUSDCDecimals(usdcAmountIn);

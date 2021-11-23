@@ -731,7 +731,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             .add(accountInfo.netQuoteBalance)
             .preciseDiv(_setToken.totalSupply().toInt256())
             .preciseMul(_setTokenQuantity.toInt256());
-
+        console.log("---contract values---");
+        console.logInt(accountInfo.collateralBalance);
+        console.logInt(accountInfo.pendingFundingPayments);
+        console.logInt(accountInfo.netQuoteBalance);
+        console.logInt(usdcAmountIn);
         PositionUnitInfo[] memory positionInfo = getPositionUnitInfo(_setToken);
 
         for(uint i = 0; i < positionInfo.length; i++) {
@@ -752,6 +756,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
             // Execute or simulate trade
             (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
+
+            console.logInt(idealDeltaQuote);
+            console.logUint(deltaQuote);
 
             // Calculate slippage quantity as a positive value
             // When long, trade slippage results in more negative quote received

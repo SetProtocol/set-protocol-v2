@@ -166,7 +166,7 @@ describe("PerpV2LeverageModule", () => {
     await perpSetup.setBaseTokenOraclePrice(baseToken, baseTokenSpotPrice.div(10 ** 12));
   }
 
-  describe("#constructor", async () => {
+  describe.skip("#constructor", async () => {
     let subjectController: Address;
     let subjectAccountBalance: Address;
     let subjectClearingHouse: Address;
@@ -227,7 +227,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#initialize", async () => {
+  describe.skip("#initialize", async () => {
     let setToken: SetToken;
     let isAllowListed: boolean;
     let subjectSetToken: Address;
@@ -386,7 +386,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#trade", () => {
+  describe.skip("#trade", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
     let depositQuantity: BigNumber;
@@ -967,7 +967,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#deposit", () => {
+  describe.skip("#deposit", () => {
     let subjectSetToken: SetToken;
     let subjectDepositAmount: number;
     let subjectDepositQuantity: BigNumber;
@@ -1194,7 +1194,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#withdraw", () => {
+  describe.skip("#withdraw", () => {
     let depositQuantity: BigNumber;
     let subjectSetToken: SetToken;
     let subjectWithdrawQuantity: BigNumber;
@@ -1447,7 +1447,7 @@ describe("PerpV2LeverageModule", () => {
         .moduleIssueHook(subjectSetToken, subjectSetQuantity);
     }
 
-    describe("when long, single position", () => {
+    describe.skip("when long, single position", () => {
       let baseToken: Address;
 
       // Set up as 2X Long, allow 2% slippage
@@ -1504,7 +1504,8 @@ describe("PerpV2LeverageModule", () => {
             usdc.address,
             perpLeverageModule.address
           );
-
+          
+          console.log(externalPositionUnit.toString(), expectedExternalPositionUnit.toString())
           expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
         });
       });
@@ -1561,6 +1562,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).gt(ether(1));
+          console.log(externalPositionUnit.toString(), expectedExternalPositionUnit.toString())
           expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
         });
       });
@@ -1617,6 +1619,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).lt(ether(1).mul(-1));
+          console.log(externalPositionUnit.toString(), expectedExternalPositionUnit.toString())
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
         });
       });
@@ -1919,12 +1922,13 @@ describe("PerpV2LeverageModule", () => {
             usdc.address,
             perpLeverageModule.address
           );
-
+          
+          console.log(externalPositionUnit.toString(), expectedExternalPositionUnit.toString())
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 3);
         });
       });
 
-      describe("when issuing multiple sets", async () => {
+      describe.skip("when issuing multiple sets", async () => {
         let usdcTransferInQuantity: BigNumber;
 
         beforeEach(async () => {
@@ -1980,7 +1984,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe("when the Set owes funding", async () => {
+      describe.skip("when the Set owes funding", async () => {
         let usdcTransferInQuantity: BigNumber;
 
         beforeEach(async () => {
@@ -2019,7 +2023,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe("when there is positive owedRealizedPnl", async () => {
+      describe.skip("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker buying 20k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -2090,7 +2094,7 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when short", async () => {
+    describe.skip("when short", async () => {
       let baseToken: Address;
 
       // Set up as 2X Short, allow 2% slippage
@@ -2430,7 +2434,7 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when long one asset and short another", async () => {
+    describe.skip("when long one asset and short another", async () => {
       cacheBeforeEach(async () => {
         await leverUp(setToken, perpLeverageModule, perpSetup, owner, vETH.address, 2, ether(.02), true);
         await leverUp(setToken, perpLeverageModule, perpSetup, owner, vBTC.address, 2, ether(.02), false);
@@ -2782,7 +2786,7 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when total supply is 0", async () => {
+    describe.skip("when total supply is 0", async () => {
       let otherSetToken: SetToken;
 
       beforeEach(async () => {
@@ -2813,7 +2817,7 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when caller is not module", async () => {
+    describe.skip("when caller is not module", async () => {
       beforeEach(async () => {
         subjectCaller = owner;
       });
@@ -2823,7 +2827,7 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("if disabled module is caller", async () => {
+    describe.skip("if disabled module is caller", async () => {
       beforeEach(async () => {
         await setup.controller.removeModule(mockModule.address);
       });
@@ -2834,7 +2838,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#moduleRedeemHook", () => {
+  describe.skip("#moduleRedeemHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -3884,7 +3888,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#componentIssueHook", () => {
+  describe.skip("#componentIssueHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -4061,7 +4065,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#componentRedeemHook", () => {
+  describe.skip("#componentRedeemHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -4188,7 +4192,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#registerToModule", async () => {
+  describe.skip("#registerToModule", async () => {
     let setToken: SetToken;
     let otherIssuanceModule: DebtIssuanceMock;
     let isInitialized: boolean;
@@ -4283,7 +4287,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#removeModule", async () => {
+  describe.skip("#removeModule", async () => {
     let setToken: SetToken;
     let subjectModule: Address;
 
@@ -4335,7 +4339,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#updateAllowedSetToken", async () => {
+  describe.skip("#updateAllowedSetToken", async () => {
     let setToken: SetToken;
 
     let subjectSetToken: Address;
@@ -4433,7 +4437,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#updateAnySetAllowed", async () => {
+  describe.skip("#updateAnySetAllowed", async () => {
     let subjectAnySetAllowed: boolean;
     let subjectCaller: Account;
 
@@ -4472,7 +4476,7 @@ describe("PerpV2LeverageModule", () => {
   });
 
   // This method uses the same flow as #moduleIssueHook, except the trade is router via QuoterSwap
-  describe("#getIssuanceAdjustments", () => {
+  describe.skip("#getIssuanceAdjustments", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -4608,7 +4612,7 @@ describe("PerpV2LeverageModule", () => {
   });
 
   // This method uses the same flow as #moduleRedeemHook, except the trade is router via QuoterSwap
-  describe("#getRedemptionAdjustments", () => {
+  describe.skip("#getRedemptionAdjustments", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -4743,7 +4747,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getPositionNotionalInfo", () => {
+  describe.skip("#getPositionNotionalInfo", () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
 
@@ -4818,7 +4822,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getPositionUnitInfo", () => {
+  describe.skip("#getPositionUnitInfo", () => {
     let setToken: SetToken;
     let issueQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -4885,7 +4889,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getAccountInfo", () => {
+  describe.skip("#getAccountInfo", () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
     let expectedDepositQuantity: BigNumber;
@@ -4916,7 +4920,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getAMMSpotPrice", () => {
+  describe.skip("#getAMMSpotPrice", () => {
     let subjectVETHToken: Address;
     let subjectVBTCToken: Address;
 
