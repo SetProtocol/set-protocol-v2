@@ -715,21 +715,28 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     )
         internal
         returns (int256)
-    {
-        int256 usdcAmountIn = 0;
+    { 
+        // From perp:
+        // accountValue = collateral                                <---
+        //              + owedRealizedPnl                               }   totalCollateralValue 
+        //              + pendingFundingPayment                     <---
+        //              + sum_over_market(positionValue_market)
+        //              + netQuoteBalance
+        
+        AccountInfo memory accountInfo = getAccountInfo(_setToken);
+        
+        int256 usdcAmountIn = accountInfo.collateralBalance
+            .add(accountInfo.owedRealizedPnl)
+            .add(accountInfo.pendingFundingPayments)
+            .add(accountInfo.netQuoteBalance)
+            .preciseDiv(_setToken.totalSupply().toInt256())
+            .preciseMul(_setTokenQuantity.toInt256());
 
-        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-
-        int256 owedRealizedPnlDiscountQuantity = _calculateNetDiscount(
-            _setToken,
-            _setTokenQuantity
-        );
-
-        (int256 currentLeverage, int256[] memory spotPrices) = _getCurrentAccountLeverageAndSpotPrices(_setToken, positionInfo);
+        PositionUnitInfo[] memory positionInfo = getPositionUnitInfo(_setToken);
 
         for(uint i = 0; i < positionInfo.length; i++) {
-            int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
-            int256 baseTradeNotionalQuantity = basePositionUnit.preciseMul(_setTokenQuantity.toInt256());
+            // baseUnit, +ve existing long position, -ve for existing short position
+            int256 baseTradeNotionalQuantity = positionInfo[i].baseUnit.preciseMul(_setTokenQuantity.toInt256());
 
             ActionInfo memory actionInfo = _createAndValidateActionInfoNotional(
                 _setToken,
@@ -738,7 +745,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
                 0
             );
 
-            int256 idealDeltaQuote = _abs(baseTradeNotionalQuantity.preciseMul(spotPrices[i]));
+            int256 spotPrice = getAMMSpotPrice(positionInfo[i].baseToken).toInt256();
+
+            // idealDeltaQuote, +ve for existing long position, -ve for existing short position
+            int256 idealDeltaQuote = baseTradeNotionalQuantity.preciseMul(spotPrice);
 
             // Execute or simulate trade
             (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
@@ -746,22 +756,18 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             // Calculate slippage quantity as a positive value
             // When long, trade slippage results in more negative quote received
             // When short, trade slippage results in less positive quote received
-            int256 slippageQuantity = basePositionUnit >= 0 ? deltaQuote.toInt256().sub(idealDeltaQuote) :
-                idealDeltaQuote.sub(deltaQuote.toInt256());
+            int256 slippageQuantity = baseTradeNotionalQuantity >= 0 
+                ? deltaQuote.toInt256().sub(idealDeltaQuote) 
+                : _abs(idealDeltaQuote).sub(deltaQuote.toInt256());
 
-            // Add slippage quantity to leverage scaled cost and update running usdcAmountIn total
-            // `currentLeverage` is always positive, with ~2X represented as ~2 * 10**18
-            usdcAmountIn = usdcAmountIn.add(slippageQuantity.add(idealDeltaQuote.preciseDiv(currentLeverage)));
+            // slippage is borne by the issuer
+            usdcAmountIn = usdcAmountIn.add(idealDeltaQuote).add(slippageQuantity);
         }
-
-        // Add carried owedRealizedPnL and pendingFunding discounts.
-        // These may be negative or positive and must be earned or paid for by existing set holders.
-        usdcAmountIn = usdcAmountIn.add(owedRealizedPnlDiscountQuantity);
-
+        
         // Return value in collateral decimals (e.g USDC = 6)
         return _fromPreciseUnitToDecimals(
             usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
-            collateralDecimals
+            ERC20(address(collateralToken)).decimals()
         );
     }
 
