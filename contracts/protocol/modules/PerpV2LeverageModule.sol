@@ -767,7 +767,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // Return value in collateral decimals (e.g USDC = 6)
         return _fromPreciseUnitToDecimals(
             usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
-            ERC20(address(collateralToken)).decimals()
+            collateralDecimals
         );
     }
 
