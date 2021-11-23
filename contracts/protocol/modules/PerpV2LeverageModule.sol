@@ -715,16 +715,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     )
         internal
         returns (int256)
-    { 
+    {
         // From perp:
         // accountValue = collateral                                <---
-        //              + owedRealizedPnl                               }   totalCollateralValue 
+        //              + owedRealizedPnl                               }   totalCollateralValue
         //              + pendingFundingPayment                     <---
         //              + sum_over_market(positionValue_market)
         //              + netQuoteBalance
-        
+
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
-        
+
         int256 usdcAmountIn = accountInfo.collateralBalance
             .add(accountInfo.owedRealizedPnl)
             .add(accountInfo.pendingFundingPayments)
@@ -756,14 +756,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             // Calculate slippage quantity as a positive value
             // When long, trade slippage results in more negative quote received
             // When short, trade slippage results in less positive quote received
-            int256 slippageQuantity = baseTradeNotionalQuantity >= 0 
-                ? deltaQuote.toInt256().sub(idealDeltaQuote) 
+            int256 slippageQuantity = baseTradeNotionalQuantity >= 0
+                ? deltaQuote.toInt256().sub(idealDeltaQuote)
                 : _abs(idealDeltaQuote).sub(deltaQuote.toInt256());
 
             // slippage is borne by the issuer
             usdcAmountIn = usdcAmountIn.add(idealDeltaQuote).add(slippageQuantity);
         }
-        
+
         // Return value in collateral decimals (e.g USDC = 6)
         return _fromPreciseUnitToDecimals(
             usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
@@ -1172,7 +1172,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         for (uint i = 0; i < positionInfo.length; i++ ) {
             int256 spotPrice = getAMMSpotPrice(positionInfo[i].baseToken).toInt256();
             totalPositionValue = totalPositionValue.add(
-                _abs(positionInfo[i].baseBalance.preciseMul(spotPrice))
+                positionInfo[i].baseBalance.preciseMul(spotPrice)
             );
         }
 

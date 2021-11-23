@@ -151,3 +151,32 @@ export async function calculateUSDCTransferOut(
 
   return toUSDCDecimals(collateralQuantityNotional.add(totalRealizedPnl).abs());
 }
+
+export async function calculateExternalPositionUnit(
+  setToken: SetToken,
+  module: PerpV2LeverageModule,
+  fixture: PerpV2Fixture,
+): Promise<BigNumber> {
+  let totalPositionValue = BigNumber.from(0);
+  const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
+
+  for (const positionInfo of allPositionInfo) {
+    const spotPrice = await fixture.getSpotPrice(positionInfo.baseToken);
+    totalPositionValue = totalPositionValue.add(preciseMul(positionInfo.baseBalance, spotPrice));
+  }
+
+  const {
+    collateralBalance,
+    pendingFundingPayments,
+    owedRealizedPnl,
+    netQuoteBalance,
+  } = await module.getAccountInfo(setToken.address);
+
+  const numerator = totalPositionValue
+    .add(collateralBalance)
+    .add(netQuoteBalance)
+    .add(pendingFundingPayments)
+    .add(owedRealizedPnl);
+
+  return toUSDCDecimals(preciseDiv(numerator, await setToken.totalSupply()));
+}
