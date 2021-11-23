@@ -1064,6 +1064,78 @@ describe("PerpV2LeverageModule", () => {
         expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
       });
 
+      describe("when depositing and a position exists", () => {
+        let baseToken: Address;
+
+        beforeEach(async () => {
+          await subject();
+          baseToken = vETH.address;
+          await leverUp(
+            subjectSetToken,
+            perpLeverageModule,
+            perpSetup,
+            owner,
+            baseToken,
+            2,
+            ether(.02),
+            true
+          );
+        });
+
+        it("should increase the collateral balance", async () => {
+          const {
+            collateralBalance: initialCollateralBalance
+          } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+          await subject();
+
+          const {
+            collateralBalance: finalCollateralBalance
+          } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+          const totalSupply = await subjectSetToken.totalSupply();
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+            .add(preciseMul(subjectDepositQuantity, totalSupply));
+
+          expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+        });
+
+        it("should decrease the leverage ratio", async () => {
+          const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken.address))[0];
+          const totalSupply = await subjectSetToken.totalSupply();
+
+          const {
+            collateralBalance: initialCollateralBalance
+          } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+          const initialLeverageRatio = await perpSetup.getCurrentLeverage(
+            subjectSetToken.address,
+            positionInfo,
+            initialCollateralBalance
+          );
+
+          await subject();
+
+          const {
+            collateralBalance: finalCollateralBalance
+          } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+          const finalLeverageRatio = await perpSetup.getCurrentLeverage(
+            subjectSetToken.address,
+            positionInfo,
+            finalCollateralBalance
+          );
+
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+            .add(preciseMul(subjectDepositQuantity, totalSupply));
+
+          // initialLeverageRatio = 2_041_235_426_575_610_129
+          // finalLeverageRation  = 1_010_244_489_779_359_264
+          expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+          expect(finalLeverageRatio).lt(initialLeverageRatio);
+        });
+      });
+
       describe("when deposit amount is 0", async () => {
         beforeEach(() => {
           subjectDepositQuantity = usdcUnits(0);
@@ -1227,6 +1299,75 @@ describe("PerpV2LeverageModule", () => {
 
           expect(initialExternalModules.length).eq(1);
           expect(finalExternalPositionModules.length).eq(0);
+        });
+      });
+
+      describe("when withdrawing and a position exists", () => {
+        let baseToken: Address;
+
+        beforeEach(async () => {
+          baseToken = vETH.address;
+          await leverUp(
+            subjectSetToken,
+            perpLeverageModule,
+            perpSetup,
+            owner,
+            baseToken,
+            2,
+            ether(.02),
+            true
+          );
+
+          subjectWithdrawQuantity = usdcUnits(2.5);
+        });
+
+        it("should decrease the collateral balance", async () => {
+          const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
+
+          await subject();
+
+          const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
+
+          const totalSupply = await subjectSetToken.totalSupply();
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+            .sub(preciseMul(subjectWithdrawQuantity, totalSupply));
+
+          expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+        });
+
+        it("should increase the leverage ratio", async () => {
+          const positionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken.address))[0];
+          const totalSupply = await subjectSetToken.totalSupply();
+
+          const {
+            collateralBalance: initialCollateralBalance
+          } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+          const initialLeverageRatio = await perpSetup.getCurrentLeverage(
+            subjectSetToken.address,
+            positionInfo,
+            initialCollateralBalance
+          );
+
+          await subject();
+
+          const {
+            collateralBalance: finalCollateralBalance
+          } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+          const finalLeverageRatio = await perpSetup.getCurrentLeverage(
+            subjectSetToken.address,
+            positionInfo,
+            finalCollateralBalance
+          );
+
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+            .sub(preciseMul(subjectWithdrawQuantity, totalSupply));
+
+          // initialLeverageRatio = 2_041_219_945_269_276_819
+          // finalLeverageRatio   = 2_739_702_831_474_076_071
+          expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+          expect(finalLeverageRatio).gt(initialLeverageRatio);
         });
       });
 
