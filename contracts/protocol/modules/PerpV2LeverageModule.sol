@@ -377,7 +377,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      */
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
-        require(_getCollateralBalance(setToken) == 0, "Collateral balance remaining");
+
+        // We can end up with a dust amount of USDC in the Perp account that we should ignore.
+        require(
+            _fromPreciseUnitToDecimals(_getCollateralBalance(setToken), collateralDecimals) <= 1,
+            "Collateral balance remaining"
+        );
 
         delete positions[setToken]; // Should already be empty
 

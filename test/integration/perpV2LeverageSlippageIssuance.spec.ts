@@ -933,8 +933,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           expect(finalOwnerUSDCBalance).to.be.closeTo(expectedUSDCBalance, 1);
         });
 
-        // Total supply is 1 as we try to close out the Perp account
-        it("should be possible to withdraw dust and remove the module", async () => {
+        it("should remove the module when dust is in the account and be able to add module back", async () => {
           // Redeem to `1`
           await subject();
 
@@ -963,6 +962,8 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const freeCollateralPositionUnit = preciseDiv(freeCollateral, await setToken.totalSupply());
 
           // freeCollateral = 9737806
+          // withdrawing this amount as a positionUnit results in a freeCollateral balance of `1`
+          // that can't be withdrawn due to positionUnit math rounding errors.
           await perpLeverageModule
             .connect(owner.wallet)
             .withdraw(subjectSetToken, freeCollateralPositionUnit);
@@ -971,13 +972,22 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             collateralBalance: finalCollateralBalance
           } = await perpLeverageModule.getAccountInfo(subjectSetToken);
 
+
           /// Remove module
           await setToken.removeModule(perpLeverageModule.address);
           const finalModules = await setToken.getModules();
 
           expect(finalModules.includes(perpLeverageModule.address)).eq(false);
           expect(finalBaseUnit).eq(ZERO);
-          expect(finalCollateralBalance).eq(ZERO);
+          expect(toUSDCDecimals(finalCollateralBalance)).eq(1); // <-- DUST
+
+          // Restore module
+          await setToken.connect(owner.wallet).addModule(perpLeverageModule.address);
+          await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+          await perpLeverageModule.initialize(setToken.address);
+
+          const restoredModules = await setToken.getModules();
+          expect(restoredModules.includes(perpLeverageModule.address)).eq(true);
         });
       });
     });
