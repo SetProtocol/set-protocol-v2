@@ -860,9 +860,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         internal
     {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
-
-        // Use preciseMulCeil here to ensure correct collateralization if there are rounding errors.
-        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
+        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
 
         _deposit(_setToken, collateralNotionalQuantity);
 
@@ -908,9 +906,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         internal
     {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
-
-        // Use preciseMulCeil here to make sure we sweep out rounding dust when manager invokes withdraw
-        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
+        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
 
         _withdraw(_setToken, collateralNotionalQuantity);
 
