@@ -33,9 +33,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: (process.env.FORK) ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
-      allowUnlimitedContractSize: true
     },
-    // TODO: investigate `allowUnlimitedContractSize` not getting picked up by the localhost client
     localhost: {
       url: "http://127.0.0.1:8545",
       timeout: 200000,
