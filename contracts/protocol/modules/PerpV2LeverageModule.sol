@@ -1098,8 +1098,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         pure
         returns (int256)
     {
+        // From perp formulas: closeRatio = abs(baseTradeNotional) / abs(baseBalance)
         int256 baseTradeNotionalQuantity = _setTokenQuantity.preciseMul(_basePositionUnit);
-        int256 closeRatio = baseTradeNotionalQuantity.preciseDiv(_positionInfo.baseBalance);
+        int256 closeRatio = _abs(baseTradeNotionalQuantity).preciseDiv(_abs(_positionInfo.baseBalance));
         return _positionInfo.quoteBalance.preciseMul(closeRatio);
     }
 
