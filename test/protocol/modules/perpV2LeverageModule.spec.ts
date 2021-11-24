@@ -1745,7 +1745,7 @@ describe("PerpV2LeverageModule", () => {
             usdc.address,
             perpLeverageModule.address
           );
-          console.log(externalPositionUnit.toString(), expectedExternalPositionUnit.toString());
+
           expect(pendingFunding).lt(0);
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
@@ -1872,7 +1872,7 @@ describe("PerpV2LeverageModule", () => {
             usdc.address,
             perpLeverageModule.address
           );
-          console.log(actualExternalPositionUnit.toString(), expectedExternalPositionUnit.toString());
+
           expect(actualExternalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
@@ -2538,14 +2538,14 @@ describe("PerpV2LeverageModule", () => {
 
         it("should set the expected USDC externalPositionUnit", async () => {
           const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
-          console.log(expectedExternalPositionUnit.toString());
+
           await subject();
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
             usdc.address,
             perpLeverageModule.address
           );
-          console.log(externalPositionUnit.toString());
+
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 3);
         });
 
@@ -2808,14 +2808,14 @@ describe("PerpV2LeverageModule", () => {
             usdcTransferInQuantity,
             subjectSetQuantity
           );
-          console.log(expectedExternalPositionUnit.toString());
+
           await subject();
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
             usdc.address,
             perpLeverageModule.address
           );
-          console.log(externalPositionUnit.toString());
+
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
           expect(owedRealizedPnl).gt(0);
         });
@@ -2861,14 +2861,14 @@ describe("PerpV2LeverageModule", () => {
             usdcTransferInQuantity,
             subjectSetQuantity
           );
-          console.log(expectedExternalPositionUnit.toString());
+
           await subject();
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
             usdc.address,
             perpLeverageModule.address
           );
-          console.log(externalPositionUnit.toString());
+
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
           expect(owedRealizedPnl).lt(0);
         });
@@ -2921,12 +2921,12 @@ describe("PerpV2LeverageModule", () => {
           const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
-          console.log(expectedExternalPositionUnit.toString());
+
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
             usdc.address,
             perpLeverageModule.address
           );
-          console.log(externalPositionUnit.toString());
+
           expect(pendingFunding).gt(ether(1));
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
