@@ -43,8 +43,6 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 
-// TODO: REMOVE THIS WHEN COMPLETE
-import "hardhat/console.sol";
 
 /**
  * @title PerpLeverageModule
@@ -760,7 +758,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
 
             // Calculate slippage quantity as a positive value
-            // When long, trade slippage results in more quote required, deltaQuote > idealDeltaQuote 
+            // When long, trade slippage results in more quote required, deltaQuote > idealDeltaQuote
             // When short, trade slippage results in less quote receivied, abs(idealDeltaQuote) > abs(deltaQuote)
             int256 slippageQuantity = baseTradeNotionalQuantity >= 0
                 ? deltaQuote.toInt256().sub(idealDeltaQuote)
