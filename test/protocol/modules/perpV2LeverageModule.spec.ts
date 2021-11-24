@@ -41,7 +41,7 @@ import {
 } from "@utils/test/index";
 
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
-import { ADDRESS_ZERO, ZERO, ZERO_BYTES, MAX_UINT_256, ONE_DAY_IN_SECONDS  } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, ZERO_BYTES, MAX_UINT_256, ONE_DAY_IN_SECONDS } from "@utils/constants";
 import { BigNumber } from "ethers";
 // import { inspect } from "util";
 
@@ -703,7 +703,7 @@ describe("PerpV2LeverageModule", () => {
             expect(finalFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
           });
 
-          it("should not change the value of the SetToken USDC defaultPositionUnit", async() => {
+          it("should not change the value of the SetToken USDC defaultPositionUnit", async () => {
             const initialUSDCDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
             await subject();
             const finalUSDCDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
@@ -1631,7 +1631,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(20000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -1648,10 +1648,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
-          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -1661,7 +1658,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
+            usdcTransferInQuantity,
             subjectSetQuantity
           );
 
@@ -1687,7 +1684,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(20000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -1704,10 +1701,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
-          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -1716,10 +1710,7 @@ describe("PerpV2LeverageModule", () => {
             perpSetup
           );
 
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
-            subjectSetQuantity
-          );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
 
@@ -1734,31 +1725,19 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
-        let usdcTransferInQuantity: BigNumber;
-
-        beforeEach(async () => {
-          usdcTransferInQuantity = await calculateUSDCTransferIn(
-            setToken,
-            subjectSetQuantity,
-            perpLeverageModule,
-            perpSetup
-          );
-        });
-
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
-          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
-
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
-            subjectSetQuantity
+          const usdcTransferInQuantity = await calculateUSDCTransferIn(
+            setToken,
+            subjectSetQuantity,
+            perpLeverageModule,
+            perpSetup
           );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
 
@@ -1773,31 +1752,19 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
-        let usdcTransferInQuantity: BigNumber;
-
-        beforeEach(async () => {
-          usdcTransferInQuantity = await calculateUSDCTransferIn(
-            setToken,
-            subjectSetQuantity,
-            perpLeverageModule,
-            perpSetup
-          );
-        });
-
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(15));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
-          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
-
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
-            subjectSetQuantity
+          const usdcTransferInQuantity = await calculateUSDCTransferIn(
+            setToken,
+            subjectSetQuantity,
+            perpLeverageModule,
+            perpSetup
           );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
 
@@ -1831,7 +1798,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(10000),     // move price up by buying 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -1862,7 +1829,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(10000),     // move price up by buying 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -1885,7 +1852,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(10000),     // move price up by buying 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2140,7 +2107,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(20000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2151,7 +2118,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(20000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2174,8 +2141,6 @@ describe("PerpV2LeverageModule", () => {
 
         it("should set the expected USDC externalPositionUnit", async () => {
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
-          const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -2184,10 +2149,7 @@ describe("PerpV2LeverageModule", () => {
             perpSetup
           );
 
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
-            subjectSetQuantity
-          );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
 
@@ -2206,7 +2168,7 @@ describe("PerpV2LeverageModule", () => {
       let baseToken: Address;
 
       // Set up as 2X Short, allow 2% slippage
-      cacheBeforeEach(async() => {
+      cacheBeforeEach(async () => {
         baseToken = vETH.address;
         await leverUp(
           setToken,
@@ -2275,7 +2237,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,     // `amount` is USDC
             amount: ether(10000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2290,10 +2252,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
-          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -2303,7 +2262,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
+            usdcTransferInQuantity,
             subjectSetQuantity
           );
 
@@ -2328,7 +2287,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,         // `amount` is USDC
             amount: ether(10000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2343,10 +2302,8 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
-          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
+
 
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -2356,7 +2313,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
+            usdcTransferInQuantity,
             subjectSetQuantity
           );
 
@@ -2378,10 +2335,8 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
-          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
             subjectSetQuantity,
@@ -2390,10 +2345,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           // pending funding discount is positive here, we expect set to be slightly more expensive
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
-            subjectSetQuantity
-          );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
 
@@ -2413,10 +2365,7 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
-          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -2426,10 +2375,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           // pending funding discount is negative here, we expect set to be slightly less expensive
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
-            subjectSetQuantity
-          );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
 
@@ -2463,7 +2409,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2494,7 +2440,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2517,7 +2463,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2625,7 +2571,7 @@ describe("PerpV2LeverageModule", () => {
               isExactInput: true,        // `amount` is USDC
               amount: ether(10000),      // move price up by buying 10k USDC of vETH
               oppositeAmountBound: ZERO,
-              deadline:  MAX_UINT_256,
+              deadline: MAX_UINT_256,
               sqrtPriceLimitX96: ZERO,
               referralCode: ZERO_BYTES
             });
@@ -2665,7 +2611,7 @@ describe("PerpV2LeverageModule", () => {
               isExactInput: false,       // `amount` is USDC
               amount: ether(10000),      // move price up by buying 10k USDC of vETH
               oppositeAmountBound: ZERO,
-              deadline:  MAX_UINT_256,
+              deadline: MAX_UINT_256,
               sqrtPriceLimitX96: ZERO,
               referralCode: ZERO_BYTES
             });
@@ -2688,7 +2634,7 @@ describe("PerpV2LeverageModule", () => {
               isExactInput: false,       // `amount` is USDC
               amount: ether(10000),      // move price up by buying 10k USDC of vETH
               oppositeAmountBound: ZERO,
-              deadline:  MAX_UINT_256,
+              deadline: MAX_UINT_256,
               sqrtPriceLimitX96: ZERO,
               referralCode: ZERO_BYTES
             });
@@ -2734,7 +2680,7 @@ describe("PerpV2LeverageModule", () => {
               isExactInput: false,        // `amount` is USDC
               amount: ether(20000),       // move price down by selling 20k USDC of vBTC
               oppositeAmountBound: ZERO,
-              deadline:  MAX_UINT_256,
+              deadline: MAX_UINT_256,
               sqrtPriceLimitX96: ZERO,
               referralCode: ZERO_BYTES
             });
@@ -2774,7 +2720,7 @@ describe("PerpV2LeverageModule", () => {
               isExactInput: false,        // `amount` is USDC
               amount: ether(20000),       // move price down by selling 20k USDC of vBTC
               oppositeAmountBound: ZERO,
-              deadline:  MAX_UINT_256,
+              deadline: MAX_UINT_256,
               sqrtPriceLimitX96: ZERO,
               referralCode: ZERO_BYTES
             });
@@ -2797,7 +2743,7 @@ describe("PerpV2LeverageModule", () => {
               isExactInput: false,        // `amount` is USDC
               amount: ether(20000),       // move price down by selling 20k USDC of vBTC
               oppositeAmountBound: ZERO,
-              deadline:  MAX_UINT_256,
+              deadline: MAX_UINT_256,
               sqrtPriceLimitX96: ZERO,
               referralCode: ZERO_BYTES
             });
@@ -2831,7 +2777,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,     // `amount` is USDC
             amount: ether(2000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2849,10 +2795,8 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
-          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
             subjectSetQuantity,
@@ -2861,7 +2805,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
+            usdcTransferInQuantity,
             subjectSetQuantity
           );
           console.log(expectedExternalPositionUnit.toString());
@@ -2886,7 +2830,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,     // `amount` is USDC
             amount: ether(1000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -2904,10 +2848,8 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          const totalSupply = await setToken.totalSupply();
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, totalSupply);
-          const owedRealizedPnlDiscountNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
             subjectSetQuantity,
@@ -2916,7 +2858,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(owedRealizedPnlDiscountNotional)),
+            usdcTransferInQuantity,
             subjectSetQuantity
           );
           console.log(expectedExternalPositionUnit.toString());
@@ -2938,10 +2880,8 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
-          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
+
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
             subjectSetQuantity,
@@ -2949,11 +2889,7 @@ describe("PerpV2LeverageModule", () => {
             perpSetup
           );
 
-          // pending funding discount is positive here, we expect set to be slightly more expensive
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
-            subjectSetQuantity
-          );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
 
@@ -2973,10 +2909,7 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const pendingFundingUnit = preciseDiv(pendingFunding, totalSupply);
-          const pendingFundingDiscountNotional = preciseMul(pendingFundingUnit, subjectSetQuantity);
 
           const usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
@@ -2985,11 +2918,7 @@ describe("PerpV2LeverageModule", () => {
             perpSetup
           );
 
-          // pending funding discount is negative here, we expect set to be slightly more expensive
-          const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferInQuantity.add(toUSDCDecimals(pendingFundingDiscountNotional)),
-            subjectSetQuantity
-          );
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
           await subject();
           console.log(expectedExternalPositionUnit.toString());
@@ -3023,7 +2952,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(2000),      // move price up by buying 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3034,7 +2963,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(4000),      // move price up by buying 10k USDC of vBTC
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3065,7 +2994,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3088,7 +3017,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3261,7 +3190,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(20000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3314,7 +3243,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3451,7 +3380,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(10000),     // move price up by buying 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3482,7 +3411,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(10000),     // move price up by buying 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3505,7 +3434,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(10000),     // move price up by buying 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3631,7 +3560,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
+          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 2);
         });
       });
 
@@ -3739,7 +3668,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(20000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3750,7 +3679,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,       // `amount` is USDC
             amount: ether(20000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3868,7 +3797,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -3921,7 +3850,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: true,         // `amount` is USDC
             amount: ether(10000),
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -4059,7 +3988,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -4090,7 +4019,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
@@ -4113,7 +4042,7 @@ describe("PerpV2LeverageModule", () => {
             isExactInput: false,       // `amount` is USDC
             amount: ether(10000),      // move price down by selling 10k USDC of vETH
             oppositeAmountBound: ZERO,
-            deadline:  MAX_UINT_256,
+            deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
             referralCode: ZERO_BYTES
           });
