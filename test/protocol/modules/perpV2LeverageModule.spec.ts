@@ -43,7 +43,6 @@ import {
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
 import { ADDRESS_ZERO, ZERO, ZERO_BYTES, MAX_UINT_256, ONE_DAY_IN_SECONDS } from "@utils/constants";
 import { BigNumber } from "ethers";
-// import { inspect } from "util";
 
 const expect = getWaffleExpect();
 
@@ -990,7 +989,7 @@ describe("PerpV2LeverageModule", () => {
     };
 
     async function subject(): Promise<any> {
-      await perpLeverageModule
+      return await perpLeverageModule
         .connect(subjectCaller.wallet)
         .deposit(subjectSetToken.address, subjectDepositQuantity);
     }
@@ -1051,6 +1050,16 @@ describe("PerpV2LeverageModule", () => {
 
         const expectedDefaultPosition = initialExternalPositionUnit.add(subjectDepositQuantity);
         expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
+      });
+
+      it("should emit the correct CollateralDeposited event", async () => {
+        const totalSupply = await subjectSetToken.totalSupply();
+
+        await expect(subject()).to.emit(perpLeverageModule, "CollateralDeposited").withArgs(
+          subjectSetToken.address,
+          perpSetup.usdc.address,
+          preciseMul(subjectDepositQuantity, totalSupply)
+        );
       });
 
       describe("when depositing and a position exists", () => {
@@ -1255,29 +1264,29 @@ describe("PerpV2LeverageModule", () => {
           await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
         });
       });
-    });
 
-    describe("when total supply is 0", async () => {
-      let otherSetToken: SetToken;
+      describe("when total supply is 0", async () => {
+        let otherSetToken: SetToken;
 
-      cacheBeforeEach(initializeContracts);
-      beforeEach(initializeSubjectVariables);
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
 
-      beforeEach(async () => {
-        otherSetToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcUnits(10)],
-          [perpLeverageModule.address, debtIssuanceMock.address]
-        );
-        await debtIssuanceMock.initialize(otherSetToken.address);
-        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
-        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+        beforeEach(async () => {
+          otherSetToken = await setup.createSetToken(
+            [usdc.address],
+            [usdcUnits(10)],
+            [perpLeverageModule.address, debtIssuanceMock.address]
+          );
+          await debtIssuanceMock.initialize(otherSetToken.address);
+          await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+          await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
 
-        subjectSetToken = otherSetToken;
-      });
+          subjectSetToken = otherSetToken;
+        });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("SetToken supply is 0");
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("SetToken supply is 0");
+        });
       });
     });
 
@@ -1333,7 +1342,7 @@ describe("PerpV2LeverageModule", () => {
     };
 
     async function subject(): Promise<any> {
-      await perpLeverageModule
+      return await perpLeverageModule
         .connect(subjectCaller.wallet)
         .withdraw(subjectSetToken.address, subjectWithdrawQuantity);
     }
@@ -1375,6 +1384,16 @@ describe("PerpV2LeverageModule", () => {
 
         const expectedExternalPositionUnit = initialExternalPositionUnit.sub(subjectWithdrawQuantity);
         expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
+      });
+
+      it("should emit the correct CollateralWithdrawn event", async () => {
+        const totalSupply = await subjectSetToken.totalSupply();
+
+        await expect(subject()).to.emit(perpLeverageModule, "CollateralWithdrawn").withArgs(
+          subjectSetToken.address,
+          perpSetup.usdc.address,
+          preciseMul(subjectWithdrawQuantity, totalSupply)
+        );
       });
 
       describe("when withdraw amount is 0", async () => {

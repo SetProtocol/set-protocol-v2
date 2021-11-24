@@ -99,7 +99,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /* ============ Events ============ */
 
     /**
-     * @dev Emitted on lever
+     * @dev Emitted on trade
      * @param _setToken         Instance of SetToken
      * @param _baseToken        Virtual token minted by the Perp protocol
      * @param _deltaBase        Change in baseToken position size resulting from trade
@@ -114,6 +114,30 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 _deltaQuote,
         uint256 _protocolFee,
         bool _isBuy
+    );
+
+    /**
+     * @dev Emitted on deposit (not issue or redeeem)
+     * @param _setToken             Instance of SetToken
+     * @param _collateralToken      Token being deposited as collateral (USDC)
+     * @param _amountDeposited      Amount of collateral being deposited into Perp
+     */
+    event CollateralDeposited(
+        ISetToken indexed _setToken,
+        IERC20 _collateralToken,
+        uint256 _amountDeposited
+    );
+
+    /**
+     * @dev Emitted on withdraw (not issue or redeeem)
+     * @param _setToken             Instance of SetToken
+     * @param _collateralToken      Token being withdrawn as collateral (USDC)
+     * @param _amountWithdrawn      Amount of collateral being withdrawn from Perp
+     */
+    event CollateralWithdrawn(
+        ISetToken indexed _setToken,
+        IERC20 _collateralToken,
+        uint256 _amountWithdrawn
     );
 
     /**
@@ -298,7 +322,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         require(_collateralQuantityUnits > 0, "Deposit amount is 0");
         require(_setToken.totalSupply() > 0, "SetToken supply is 0");
 
-        _depositAndUpdateState(_setToken, _collateralQuantityUnits);
+        uint256 notionalDepositedQuantity = _depositAndUpdatePositions(_setToken, _collateralQuantityUnits);
+
+        emit CollateralDeposited(_setToken, collateralToken, notionalDepositedQuantity);
     }
 
     /**
@@ -323,7 +349,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         require(_collateralQuantityUnits > 0, "Withdraw amount is 0");
         require(_setToken.totalSupply() > 0, "SetToken supply is 0");
 
-        _withdrawAndUpdateState(_setToken, _collateralQuantityUnits);
+        uint256 notionalWithdrawnQuantity = _withdrawAndUpdatePositions(_setToken, _collateralQuantityUnits);
+
+        emit CollateralWithdrawn(_setToken, collateralToken, notionalWithdrawnQuantity);
     }
 
     /**
@@ -890,11 +918,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * NOTE: This flow is only used when invoking the external `deposit` function - it converts collateral
      * quantity units into a notional quantity.
      */
-    function _depositAndUpdateState(
+    function _depositAndUpdatePositions(
         ISetToken _setToken,
         uint256 _collateralQuantityUnits
     )
         internal
+        returns (uint256)
     {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
         uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
@@ -913,6 +942,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _calculateExternalPositionUnit(_setToken),
             ""
         );
+
+        return collateralNotionalQuantity;
     }
 
     /**
@@ -935,12 +966,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * NOTE: This flow is only used when invoking the external `withdraw` function - it converts
      * a collateral units quantity into a notional quantity before invoking withdraw.
      */
-    function _withdrawAndUpdateState(
+    function _withdrawAndUpdatePositions(
         ISetToken _setToken,
         uint256 _collateralQuantityUnits
 
     )
         internal
+        returns (uint256)
     {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
         uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
@@ -959,6 +991,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _calculateExternalPositionUnit(_setToken),
             ""
         );
+
+        return collateralNotionalQuantity;
     }
 
     /**
