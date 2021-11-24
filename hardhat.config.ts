@@ -38,7 +38,7 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
       timeout: 200000,
       gas: 12000000,
-      blockGasLimit: 12000000,
+      blockGasLimit: 12000000
     },
     kovan: {
       url: "https://kovan.infura.io/v3/" + process.env.INFURA_TOKEN,
