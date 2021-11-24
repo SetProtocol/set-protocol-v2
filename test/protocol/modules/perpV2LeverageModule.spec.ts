@@ -989,7 +989,7 @@ describe("PerpV2LeverageModule", () => {
     };
 
     async function subject(): Promise<any> {
-      await perpLeverageModule
+      return await perpLeverageModule
         .connect(subjectCaller.wallet)
         .deposit(subjectSetToken.address, subjectDepositQuantity);
     }
@@ -1052,12 +1052,12 @@ describe("PerpV2LeverageModule", () => {
         expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
       });
 
-      it.only("should emit the correct CollateralDeposited event", async () => {
+      it("should emit the correct CollateralDeposited event", async () => {
         const totalSupply = await subjectSetToken.totalSupply();
 
         await expect(subject()).to.emit(perpLeverageModule, "CollateralDeposited").withArgs(
           subjectSetToken.address,
-          setup.usdc.address,
+          perpSetup.usdc.address,
           preciseMul(subjectDepositQuantity, totalSupply)
         );
       });
@@ -1342,7 +1342,7 @@ describe("PerpV2LeverageModule", () => {
     };
 
     async function subject(): Promise<any> {
-      await perpLeverageModule
+      return await perpLeverageModule
         .connect(subjectCaller.wallet)
         .withdraw(subjectSetToken.address, subjectWithdrawQuantity);
     }
@@ -1386,12 +1386,12 @@ describe("PerpV2LeverageModule", () => {
         expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
       });
 
-      it.only("should emit the correct CollateralWithdrawn event", async () => {
+      it("should emit the correct CollateralWithdrawn event", async () => {
         const totalSupply = await subjectSetToken.totalSupply();
 
         await expect(subject()).to.emit(perpLeverageModule, "CollateralWithdrawn").withArgs(
           subjectSetToken.address,
-          setup.usdc.address,
+          perpSetup.usdc.address,
           preciseMul(subjectWithdrawQuantity, totalSupply)
         );
       });
