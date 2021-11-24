@@ -123,7 +123,7 @@ export async function calculateUSDCTransferOut(
     const baseTradeQuantityNotional = preciseMul(basePositionUnit, setQuantity);
     const isLong = (basePositionUnit.gte(ZERO));
 
-    const closeRatio = preciseDiv(baseTradeQuantityNotional, positionInfo.baseBalance);
+    const closeRatio = preciseDiv(baseTradeQuantityNotional.abs(), positionInfo.baseBalance.abs());
     const reducedOpenNotional = preciseMul(positionInfo.quoteBalance, closeRatio);
 
     const { deltaQuote } = await fixture.getSwapQuote(
