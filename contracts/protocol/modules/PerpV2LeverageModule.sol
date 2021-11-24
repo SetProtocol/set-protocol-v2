@@ -760,8 +760,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
 
             // Calculate slippage quantity as a positive value
-            // When long, trade slippage results in more negative quote received
-            // When short, trade slippage results in less positive quote received
+            // When long, trade slippage results in more quote required, deltaQuote > idealDeltaQuote 
+            // When short, trade slippage results in less quote receivied, abs(idealDeltaQuote) > abs(deltaQuote)
             int256 slippageQuantity = baseTradeNotionalQuantity >= 0
                 ? deltaQuote.toInt256().sub(idealDeltaQuote)
                 : _abs(idealDeltaQuote).sub(deltaQuote.toInt256());
