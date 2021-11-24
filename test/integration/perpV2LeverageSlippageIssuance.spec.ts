@@ -988,6 +988,9 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
           const restoredModules = await setToken.getModules();
           expect(restoredModules.includes(perpLeverageModule.address)).eq(true);
+
+          // Verify that we can deposit again
+          await perpLeverageModule.deposit(setToken.address, usdcUnits(5));
         });
       });
     });
