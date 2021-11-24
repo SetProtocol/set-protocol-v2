@@ -186,18 +186,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev Sets external PerpV2 Protocol addresses.
      * @param _controller               Address of controller contract
-     * @param _perpAccountBalance       Address of Perp AccountBalance contract
-     * @param _perpClearingHouse        Address of Perp ClearingHouse contract
-     * @param _perpExchange             Address of Perp Exchange contract
      * @param _perpVault                Address of Perp Vault contract
      * @param _perpQuoter               Address of Perp Quoter contract
      * @param _perpMarketRegistry       Address of Perp MarketRegistry contract
      */
     constructor(
         IController _controller,
-        IAccountBalance _perpAccountBalance,
-        IClearingHouse _perpClearingHouse,
-        IExchange _perpExchange,
         IVault _perpVault,
         IQuoter _perpQuoter,
         IMarketRegistry _perpMarketRegistry
@@ -210,9 +204,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         collateralToken = IERC20(tempCollateralToken);
         collateralDecimals = ERC20(tempCollateralToken).decimals();
 
-        perpAccountBalance = _perpAccountBalance;
-        perpClearingHouse = _perpClearingHouse;
-        perpExchange = _perpExchange;
+        perpAccountBalance = IAccountBalance(IVault(_perpVault).getAccountBalance());
+        perpClearingHouse = IClearingHouse(IVault(_perpVault).getClearingHouse());
+        perpExchange = IExchange(IVault(_perpVault).getExchange());
         perpVault = _perpVault;
         perpQuoter = _perpQuoter;
         perpMarketRegistry = _perpMarketRegistry;

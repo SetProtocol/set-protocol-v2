@@ -104,9 +104,6 @@ describe("PerpV2LeverageModule", () => {
     perpLib = await deployer.libraries.deployPerpV2();
     perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
       setup.controller.address,
-      perpSetup.accountBalance.address,
-      perpSetup.clearingHouse.address,
-      perpSetup.exchange.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
@@ -169,18 +166,12 @@ describe("PerpV2LeverageModule", () => {
 
   describe("#constructor", async () => {
     let subjectController: Address;
-    let subjectAccountBalance: Address;
-    let subjectClearingHouse: Address;
-    let subjectExchange: Address;
     let subjectVault: Address;
     let subjectQuoter: Address;
     let subjectMarketRegistry: Address;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
-      subjectAccountBalance = perpSetup.accountBalance.address;
-      subjectClearingHouse = perpSetup.clearingHouse.address;
-      subjectExchange = perpSetup.exchange.address;
       subjectVault = perpSetup.vault.address;
       subjectQuoter = perpSetup.quoter.address;
       subjectMarketRegistry = perpSetup.marketRegistry.address;
@@ -189,9 +180,6 @@ describe("PerpV2LeverageModule", () => {
     async function subject(): Promise<PerpV2LeverageModule> {
       return deployer.modules.deployPerpV2LeverageModule(
         subjectController,
-        subjectAccountBalance,
-        subjectClearingHouse,
-        subjectExchange,
         subjectVault,
         subjectQuoter,
         subjectMarketRegistry,

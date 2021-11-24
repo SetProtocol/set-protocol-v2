@@ -93,9 +93,6 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     perpLib = await deployer.libraries.deployPerpV2();
     perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
       setup.controller.address,
-      perpSetup.accountBalance.address,
-      perpSetup.clearingHouse.address,
-      perpSetup.exchange.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,

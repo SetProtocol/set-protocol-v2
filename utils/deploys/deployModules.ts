@@ -199,9 +199,6 @@ export default class DeployModules {
 
   public async deployPerpV2LeverageModule(
     controller: Address,
-    perpAccountBalance: Address,
-    perpClearingHouse: Address,
-    perpExchange: Address,
     perpVault: Address,
     perpQuoter: Address,
     perpMarketRegistry: Address,
@@ -216,9 +213,6 @@ export default class DeployModules {
       this._deployerSigner
     ).deploy(
       controller,
-      perpAccountBalance,
-      perpClearingHouse,
-      perpExchange,
       perpVault,
       perpQuoter,
       perpMarketRegistry

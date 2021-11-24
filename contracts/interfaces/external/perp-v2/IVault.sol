@@ -25,4 +25,7 @@ interface IVault {
     function getFreeCollateralByRatio(address trader, uint24 ratio) external view returns (int256);
     function getLiquidateMarginRequirement(address trader) external view returns (int256);
     function getSettlementToken() external view returns (address);
+    function getAccountBalance() external view returns (address);
+    function getClearingHouse() external view returns (address);
+    function getExchange() external view returns (address);
 }
