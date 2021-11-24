@@ -263,8 +263,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
 
-        // TODO: Double-check deltas? Can we trust oppositeBoundAmount?
-
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
         _updatePositionList(_setToken, _baseToken);
@@ -309,7 +307,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * a Perp account external position as one of several components.
      *
      * NOTE: Within PerpV2, `withdraw` settles `owedRealizedPnl` and any pending funding payments
-     * to the Perp vault prior to transfer.   // TODO: DOUBLE-CHECK THIS... and what are implications?
+     * to the Perp vault prior to transfer.
      *
      * @param  _setToken                    Instance of the SetToken
      * @param  _collateralQuantityUnits     Quantity of collateral to withdraw in position units
@@ -365,7 +363,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Deletes
      * position mappings associated with SetToken.
      *
-     * NOTE: Function will revert if there are any remaining collateral deposits in the PerpV2 vault.
+     * NOTE: Function will revert if there is greater than a position unit amount of USDC left in the PerpV2 vault.
      */
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
