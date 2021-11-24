@@ -701,6 +701,39 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev MODULE ONLY: Hook called prior to issuance. Only callable by valid module.
+     *
+     * NOTE: OwedRealizedPnl and PendingFunding values can be either positive or negative
+     *
+     * OwedRealizedPnl
+     * ---------------
+     * Accrues when trades execute and result in a profit or loss per the table
+     * below. Each withdrawal zeros out `owedRealizedPnl`, settling it to the vault.
+     *
+     * | -------------------------------------------------- |
+     * | Position Type | AMM Spot Price | Action | Value    |
+     * | ------------- | -------------- | ------ | -------  |
+     * | Long          | Rises          | Sell   | Positive |
+     * | Long          | Falls          | Sell   | Negative |
+     * | Short         | Rises          | Buy    | Negative |
+     * | Short         | Falls          | Buy    | Positive |
+     * | -------------------------------------------------- |
+     *
+     *
+     * PendingFunding
+     * --------------
+     * The direction of this flow is determined by the difference between virtual asset UniV3 spot prices and
+     * their parent asset's broader market price (as represented by a Chainlink oracle), per the table below.
+     * Each trade zeroes out `pendingFunding`, settling it to owedRealizedPnl.
+     *
+     * | --------------------------------------- |
+     * | Position Type | Oracle Price | Value    |
+     * | ------------- | ------------ | -------- |
+     * | Long          | Below AMM    | Negative |
+     * | Long          | Above AMM    | Positive |
+     * | Short         | Below AMM    | Positive |
+     * | Short         | Above AMM    | Negative |
+     * | --------------------------------------- |
+     *
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of Set to issue
      * @param _isSimulation         If true, trading is only simulated (to return issuance adjustments)
@@ -1102,63 +1135,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 baseTradeNotionalQuantity = _setTokenQuantity.preciseMul(_basePositionUnit);
         int256 closeRatio = _abs(baseTradeNotionalQuantity).preciseDiv(_abs(_positionInfo.baseBalance));
         return _positionInfo.quoteBalance.preciseMul(closeRatio);
-    }
-
-    /**
-     * @dev Calculate the total amount to discount an issuance purchase by given pending funding payments
-     * and unsettled owedRealizedPnl balances. These amounts are socialized among existing shareholders.
-     *
-     * NOTE: OwedRealizedPnl and PendingFunding values can be either positive or negative
-     *
-     * OwedRealizedPnl
-     * ---------------
-     * Accrues when trades (like lever and delever) execute and result in a profit or loss per the table
-     * below. Each withdrawal zeros out `owedRealizedPnl`, settling it to the vault.
-     *
-     * | -------------------------------------------------- |
-     * | Position Type | AMM Spot Price | Action | Value    |
-     * | ------------- | -------------- | ------ | -------  |
-     * | Long          | Rises          | Sell   | Positive |
-     * | Long          | Falls          | Sell   | Negative |
-     * | Short         | Rises          | Buy    | Negative |
-     * | Short         | Falls          | Buy    | Positive |
-     * | -------------------------------------------------- |
-     *
-     *
-     * PendingFunding
-     * --------------
-     * The direction of this flow is determined by the difference between virtual asset UniV3 spot prices and
-     * their parent asset's broader market price (as represented by a Chainlink oracle), per the table below.
-     * Each trade zeroes out `pendingFunding`, settling it to owedRealizedPnl.
-     *
-     * | --------------------------------------- |
-     * | Position Type | Oracle Price | Value    |
-     * | ------------- | ------------ | -------- |
-     * | Long          | Below AMM    | Negative |
-     * | Long          | Above AMM    | Positive |
-     * | Short         | Below AMM    | Positive |
-     * | Short         | Above AMM    | Negative |
-     * | --------------------------------------- |
-     *
-     * @return int256 Total quantity to discount
-     */
-    function _calculateNetDiscount(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity
-    )
-        internal
-        view
-        returns (int256)
-    {
-        (int256 owedRealizedPnl,,) = perpAccountBalance.getPnlAndPendingFee(address(_setToken));
-        int256 pendingFundingPayments = perpExchange.getAllPendingFundingPayment(address(_setToken));
-
-        // We subtract funding here since a positive value from Perp means funding is owed and the issuer should not pay
-        // for that funding. In getAccountInfo we negate this value, we don't call getAccountInfo here so we don't make
-        // any unnecessary external calls
-        return (owedRealizedPnl.sub(pendingFundingPayments))
-            .preciseDiv(_setToken.totalSupply().toInt256())
-            .preciseMul(_setTokenQuantity.toInt256());
     }
 
     /**
