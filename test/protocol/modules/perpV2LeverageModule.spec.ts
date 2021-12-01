@@ -37,7 +37,8 @@ import {
   getPerpV2Fixture,
   getRandomAccount,
   getRandomAddress,
-  increaseTimeAsync
+  increaseTimeAsync,
+  getProvider
 } from "@utils/test/index";
 
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
@@ -45,6 +46,7 @@ import { ADDRESS_ZERO, ZERO, ZERO_BYTES, MAX_UINT_256, ONE_DAY_IN_SECONDS } from
 import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
+const provider = getProvider();
 
 // TODO: Tight all the return receive quantity units passed to Trade.
 // TODO: create a table to determine all possible combination of test cases.
@@ -1610,7 +1612,6 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-
   // todo: has multiple closeTo calls, all due to the delta between expected USDC external position unit
   // and external USDC position updated by the PerpModule on the SetToken
   describe("#moduleIssueHook", () => {
@@ -1659,7 +1660,7 @@ describe("PerpV2LeverageModule", () => {
         );
       });
 
-      describe("when issuing a single set", async () => {
+      describe.only("when issuing a single set", async () => {
         let usdcTransferInQuantity: BigNumber;
 
         beforeEach(async () => {
@@ -1669,8 +1670,6 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule,
             perpSetup
           );
-
-          await syncOracleToSpot(vETH);
         });
 
         it("buys expected amount of vBase", async () => {
@@ -1689,17 +1688,63 @@ describe("PerpV2LeverageModule", () => {
           expect(finalBaseBalance).eq(expectedBaseBalance);
         });
 
-        it("should set the expected USDC externalPositionUnit", async () => {
-          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
+        // There are 2 ways to handle funding accrued between when we fetch the usdc amount to be
+        // transferred in and when we determine usdc amount to be transferred in on chain.
+        // 1. Force funding to zero by syncing the oracle price to spot price
+        // 2. Calculate accrued funding and add it to our usdc amount to be transferred in
+        describe("sync oracle in before each", async () => {
+          beforeEach(async () => {
+            await syncOracleToSpot(vETH);
+          });
 
-          await subject();
+          it("should set the expected USDC externalPositionUnit", async () => {
+            const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectSetQuantity);
 
-          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
-            usdc.address,
-            perpLeverageModule.address
-          );
+            await subject();
 
-          expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
+            const externalPositionUnit = await setToken.getExternalPositionRealUnit(
+              usdc.address,
+              perpLeverageModule.address
+            );
+
+            expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
+          });
+        });
+
+        describe("do not sync oracle in before each", async () => {
+          let usdcTransferInQuantity: BigNumber;
+          let fetchingBlockTimestamp: number;
+          let spotPrice: BigNumber;
+
+          beforeEach(async () => {
+            spotPrice = await perpSetup.getSpotPrice(baseToken);
+            fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
+          });
+
+          it("should set the expected USDC externalPositionUnit", async () => {
+            const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
+
+            await subject();
+
+            const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
+            const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
+
+            const accruedFunding = preciseMul(
+              baseBalance,
+              spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
+            );
+            const expectedExternalPositionUnit = preciseDiv(
+              usdcTransferInQuantity.add(toUSDCDecimals(accruedFunding)),
+              subjectSetQuantity
+            );
+
+            const externalPositionUnit = await setToken.getExternalPositionRealUnit(
+              usdc.address,
+              perpLeverageModule.address
+            );
+
+            expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
+          });
         });
       });
 
