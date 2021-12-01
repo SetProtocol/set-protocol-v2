@@ -46,6 +46,11 @@ import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
 
+// TODO: Tight all the return receive quantity units passed to Trade.
+// TODO: create a table to determine all possible combination of test cases.
+// (long, short, multiple long, multiple short, long + short),
+// with default and without default position units.
+// and make sure each function tests all possible cases.
 describe("PerpV2LeverageModule", () => {
   let owner: Account;
   let maker: Account;
@@ -163,7 +168,8 @@ describe("PerpV2LeverageModule", () => {
     await perpSetup.setBaseTokenOraclePrice(baseToken, baseTokenSpotPrice.div(10 ** 12));
   }
 
-  describe("#constructor", async () => {
+  // done
+  describe.skip("#constructor", async () => {
     let subjectController: Address;
     let subjectVault: Address;
     let subjectQuoter: Address;
@@ -215,7 +221,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#initialize", async () => {
+  // done
+  describe.skip("#initialize", async () => {
     let setToken: SetToken;
     let isAllowListed: boolean;
     let subjectSetToken: Address;
@@ -374,7 +381,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#trade", () => {
+  // todo. One missing test case
+  describe.skip("#trade", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
     let depositQuantity: BigNumber;
@@ -698,6 +706,14 @@ describe("PerpV2LeverageModule", () => {
             expect(initialUSDCDefaultPositionUnit).to.eq(finalUSDCDefaultPositionUnit);
           });
 
+          it("should not update the USDC externalPositionUnit", async () => {
+            const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+            await subject();
+            const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+            expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+          });
+
           it("should emit the correct PerpTrade event", async () => {
             const {
               deltaBase: expectedDeltaBase,
@@ -834,6 +850,8 @@ describe("PerpV2LeverageModule", () => {
               expect(finalPositionInfo.length).eq(0);
             });
           });
+
+          // a test case which tries to flip the position?
         });
 
         describe("when an existing position is short", async () => {
@@ -955,7 +973,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#deposit", () => {
+  // done
+  describe.skip("#deposit", () => {
     let subjectSetToken: SetToken;
     let subjectDepositAmount: number;
     let subjectDepositQuantity: BigNumber;
@@ -1067,7 +1086,7 @@ describe("PerpV2LeverageModule", () => {
 
         describe("when the position is long", async () => {
           beforeEach(async () => {
-            await subject();
+            await subject();    // should avoid calling subject here
             baseToken = vETH.address;
             await leverUp(
               subjectSetToken,
@@ -1081,6 +1100,24 @@ describe("PerpV2LeverageModule", () => {
             );
           });
 
+          it("should create a deposit", async () => {
+            const {
+              collateralBalance: initialCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+            await subject();
+
+            const {
+              collateralBalance: finalCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+            const totalSupply = await subjectSetToken.totalSupply();
+            const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+              .add(preciseMul(subjectDepositQuantity, totalSupply));
+            expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+          });
+
+
           it("should set the expected position unit", async () => {
             await subject();
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
@@ -1090,7 +1127,7 @@ describe("PerpV2LeverageModule", () => {
               perpSetup
             );
 
-            // Deposit amount = $1 * 2 (two deposits)
+            // Deposit notional amount = specified position unit * totalSupply = 1 * 2 = $2
             // We've put on a position that hasn't had any real pnl, so we expect set ~= $2 net fees & slippage
             // externalPositionUnit = 1_979_877
             expect(externalPositionUnit).eq(expectedExternalPositionUnit);
@@ -1146,6 +1183,23 @@ describe("PerpV2LeverageModule", () => {
               ether(.02),
               false
             );
+          });
+
+          it("should create a deposit", async () => {
+            const {
+              collateralBalance: initialCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+            await subject();
+
+            const {
+              collateralBalance: finalCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+            const totalSupply = await subjectSetToken.totalSupply();
+            const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+              .add(preciseMul(subjectDepositQuantity, totalSupply));
+            expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
           });
 
           it("should set the expected position unit", async () => {
@@ -1226,6 +1280,23 @@ describe("PerpV2LeverageModule", () => {
             );
           });
 
+          it("should create a deposit", async () => {
+            const {
+              collateralBalance: initialCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+            await subject();
+
+            const {
+              collateralBalance: finalCollateralBalance
+            } = await perpLeverageModule.getAccountInfo(subjectSetToken.address);
+
+            const totalSupply = await subjectSetToken.totalSupply();
+            const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+              .add(preciseMul(subjectDepositQuantity, totalSupply));
+            expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+          });
+
           it("should set the expected position unit", async () => {
             await subject();
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
@@ -1303,7 +1374,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#withdraw", () => {
+  // done.
+  describe.skip("#withdraw", () => {
     let depositQuantity: BigNumber;
     let subjectSetToken: SetToken;
     let subjectWithdrawQuantity: BigNumber;
@@ -1538,6 +1610,9 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+
+  // todo: has multiple closeTo calls, all due to the delta between expected USDC external position unit
+  // and external USDC position updated by the PerpModule on the SetToken
   describe("#moduleIssueHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
@@ -3049,7 +3124,8 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when total supply is 0", async () => {
+    // done
+    describe.skip("when total supply is 0", async () => {
       let otherSetToken: SetToken;
 
       beforeEach(async () => {
@@ -3080,7 +3156,8 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when caller is not module", async () => {
+    // done
+    describe.skip("when caller is not module", async () => {
       beforeEach(async () => {
         subjectCaller = owner;
       });
@@ -3090,7 +3167,8 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("if disabled module is caller", async () => {
+    // done
+    describe.skip("if disabled module is caller", async () => {
       beforeEach(async () => {
         await setup.controller.removeModule(mockModule.address);
       });
@@ -3101,6 +3179,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  // todo: has multiple closeTo calls, all due to the delta between expected USDC external position unit
+  // and external USDC position updated by the PerpModule on the SetToken
   describe("#moduleRedeemHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
@@ -3161,16 +3241,17 @@ describe("PerpV2LeverageModule", () => {
 
         it("sells expected amount of vBase", async () => {
           const totalSupply = await setToken.totalSupply();
-
           const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
-          await subject();
-          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
-
           const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
-          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
-          const expectedBaseBalance = initialBaseBalance.sub(baseTokenBoughtNotional);
 
-          expect(finalBaseBalance).eq(expectedBaseBalance);
+          await subject();
+
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          const baseTokenSoldNotional = initialBaseBalance.sub(finalBaseBalance);
+
+          const expectedBaseTokenSoldNotional = preciseMul(basePositionUnit, subjectSetQuantity);
+
+          expect(baseTokenSoldNotional).eq(expectedBaseTokenSoldNotional);
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
@@ -3212,6 +3293,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
+          // why shouldn't this be accounted for in the calculateUSDCTransferOut function?
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
           const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
           const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
@@ -3405,13 +3487,13 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(initialSpotPrice).lt(finalSpotPrice);
-          expect(initialUSDCTransferOutQuantity).lt(finalUSDCTransferOutQuantity);
+          expect(initialUSDCTransferOutQuantity).lt(finalUSDCTransferOutQuantity);    // finalUSDCTransferOutQuantity > initialUSDCTransferOutQuantity
           expect(initialLeverage).gt(ZERO);
           expect(finalLeverage).gt(ZERO);
           expect(initialLeverage).gt(finalLeverage);
         });
 
-        it("buys expected amount of vBase", async () => {
+        it("sells expected amount of vBase", async () => {
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
             isBaseToQuote: false,     // long
@@ -3423,15 +3505,18 @@ describe("PerpV2LeverageModule", () => {
             referralCode: ZERO_BYTES
           });
 
+          const totalSupply = await setToken.totalSupply();
           const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+
           await subject();
+
           const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          const baseTokenSoldNotional = initialBaseBalance.sub(finalBaseBalance);
 
-          const basePositionUnit = preciseDiv(initialBaseBalance, await setToken.totalSupply());
-          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectSetQuantity);
-          const expectedBaseBalance = initialBaseBalance.sub(baseTokenBoughtNotional);
+          const expectedBaseTokenSoldNotional = preciseMul(basePositionUnit, subjectSetQuantity);
 
-          expect(finalBaseBalance).eq(expectedBaseBalance);
+          expect(baseTokenSoldNotional).eq(expectedBaseTokenSoldNotional);
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
@@ -3465,7 +3550,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe("when issuing multiple sets", async () => {
+      describe("when redeeming multiple sets", async () => {
         let usdcTransferOutQuantity: BigNumber;
 
         beforeEach(async () => {
@@ -3755,7 +3840,7 @@ describe("PerpV2LeverageModule", () => {
         );
       });
 
-      describe("when issuing a single set", async () => {
+      describe("when redeeming a single set", async () => {
         let usdcTransferOutQuantity: BigNumber;
 
         beforeEach(async () => {
@@ -4101,7 +4186,8 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when total supply is 0", async () => {
+    // done
+    describe.skip("when total supply is 0", async () => {
       let otherSetToken: SetToken;
 
       beforeEach(async () => {
@@ -4132,7 +4218,8 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("when caller is not module", async () => {
+    // done
+    describe.skip("when caller is not module", async () => {
       beforeEach(async () => subjectCaller = owner);
 
       it("should revert", async () => {
@@ -4140,7 +4227,8 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    describe("if disabled module is caller", async () => {
+    // done
+    describe.skip("if disabled module is caller", async () => {
       beforeEach(async () => {
         await setup.controller.removeModule(mockModule.address);
       });
@@ -4151,7 +4239,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#componentIssueHook", () => {
+  // done
+  describe.skip("#componentIssueHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -4285,6 +4374,14 @@ describe("PerpV2LeverageModule", () => {
 
         expect(finalDefaultPosition).to.eq(initialDefaultPosition);
       });
+
+      it("should not update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
     });
 
     describe("when isEquity is false", async () => {
@@ -4328,6 +4425,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  // todo: One missing test case.
   describe("#componentRedeemHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
@@ -4414,12 +4512,14 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    // todo: describe("when short") ?
+
     describe("when isEquity is false", async () => {
       beforeEach(async () => {
         subjectIsEquity = false;
       });
 
-      it("should deposit nothing", async () => {
+      it("should withdraw nothing", async () => {
         const {
           collateralBalance: initialCollateralBalance
         } = await perpLeverageModule.getAccountInfo(subjectSetToken);
@@ -4455,7 +4555,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#registerToModule", async () => {
+  // done
+  describe.skip("#registerToModule", async () => {
     let setToken: SetToken;
     let otherIssuanceModule: DebtIssuanceMock;
     let isInitialized: boolean;
@@ -4550,7 +4651,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#removeModule", async () => {
+  // done
+  describe.skip("#removeModule", async () => {
     let setToken: SetToken;
     let subjectModule: Address;
 
@@ -4602,7 +4704,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#updateAllowedSetToken", async () => {
+  // done
+  describe.skip("#updateAllowedSetToken", async () => {
     let setToken: SetToken;
 
     let subjectSetToken: Address;
@@ -4700,7 +4803,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#updateAnySetAllowed", async () => {
+  // done
+  describe.skip("#updateAnySetAllowed", async () => {
     let subjectAnySetAllowed: boolean;
     let subjectCaller: Account;
 
@@ -4738,6 +4842,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  // todo, has one closeTo call
   // This method uses the same flow as #moduleIssueHook, except the trade is router via QuoterSwap
   describe("#getIssuanceAdjustments", () => {
     let setToken: SetToken;
@@ -4874,6 +4979,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  // todo, has one closeTo call
   // This method uses the same flow as #moduleRedeemHook, except the trade is router via QuoterSwap
   describe("#getRedemptionAdjustments", () => {
     let setToken: SetToken;
@@ -5010,6 +5116,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  // todo
   describe("#getPositionNotionalInfo", () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
@@ -5047,6 +5154,7 @@ describe("PerpV2LeverageModule", () => {
         true
       ));
 
+      // todo
       const vETHQuoteReceiveQuantityUnits = ether(10.15);
       const vBTCQuoteReceiveQuantityUnits = ether(101);
 
@@ -5085,6 +5193,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  // todo
   describe("#getPositionUnitInfo", () => {
     let setToken: SetToken;
     let issueQuantity: BigNumber;
@@ -5111,6 +5220,7 @@ describe("PerpV2LeverageModule", () => {
       vethTradeQuantityUnits = preciseDiv(ether(1), issueQuantity);
       vbtcTradeQuantityUnits = preciseDiv(ether(1), issueQuantity);
 
+      // todo
       const vETHQuoteReceiveQuantityUnits = preciseDiv(ether(10.15), issueQuantity);
       const vBTCQuoteReceiveQuantityUnits = preciseDiv(ether(50.575), issueQuantity);
 
@@ -5152,7 +5262,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getAccountInfo", () => {
+  // done
+  describe.skip("#getAccountInfo", () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
     let expectedDepositQuantity: BigNumber;
@@ -5183,7 +5294,8 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#getAMMSpotPrice", () => {
+  // done
+  describe.skip("#getAMMSpotPrice", () => {
     let subjectVETHToken: Address;
     let subjectVBTCToken: Address;
 
