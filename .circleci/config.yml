@@ -73,6 +73,7 @@ jobs:
     # in this job (below) as well as the list of files passed
     # to istanbul-combine in the `report_coverage` job
     parallelism: 5
+    resource_class: medium+
     steps:
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}

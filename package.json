@@ -1,6 +1,6 @@
 {
   "name": "@setprotocol/set-protocol-v2",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "",
   "main": "dist",
   "types": "dist/types",
@@ -90,7 +90,7 @@
   },
   "dependencies": {
     "@uniswap/v3-sdk": "^3.5.1",
-    "ethers": "^5.4.6",
+    "ethers": "^5.5.2",
     "fs-extra": "^5.0.0",
     "jsbi": "^3.2.5",
     "module-alias": "^2.2.2",

@@ -209,7 +209,7 @@ describe("AaveGovernanceV2Module", () => {
 
         expect(proposal.executor).to.eq(aaveSetup.executor.address);
         expect(proposal.targets).to.deep.eq(targets);
-        expect(proposalValues).to.deep.eq(values);
+        expect(proposalValues.map(v => v.toString())).to.deep.eq(values.map(v => v.toString()));
         expect(proposal.signatures).to.deep.eq(signatures);
         expect(proposal.calldatas).to.deep.eq(calldatas);
         expect(proposal.withDelegatecalls).to.deep.eq(withDelegateCall);
