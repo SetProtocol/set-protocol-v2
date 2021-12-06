@@ -43,7 +43,6 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 
-
 /**
  * @title PerpLeverageModule
  * @author Set Protocol

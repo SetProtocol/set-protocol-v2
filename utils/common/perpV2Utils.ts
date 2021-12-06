@@ -100,7 +100,8 @@ export async function calculateUSDCTransferIn(
     usdcAmountIn = usdcAmountIn.add(idealQuote).add(expectedSlippage);
   }
 
-  return toUSDCDecimals(usdcAmountIn);
+  // return toUSDCDecimals(usdcAmountIn);
+  return usdcAmountIn;
 }
 
 // Returns notional amount of USDC to transfer on redeem. Handles multiple positions, long and short
