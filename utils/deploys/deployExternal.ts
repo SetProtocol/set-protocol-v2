@@ -818,8 +818,8 @@ export default class DeployExternalContracts {
     return await new PerpV2MarketRegistry__factory(this._deployerSigner).deploy();
   }
 
-  public async deployPerpV2Quoter(): Promise<PerpV2Quoter> {
-    return await new PerpV2Quoter__factory(this._deployerSigner).deploy();
+  public async deployPerpV2Quoter(marketRegistry: Address): Promise<PerpV2Quoter> {
+    return await new PerpV2Quoter__factory(this._deployerSigner).deploy(marketRegistry);
   }
 
   public async deployPerpV2QuoteToken(): Promise<PerpV2QuoteToken> {
