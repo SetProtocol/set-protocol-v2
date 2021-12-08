@@ -697,7 +697,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      */
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
         (int256 owedRealizedPnl,, ) =  perpAccountBalance.getPnlAndPendingFee(address(_setToken));
-        (int256 netQuoteBalance, ) =  perpAccountBalance.getNetQuoteBalanceAndPendingFee(address(_setToken));
 
         // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
@@ -706,7 +705,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             collateralBalance: _getCollateralBalance(_setToken),
             owedRealizedPnl: owedRealizedPnl,
             pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).mul(-1),
-            netQuoteBalance: netQuoteBalance
+            netQuoteBalance: _getNetQuoteBalance(_setToken)
         });
     }
 
@@ -1202,6 +1201,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         int256 balance = perpVault.getBalance(address(_setToken));
         return _toPreciseUnitsFromDecimals(balance, collateralDecimals);
+    }
+
+    // @dev Retrieves net quote balance of all open positions
+    function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
+        for (uint256 i = 0; i < positions[_setToken].length; i++) {
+            netQuoteBalance = netQuoteBalance.add(
+                perpAccountBalance.getQuote(address(_setToken), positions[_setToken][i])
+            );
+        }
     }
 
     /**

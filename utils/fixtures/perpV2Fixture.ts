@@ -179,8 +179,7 @@ export class PerpV2Fixture {
     await this.exchange.initialize(
       this.marketRegistry.address,
       this.orderBook.address,
-      this.clearingHouseConfig.address,
-      this.insuranceFund.address
+      this.clearingHouseConfig.address
     );
 
     this.exchange.setAccountBalance(this.accountBalance.address);
@@ -188,7 +187,7 @@ export class PerpV2Fixture {
 
     await this.accountBalance.initialize(
       this.clearingHouseConfig.address,
-      this.exchange.address
+      this.orderBook.address
     );
 
     this.vault = await this._deployer.external.deployPerpV2Vault();
@@ -237,13 +236,13 @@ export class PerpV2Fixture {
       this.vQuote.address,
       this.uniV3Factory.address,
       this.exchange.address,
-      this.accountBalance.address
+      this.accountBalance.address,
+      this.insuranceFund.address
     );
 
-    await this.vault.setClearingHouse(this.clearingHouse.address);
+    await this.clearingHouseConfig.setSettlementTokenBalanceCap(MAX_UINT_256);
 
-    this.quoter = await this._deployer.external.deployPerpV2Quoter();
-    await this.quoter.initialize(this.marketRegistry.address);
+    this.quoter = await this._deployer.external.deployPerpV2Quoter(this.marketRegistry.address);
 
     await this.vQuote.mintMaximumTo(this.clearingHouse.address);
     await this.vETH.mintMaximumTo(this.clearingHouse.address);
@@ -257,6 +256,7 @@ export class PerpV2Fixture {
     await this.orderBook.setClearingHouse(this.clearingHouse.address);
     await this.exchange.setClearingHouse(this.clearingHouse.address);
     await this.accountBalance.setClearingHouse(this.clearingHouse.address);
+    await this.vault.setClearingHouse(this.clearingHouse.address);
 
     // prepare collateral for maker
     const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
@@ -364,8 +364,8 @@ export class PerpV2Fixture {
     deltaQuote: BigNumber;
   }> {
     const {
-      deltaBase,
-      deltaQuote,
+      base: deltaBase,
+      quote: deltaQuote,
     } = await this.clearingHouse
       .connect(this.otherTrader.wallet)
       .callStatic
