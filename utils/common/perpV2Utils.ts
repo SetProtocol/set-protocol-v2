@@ -100,6 +100,50 @@ export async function calculateUSDCTransferIn(
     usdcAmountIn = usdcAmountIn.add(idealQuote).add(expectedSlippage);
   }
 
+  return toUSDCDecimals(usdcAmountIn);
+}
+
+// Returns notional amount of USDC to transfer in on issue. Handles multiple positions, long and short.
+// Returned values is not convert to USDC decimals.
+export async function calculateUSDCAmountTransferIn(
+  setToken: SetToken,
+  setQuantity: BigNumber,
+  module: PerpV2LeverageModule,
+  fixture: PerpV2Fixture,
+) {
+  const accountInfo = await module.getAccountInfo(setToken.address);
+  const totalCollateralValue = accountInfo.collateralBalance
+    .add(accountInfo.owedRealizedPnl)
+    .add(accountInfo.pendingFundingPayments)
+    .add(accountInfo.netQuoteBalance);
+
+  const totalSupply = await setToken.totalSupply();
+  let usdcAmountIn = preciseMul(
+    preciseDiv(totalCollateralValue, totalSupply),
+    setQuantity
+  );
+
+  const allPositionInfo = await module.getPositionUnitInfo(setToken.address);
+
+  for (const positionInfo of allPositionInfo) {
+    const baseTradeQuantityNotional = preciseMul(positionInfo.baseUnit, setQuantity);
+    const isLong = (baseTradeQuantityNotional.gte(ZERO));
+
+    const { deltaQuote } = await fixture.getSwapQuote(
+      positionInfo.baseToken,
+      baseTradeQuantityNotional.abs(),
+      isLong
+    );
+
+    const idealQuote = preciseMul(baseTradeQuantityNotional, await fixture.getSpotPrice(positionInfo.baseToken));
+
+    const expectedSlippage = isLong
+      ? deltaQuote.sub(idealQuote)
+      : idealQuote.abs().sub(deltaQuote);
+
+    usdcAmountIn = usdcAmountIn.add(idealQuote).add(expectedSlippage);
+  }
+
   // return toUSDCDecimals(usdcAmountIn);
   return usdcAmountIn;
 }
