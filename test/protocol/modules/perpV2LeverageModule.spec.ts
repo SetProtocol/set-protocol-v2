@@ -3101,7 +3101,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe("#moduleRedeemHook", () => {
+  describe.only("#moduleRedeemHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
