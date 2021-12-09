@@ -1,6 +1,6 @@
 {
   "name": "@setprotocol/set-protocol-v2",
-  "version": "0.1.5-tsdebug.2",
+  "version": "0.1.5-tsdebug.3",
   "description": "",
   "main": "dist",
   "types": "dist/types",
@@ -17,7 +17,7 @@
   "scripts": {
     "build": "yarn clean && yarn compile && yarn build:typechain",
     "build:npm": "yarn clean && yarn compile:npm && yarn build:typechain",
-    "build:typechain": "yarn typechain && yarn transpile-dist",
+    "build:typechain": "yarn typechain && yarn transpile-dist && cp -rf typechain dist",
     "chain": "npx hardhat node",
     "clean": "rm -rf coverage.json .coverage_cache .coverage_contracts cache coverage typechain artifacts dist",
     "compile": "npx hardhat compile",
