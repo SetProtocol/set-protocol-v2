@@ -19,6 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental ABIEncoderV2;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
@@ -37,6 +38,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 library PreciseUnitMath {
     using SafeMath for uint256;
     using SignedSafeMath for int256;
+    using SafeCast for int256;
 
     // The number One in precise units.
     uint256 constant internal PRECISE_UNIT = 10 ** 18;
@@ -194,5 +196,12 @@ library PreciseUnitMath {
      */
     function approximatelyEquals(uint256 a, uint256 b, uint256 range) internal pure returns (bool) {
         return a <= b.add(range) && a >= b.sub(range);
+    }
+
+    /**
+     * Returns the absolute value of int256 `a` as a uint256
+     */
+    function abs(int256 a) internal pure returns (uint) {
+        return a >= 0 ? a.toUint256() : a.mul(-1).toUint256();
     }
 }

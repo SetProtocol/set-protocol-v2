@@ -524,4 +524,51 @@ describe("PreciseUnitMath", () => {
       });
     });
   });
+
+  describe("#abs", async () => {
+    let subjectA: BigNumber;
+
+    async function subject(): Promise<BigNumber> {
+      return mathMock.abs(subjectA);
+    }
+
+    describe("when a is positive", () => {
+      beforeEach(() => {
+        subjectA = BigNumber.from(5);
+      });
+
+      it("returns the correct number", async () => {
+        const absoluteValue = await subject();
+
+        const expectedAbsoluteValue = subjectA;
+        expect(absoluteValue).to.eq(expectedAbsoluteValue);
+      });
+    });
+
+    describe("when a is negative", () => {
+      beforeEach(() => {
+        subjectA = BigNumber.from(-5);
+      });
+
+      it("returns the correct number", async () => {
+        const absoluteValue = await subject();
+
+        const expectedAbsoluteValue = subjectA.mul(-1);
+        expect(absoluteValue).to.eq(expectedAbsoluteValue);
+      });
+    });
+
+    describe("when a is zero", () => {
+      beforeEach(() => {
+        subjectA = ZERO;
+      });
+
+      it("returns zero", async () => {
+        const absoluteValue = await subject();
+
+        const expectedAbsoluteValue = ZERO;
+        expect(absoluteValue).to.eq(expectedAbsoluteValue);
+      });
+    });
+  });
 });

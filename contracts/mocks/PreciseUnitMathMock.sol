@@ -85,4 +85,8 @@ contract PreciseUnitMathMock {
     function approximatelyEquals(uint256 a, uint256 b, uint256 range) external pure returns (bool) {
         return a.approximatelyEquals(b, range);
     }
+
+    function abs(int256 a) external pure returns (uint256) {
+        return a.abs();
+    }
 }
