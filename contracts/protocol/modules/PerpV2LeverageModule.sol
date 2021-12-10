@@ -305,7 +305,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             deltaBase,
             deltaQuote,
             protocolFee,
-            _baseQuantityUnits > 0
+            actionInfo.isBuy
         );
     }
 
