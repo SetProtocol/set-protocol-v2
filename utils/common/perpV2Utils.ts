@@ -157,6 +157,7 @@ export async function calculateUSDCTransferOut(
 ) {
   let totalRealizedPnl = BigNumber.from(0);
 
+  // todo: Move pendingFundingPayment and owedRealizedPnl calculations to utils function
   const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
   const collateralBalance = (await module.getAccountInfo(setToken.address)).collateralBalance;
 
@@ -186,6 +187,50 @@ export async function calculateUSDCTransferOut(
 
   return toUSDCDecimals(collateralQuantityNotional.add(totalRealizedPnl).abs());
 }
+
+// Returns notional amount of USDC to transfer on redeem. Handles multiple positions, long and short
+export async function calculateUSDCAmountTransferOut(
+  setToken: SetToken,
+  setQuantity: BigNumber,
+  module: PerpV2LeverageModule,
+  fixture: PerpV2Fixture,
+) {
+  let totalRealizedPnl = BigNumber.from(0);
+
+  const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
+  const accountInfo = await module.getAccountInfo(setToken.address);
+  const totalCollateralBalance = accountInfo.collateralBalance
+    .add(accountInfo.owedRealizedPnl)
+    .add(accountInfo.pendingFundingPayments);
+
+  const collateralPositionUnit = preciseDiv(totalCollateralBalance, await setToken.totalSupply());
+  const collateralQuantityNotional = preciseMul(collateralPositionUnit, setQuantity);
+
+
+  for (const positionInfo of allPositionInfo) {
+    const basePositionUnit = preciseDiv(positionInfo.baseBalance, await setToken.totalSupply());
+    const baseTradeQuantityNotional = preciseMul(basePositionUnit, setQuantity);
+    const isLong = (basePositionUnit.gte(ZERO));
+
+    const closeRatio = preciseDiv(baseTradeQuantityNotional.abs(), positionInfo.baseBalance.abs());
+    const reducedOpenNotional = preciseMul(positionInfo.quoteBalance, closeRatio);
+
+    const { deltaQuote } = await fixture.getSwapQuote(
+      positionInfo.baseToken,
+      baseTradeQuantityNotional.abs(),
+      !isLong
+    );
+
+    const realizedPnl = (isLong)
+      ? reducedOpenNotional.add(deltaQuote)
+      : reducedOpenNotional.sub(deltaQuote);
+
+    totalRealizedPnl = totalRealizedPnl.add(realizedPnl);
+  }
+
+  return collateralQuantityNotional.add(totalRealizedPnl).abs();
+}
+
 
 export async function calculateExternalPositionUnit(
   setToken: SetToken,
