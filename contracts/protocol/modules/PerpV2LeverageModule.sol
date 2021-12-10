@@ -579,7 +579,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev Gets the positive equity collateral externalPositionUnit that would be calculated for
      * issuing a quantity of SetToken, representing the amount of collateral that would need to
-     * be transferred in per SetToken.
+     * be transferred in per SetToken. Values in the returned arrays map to the same index in the
+     * SetToken's components array
+     *
+     * NOTE: This method will refactored to return the new unit rather the difference from the current
+     * unit. (We will have to take into account scenario where position array is empty but there are deposits)
      *
      * @param _setToken             Instance of SetToken
      * @param _setTokenQuantity     Number of sets to issue
@@ -606,6 +610,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev Gets the positive equity collateral externalPositionUnit that would be calculated for
      * redeeming a quantity of SetToken representing the amount of collateral returned per SetToken.
+     * Values in the returned arrays map to the same index in the SetToken's components array.
+     *
+     * NOTE: This method will refactored to return the new unit rather the difference from the current
+     * unit. (We will have to take into account scenario where position array is empty but there are deposits)
      *
      * @param _setToken             Instance of SetToken
      * @param _setTokenQuantity     Number of sets to issue
