@@ -214,7 +214,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /* ============ Constructor ============ */
 
     /**
-     * @dev Sets external PerpV2 Protocol addresses.
+     * @dev Sets external PerpV2 Protocol contract addresses. Sets `collateralToken` and `collateralDecimals`
+     * to the Perp vault's settlement token (USDC) and its decimals, respectively.
+     *
      * @param _controller               Address of controller contract
      * @param _perpVault                Address of Perp Vault contract
      * @param _perpQuoter               Address of Perp Quoter contract
