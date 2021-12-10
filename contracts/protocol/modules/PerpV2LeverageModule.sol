@@ -78,7 +78,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         bool isBaseToQuote;             // When true, `baseToken` is being sold, when false, bought
         bool isExactInput;              // When true, `amount` is the swap input, when false, the swap output
         uint256 baseTokenAmount;        // Base token quantity in 10**18 decimals
-        uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createAndValidateActionInfoNotionalNotional` for details)
+        uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createActionInfoNotional` for details)
     }
 
     struct PositionNotionalInfo {
@@ -767,7 +767,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             // | Redeem   | Long          | Negative                          |
             // | Redeem   | Short         | Positive                          |
             // | ------------------------------------------------------------ |
-            ActionInfo memory actionInfo = _createAndValidateActionInfoNotional(
+            ActionInfo memory actionInfo = _createActionInfoNotional(
                 _setToken,
                 positionInfo[i].baseToken,
                 _isIssue ? baseTradeNotionalQuantity : baseTradeNotionalQuantity.mul(-1),
@@ -1012,7 +1012,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to
-     *  _createAndValidateActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert.
+     *  _createActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert.
      *
      * @param _setToken             Instance of the SetToken
      * @param _baseToken            Address of base token being traded into/out of
@@ -1035,7 +1035,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         uint256 totalSupply = _setToken.totalSupply();
 
-        return _createAndValidateActionInfoNotional(
+        return _createActionInfoNotional(
             _setToken,
             _baseToken,
             _baseTokenUnits.preciseMul(totalSupply.toInt256()),
@@ -1061,7 +1061,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *
      * @return ActionInfo               Instance of constructed ActionInfo struct
      */
-    function _createAndValidateActionInfoNotional(
+    function _createActionInfoNotional(
         ISetToken _setToken,
         address _baseToken,
         int256 _baseTokenQuantity,
