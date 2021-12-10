@@ -201,7 +201,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
-    mapping(ISetToken => address[]) public positions;
+    mapping(ISetToken => address[]) internal positions;
 
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
     mapping(ISetToken => bool) public allowedSetTokens;
