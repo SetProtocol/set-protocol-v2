@@ -1039,7 +1039,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to
-     *  _createActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert.
+     *  _createActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert. This
+     *  method is only called from `trade` - the issue/redeem flow uses createActionInfoNotional directly.
      *
      * @param _setToken             Instance of the SetToken
      * @param _baseToken            Address of base token being traded into/out of
