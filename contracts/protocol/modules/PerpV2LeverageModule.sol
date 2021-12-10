@@ -75,8 +75,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     struct ActionInfo {
         ISetToken setToken;
         address baseToken;              // Virtual token minted by the Perp protocol
-        bool isBaseToQuote;             // When true, `baseToken` is being sold, when false, bought
-        bool isExactInput;              // When true, `amount` is the swap input, when false, the swap output
+        bool isBuy;                     // When true, `baseToken` is being bought, when false, sold
         uint256 baseTokenAmount;        // Base token quantity in 10**18 decimals
         uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createActionInfoNotional` for details)
     }
@@ -951,15 +950,27 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Formats Perp Protocol openPosition call and executes via SetToken (and PerpV2 lib)
+     *
+     * `isBaseToQuote`, `isExactInput` and `oppositeAmountBound` are configured as below:
+     * | ---------------------------------------------------|---------------------------- |
+     * | Action  | isBuy   | isB2Q  | Exact In / Out        | Opposite Bound Description  |
+     * | ------- |-------- |--------|-----------------------|---------------------------- |
+     * | Buy     |  true   | false  | exact output (false)  | Max quote to pay            |
+     * | Sell    |  false  | true   | exact input (true)    | Min quote to receive        |
+     * |----------------------------------------------------|---------------------------- |
+     *
+     *
      * @return uint256     The base position delta resulting from the trade
      * @return uint256     The quote asset position delta resulting from the trade
      */
     function _executeTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
 
+        // When isBaseToQuote is true, `baseToken` is being sold, when false, bought
+        // When isExactInput is true, `amount` is the swap input, when false, the swap output
         IClearingHouse.OpenPositionParams memory params = IClearingHouse.OpenPositionParams({
             baseToken: _actionInfo.baseToken,
-            isBaseToQuote: _actionInfo.isBaseToQuote,
-            isExactInput: _actionInfo.isExactInput,
+            isBaseToQuote: !_actionInfo.isBuy,
+            isExactInput: !_actionInfo.isBuy,
             amount: _actionInfo.baseTokenAmount,
             oppositeAmountBound: _actionInfo.oppositeAmountBound,
             deadline: PreciseUnitMath.maxUint256(),
@@ -973,14 +984,23 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Formats Perp Periphery Quoter.swap call and executes via SetToken (and PerpV2 lib)
+     *
+     * `isBaseToQuote` and `isExactInput` are configured as below:
+     * | ---------------------------------------------------|
+     * | Action  | isBuy   | isB2Q  | Exact In / Out        |
+     * | ------- |-------- |--------|-----------------------|
+     * | Buy     |  true   | false  | exact output (false)  |
+     * | Sell    |  false  | true   | exact input (true)    |
+     * |----------------------------------------------------|
+     *
      * @return uint256     The base position delta resulting from the trade
      * @return uint256     The quote asset position delta resulting from the trade
      */
     function _simulateTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
         IQuoter.SwapParams memory params = IQuoter.SwapParams({
             baseToken: _actionInfo.baseToken,
-            isBaseToQuote: _actionInfo.isBaseToQuote,
-            isExactInput: _actionInfo.isExactInput,
+            isBaseToQuote: !_actionInfo.isBuy,
+            isExactInput: !_actionInfo.isBuy,
             amount: _actionInfo.baseTokenAmount,
             sqrtPriceLimitX96: 0
         });
@@ -1045,14 +1065,17 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     /**
      * @dev Construct the ActionInfo struct for trading. This method takes NOTIONAL token amounts and creates
-     * the struct. If the _baseTokenQuantity is less than zero then we are selling the baseToken.
+     * the struct. If the _baseTokenQuantity is greater than zero then we are buying the baseToken. This method
+     * is called during issue and redeem via `_executePositionTrades` and during trade via
+     * `_createAndValidateActionInfo`.
      *
-     * | ---------------------------------------------------------------------------------------------|
-     * | Action  | isShort | isB2Q  | Exact In / Out        | Amount    | Opposit Bound Description   |
-     * | ------- |---------|--------|-----------------------|-----------|---------------------------- |
-     * | Sell    |  true   | true   | exact input (true)    | baseToken | Min quote to receive        |
-     * | Buy     |  false  | false  | exact output (false)  | baseToken | Max quote to pay            |
-     * |----------------------------------------------------------------------------------------------|
+     * `oppositeAmountBound` is defined as below
+     * | ------------------------------------------------ |
+     * | Action  | isBuy   | Opposite Bound Description   |
+     * | ------- |-------- |----------------------------- |
+     * | Buy     |  true   | Max quote to pay             |
+     * | Sell    |  false  | Min quote to receive         |
+     * | -------------------------------------------------|
      *
      * @param _setToken                 Instance of the SetToken
      * @param _baseToken                Address of base token being traded into/out of
@@ -1074,13 +1097,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // NOT checking that _baseTokenQuantity != 0 here because for places this is directly called
         // (issue/redeem hooks) we know the position cannot be 0. We check in _createAndValidateActionInfo
         // that quantity is 0 for inputs to trade.
-        bool isShort = _baseTokenQuantity < 0;
+        bool isBuy = _baseTokenQuantity > 0;
 
         return ActionInfo({
             setToken: _setToken,
             baseToken: _baseToken,
-            isBaseToQuote: isShort,
-            isExactInput: isShort,
+            isBuy: isBuy,
             baseTokenAmount: _baseTokenQuantity.abs(),
             oppositeAmountBound: _quoteReceiveQuantity
         });
