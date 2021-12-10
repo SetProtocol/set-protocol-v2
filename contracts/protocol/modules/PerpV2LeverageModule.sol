@@ -77,7 +77,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         address baseToken;              // Virtual token minted by the Perp protocol
         bool isBaseToQuote;             // When true, `baseToken` is being sold, when false, bought
         bool isExactInput;              // When true, `amount` is the swap input, when false, the swap output
-        uint256 amount;                 // Quantity in 10**18 decimals
+        uint256 baseTokenAmount;        // Base token quantity in 10**18 decimals
         uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createAndValidateActionInfoNotionalNotional` for details)
     }
 
@@ -960,7 +960,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             baseToken: _actionInfo.baseToken,
             isBaseToQuote: _actionInfo.isBaseToQuote,
             isExactInput: _actionInfo.isExactInput,
-            amount: _actionInfo.amount,
+            amount: _actionInfo.baseTokenAmount,
             oppositeAmountBound: _actionInfo.oppositeAmountBound,
             deadline: PreciseUnitMath.maxUint256(),
             sqrtPriceLimitX96: 0,
@@ -981,7 +981,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             baseToken: _actionInfo.baseToken,
             isBaseToQuote: _actionInfo.isBaseToQuote,
             isExactInput: _actionInfo.isExactInput,
-            amount: _actionInfo.amount,
+            amount: _actionInfo.baseTokenAmount,
             sqrtPriceLimitX96: 0
         });
 
@@ -1081,7 +1081,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             baseToken: _baseToken,
             isBaseToQuote: isShort,
             isExactInput: isShort,
-            amount: _baseTokenQuantity.abs(),
+            baseTokenAmount: _baseTokenQuantity.abs(),
             oppositeAmountBound: _quoteReceiveQuantity
         });
     }
