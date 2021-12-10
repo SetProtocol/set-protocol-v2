@@ -652,15 +652,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positions[_setToken].length);
 
         for(uint i = 0; i < positions[_setToken].length; i++){
+            address baseToken = positions[_setToken][i];
             positionInfo[i] = PositionNotionalInfo({
-                baseToken: positions[_setToken][i],
+                baseToken: baseToken,
                 baseBalance: perpAccountBalance.getBase(
                     address(_setToken),
-                    positions[_setToken][i]
+                    baseToken
                 ),
                 quoteBalance: perpAccountBalance.getQuote(
                     address(_setToken),
-                    positions[_setToken][i]
+                    baseToken
                 )
             });
         }
@@ -684,15 +685,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         PositionUnitInfo[] memory positionInfo = new PositionUnitInfo[](positions[_setToken].length);
 
         for(uint i = 0; i < positions[_setToken].length; i++){
+            address baseToken = positions[_setToken][i];
             positionInfo[i] = PositionUnitInfo({
-                baseToken: positions[_setToken][i],
+                baseToken: baseToken,
                 baseUnit: perpAccountBalance.getBase(
                     address(_setToken),
-                    positions[_setToken][i]
+                    baseToken
                 ).preciseDiv(totalSupply),
                 quoteUnit: perpAccountBalance.getQuote(
                     address(_setToken),
-                    positions[_setToken][i]
+                    baseToken
                 ).preciseDiv(totalSupply)
             });
         }
