@@ -3080,6 +3080,50 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when there is no external USDC position", () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+        );
+
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        // Issue to create some supply
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(otherSetToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(otherSetToken.address, ether(1), owner.address);
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should not update the externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        await subject();
+
+        const finalExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        expect(initialExternalPositionUnit).eq(ZERO);
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
+    });
+
     describe("when caller is not module", async () => {
       beforeEach(async () => {
         subjectCaller = owner;
@@ -4129,6 +4173,50 @@ describe("PerpV2LeverageModule", () => {
         const expectedExternalPositionUnit = ZERO;
         expect(initialExternalPositionUnit).to.eq(finalExternalPositionUnit);
         expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
+      });
+    });
+
+    describe("when there is no external USDC position", () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+        );
+
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        // Issue to create some supply
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(otherSetToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(otherSetToken.address, ether(2), owner.address);
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should not update the externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        await subject();
+
+        const finalExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        expect(initialExternalPositionUnit).eq(ZERO);
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
       });
     });
 

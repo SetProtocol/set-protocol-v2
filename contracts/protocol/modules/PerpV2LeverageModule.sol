@@ -476,6 +476,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         onlyModule(_setToken)
     {
         if (_setToken.totalSupply() == 0) return;
+        if (!_setToken.hasExternalPosition(address(collateralToken))) return;
 
         int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, true, false);
 
@@ -506,6 +507,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         onlyModule(_setToken)
     {
         if (_setToken.totalSupply() == 0) return;
+        if (!_setToken.hasExternalPosition(address(collateralToken))) return;
 
         int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, false);
 
