@@ -92,6 +92,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 quoteUnit;               // vUSDC "debt" position unit. When positive, position is short
     }
 
+    // Note: when `pendingFundingPayments` is positive it will be credited to account on settlement,
+    // when negative it's a debt owed that will be repaid on settlement. (PerpProtocol.Exchange returns the value
+    // with the opposite meaning, e.g positively signed payments are owed by account to system).
     struct AccountInfo {
         int256 collateralBalance;       // Quantity of collateral deposited in Perp vault in 10**18 decimals
         int256 owedRealizedPnl;         // USDC quantity of profit and loss in 10**18 decimals not yet settled to vault
