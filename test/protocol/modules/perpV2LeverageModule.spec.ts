@@ -727,6 +727,18 @@ describe("PerpV2LeverageModule", () => {
             await expect(subject()).to.be.revertedWith("Amount is 0");
           });
         });
+
+        describe("when baseToken does not exist in Perp system", async () => {
+          beforeEach(async () => {
+            subjectBaseTradeQuantityUnits = ether(1);
+            subjectQuoteBoundQuantityUnits = ether(10.15);
+            subjectBaseToken = await getRandomAddress();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Base token does not exist");
+          });
+        });
       });
 
       describe("when short", () => {

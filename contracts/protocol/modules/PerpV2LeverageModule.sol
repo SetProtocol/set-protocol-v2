@@ -1060,6 +1060,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns(ActionInfo memory)
     {
         require(_baseTokenUnits != 0, "Amount is 0");
+        require(perpMarketRegistry.hasPool(_baseToken), "Base token does not exist");
 
         uint256 totalSupply = _setToken.totalSupply();
 
