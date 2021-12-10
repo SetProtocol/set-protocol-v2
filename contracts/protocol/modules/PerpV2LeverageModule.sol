@@ -469,7 +469,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         if (_setToken.totalSupply() == 0) return;
 
-        int256 newExternalPositionUnit = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, false);
+        int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, true, false);
 
         // Set collateralToken externalPositionUnit such that DIM can use it for transfer calculation
         _setToken.editExternalPositionUnit(
@@ -499,7 +499,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         if (_setToken.totalSupply() == 0) return;
 
-        int256 newExternalPositionUnit = _executeModuleRedemptionHook(_setToken, _setTokenQuantity, false);
+        int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, false);
 
         // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
         _setToken.editExternalPositionUnit(
@@ -586,7 +586,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         address[] memory components = _setToken.getComponents();
 
         if (positions[_setToken].length > 0) {
-            int256 newExternalPositionUnit = _executeModuleIssuanceHook(_setToken, _setTokenQuantity, true);
+            int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, true, true);
             return _formatAdjustments(_setToken, components, newExternalPositionUnit);
         } else {
             return _formatAdjustments(_setToken, components, 0);
@@ -612,7 +612,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         address[] memory components = _setToken.getComponents();
 
         if (positions[_setToken].length > 0) {
-            int256 newExternalPositionUnit = _executeModuleRedemptionHook(_setToken, _setTokenQuantity, true);
+            int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
             return _formatAdjustments(_setToken, components, newExternalPositionUnit);
         } else {
             return _formatAdjustments(_setToken, components, 0);
@@ -725,7 +725,84 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /* ============ Internal Functions ============ */
 
     /**
-     * @dev MODULE ONLY: Hook called prior to issuance. Only callable by valid module.
+     * @dev MODULE ONLY: Hook called prior to issuance or redemption. Only callable by valid module.
+     *
+     * @param _setToken             Instance of the SetToken
+     * @param _setTokenQuantity     Quantity of Set to issue
+     * @param _isIssue              If true, invocation is for issuance, redemption otherwise
+     * @param _isSimulation         If true, trading is only simulated (to return issuance adjustments)
+     */
+    function _executePositionTrades(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity,
+        bool _isIssue,
+        bool _isSimulation
+    )
+        internal
+        returns (int256)
+    {
+        int256 setTokenQuantityInt = _setTokenQuantity.toInt256();
+
+        // Note: `issued` naming convention used here for brevity. This logic is also run on redemption
+        // and variable may refer to the value which will be redeemed.
+        int256 accountValueIssued = _calculatePartialAccountValuePositionUnit(_setToken).preciseMul(setTokenQuantityInt);
+
+        PositionUnitInfo[] memory positionInfo = getPositionUnitInfo(_setToken);
+
+        for(uint i = 0; i < positionInfo.length; i++) {
+            int256 baseTradeNotionalQuantity = positionInfo[i].baseUnit.preciseMul(setTokenQuantityInt);
+
+            // When redeeming, we flip the sign of baseTradeNotionalQuantity
+            // because we are reducing the size of the position,
+            // e.g selling base when long, buying base when short
+            // | ------------------------------------------------------------ |
+            // | Action   | Position Type | Sign of baseTradeNotionalQuantity |
+            // | -------- | ------------  | --------------------------------- |
+            // | Issue    | Long          | Positive                          |
+            // | Issue    | Short         | Negative                          |
+            // | Redeem   | Long          | Negative                          |
+            // | Redeem   | Short         | Positive                          |
+            // | ------------------------------------------------------------ |
+            ActionInfo memory actionInfo = _createAndValidateActionInfoNotional(
+                _setToken,
+                positionInfo[i].baseToken,
+                _isIssue ? baseTradeNotionalQuantity : baseTradeNotionalQuantity.mul(-1),
+                0
+            );
+
+            // Execute or simulate trade.
+            // `deltaQuote` is always a positive number
+            (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
+
+            // slippage is borne by the issuer
+            accountValueIssued = baseTradeNotionalQuantity >= 0 ? accountValueIssued.add(deltaQuote.toInt256()) :
+                accountValueIssued.sub(deltaQuote.toInt256());
+        }
+
+        // Return value in collateral decimals (e.g USDC = 6)
+        //
+        // TODO - we need to add a method to preciseMath to handle the int case for this....
+        //
+        // Use preciseDivCeil when issuing to ensure we don't under-collateralize due to rounding error
+        // _isIssue ? accountValueIssued.preciseDivCeil(setTokenQuantityInt) : accountValueIssued.preciseDiv(setTokenQuantityInt),
+        return _fromPreciseUnitToDecimals(
+            accountValueIssued.preciseDiv(setTokenQuantityInt),
+            collateralDecimals
+        );
+    }
+
+    /**
+     * Calculates the "partial account value" position unit. This is the sum of the vault collateral balance,
+     * the net quote balance for all positions, and any pending funding or owed realized Pnl balances,
+     * as a position unit. It forms the base to which traded position values are added during issuance or redemption,
+     * and to which existing position values are added when calculating the externalPositionUnit.
+     *
+     * From perp:
+     * `accountValue = collateral                                <---
+     *               + owedRealizedPnl                               }   totalCollateralValue
+     *               + pendingFundingPayment                     <---
+     *               + sum_over_market(positionValue_market)
+     *               + netQuoteBalance
      *
      * NOTE: OwedRealizedPnl and PendingFunding values can be either positive or negative
      *
@@ -760,138 +837,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * | --------------------------------------- |
      *
      * @param _setToken             Instance of the SetToken
-     * @param _setTokenQuantity     Quantity of Set to issue
-     * @param _isSimulation         If true, trading is only simulated (to return issuance adjustments)
      */
-    function _executeModuleIssuanceHook(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity,
-        bool _isSimulation
-    )
-        internal
-        returns (int256)
-    {
-        // From perp:
-        // accountValue = collateral                                <---
-        //              + owedRealizedPnl                               }   totalCollateralValue
-        //              + pendingFundingPayment                     <---
-        //              + sum_over_market(positionValue_market)
-        //              + netQuoteBalance
-
+    function _calculatePartialAccountValuePositionUnit(ISetToken _setToken) internal view returns (int256 accountValue) {
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
 
-        int256 usdcAmountIn = accountInfo.collateralBalance
+        accountValue = accountInfo.collateralBalance
             .add(accountInfo.owedRealizedPnl)
             .add(accountInfo.pendingFundingPayments)
             .add(accountInfo.netQuoteBalance)
-            .preciseDiv(_setToken.totalSupply().toInt256())
-            .preciseMul(_setTokenQuantity.toInt256());
-
-        PositionUnitInfo[] memory positionInfo = getPositionUnitInfo(_setToken);
-
-        for(uint i = 0; i < positionInfo.length; i++) {
-            // baseUnit, +ve existing long position, -ve for existing short position
-            int256 baseTradeNotionalQuantity = positionInfo[i].baseUnit.preciseMul(_setTokenQuantity.toInt256());
-
-            ActionInfo memory actionInfo = _createAndValidateActionInfoNotional(
-                _setToken,
-                positionInfo[i].baseToken,
-                baseTradeNotionalQuantity,
-                0
-            );
-
-            int256 spotPrice = getAMMSpotPrice(positionInfo[i].baseToken).toInt256();
-
-            // idealDeltaQuote, +ve for existing long position, -ve for existing short position
-            int256 idealDeltaQuote = baseTradeNotionalQuantity.preciseMul(spotPrice);
-
-            // Execute or simulate trade.
-            // `deltaQuote` is always a positive number
-            (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
-
-            // Calculate slippage quantity as a positive value
-            // When long, trade slippage results in more quote required, deltaQuote > idealDeltaQuote
-            // When short, trade slippage results in less quote receivied, abs(idealDeltaQuote) > abs(deltaQuote)
-            int256 slippageQuantity = baseTradeNotionalQuantity >= 0
-                ? deltaQuote.toInt256().sub(idealDeltaQuote)
-                : _abs(idealDeltaQuote).sub(deltaQuote.toInt256());
-
-            // slippage is borne by the issuer
-            usdcAmountIn = usdcAmountIn.add(idealDeltaQuote).add(slippageQuantity);
-        }
-
-        // Return value in collateral decimals (e.g USDC = 6)
-        return _fromPreciseUnitToDecimals(
-            usdcAmountIn.preciseDiv(_setTokenQuantity.toInt256()),
-            collateralDecimals
-        );
-    }
-
-    /**
-     * @dev Hook called prior to redemption. Only callable by valid module.
-     * @param _setToken             Instance of the SetToken
-     * @param _setTokenQuantity     Quantity of Set to redeem
-     * @param _isSimulation         If true, trading is only simulated (to return issuance adjustments)
-     */
-    function _executeModuleRedemptionHook(
-        ISetToken _setToken,
-        uint256 _setTokenQuantity,
-        bool _isSimulation
-    )
-        internal
-        returns (int256)
-    {
-        int256 realizedPnl = 0;
-
-        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-        AccountInfo memory accountInfo = getAccountInfo(_setToken);
-
-        // Calculate already accrued PnL from non-issuance/redemption sources (ex: levering)
-        int256 totalFundingAndCarriedPnL = accountInfo.pendingFundingPayments.add(accountInfo.owedRealizedPnl);
-        int256 owedRealizedPnlPositionUnit = totalFundingAndCarriedPnL.preciseDiv(_setToken.totalSupply().toInt256());
-
-        for (uint256 i = 0; i < positionInfo.length; i++) {
-            // Calculate amount to trade
-            int256 basePositionUnit = positionInfo[i].baseBalance.preciseDiv(_setToken.totalSupply().toInt256());
-            int256 baseTradeNotionalQuantity = basePositionUnit.preciseMul(_setTokenQuantity.toInt256());
-
-            // Calculate amount quote debt will be reduced by
-            int256 reducedOpenNotional = _getReducedOpenNotional(
-                _setTokenQuantity.toInt256(),
-                basePositionUnit,
-                positionInfo[i]
-            );
-
-            // Trade, inverting notional quantity sign because we are reducing position
-            ActionInfo memory actionInfo = _createAndValidateActionInfoNotional(
-                _setToken,
-                positionInfo[i].baseToken,
-                baseTradeNotionalQuantity.mul(-1),
-                0
-            );
-
-            // Execute or simulate trade.
-            // `deltaQuote` is always a positive number
-            (,uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
-
-            // Calculate realized PnL for and add to running total.
-            // When basePositionUnit is positive, position is long.
-            realizedPnl = basePositionUnit >= 0 ? realizedPnl.add(reducedOpenNotional.add(deltaQuote.toInt256())) :
-                realizedPnl.add(reducedOpenNotional.sub(deltaQuote.toInt256()));
-        }
-
-        // Calculate amount of collateral to withdraw
-        int256 collateralPositionUnit = _getCollateralBalance(_setToken).preciseDiv(_setToken.totalSupply().toInt256());
-
-        int256 usdcToWithdraw =
-            collateralPositionUnit.preciseMul(_setTokenQuantity.toInt256())
-                .add(owedRealizedPnlPositionUnit.preciseMul(_setTokenQuantity.toInt256()))
-                .add(realizedPnl);
-
-        return _fromPreciseUnitToDecimals(
-            usdcToWithdraw.preciseDiv(_setTokenQuantity.toInt256()),
-            collateralDecimals
-        );
+            .preciseDiv(_setToken.totalSupply().toInt256());
     }
 
     /**
@@ -1120,7 +1074,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns(ActionInfo memory)
     {
         // NOT checking that _baseTokenQuantity != 0 here because for places this is directly called
-        // (issue/redeem hooks) we know they position cannot be 0. We check in _createAndValidateActionInfo
+        // (issue/redeem hooks) we know the position cannot be 0. We check in _createAndValidateActionInfo
         // that quantity is 0 for inputs to trade.
         bool isShort = _baseTokenQuantity < 0;
 
@@ -1150,31 +1104,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev Gets the ratio by which redemption will reduce open notional quote balance. This value
-     * is used to calculate realizedPnl of the asset sale in _executeModuleRedeemHook
-     */
-    function _getReducedOpenNotional(
-        int256 _setTokenQuantity,
-        int256 _basePositionUnit,
-        PositionNotionalInfo memory _positionInfo
-    )
-        internal
-        pure
-        returns (int256)
-    {
-        // From perp formulas: closeRatio = abs(baseTradeNotional) / abs(baseBalance)
-        int256 baseTradeNotionalQuantity = _setTokenQuantity.preciseMul(_basePositionUnit);
-        int256 closeRatio = _abs(baseTradeNotionalQuantity).preciseDiv(_abs(_positionInfo.baseBalance));
-        return _positionInfo.quoteBalance.preciseMul(closeRatio);
-    }
-
-    /**
      * @dev Calculates the sum of collateralToken denominated market-prices of assets and debt for the Perp account per
      * SetToken
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-        AccountInfo memory accountInfo = getAccountInfo(_setToken);
         int256 totalPositionValue = 0;
 
         for (uint i = 0; i < positionInfo.length; i++ ) {
@@ -1184,12 +1118,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             );
         }
 
-        int256 externalPositionUnitInPrecisionDecimals = totalPositionValue
-            .add(accountInfo.collateralBalance)
-            .add(accountInfo.netQuoteBalance)
-            .add(accountInfo.owedRealizedPnl)
-            .add(accountInfo.pendingFundingPayments)
-            .preciseDiv(_setToken.totalSupply().toInt256());
+        int256 externalPositionUnitInPrecisionDecimals = _calculatePartialAccountValuePositionUnit(_setToken)
+            .add(totalPositionValue.preciseDiv(_setToken.totalSupply().toInt256()));
 
         return _fromPreciseUnitToDecimals(
             externalPositionUnitInPrecisionDecimals,
