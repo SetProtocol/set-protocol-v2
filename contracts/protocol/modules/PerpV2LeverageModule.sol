@@ -249,7 +249,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev MANAGER ONLY: Allows manager to buy or sell perps to change exposure to the underlying baseToken.
      * Providing a positive value for `_baseQuantityUnits` buys vToken on UniswapV3 via Perp's ClearingHouse,
-     * Providing a negative value sells the token. `_receiveQuoteQuantityUnits` defines a min-receive-like slippage
+     * Providing a negative value sells the token. `_quoteBoundQuantityUnits` defines a min-receive-like slippage
      * bound for the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
      *
      * NOTE: This method doesn't update the externalPositionUnit because it is a function of UniswapV3 virtual
@@ -257,7 +257,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *
      * As a user when levering, e.g increasing the magnitude of your position, you'd trade as below
      * | ----------------------------------------------------------------------------------------------- |
-     * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
+     * | Type  |  Action | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits` |
      * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
      * | Long  | Buy     | pay least amt. of vQuote  | upper bound of input quote  | positive            |
      * | Short | Sell    | get most amt. of vQuote   | lower bound of output quote | negative            |
@@ -265,7 +265,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      *
      * As a user when delevering, e.g decreasing the magnitude of your position, you'd trade as below
      * | ----------------------------------------------------------------------------------------------- |
-     * | Type  |  Action | Goal                      | `receiveQuoteQuantity`      | `baseQuantityUnits` |
+     * | Type  |  Action | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits` |
      * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
      * | Long  | Sell    | get most amt. of vQuote   | upper bound of input quote  | negative            |
      * | Short | Buy     | pay least amt. of vQuote  | lower bound of output quote | positive            |
@@ -274,13 +274,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _setToken                     Instance of the SetToken
      * @param _baseToken                    Address virtual token being traded
      * @param _baseQuantityUnits            Quantity of virtual token to trade in position units
-     * @param _receiveQuoteQuantityUnits    Max/min of vQuote asset to pay/receive when buying or selling
+     * @param _quoteBoundQuantityUnits      Max/min of vQuote asset to pay/receive when buying or selling
      */
     function trade(
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
-        uint256 _receiveQuoteQuantityUnits
+        uint256 _quoteBoundQuantityUnits
     )
         external
         nonReentrant
@@ -290,7 +290,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             _setToken,
             _baseToken,
             _baseQuantityUnits,
-            _receiveQuoteQuantityUnits
+            _quoteBoundQuantityUnits
         );
 
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
