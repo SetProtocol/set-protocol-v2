@@ -113,7 +113,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _protocolFee      Quantity in collateral decimals sent to fee recipient during lever trade
      * @param _isBuy            True when baseToken is being bought, false when being sold
      */
-    event PerpTrade(
+    event PerpTraded(
         ISetToken indexed _setToken,
         address indexed _baseToken,
         uint256 _deltaBase,
@@ -297,7 +297,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         _updatePositionList(_setToken, _baseToken);
 
-        emit PerpTrade(
+        emit PerpTraded(
             _setToken,
             _baseToken,
             deltaBase,

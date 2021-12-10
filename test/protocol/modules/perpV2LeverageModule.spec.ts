@@ -438,7 +438,7 @@ describe("PerpV2LeverageModule", () => {
             expect(finalPositionInfo.quoteBalance.mul(-1)).lt(subjectQuoteReceiveQuantityUnits);
           });
 
-          it("should emit the correct PerpTrade event", async () => {
+          it("should emit the correct PerpTraded event", async () => {
             const {
               deltaBase: expectedDeltaBase,
               deltaQuote: expectedDeltaQuote
@@ -447,7 +447,7 @@ describe("PerpV2LeverageModule", () => {
             const expectedProtocolFee = ether(0);
             const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
@@ -698,7 +698,7 @@ describe("PerpV2LeverageModule", () => {
             expect(initialUSDCDefaultPositionUnit).to.eq(finalUSDCDefaultPositionUnit);
           });
 
-          it("should emit the correct PerpTrade event", async () => {
+          it("should emit the correct PerpTraded event", async () => {
             const {
               deltaBase: expectedDeltaBase,
               deltaQuote: expectedDeltaQuote
@@ -707,7 +707,7 @@ describe("PerpV2LeverageModule", () => {
             const expectedProtocolFee = toUSDCDecimals(preciseMul(expectedDeltaQuote, feePercentage));
             const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
@@ -758,7 +758,7 @@ describe("PerpV2LeverageModule", () => {
           expect(finalPositionInfo.quoteBalance).gt(subjectQuoteReceiveQuantityUnits);
         });
 
-        it("should emit the correct PerpTrade event", async () => {
+        it("should emit the correct PerpTraded event", async () => {
           const {
             deltaBase: expectedDeltaBase,
             deltaQuote: expectedDeltaQuote
@@ -767,7 +767,7 @@ describe("PerpV2LeverageModule", () => {
           const expectedProtocolFee = ether(0);
           const expectedIsBuy = false;
 
-          await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
+          await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
             subjectSetToken,
             subjectBaseToken,
             expectedDeltaBase,
