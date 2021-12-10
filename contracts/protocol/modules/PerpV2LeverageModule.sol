@@ -25,10 +25,9 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import { FixedPoint96 } from "@uniswap/v3-core/contracts/libraries/FixedPoint96.sol";
-import { FullMath } from "@uniswap/v3-core/contracts/libraries/FullMath.sol";
 
 import { PerpV2 } from "../integration/lib/PerpV2.sol";
+import { UniswapV3Math } from "../integration/lib/UniswapV3Math.sol";
 import { IAccountBalance } from "../../interfaces/external/perp-v2/IAccountBalance.sol";
 import { IClearingHouse } from "../../interfaces/external/perp-v2/IClearingHouse.sol";
 import { IExchange } from "../../interfaces/external/perp-v2/IExchange.sol";
@@ -64,6 +63,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
     using SignedSafeMath for int256;
+    using UniswapV3Math for uint160;
+    using UniswapV3Math for uint256;
     using AddressArrayUtils for address[];
 
     /* ============ Structs ============ */
@@ -718,8 +719,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function getAMMSpotPrice(address _baseToken) public view returns (uint256 price) {
         address pool = perpMarketRegistry.getPool(_baseToken);
         (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
-        uint256 priceX96 = _formatSqrtPriceX96ToPriceX96(sqrtPriceX96);
-        return _formatX96ToX10_18(priceX96);
+        uint256 priceX96 = sqrtPriceX96.formatSqrtPriceX96ToPriceX96();
+        return priceX96.formatX96ToX10_18();
     }
 
     /* ============ Internal Functions ============ */
@@ -1174,24 +1175,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
 
         return (equityAdjustments, debtAdjustments);
-    }
-
-    /**
-     * @dev Converts a UniswapV3 sqrtPriceX96 value to a priceX96 value. This method is borrowed from
-     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getAMMSpotPrice` while generating a
-     * PRECISE_UNIT vAsset market price
-     */
-    function _formatSqrtPriceX96ToPriceX96(uint160 sqrtPriceX96) internal pure returns (uint256) {
-        return FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, FixedPoint96.Q96);
-    }
-
-    /**
-     * @dev Converts a UniswapV3 X96 format price into a PRECISE_UNIT price. This method is borrowed from
-     * PerpProtocol's `lushan` repo, in lib/PerpMath and used by `getAMMSpotPrice` while generating a
-     * PRECISE_UNIT vAsset market price
-     */
-    function _formatX96ToX10_18(uint256 valueX96) internal pure returns (uint256) {
-        return FullMath.mulDiv(valueX96, 1 ether, FixedPoint96.Q96);
     }
 
     /**

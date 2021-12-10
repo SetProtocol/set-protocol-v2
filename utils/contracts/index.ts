@@ -111,6 +111,7 @@ export { UniswapV2Pair } from "../../typechain/UniswapV2Pair";
 export { UniswapV2Router02 } from "../../typechain/UniswapV2Router02";
 export { UniswapYieldHook } from "../../typechain/UniswapYieldHook";
 export { UniswapV3ExchangeAdapter } from "../../typechain/UniswapV3ExchangeAdapter";
+export { UniswapV3MathMock } from "../../typechain/UniswapV3MathMock";
 export { WETH9 } from "../../typechain/WETH9";
 export { WrapAdapterMock } from "../../typechain/WrapAdapterMock";
 export { WrapV2AdapterMock } from "../../typechain/WrapV2AdapterMock";

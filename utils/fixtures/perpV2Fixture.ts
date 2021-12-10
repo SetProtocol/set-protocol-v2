@@ -350,6 +350,10 @@ export class PerpV2Fixture {
     const pool = this._pools[_baseToken];
 
     const sqrtPriceX96 = (await pool.slot0()).sqrtPriceX96;
+    return this.getPriceFromSqrtPriceX96(sqrtPriceX96);
+  }
+
+  public getPriceFromSqrtPriceX96(sqrtPriceX96: BigNumber): BigNumber {
     const priceX86 = JSBI.BigInt(sqrtPriceX96.toString());
     const squaredPrice = JSBI.multiply(priceX86, priceX86);
     const decimalsRatio = 1e18;
