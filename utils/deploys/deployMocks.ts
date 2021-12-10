@@ -47,7 +47,8 @@ import {
   ZeroExMock,
   YearnStrategyMock,
   AaveV2Mock,
-  UniswapV3MathMock
+  UniswapV3MathMock,
+  UnitConversionUtilsMock
 } from "../contracts";
 
 import { ether } from "../common";
@@ -99,6 +100,7 @@ import { SynthetixExchangerMock__factory } from "../../typechain/factories/Synth
 import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrategyMock__factory";
 import { AaveV2Mock__factory } from "../../typechain/factories/AaveV2Mock__factory";
 import { UniswapV3MathMock__factory } from "../../typechain/factories/UniswapV3MathMock__factory";
+import { UnitConversionUtilsMock__factory } from "../../typechain/factories/UnitConversionUtilsMock__factory";
 
 
 export default class DeployMocks {
@@ -298,6 +300,10 @@ export default class DeployMocks {
 
   public async deployUniswapV3MathMock(): Promise<UniswapV3MathMock> {
     return await new UniswapV3MathMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployUnitConversionUtilsMock(): Promise<UnitConversionUtilsMock> {
+    return await new UnitConversionUtilsMock__factory(this._deployerSigner).deploy();
   }
 
   public async deployClaimAdapterMock(): Promise<ClaimAdapterMock> {

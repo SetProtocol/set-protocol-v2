@@ -41,6 +41,7 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
+import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
 
 
 /**
@@ -63,8 +64,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
     using SignedSafeMath for int256;
+    using UnitConversionUtils for int256;
     using UniswapV3Math for uint160;
     using UniswapV3Math for uint256;
+    using UnitConversionUtils for uint256;
     using AddressArrayUtils for address[];
 
     /* ============ Structs ============ */
@@ -399,7 +402,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         // We can end up with a dust amount of USDC in the Perp account that we should ignore.
         require(
-            _fromPreciseUnitToDecimals(_getCollateralBalance(setToken), collateralDecimals) <= 1,
+            _getCollateralBalance(setToken).fromPreciseUnitToDecimals(collateralDecimals) <= 1,
             "Collateral balance remaining"
         );
 
@@ -786,10 +789,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         //
         // Use preciseDivCeil when issuing to ensure we don't under-collateralize due to rounding error
         // _isIssue ? accountValueIssued.preciseDivCeil(setTokenQuantityInt) : accountValueIssued.preciseDiv(setTokenQuantityInt),
-        return _fromPreciseUnitToDecimals(
-            accountValueIssued.preciseDiv(setTokenQuantityInt),
-            collateralDecimals
-        );
+        return accountValueIssued.preciseDiv(setTokenQuantityInt).fromPreciseUnitToDecimals(collateralDecimals);
     }
 
     /**
@@ -1001,10 +1001,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         returns(uint256)
     {
         uint256 protocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
-        uint256 protocolFeeInCollateralDecimals = _fromPreciseUnitToDecimals(
-            protocolFee,
-            collateralDecimals
-        );
+        uint256 protocolFeeInCollateralDecimals = protocolFee.fromPreciseUnitToDecimals(collateralDecimals);
 
         _withdraw(_setToken, protocolFeeInCollateralDecimals);
 
@@ -1122,16 +1119,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         int256 externalPositionUnitInPrecisionDecimals = _calculatePartialAccountValuePositionUnit(_setToken)
             .add(totalPositionValue.preciseDiv(_setToken.totalSupply().toInt256()));
 
-        return _fromPreciseUnitToDecimals(
-            externalPositionUnitInPrecisionDecimals,
-            collateralDecimals
-        );
+        return externalPositionUnitInPrecisionDecimals.fromPreciseUnitToDecimals(collateralDecimals);
     }
 
     // @dev Retrieves collateral balance as an an 18 decimal vUSDC quote value
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
-        int256 balance = perpVault.getBalance(address(_setToken));
-        return _toPreciseUnitsFromDecimals(balance, collateralDecimals);
+        return perpVault.getBalance(address(_setToken)).toPreciseUnitsFromDecimals(collateralDecimals);
     }
 
     // @dev Retrieves net quote balance of all open positions
@@ -1175,37 +1168,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         }
 
         return (equityAdjustments, debtAdjustments);
-    }
-
-    /**
-     * @dev Converts a uint256 PRECISE_UNIT quote quantity into an alternative decimal format. In Perp all
-     * assets are 18 decimal quantities we need to represent as 6 decimal USDC quantities when setting
-     * position units or withdrawing from Perp's Vault contract.
-     *
-     * This method is borrowed from PerpProtocol's `lushan` repo in lib/SettlementTokenMath
-     */
-    function _fromPreciseUnitToDecimals(uint256 amount, uint8 decimals) internal pure returns (uint256) {
-        return amount.div(10**(18 - uint(decimals)));
-    }
-
-    /**
-     * @dev Converts an int256 PRECISE_UNIT quote quantity into an alternative decimal format. In Perp all
-     * assets are 18 decimal quantities we need to represent as 6 decimal USDC quantities when setting
-     * position units or withdrawing from Perp's Vault contract.
-     *
-     * This method is borrowed from PerpProtocol's `lushan` repo in lib/SettlementTokenMath
-     */
-    function _fromPreciseUnitToDecimals(int256 amount, uint8 decimals) internal pure returns (int256) {
-        return amount.div(int256(10**(18 - uint(decimals))));
-    }
-
-    /**
-     * @dev Converts an arbitrarily decimalized quantity into a PRECISE_UNIT quantity. In Perp the vault
-     * balance is represented as a 6 decimals USDC quantity which we need to consume in PRECISE_UNIT
-     * format when calculating values like the external position unit and current leverage.
-     */
-    function _toPreciseUnitsFromDecimals(int256 amount, uint8 decimals) internal pure returns (int256) {
-        return amount.mul(int256(10**(18 - (uint(decimals)))));
     }
 
     function _abs(int x) internal pure returns (int) {
