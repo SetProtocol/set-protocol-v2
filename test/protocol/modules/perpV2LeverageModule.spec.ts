@@ -4900,7 +4900,7 @@ describe("PerpV2LeverageModule", () => {
       describe("when redeeming multiple sets", async () => {
         // todo: missing check to confirm base token balances
 
-        it.only("should set the expected USDC externalPositionUnit", async () => {
+        it("should set the expected USDC externalPositionUnit", async () => {
           const spotPrice = await perpSetup.getSpotPrice(baseToken);
           const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
           const totalSupply = await setToken.totalSupply();
