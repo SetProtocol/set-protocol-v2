@@ -377,7 +377,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
 
-        // We can end up with a dust amount of USDC in the Perp account that we should ignore.
+        // Because the `withdraw` flow takes a USDC position unit parameter and can introduce rounding
+        // errors when calculating the notional quantity as `collateralUnits.preciseMul(totalSupply)`,
+        // there's a good chance we will be left with a single USDC unit in the Perp vault which we
+        // should ignore.
         require(
             _getCollateralBalance(setToken).fromPreciseUnitToDecimals(collateralDecimals) <= 1,
             "Collateral balance remaining"
