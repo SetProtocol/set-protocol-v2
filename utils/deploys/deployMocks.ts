@@ -48,7 +48,8 @@ import {
   YearnStrategyMock,
   AaveV2Mock,
   UniswapV3MathMock,
-  UnitConversionUtilsMock
+  UnitConversionUtilsMock,
+  AllowSetTokenMock
 } from "../contracts";
 
 import { ether } from "../common";
@@ -101,7 +102,7 @@ import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrat
 import { AaveV2Mock__factory } from "../../typechain/factories/AaveV2Mock__factory";
 import { UniswapV3MathMock__factory } from "../../typechain/factories/UniswapV3MathMock__factory";
 import { UnitConversionUtilsMock__factory } from "../../typechain/factories/UnitConversionUtilsMock__factory";
-
+import { AllowSetTokenMock__factory } from "../../typechain/factories/AllowSetTokenMock__factory";
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -304,6 +305,10 @@ export default class DeployMocks {
 
   public async deployUnitConversionUtilsMock(): Promise<UnitConversionUtilsMock> {
     return await new UnitConversionUtilsMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployAllowSetTokenMock(controller: Address): Promise<AllowSetTokenMock> {
+    return await new AllowSetTokenMock__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployClaimAdapterMock(): Promise<ClaimAdapterMock> {

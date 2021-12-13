@@ -39,6 +39,7 @@ import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
+import { AllowSetToken } from "../lib/AllowSetToken.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
@@ -60,7 +61,7 @@ import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  */
-contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
+contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetToken, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
     using SignedSafeMath for int256;
@@ -146,24 +147,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 _amountWithdrawn
     );
 
-    /**
-     * @dev Emitted on updateAllowedSetToken()
-     * @param _setToken SetToken being whose allowance to initialize this module is being updated
-     * @param _added    true if added false if removed
-     */
-    event SetTokenStatusUpdated(
-        ISetToken indexed _setToken,
-        bool indexed _added
-    );
-
-    /**
-     * @dev Emitted on updateAnySetAllowed()
-     * @param _anySetAllowed    true if any set is allowed to initialize this module, false otherwise
-     */
-    event AnySetAllowedUpdated(
-        bool indexed _anySetAllowed
-    );
-
     /* ============ Constants ============ */
 
     // String identifying the DebtIssuanceModule in the IntegrationRegistry. Note: Governance must add DefaultIssuanceModule as
@@ -203,14 +186,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) internal positions;
 
-    // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
-    mapping(ISetToken => bool) public allowedSetTokens;
-
-    // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list.
-    // Updateable by governance.
-    bool public anySetAllowed;
-
-
     /* ============ Constructor ============ */
 
     /**
@@ -230,6 +205,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     )
         public
         ModuleBase(_controller)
+        AllowSetToken(_controller)
     {
         // Use temp variables to initialize immutables
         address tempCollateralToken = IVault(_perpVault).getSettlementToken();
@@ -374,11 +350,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         external
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
+        onlyAllowedSet(_setToken)
     {
-        if (!anySetAllowed) {
-            require(allowedSetTokens[_setToken], "Not allowed SetToken");
-        }
-
         // Initialize module before trying register
         _setToken.initializeModule();
 
@@ -433,28 +406,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
 
         _debtIssuanceModule.registerToIssuanceModule(_setToken);
-    }
-
-    /**
-     * @dev GOVERNANCE ONLY: Enable/disable ability of a SetToken to initialize this module.
-     *
-     * @param _setToken             Instance of the SetToken
-     * @param _status               Bool indicating if _setToken is allowed to initialize this module
-     */
-    function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
-        require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "Invalid SetToken");
-        allowedSetTokens[_setToken] = _status;
-        emit SetTokenStatusUpdated(_setToken, _status);
-    }
-
-    /**
-     * @dev GOVERNANCE ONLY: Toggle whether ANY SetToken is allowed to initialize this module.
-     *
-     * @param _anySetAllowed             Bool indicating if ANY SetToken is allowed to initialize this module
-     */
-    function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
-        anySetAllowed = _anySetAllowed;
-        emit AnySetAllowedUpdated(_anySetAllowed);
     }
 
     /**

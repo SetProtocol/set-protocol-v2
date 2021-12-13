@@ -10,6 +10,7 @@ export { AaveV2Mock } from "../../typechain/AaveV2Mock";
 export { AaveV2WrapV2Adapter } from "../../typechain/AaveV2WrapV2Adapter";
 export { AddressArrayUtilsMock } from "../../typechain/AddressArrayUtilsMock";
 export { AirdropModule } from "../../typechain/AirdropModule";
+export { AllowSetTokenMock } from "../../typechain/AllowedSetTokenMock";
 export { AmmAdapterMock } from "../../typechain/AmmAdapterMock";
 export { AmmModule } from "../../typechain/AmmModule";
 export { AGIMigrationWrapAdapter } from "../../typechain/AGIMigrationWrapAdapter";
