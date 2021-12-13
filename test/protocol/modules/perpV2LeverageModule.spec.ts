@@ -4064,7 +4064,20 @@ describe("PerpV2LeverageModule", () => {
           subjectSetQuantity = ether(2);
         });
 
-        // todo: missing a it sells expected amount of baseToken test
+        it("sells expected amount of vBase", async () => {
+          const totalSupply = await setToken.totalSupply();
+          const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+
+          await subject();
+
+          const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          const baseTokenSoldNotional = initialBaseBalance.sub(finalBaseBalance);
+
+          const expectedBaseTokenSoldNotional = preciseMul(basePositionUnit, subjectSetQuantity);
+
+          expect(baseTokenSoldNotional).eq(expectedBaseTokenSoldNotional);
+        });
 
         it("should set the expected USDC externalPositionUnit", async () => {
           const spotPrice = await perpSetup.getSpotPrice(baseToken);
