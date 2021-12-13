@@ -55,6 +55,7 @@ const provider = getProvider();
 // (long, short, multiple long, multiple short, long + short),
 // with default and without default position units.
 // and make sure each function tests all possible cases.
+// When leverage ratio drops: add funding calculations and add closeTo checks
 describe("PerpV2LeverageModule", () => {
   let owner: Account;
   let maker: Account;
@@ -3253,7 +3254,7 @@ describe("PerpV2LeverageModule", () => {
               perpLeverageModule.address
             );
 
-            expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
+            expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
           });
         });
       });
@@ -5658,7 +5659,6 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  // todo: Remove closeTo
   describe("#getRedemptionAdjustments", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
