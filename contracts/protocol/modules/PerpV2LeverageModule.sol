@@ -1084,15 +1084,24 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * during lever/delever
      */
     function _updatePositionList(ISetToken _setToken, address _baseToken) internal {
-        int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
         address[] memory positionList = positions[_setToken];
         bool hasBaseToken = positionList.contains(_baseToken);
 
-        if (hasBaseToken && baseBalance == 0) {
+        if (hasBaseToken && !_hasBaseBalance(_setToken, _baseToken)) {
             positions[_setToken].removeStorage(_baseToken);
         } else if (!hasBaseToken) {
             positions[_setToken].push(_baseToken);
         }
+    }
+
+    /**
+     * @dev Returns a dust tolerant check of whether a base position balance exists. Because we use
+     * position unit math to calculate notional amounts when trading positions, there's a chance
+     * we could have introduced a 1 wei rounding error.
+     */
+    function _hasBaseBalance(ISetToken _setToken, address _baseToken) internal view returns(bool) {
+        int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
+        return (baseBalance > 1) || (baseBalance < -1);
     }
 
     /**
