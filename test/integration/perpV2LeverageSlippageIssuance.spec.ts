@@ -950,9 +950,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             ZERO
           );
 
-          const {
-            baseUnit: finalBaseUnit
-          } = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0];
+          const positionInfo = await perpLeverageModule.getPositionUnitInfo(subjectSetToken);
 
           // Withdraw remaining free collateral
           const freeCollateral = await perpSetup.vault.getFreeCollateral(subjectSetToken);
@@ -975,7 +973,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const finalModules = await setToken.getModules();
 
           expect(finalModules.includes(perpLeverageModule.address)).eq(false);
-          expect(finalBaseUnit).eq(ZERO);
+          expect(positionInfo.length).eq(0);
           expect(toUSDCDecimals(finalCollateralBalance)).eq(1); // <-- DUST
 
           // Restore module
