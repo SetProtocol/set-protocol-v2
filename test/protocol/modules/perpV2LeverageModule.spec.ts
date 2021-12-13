@@ -5919,7 +5919,59 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
-    // todo: describe("when short") ?
+    describe("when short", () => {
+      // Set up as 2X Short, allow 2% slippage
+      cacheBeforeEach(async () => {
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          vETH.address,
+          2,
+          ether(.02),
+          false
+        );
+
+        await perpLeverageModule
+          .connect(subjectCaller.wallet)
+          .moduleRedeemHook(subjectSetToken, subjectSetQuantity);
+      });
+
+      it("transfer the expected amount from Perp vault to SetToken", async () => {
+        const initialSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
+
+        const externalUSDCPositionUnit = await setToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        const usdcToTransferOut = preciseMul(externalUSDCPositionUnit, subjectSetQuantity);
+
+        await subject();
+
+        const finalSetTokenUSDCBalance = await usdc.balanceOf(subjectSetToken);
+        const expectedSetTokenUSDCBalance = initialSetTokenUSDCBalance.add(usdcToTransferOut);
+
+        expect(finalSetTokenUSDCBalance).eq(expectedSetTokenUSDCBalance);
+      });
+
+      it("should not update the USDC defaultPositionUnit", async () => {
+        const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+        await subject();
+        const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+
+        expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
+      });
+
+      it("should not update the USDC externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        await subject();
+        const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
+    });
 
     describe("when isEquity is false", async () => {
       beforeEach(async () => {
