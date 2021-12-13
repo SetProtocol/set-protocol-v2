@@ -4431,10 +4431,10 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
-        it.only("should socialize the funding payment among existing set holders", async () => {
+        it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
-          await perpSetup.setBaseTokenOraclePrice(vBTC, usdcUnits(20.1));
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.3));
+          await perpSetup.setBaseTokenOraclePrice(vBTC, usdcUnits(20.2));
 
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
@@ -4446,7 +4446,7 @@ describe("PerpV2LeverageModule", () => {
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4469,9 +4469,9 @@ describe("PerpV2LeverageModule", () => {
           );
 
           // eth spot price < eth oracle price, eth totalExtraAccruedFunding is a negative value
-          // we are long eth, and hence the Set owes funding, hence usdcAmountInDelta needs to be subtracted
+          // we are long eth, and hence the Set is owed funding, hence usdcAmountInDelta needs to be subtracted
           // btc spot price < btc oracle price, btc totalExtraAccruedFunding is a negative value
-          // we are long btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
+          // we are long btc, and hence the Set is owed funding, hence btc accrued funding needs to be subtracted
           // since both need to be subtracted, we add first then subtract in the next line
           const usdcAmountInDelta = preciseMul(
             preciseDiv(ethTotalExtraAccruedFunding.add(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
@@ -4479,7 +4479,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
