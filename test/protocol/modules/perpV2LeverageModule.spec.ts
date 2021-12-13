@@ -5507,7 +5507,6 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  // todo: Remove closeTo
   describe("#getIssuanceAdjustments", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
@@ -5581,7 +5580,7 @@ describe("PerpV2LeverageModule", () => {
           expect(usdcAdjustment).gt(ZERO);
         });
 
-        it.only("should return the expected USDC adjustment unit", async () => {
+        it("should return the expected USDC adjustment unit", async () => {
           const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
 
           const totalSupply = await setToken.totalSupply();
@@ -5708,17 +5707,6 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when redeeming a single set", async () => {
-        let usdcTransferOutQuantity: BigNumber;
-
-        beforeEach(async () => {
-          usdcTransferOutQuantity = await calculateUSDCTransferOut(
-            setToken,
-            subjectSetQuantity,
-            perpLeverageModule,
-            perpSetup
-          );
-        });
-
         it("should *not* alter the vBase balance", async () => {
           const initialBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
           await subject();
@@ -5746,12 +5734,39 @@ describe("PerpV2LeverageModule", () => {
 
         it("should return the expected USDC adjustment unit", async () => {
           const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
-          const newExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectSetQuantity);
+
+          const totalSupply = await setToken.totalSupply();
+          const spotPrice = await perpSetup.getSpotPrice(baseToken);
+          const previousBlockTimestamp = (await provider.getBlock("latest")).timestamp;
+          const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
+          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+            setToken,
+            subjectSetQuantity,
+            perpLeverageModule,
+            perpSetup
+          );
+
+          const actualAdjustmentUnit = (await subject())[0][1];     // call subject
+
+          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
+          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
+
+          const totalExtraAccruedFunding = preciseMul(
+            baseBalance,
+            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - previousBlockTimestamp).div(ONE_DAY_IN_SECONDS)
+          );
+
+          const usdcAmountInDelta = preciseMul(
+            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
+            subjectSetQuantity
+          );
+
+          // spot price > oracle price, totalExtraAccruedFunding is a positive value
+          // we are long, and hence the Set owes funding, hence usdcAmountInDelta needs to be subtracted
+          const newExternalPositionUnit = toUSDCDecimals(preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity));
           const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
 
-          const actualAdjustmentUnit = (await subject())[0][1];
-
-          expect(actualAdjustmentUnit).to.be.closeTo(expectedAdjustmentUnit, 1);
+          expect(actualAdjustmentUnit).to.be.eq(expectedAdjustmentUnit);
         });
 
         describe("when the set token doesn't contain the collateral token", async () => {
