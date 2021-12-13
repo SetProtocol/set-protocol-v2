@@ -162,6 +162,52 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     return totalExpectedSlippage;
   }
 
+  async function calculateRedemptionData(
+    setToken: Address,
+    redeemQuantity: BigNumber,
+    usdcTransferOutQuantity: BigNumber
+  ) {
+    // Calculate fee adjusted usdcTransferOut
+    const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+      setToken,
+      redeemQuantity,
+      false
+    ))[0];
+
+    const feeAdjustedTransferOutUSDC = preciseMul(redeemQuantityWithFees, usdcTransferOutQuantity);
+
+    // Calculate realizedPnl. The amount is debited from collateral returned to redeemer *and*
+    // debited from the Perp account collateral balance because withdraw performs a settlement.
+    let realizedPnlUSDC = BigNumber.from(0);
+    const positionUnitInfo = await await perpLeverageModule.getPositionUnitInfo(setToken);
+
+    for (const info of positionUnitInfo) {
+      const baseTradeQuantityNotional = preciseMul(info.baseUnit, redeemQuantity);
+
+      const { deltaQuote } = await perpSetup.getSwapQuote(
+        info.baseToken,
+        baseTradeQuantityNotional,
+        false
+      );
+
+      const {
+        baseBalance,
+        quoteBalance
+      } = (await perpLeverageModule.getPositionNotionalInfo(setToken))[0];
+
+      const closeRatio = preciseDiv(baseTradeQuantityNotional, baseBalance);
+      const reducedOpenNotional = preciseMul(quoteBalance, closeRatio);
+
+      realizedPnlUSDC = realizedPnlUSDC.add(toUSDCDecimals(reducedOpenNotional.add(deltaQuote)));
+    }
+
+    return {
+      feeAdjustedTransferOutUSDC,
+      realizedPnlUSDC,
+      redeemQuantityWithFees
+    };
+  }
+
   describe("#issuance", async () => {
     let setToken: SetToken;
     let issueFee: BigNumber;
@@ -536,6 +582,67 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           expect(flashLeverage).to.be.lt(ether(10));
         });
       });
+
+      describe("when issuing after a liquidation", async () => {
+        beforeEach(async () => {
+          subjectQuantity = ether(1);
+
+          // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
+          await leverUp(
+            setToken,
+            perpLeverageModule,
+            perpSetup,
+            owner,
+            baseToken,
+            6,
+            ether(.02),
+            true
+          );
+
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(8.0));
+
+          await perpSetup
+            .clearingHouse
+            .connect(otherTrader.wallet)
+            .liquidate(subjectSetToken, baseToken);
+        });
+
+        it("should issue and transfer in the expected amount", async () => {
+          const initialTotalSupply = await setToken.totalSupply();
+          const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          await subject();
+
+          // We need to calculate this after the subject() fires because it will revert if the positionList
+          // isn't updated correctly...
+          const usdcTransferInQuantity = await calculateUSDCTransferIn(
+            setToken,
+            subjectQuantity,
+            perpLeverageModule,
+            perpSetup
+          );
+
+          const finalTotalSupply = await setToken.totalSupply();
+          const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
+          const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            true
+          ))[0];
+
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+
+          const expectedTotalSupply = initialTotalSupply.add(issueQuantityWithFees);
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
+
+          expect(finalTotalSupply).eq(expectedTotalSupply);
+          expect(finalPositionInfo.length).eq(0);
+          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
+        });
+      });
     });
   });
 
@@ -674,34 +781,14 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         let realizedPnlUSDC: BigNumber;
 
         beforeEach(async() => {
-          // Calculate fee adjusted usdcTransferOut
-          const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+          ({
+            feeAdjustedTransferOutUSDC,
+            realizedPnlUSDC
+          } = await calculateRedemptionData(
             subjectSetToken,
             subjectQuantity,
-            false
-          ))[0];
-
-          feeAdjustedTransferOutUSDC = preciseMul(redeemQuantityWithFees, usdcTransferOutQuantity);
-
-          // Calculate realizedPnl, which is negative in this case. The amount is debited from collateral
-          // returned to redeemer *and* debited from the Perp account collateral balance because
-          // withdraw performs a settlement.
-          const baseUnit = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0].baseUnit;
-          const baseTradeQuantityNotional = preciseMul(baseUnit, subjectQuantity);
-          const { deltaQuote } = await perpSetup.getSwapQuote(
-            baseToken,
-            baseTradeQuantityNotional,
-            false
-          );
-
-          const {
-            baseBalance,
-            quoteBalance
-          } = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
-          const closeRatio = preciseDiv(baseTradeQuantityNotional, baseBalance);
-          const reducedOpenNotional = preciseMul(quoteBalance, closeRatio);
-
-          realizedPnlUSDC = toUSDCDecimals(reducedOpenNotional.add(deltaQuote));
+            usdcTransferOutQuantity
+          ));
         });
 
         it("should withdraw the expected amount from the Perp vault", async () => {
@@ -865,34 +952,14 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         let realizedPnlUSDC: BigNumber;
 
         beforeEach(async() => {
-          // Calculate fee adjusted usdcTransferOut
-          const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+          ({
+            feeAdjustedTransferOutUSDC,
+            realizedPnlUSDC
+          } = await calculateRedemptionData(
             subjectSetToken,
             subjectQuantity,
-            false
-          ))[0];
-
-          feeAdjustedTransferOutUSDC = preciseMul(redeemQuantityWithFees, usdcTransferOutQuantity);
-
-          // Calculate realizedPnl, which is negative in this case. The amount is debited from collateral
-          // returned to redeemer *and* debited from the Perp account collateral balance because
-          // withdraw performs a settlement.
-          const baseUnit = (await perpLeverageModule.getPositionUnitInfo(subjectSetToken))[0].baseUnit;
-          const baseTradeQuantityNotional = preciseMul(baseUnit, subjectQuantity);
-          const { deltaQuote } = await perpSetup.getSwapQuote(
-            baseToken,
-            baseTradeQuantityNotional,
-            false
+            usdcTransferOutQuantity)
           );
-
-          const {
-            baseBalance,
-            quoteBalance
-          } = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
-          const closeRatio = preciseDiv(baseTradeQuantityNotional, baseBalance);
-          const reducedOpenNotional = preciseMul(quoteBalance, closeRatio);
-
-          realizedPnlUSDC = toUSDCDecimals(reducedOpenNotional.add(deltaQuote));
         });
 
         it("should withdraw the expected amount from the Perp vault", async () => {
@@ -986,6 +1053,71 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
           // Verify that we can deposit again
           await perpLeverageModule.deposit(setToken.address, usdcUnits(5));
+        });
+      });
+
+      describe("when redeeming after a liquidation", async () => {
+        beforeEach(async () => {
+          subjectQuantity = ether(1);
+
+          // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
+          await leverUp(
+            setToken,
+            perpLeverageModule,
+            perpSetup,
+            owner,
+            baseToken,
+            6,
+            ether(.02),
+            true
+          );
+
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(8.0));
+
+          await perpSetup
+            .clearingHouse
+            .connect(otherTrader.wallet)
+            .liquidate(subjectSetToken, baseToken);
+        });
+
+        it("should redeem and transfer out the expected amount", async () => {
+          const initialTotalSupply = await setToken.totalSupply();
+          const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          // Total amount of owedRealizedPnl will be debited from collateral balance
+          const { owedRealizedPnl } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+          const owedRealizedPnlUSDC = toUSDCDecimals(owedRealizedPnl);
+
+          await subject();
+
+          const finalTotalSupply = await setToken.totalSupply();
+          const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
+          const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
+
+          const usdcTransferOutQuantity = await calculateUSDCTransferOut(
+            setToken,
+            subjectQuantity,
+            perpLeverageModule,
+            perpSetup
+          );
+
+          const {
+            feeAdjustedTransferOutUSDC,
+            redeemQuantityWithFees
+          } = await calculateRedemptionData(
+            subjectSetToken,
+            subjectQuantity,
+            usdcTransferOutQuantity
+          );
+
+          const expectedTotalSupply = initialTotalSupply.sub(redeemQuantityWithFees);
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+            .sub(feeAdjustedTransferOutUSDC)
+            .add(owedRealizedPnlUSDC);
+
+          expect(finalTotalSupply).eq(expectedTotalSupply);
+          expect(finalPositionInfo.length).eq(0);
+          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
         });
       });
     });
