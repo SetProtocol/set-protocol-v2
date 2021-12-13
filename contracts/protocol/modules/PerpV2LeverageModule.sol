@@ -715,6 +715,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
         internal
         returns (int256)
     {
+        _syncPositionList(_setToken);
         int256 setTokenQuantityInt = _setTokenQuantity.toInt256();
 
         // Note: `issued` naming convention used here for brevity. This logic is also run on redemption
@@ -1091,6 +1092,23 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
             positions[_setToken].removeStorage(_baseToken);
         } else if (!hasBaseToken) {
             positions[_setToken].push(_baseToken);
+        }
+    }
+
+    /**
+     * @dev Removes any zero balance positions from the positions array. This
+     * sync is done before issuance and redemption to account for positions that may have
+     * been liquidated.
+     *
+     * @param _setToken         Instance of the SetToken
+     */
+    function _syncPositionList(ISetToken _setToken) internal {
+        address[] memory positionList = positions[_setToken];
+
+        for (uint256 i = 0; i < positionList.length; i++) {
+            if (!_hasBaseBalance(_setToken, positionList[i])) {
+                positions[_setToken].removeStorage(positionList[i]);
+            }
         }
     }
 
