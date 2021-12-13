@@ -751,12 +751,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
         }
 
         // Return value in collateral decimals (e.g USDC = 6)
-        //
-        // TODO - we need to add a method to preciseMath to handle the int case for this....
-        //
         // Use preciseDivCeil when issuing to ensure we don't under-collateralize due to rounding error
-        // _isIssue ? accountValueIssued.preciseDivCeil(setTokenQuantityInt) : accountValueIssued.preciseDiv(setTokenQuantityInt),
-        return accountValueIssued.preciseDiv(setTokenQuantityInt).fromPreciseUnitToDecimals(collateralDecimals);
+        return (_isIssue)
+            ? accountValueIssued.preciseDivCeil(setTokenQuantityInt).fromPreciseUnitToDecimals(collateralDecimals)
+            : accountValueIssued.preciseDiv(setTokenQuantityInt).fromPreciseUnitToDecimals(collateralDecimals);
     }
 
     /**

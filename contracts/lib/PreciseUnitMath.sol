@@ -34,6 +34,8 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
  * CHANGELOG:
  * - 9/21/20: Added safePower function
  * - 4/21/21: Added approximatelyEquals function
+ * - 12/13/21: Added preciseDivCeil (int overloads) function
+ * - 12/13/21: Added abs function
  */
 library PreciseUnitMath {
     using SafeMath for uint256;
@@ -134,6 +136,22 @@ library PreciseUnitMath {
         require(b != 0, "Cant divide by 0");
 
         return a > 0 ? a.mul(PRECISE_UNIT).sub(1).div(b).add(1) : 0;
+    }
+
+    /**
+     * @dev Divides value a by value b (result is rounded up or away from 0). When `a` is 0, 0 is
+     * returned. When `b` is 0, method reverts with divide-by-zero error.
+     */
+    function preciseDivCeil(int256 a, int256 b) internal pure returns (int256) {
+        require(b != 0, "Cant divide by 0");
+
+        if (a == 0 ) {
+            return 0;
+        } else if ((a > 0 && b > 0) || (a < 0 && b < 0)) {
+            return a.mul(PRECISE_UNIT_INT).sub(1).div(b).add(1);
+        } else {
+            return a.mul(PRECISE_UNIT_INT).add(1).div(b).sub(1);
+        }
     }
 
     /**

@@ -30,6 +30,7 @@ describe("PreciseUnitMath", () => {
 
   // Used to make sure rounding is done correctly, 1020408168544454473
   const preciseNumber = BigNumber.from("0x0e2937d2abffc749");
+  const negativePreciseNumber = preciseNumber.mul(-1);
 
   before(async () => {
     [
@@ -211,6 +212,93 @@ describe("PreciseUnitMath", () => {
 
       const expectedDivision = preciseDivCeil(subjectA, subjectB);
       expect(division).to.eq(expectedDivision);
+    });
+
+    describe("when a is 0", async () => {
+      beforeEach(async () => {
+        subjectA = ZERO;
+      });
+
+      it("should return 0", async () => {
+        const division = await subject();
+        expect(division).to.eq(ZERO);
+      });
+    });
+
+    describe("when b is 0", async () => {
+      beforeEach(async () => {
+        subjectA = ZERO;
+        subjectB = ZERO;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Cant divide by 0");
+      });
+    });
+  });
+
+  describe("#preciseDivCeil: int256", async () => {
+    let subjectA: BigNumber;
+    let subjectB: BigNumber;
+
+    async function subject(): Promise<BigNumber> {
+      return mathMock.preciseDivCeilInt(subjectA, subjectB);
+    }
+
+    describe("when a and b are positive", () => {
+      beforeEach(async () => {
+        subjectA = preciseNumber;
+        subjectB = ether(.3);
+      });
+
+      it("returns the correct number", async () => {
+        const division = await subject();
+
+        const expectedDivision = preciseDivCeilInt(subjectA, subjectB);
+        expect(division).to.eq(expectedDivision);
+      });
+    });
+
+    describe("when a and b are negative", () => {
+      beforeEach(async () => {
+        subjectA = negativePreciseNumber;
+        subjectB = ether(-.3);
+      });
+
+      it("returns the correct number", async () => {
+        const division = await subject();
+
+        const expectedDivision = preciseDivCeilInt(subjectA, subjectB);
+        expect(division).to.eq(expectedDivision);
+      });
+    });
+
+    describe("when a is positive and b is negative", () => {
+      beforeEach(async () => {
+        subjectA = preciseNumber;
+        subjectB = ether(-.3);
+      });
+
+      it("returns the correct number", async () => {
+        const division = await subject();
+
+        const expectedDivision = preciseDivCeilInt(subjectA, subjectB);
+        expect(division).to.eq(expectedDivision);
+      });
+    });
+
+    describe("when a is negative and b is positive", () => {
+      beforeEach(async () => {
+        subjectA = negativePreciseNumber;
+        subjectB = ether(.3);
+      });
+
+      it("returns the correct number", async () => {
+        const division = await subject();
+
+        const expectedDivision = preciseDivCeilInt(subjectA, subjectB);
+        expect(division).to.eq(expectedDivision);
+      });
     });
 
     describe("when a is 0", async () => {
