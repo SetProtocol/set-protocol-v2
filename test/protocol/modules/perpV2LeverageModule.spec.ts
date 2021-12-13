@@ -50,12 +50,6 @@ import { BigNumber } from "ethers";
 const expect = getWaffleExpect();
 const provider = getProvider();
 
-// TODO: Tight all the return receive quantity units passed to Trade.
-// TODO: create a table to determine all possible combination of test cases.
-// (long, short, multiple long, multiple short, long + short),
-// with default and without default position units.
-// and make sure each function tests all possible cases.
-// When leverage ratio drops: add funding calculations and add closeTo checks
 describe("PerpV2LeverageModule", () => {
   let owner: Account;
   let maker: Account;
@@ -3176,7 +3170,7 @@ describe("PerpV2LeverageModule", () => {
               perpLeverageModule.address
             );
 
-            expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
+            expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
           });
         });
 
@@ -5478,7 +5472,7 @@ describe("PerpV2LeverageModule", () => {
       describe("when the Set owes funding", async () => {
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.7));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
