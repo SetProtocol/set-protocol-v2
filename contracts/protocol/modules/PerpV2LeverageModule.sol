@@ -709,6 +709,30 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
     /**
      * @dev MODULE ONLY: Hook called prior to issuance or redemption. Only callable by valid module.
+     * This method implements the core logic to replicate positions during issuance and redemption. Syncs
+     * the `positions` list before starting (because positions may have liquidated). Cycles through
+     * each position, trading `basePositionUnit * issueOrRedeemQuantity` and calculates the amount of
+     * USDC to transfer in/out for exchange, ensuring that issuer/redeemer pays slippage and that any
+     * pending payments like funding or owedRealizedPnl are socialized among existing Set holders
+     * appropriately. The hook which invokes this method sets the SetToken's externalPositionUnit using
+     * the positionUnit value returned here. Subsequent transfers in/out are managed by the issuance module
+     * which reads this value.
+     *
+     * The general formula for determining `accountValue` per Set is:
+     *
+     * `accountValue = collateral                                <---
+     *               + owedRealizedPnl                               }   totalCollateralValue
+     *               + pendingFundingPayment                     <---
+     *               + netQuoteBalance                           neg. when long, pos. when short
+     *               +/- sum( |deltaQuoteResultingFromTrade| )   add when long, subtract when short
+     *
+     * (See docs for `_calculatePartialAccountValuePositionUnit` below for more detail about the
+     * account value components).
+     *
+     * NOTE: On issuance, this hook is run *BEFORE* USDC is transferred in and deposited to the Perp
+     * vault to pay for the issuer's Sets. This trading temporarily spikes the Perp account's
+     * margin ratio (capped at ~9X) and limits the amount of Set that can issued at once to
+     * a multiple of the current Perp account value (will vary depending on Set's leverage ratio).
      *
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of Set to issue
