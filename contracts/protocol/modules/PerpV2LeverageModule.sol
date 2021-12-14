@@ -44,7 +44,6 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
 
-
 /**
  * @title PerpLeverageModule
  * @author Set Protocol
@@ -1170,16 +1169,21 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
     /**
      * @dev Returns a dust tolerant check of whether a base position balance exists. Because we use
-     * position unit math to calculate notional amounts when trading positions, there's a chance
-     * we could have introduced a 1 wei rounding error.
+     * position unit math to calculate notional amounts when trading positions, there could be
+     * totalSupply/10 ** 18 amount of wei that we can't account for due to rounding. Method calculates
+     * the basePositionUnit and returns true if it's greater than 1 (or less than -1 for short positions),
+     * false otherwise.
      *
      * @param _setToken     Instance of SetToken
      * @param _baseToken    Address of virtual base token
      * @return bool         True if a non-dust base token balance exists, false otherwise
      */
     function _hasBaseBalance(ISetToken _setToken, address _baseToken) internal view returns(bool) {
-        int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
-        return (baseBalance > 1) || (baseBalance < -1);
+        int256 baseBalanceUnit = perpAccountBalance
+            .getBase(address(_setToken), _baseToken)
+            .preciseDiv(_setToken.totalSupply().toInt256());
+
+        return (baseBalanceUnit > 1) || (baseBalanceUnit < -1);
     }
 
     /**
