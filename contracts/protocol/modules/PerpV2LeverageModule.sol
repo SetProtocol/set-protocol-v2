@@ -45,7 +45,7 @@ import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
 
 /**
- * @title PerpLeverageModule
+ * @title PerpV2LeverageModule
  * @author Set Protocol
  * @notice Smart contract that enables leveraged trading using the PerpV2 protocol. Each SetToken can only manage a single Perp account
  * represented as a positive equity external position whose value is the net Perp account value denominated in the collateral token
