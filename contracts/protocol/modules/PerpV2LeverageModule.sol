@@ -485,6 +485,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of SetToken to issue
      * @param _component            Address of deposit collateral component
+     * @param _isEquity             True if componentHook called from issuance module for equity flow, false otherwise
      */
     function componentIssueHook(
         ISetToken _setToken,
@@ -515,6 +516,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * @param _setToken             Instance of the SetToken
      * @param _setTokenQuantity     Quantity of SetToken to redeem
      * @param _component            Address of deposit collateral component
+     * @param _isEquity             True if componentHook called from issuance module for equity flow, false otherwise
      */
     function componentRedeemHook(
         ISetToken _setToken,
@@ -711,6 +713,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * @param _setTokenQuantity     Quantity of Set to issue
      * @param _isIssue              If true, invocation is for issuance, redemption otherwise
      * @param _isSimulation         If true, trading is only simulated (to return issuance adjustments)
+     * @return int256               Amount of collateral to transfer in/out in position units
      */
     function _executePositionTrades(
         ISetToken _setToken,
@@ -813,6 +816,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * | --------------------------------------- |
      *
      * @param _setToken             Instance of the SetToken
+     * @return accountValue         Partial account value in position units
      */
     function _calculatePartialAccountValuePositionUnit(ISetToken _setToken) internal view returns (int256 accountValue) {
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
@@ -829,6 +833,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * Updates the collateral token default position unit. This function is called directly by
      * the componentIssue hook, skipping external position unit setting because that method is assumed
      * to be the end of a call sequence (e.g manager will not need to read the updated value)
+     *
+     * @param _setToken                     Instance of SetToken
+     * @param _collateralNotionalQuantity   Notional collateral quantity to deposit
      */
     function _deposit(ISetToken _setToken, uint256 _collateralNotionalQuantity) internal {
         _setToken.invokeApprove(
@@ -846,6 +853,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      *
      * NOTE: This flow is only used when invoking the external `deposit` function - it converts collateral
      * quantity units into a notional quantity.
+     *
+     * @param _setToken                     Instance of SetToken
+     * @param _collateralQuantityUnits      Collateral quantity in position units to deposit
+     * @return uint256                      Notional quantity deposited
      */
     function _depositAndUpdatePositions(
         ISetToken _setToken,
@@ -880,6 +891,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * into a default position. This function is called directly by _accrueFee and _moduleRedeemHook,
      * skipping position unit state updates because the funds withdrawn to SetToken are immediately
      * forwarded to `feeRecipient` and SetToken owner respectively.
+     *
+     * @param _setToken                     Instance of SetToken
+     * @param _collateralNotionalQuantity   Notional collateral quantity to withdraw
      */
     function _withdraw(ISetToken _setToken, uint256 _collateralNotionalQuantity) internal {
         if (_collateralNotionalQuantity == 0) return;
@@ -894,6 +908,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      *
      * NOTE: This flow is only used when invoking the external `withdraw` function - it converts
      * a collateral units quantity into a notional quantity before invoking withdraw.
+     *
+     * @param _setToken                     Instance of SetToken
+     * @param _collateralQuantityUnits      Collateral quantity in position units to withdraw
+     * @return uint256                      Notional quantity withdrawn
      */
     function _withdrawAndUpdatePositions(
         ISetToken _setToken,
@@ -935,7 +953,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * | Sell    |  false  | true   | exact input (true)    | Min quote to receive        |
      * |----------------------------------------------------|---------------------------- |
      *
-     *
+     * @param _actionInfo  ActionInfo object
      * @return uint256     The base position delta resulting from the trade
      * @return uint256     The quote asset position delta resulting from the trade
      */
@@ -969,8 +987,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * | Sell    |  false  | true   | exact input (true)    |
      * |----------------------------------------------------|
      *
-     * @return uint256     The base position delta resulting from the trade
-     * @return uint256     The quote asset position delta resulting from the trade
+     * @param _actionInfo   ActionInfo object
+     * @return uint256      The base position delta resulting from the trade
+     * @return uint256      The quote asset position delta resulting from the trade
      */
     function _simulateTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
         IQuoter.SwapParams memory params = IQuoter.SwapParams({
@@ -987,7 +1006,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
 
     /**
      * @dev Calculates protocol fee on module and pays protocol fee from SetToken
-     * @return uint256          Total protocol fee paid in underlying collateral decimals e.g (USDC = 6)
+     *
+     * @param  _setToken            Instance of SetToken
+     * @param  _exchangedQuantity   Notional quantity of USDC exchanged in trade (e.g deltaQuote)
+     * @return uint256              Total protocol fee paid in underlying collateral decimals e.g (USDC = 6)
      */
     function _accrueProtocolFee(
         ISetToken _setToken,
@@ -1089,6 +1111,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     /**
      * @dev Update position address array if a token has been newly added or completely sold off
      * during lever/delever
+     *
+     * @param _setToken     Instance of SetToken
+     * @param _baseToken    Address of virtual base token
      */
     function _updatePositionList(ISetToken _setToken, address _baseToken) internal {
         address[] memory positionList = positions[_setToken];
@@ -1122,6 +1147,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * @dev Returns a dust tolerant check of whether a base position balance exists. Because we use
      * position unit math to calculate notional amounts when trading positions, there's a chance
      * we could have introduced a 1 wei rounding error.
+     *
+     * @param _setToken     Instance of SetToken
+     * @param _baseToken    Address of virtual base token
+     * @return bool         True if a non-dust base token balance exists, false otherwise
      */
     function _hasBaseBalance(ISetToken _setToken, address _baseToken) internal view returns(bool) {
         int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
@@ -1131,6 +1160,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     /**
      * @dev Calculates the sum of collateralToken denominated market-prices of assets and debt for the Perp account per
      * SetToken
+     *
+     * @param _setToken     Instance of SetToken
+     * @return int256       External position unit
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
@@ -1149,12 +1181,18 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
         return externalPositionUnitInPrecisionDecimals.fromPreciseUnitToDecimals(collateralDecimals);
     }
 
-    // @dev Retrieves collateral balance as an an 18 decimal vUSDC quote value
+    // @dev Retrieves collateral balance as an 18 decimal vUSDC quote value
+    //
+    // @param _setToken     Instance of SetToken
+    // @return int256       Collateral balance as an 18 decimal vUSDC quote value
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         return perpVault.getBalance(address(_setToken)).toPreciseUnitsFromDecimals(collateralDecimals);
     }
 
     // @dev Retrieves net quote balance of all open positions
+    //
+    // @param _setToken     Instance of SetToken
+    // @return int256       Net quote balance of all open positions
     function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
         for (uint256 i = 0; i < positions[_setToken].length; i++) {
             netQuoteBalance = netQuoteBalance.add(
@@ -1170,6 +1208,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
      * the SetToken's components array, at the same index the collateral token occupies in the components
      * array. All other values are left unset (0). An empty-value components length debtAdjustments
      * array is also returned.
+     *
+     * @param _setToken                         Instance of the SetToken
+     * @param _components                       Array of components held by the SetToken
+     * @param _newExternalPositionUnit          Dynamically calculated externalPositionUnit
+     * @return int256[]                         Components-length array with equity adjustment value at appropriate index
+     * @return int256[]                         Components-length array of zeroes (debt adjustements)
      */
     function _formatAdjustments(
         ISetToken _setToken,
