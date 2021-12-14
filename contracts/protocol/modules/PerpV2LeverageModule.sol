@@ -676,6 +676,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + collateral balance (10**18, regardless of underlying collateral decimals)
      *         + owed realized Pnl` (10**18)
      *         + pending funding payments (10**18)
+     *         + net quote balance (10**18)
      */
     function getAccountInfo(ISetToken _setToken) public view returns (AccountInfo memory accountInfo) {
         (int256 owedRealizedPnl,, ) =  perpAccountBalance.getPnlAndPendingFee(address(_setToken));
