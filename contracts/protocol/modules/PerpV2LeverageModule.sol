@@ -787,45 +787,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * as a position unit. It forms the base to which traded position values are added during issuance or redemption,
      * and to which existing position values are added when calculating the externalPositionUnit.
      *
-     * From perp:
-     * `accountValue = collateral                                <---
-     *               + owedRealizedPnl                               }   totalCollateralValue
-     *               + pendingFundingPayment                     <---
-     *               + sum_over_market(positionValue_market)
-     *               + netQuoteBalance
-     *
-     * NOTE: OwedRealizedPnl and PendingFunding values can be either positive or negative
-     *
-     * OwedRealizedPnl
-     * ---------------
-     * Accrues when trades execute and result in a profit or loss per the table
-     * below. Each withdrawal zeros out `owedRealizedPnl`, settling it to the vault.
-     *
-     * | -------------------------------------------------- |
-     * | Position Type | AMM Spot Price | Action | Value    |
-     * | ------------- | -------------- | ------ | -------  |
-     * | Long          | Rises          | Sell   | Positive |
-     * | Long          | Falls          | Sell   | Negative |
-     * | Short         | Rises          | Buy    | Negative |
-     * | Short         | Falls          | Buy    | Positive |
-     * | -------------------------------------------------- |
-     *
-     *
-     * PendingFunding
-     * --------------
-     * The direction of this flow is determined by the difference between virtual asset UniV3 spot prices and
-     * their parent asset's broader market price (as represented by a Chainlink oracle), per the table below.
-     * Each trade zeroes out `pendingFunding`, settling it to owedRealizedPnl.
-     *
-     * | --------------------------------------- |
-     * | Position Type | Oracle Price | Value    |
-     * | ------------- | ------------ | -------- |
-     * | Long          | Below AMM    | Negative |
-     * | Long          | Above AMM    | Positive |
-     * | Short         | Below AMM    | Positive |
-     * | Short         | Above AMM    | Negative |
-     * | --------------------------------------- |
-     *
      * @param _setToken             Instance of the SetToken
      * @return accountValue         Partial account value in position units
      */
