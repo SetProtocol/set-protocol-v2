@@ -1019,13 +1019,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
         returns(uint256)
     {
         uint256 protocolFee = getModuleFee(PROTOCOL_TRADE_FEE_INDEX, _exchangedQuantity);
-        uint256 protocolFeeInCollateralDecimals = protocolFee.fromPreciseUnitToDecimals(collateralDecimals);
+        uint256 protocolFeeInPreciseUnits = protocolFee.fromPreciseUnitToDecimals(collateralDecimals);
 
-        _withdraw(_setToken, protocolFeeInCollateralDecimals);
+        _withdraw(_setToken, protocolFeeInPreciseUnits);
 
-        payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFeeInCollateralDecimals);
+        payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFeeInPreciseUnits);
 
-        return protocolFeeInCollateralDecimals;
+        return protocolFeeInPreciseUnits;
     }
 
     /**
