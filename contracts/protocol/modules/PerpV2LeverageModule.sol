@@ -51,7 +51,7 @@ import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
  * @notice Smart contract that enables leveraged trading using the PerpV2 protocol. Each SetToken can only manage a single Perp account
  * represented as a positive equity external position whose value is the net Perp account value denominated in the collateral token
  * deposited into the Perp Protocol. This module only allows Perp positions to be collateralized by one asset, USDC, set on deployment of
- * this contract (see collateralToken) however it can take positions simultaneuosly in multiple base assets.
+ * this contract (see collateralToken) however it can take positions simultaneously in multiple base assets.
  *
  * Upon issuance and redemption positions are not EXACTLY replicated like for other position types since a trade is necessary to enter/exit
  * the position on behalf of the issuer/redeemer. Any cost of entering/exiting the position (slippage) is carried by the issuer/redeemer.
@@ -124,7 +124,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     );
 
     /**
-     * @dev Emitted on deposit (not issue or redeeem)
+     * @dev Emitted on deposit (not issue or redeem)
      * @param _setToken             Instance of SetToken
      * @param _collateralToken      Token being deposited as collateral (USDC)
      * @param _amountDeposited      Amount of collateral being deposited into Perp
@@ -136,7 +136,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     );
 
     /**
-     * @dev Emitted on withdraw (not issue or redeeem)
+     * @dev Emitted on withdraw (not issue or redeem)
      * @param _setToken             Instance of SetToken
      * @param _collateralToken      Token being withdrawn as collateral (USDC)
      * @param _amountWithdrawn      Amount of collateral being withdrawn from Perp
@@ -176,7 +176,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
     IMarketRegistry public immutable perpMarketRegistry;
 
-    // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's setllement and collateral token
+    // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's settlement and collateral token
     IERC20 public immutable collateralToken;
 
     // Decimals of collateral token. We set this in the constructor for later reading
