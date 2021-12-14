@@ -383,7 +383,7 @@ describe("PerpV2LeverageModule", () => {
     let subjectCaller: Account;
     let subjectBaseToken: Address;
     let subjectBaseTradeQuantityUnits: BigNumber;
-    let subjectQuoteReceiveQuantityUnits: BigNumber;
+    let subjectQuoteBoundQuantityUnits: BigNumber;
 
     const initializeContracts = async () => {
       depositQuantity = usdcUnits(10);
@@ -404,7 +404,7 @@ describe("PerpV2LeverageModule", () => {
         subjectSetToken,
         subjectBaseToken,
         subjectBaseTradeQuantityUnits,
-        subjectQuoteReceiveQuantityUnits
+        subjectQuoteBoundQuantityUnits
       );
     }
 
@@ -414,7 +414,7 @@ describe("PerpV2LeverageModule", () => {
           beforeEach(async () => {
             // Long ~10 USDC of vETH
             subjectBaseTradeQuantityUnits = ether(1);
-            subjectQuoteReceiveQuantityUnits = ether(10.15);
+            subjectQuoteBoundQuantityUnits = ether(10.15);
           });
 
           it("should open the expected position", async () => {
@@ -435,10 +435,10 @@ describe("PerpV2LeverageModule", () => {
             expect(finalPositionInfo.quoteBalance).lt(0);
             expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
             expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance.mul(-1));
-            expect(finalPositionInfo.quoteBalance.mul(-1)).lt(subjectQuoteReceiveQuantityUnits);
+            expect(finalPositionInfo.quoteBalance.mul(-1)).lt(subjectQuoteBoundQuantityUnits);
           });
 
-          it("should emit the correct PerpTrade event", async () => {
+          it("should emit the correct PerpTraded event", async () => {
             const {
               deltaBase: expectedDeltaBase,
               deltaQuote: expectedDeltaQuote
@@ -447,7 +447,7 @@ describe("PerpV2LeverageModule", () => {
             const expectedProtocolFee = ether(0);
             const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
@@ -478,13 +478,13 @@ describe("PerpV2LeverageModule", () => {
           beforeEach(async () => {
             // Long ~20 USDC of vETH with 10 USDC collateral
             subjectBaseTradeQuantityUnits = ether(2);
-            subjectQuoteReceiveQuantityUnits = ether(20.3);
+            subjectQuoteBoundQuantityUnits = ether(20.3);
           });
 
           it("should open expected position", async () => {
             const totalSupply = await setToken.totalSupply();
             const collateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
-            const quoteBalanceMin = preciseMul(subjectQuoteReceiveQuantityUnits, totalSupply);
+            const quoteBalanceMin = preciseMul(subjectQuoteBoundQuantityUnits, totalSupply);
 
             const expectedQuoteBalance =
               (await perpSetup.getSwapQuote(subjectBaseToken, subjectBaseTradeQuantityUnits, true)).deltaQuote;
@@ -522,7 +522,7 @@ describe("PerpV2LeverageModule", () => {
 
             subjectSetToken = otherSetToken.address;
             subjectBaseTradeQuantityUnits = ether(1);
-            subjectQuoteReceiveQuantityUnits = ether(10.15);
+            subjectQuoteBoundQuantityUnits = ether(10.15);
           });
 
           it("should open position for the expected amount", async () => {
@@ -542,7 +542,7 @@ describe("PerpV2LeverageModule", () => {
           beforeEach(async () => {
             // Long ~10 USDC of vETH: slippage incurred as larger negative quote delta
             subjectBaseTradeQuantityUnits = ether(1);
-            subjectQuoteReceiveQuantityUnits = ether(10);
+            subjectQuoteBoundQuantityUnits = ether(10);
           });
 
           it("should revert", async () => {
@@ -554,13 +554,13 @@ describe("PerpV2LeverageModule", () => {
         describe("when an existing position is long", async () => {
           beforeEach(async () => {
             subjectBaseTradeQuantityUnits = ether(1);
-            subjectQuoteReceiveQuantityUnits = ether(10.15);
+            subjectQuoteBoundQuantityUnits = ether(10.15);
 
             await perpLeverageModule.connect(subjectCaller.wallet).trade(
               subjectSetToken,
               subjectBaseToken,
               subjectBaseTradeQuantityUnits,
-              subjectQuoteReceiveQuantityUnits
+              subjectQuoteBoundQuantityUnits
             );
           });
 
@@ -590,7 +590,7 @@ describe("PerpV2LeverageModule", () => {
             );
 
             subjectBaseTradeQuantityUnits = ether(.5);
-            subjectQuoteReceiveQuantityUnits = ether(5.15);
+            subjectQuoteBoundQuantityUnits = ether(5.15);
           });
 
           it("long trade should reduce the position", async () => {
@@ -624,7 +624,7 @@ describe("PerpV2LeverageModule", () => {
           describe("when the position is zeroed out", async () => {
             beforeEach(async () => {
               subjectBaseTradeQuantityUnits = ether(1);
-              subjectQuoteReceiveQuantityUnits = ether(10.15);
+              subjectQuoteBoundQuantityUnits = ether(10.15);
             });
 
             it("should remove the position from the positions array", async () => {
@@ -653,7 +653,7 @@ describe("PerpV2LeverageModule", () => {
 
             // Long ~10 USDC of vETH
             subjectBaseTradeQuantityUnits = ether(1);
-            subjectQuoteReceiveQuantityUnits = ether(10.15);
+            subjectQuoteBoundQuantityUnits = ether(10.15);
           });
 
           it("should withdraw the expected collateral amount from the Perp vault", async () => {
@@ -698,7 +698,7 @@ describe("PerpV2LeverageModule", () => {
             expect(initialUSDCDefaultPositionUnit).to.eq(finalUSDCDefaultPositionUnit);
           });
 
-          it("should emit the correct PerpTrade event", async () => {
+          it("should emit the correct PerpTraded event", async () => {
             const {
               deltaBase: expectedDeltaBase,
               deltaQuote: expectedDeltaQuote
@@ -707,7 +707,7 @@ describe("PerpV2LeverageModule", () => {
             const expectedProtocolFee = toUSDCDecimals(preciseMul(expectedDeltaQuote, feePercentage));
             const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
@@ -727,13 +727,25 @@ describe("PerpV2LeverageModule", () => {
             await expect(subject()).to.be.revertedWith("Amount is 0");
           });
         });
+
+        describe("when baseToken does not exist in Perp system", async () => {
+          beforeEach(async () => {
+            subjectBaseTradeQuantityUnits = ether(1);
+            subjectQuoteBoundQuantityUnits = ether(10.15);
+            subjectBaseToken = await getRandomAddress();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Base token does not exist");
+          });
+        });
       });
 
       describe("when short", () => {
         beforeEach(async () => {
           // Short ~10 USDC of vETH
           subjectBaseTradeQuantityUnits = ether(-1);
-          subjectQuoteReceiveQuantityUnits = ether(9.85);
+          subjectQuoteBoundQuantityUnits = ether(9.85);
         });
 
         it("should open the expected position", async () => {
@@ -755,10 +767,10 @@ describe("PerpV2LeverageModule", () => {
           expect(finalPositionInfo.quoteBalance).gt(0);
           expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
           expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
-          expect(finalPositionInfo.quoteBalance).gt(subjectQuoteReceiveQuantityUnits);
+          expect(finalPositionInfo.quoteBalance).gt(subjectQuoteBoundQuantityUnits);
         });
 
-        it("should emit the correct PerpTrade event", async () => {
+        it("should emit the correct PerpTraded event", async () => {
           const {
             deltaBase: expectedDeltaBase,
             deltaQuote: expectedDeltaQuote
@@ -767,7 +779,7 @@ describe("PerpV2LeverageModule", () => {
           const expectedProtocolFee = ether(0);
           const expectedIsBuy = false;
 
-          await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
+          await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
             subjectSetToken,
             subjectBaseToken,
             expectedDeltaBase,
@@ -788,7 +800,7 @@ describe("PerpV2LeverageModule", () => {
 
             // Partial close
             subjectBaseTradeQuantityUnits = ether(-.5);
-            subjectQuoteReceiveQuantityUnits = ether(4.85);
+            subjectQuoteBoundQuantityUnits = ether(4.85);
           });
 
           it("short trade should reduce the position", async () => {
@@ -822,7 +834,7 @@ describe("PerpV2LeverageModule", () => {
           describe("when the position is zeroed out", async () => {
             beforeEach(async () => {
               subjectBaseTradeQuantityUnits = ether(-1);
-              subjectQuoteReceiveQuantityUnits = ether(9.85);
+              subjectQuoteBoundQuantityUnits = ether(9.85);
             });
 
             it("should remove the position from the positions array", async () => {
@@ -877,7 +889,7 @@ describe("PerpV2LeverageModule", () => {
 
             // Short ~10 USDC of vETH
             subjectBaseTradeQuantityUnits = ether(-1);
-            subjectQuoteReceiveQuantityUnits = ether(9.85);
+            subjectQuoteBoundQuantityUnits = ether(9.85);
           });
 
           it("should withdraw the expected collateral amount from the Perp vault", async () => {
@@ -904,7 +916,7 @@ describe("PerpV2LeverageModule", () => {
           beforeEach(async () => {
             // Short ~10 USDC of vETH, slippage incurred as smaller positive quote delta
             subjectBaseTradeQuantityUnits = ether(-1);
-            subjectQuoteReceiveQuantityUnits = ether(10);
+            subjectQuoteBoundQuantityUnits = ether(10);
           });
 
           it("should revert", async () => {
@@ -3080,6 +3092,50 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when there is no external USDC position", () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+        );
+
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        // Issue to create some supply
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(otherSetToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(otherSetToken.address, ether(1), owner.address);
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should not update the externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        await subject();
+
+        const finalExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        expect(initialExternalPositionUnit).eq(ZERO);
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
+    });
+
     describe("when caller is not module", async () => {
       beforeEach(async () => {
         subjectCaller = owner;
@@ -4132,6 +4188,50 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when there is no external USDC position", () => {
+      let otherSetToken: SetToken;
+
+      beforeEach(async () => {
+        otherSetToken = await setup.createSetToken(
+          [usdc.address],
+          [usdcUnits(10)],
+          [perpLeverageModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+        );
+
+        await debtIssuanceMock.initialize(otherSetToken.address);
+        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
+
+        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
+
+        await otherSetToken.addModule(mockModule.address);
+        await otherSetToken.connect(mockModule.wallet).initializeModule();
+
+        // Issue to create some supply
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(otherSetToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(otherSetToken.address, ether(2), owner.address);
+
+        subjectSetToken = otherSetToken.address;
+      });
+
+      it("should not update the externalPositionUnit", async () => {
+        const initialExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        await subject();
+
+        const finalExternalPositionUnit = await otherSetToken.getExternalPositionRealUnit(
+          usdc.address,
+          perpLeverageModule.address
+        );
+
+        expect(initialExternalPositionUnit).eq(ZERO);
+        expect(initialExternalPositionUnit).eq(finalExternalPositionUnit);
+      });
+    });
+
     describe("when caller is not module", async () => {
       beforeEach(async () => subjectCaller = owner);
 
@@ -4591,149 +4691,13 @@ describe("PerpV2LeverageModule", () => {
       expect(isRegistered).to.be.false;
     });
 
-    describe("when collateral balance exists", async () => {
+    describe("when the account balance is positive", async () => {
       beforeEach(async () => {
         await perpLeverageModule.deposit(setToken.address, usdcUnits(10));
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral balance remaining");
-      });
-    });
-  });
-
-  describe("#updateAllowedSetToken", async () => {
-    let setToken: SetToken;
-
-    let subjectSetToken: Address;
-    let subjectStatus: boolean;
-    let subjectCaller: Account;
-
-    beforeEach(async () => {
-      setToken = setToken = await setup.createSetToken(
-        [usdc.address],
-        [ether(2)],
-        [perpLeverageModule.address, debtIssuanceMock.address]
-      );
-
-      subjectSetToken = setToken.address;
-      subjectStatus = true;
-      subjectCaller = owner;
-    });
-
-    async function subject(): Promise<any> {
-      return perpLeverageModule.connect(subjectCaller.wallet).updateAllowedSetToken(
-        subjectSetToken,
-        subjectStatus
-      );
-    }
-
-    it("should add Set to allow list", async () => {
-      await subject();
-
-      const isAllowed = await perpLeverageModule.allowedSetTokens(subjectSetToken);
-
-      expect(isAllowed).to.be.true;
-    });
-
-    it("should emit the correct SetTokenStatusUpdated event", async () => {
-      await expect(subject()).to.emit(perpLeverageModule, "SetTokenStatusUpdated").withArgs(
-        subjectSetToken,
-        subjectStatus
-      );
-    });
-
-    describe("when disabling a Set", async () => {
-      beforeEach(async () => {
-        await subject();
-        subjectStatus = false;
-      });
-
-      it("should remove Set from allow list", async () => {
-        await subject();
-
-        const isAllowed = await perpLeverageModule.allowedSetTokens(subjectSetToken);
-
-        expect(isAllowed).to.be.false;
-      });
-
-      it("should emit the correct SetTokenStatusUpdated event", async () => {
-        await expect(subject()).to.emit(perpLeverageModule, "SetTokenStatusUpdated").withArgs(
-          subjectSetToken,
-          subjectStatus
-        );
-      });
-
-      describe("when Set Token is removed on controller", async () => {
-        beforeEach(async () => {
-          await setup.controller.removeSet(setToken.address);
-        });
-
-        it("should remove the Set from allow list", async () => {
-          await subject();
-
-          const isAllowed = await perpLeverageModule.allowedSetTokens(subjectSetToken);
-
-          expect(isAllowed).to.be.false;
-        });
-      });
-    });
-
-    describe("when Set is removed on controller", async () => {
-      beforeEach(async () => {
-        await setup.controller.removeSet(setToken.address);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Invalid SetToken");
-      });
-    });
-
-    describe("when not called by owner", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
-      });
-    });
-  });
-
-  describe("#updateAnySetAllowed", async () => {
-    let subjectAnySetAllowed: boolean;
-    let subjectCaller: Account;
-
-    beforeEach(async () => {
-      subjectAnySetAllowed = true;
-      subjectCaller = owner;
-    });
-
-    async function subject(): Promise<any> {
-      return perpLeverageModule.connect(subjectCaller.wallet).updateAnySetAllowed(subjectAnySetAllowed);
-    }
-
-    it("should update anySetAllowed to true", async () => {
-      await subject();
-
-      const anySetAllowed = await perpLeverageModule.anySetAllowed();
-
-      expect(anySetAllowed).to.be.true;
-    });
-
-    it("should emit the correct AnySetAllowedUpdated event", async () => {
-      await expect(subject()).to.emit(perpLeverageModule, "AnySetAllowedUpdated").withArgs(
-        subjectAnySetAllowed
-      );
-    });
-
-    describe("when not called by owner", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+        await expect(subject()).to.be.revertedWith("Account balance is positive");
       });
     });
   });
@@ -5047,21 +5011,21 @@ describe("PerpV2LeverageModule", () => {
         true
       ));
 
-      const vETHQuoteReceiveQuantityUnits = ether(10.15);
-      const vBTCQuoteReceiveQuantityUnits = ether(101);
+      const vETHQuoteBoundQuantityUnits = ether(10.15);
+      const vBTCQuoteBoundQuantityUnits = ether(101);
 
       await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVETHToken,
         vethTradeQuantityUnits,
-        vETHQuoteReceiveQuantityUnits
+        vETHQuoteBoundQuantityUnits
       );
 
       await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVBTCToken,
         vbtcTradeQuantityUnits,
-        vBTCQuoteReceiveQuantityUnits
+        vBTCQuoteBoundQuantityUnits
       );
     });
 
@@ -5111,21 +5075,21 @@ describe("PerpV2LeverageModule", () => {
       vethTradeQuantityUnits = preciseDiv(ether(1), issueQuantity);
       vbtcTradeQuantityUnits = preciseDiv(ether(1), issueQuantity);
 
-      const vETHQuoteReceiveQuantityUnits = preciseDiv(ether(10.15), issueQuantity);
-      const vBTCQuoteReceiveQuantityUnits = preciseDiv(ether(50.575), issueQuantity);
+      const vETHQuoteBoundQuantityUnits = preciseDiv(ether(10.15), issueQuantity);
+      const vBTCQuoteBoundQuantityUnits = preciseDiv(ether(50.575), issueQuantity);
 
       await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVETHToken,
         vethTradeQuantityUnits,
-        vETHQuoteReceiveQuantityUnits
+        vETHQuoteBoundQuantityUnits
       );
 
       await perpLeverageModule.connect(owner.wallet).trade(
         subjectSetToken,
         expectedVBTCToken,
         vbtcTradeQuantityUnits,
-        vBTCQuoteReceiveQuantityUnits
+        vBTCQuoteBoundQuantityUnits
       );
     });
 

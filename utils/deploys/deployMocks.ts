@@ -46,7 +46,10 @@ import {
   WrapV2AdapterMock,
   ZeroExMock,
   YearnStrategyMock,
-  AaveV2Mock
+  AaveV2Mock,
+  UniswapV3MathMock,
+  UnitConversionUtilsMock,
+  SetTokenAccessibleMock
 } from "../contracts";
 
 import { ether } from "../common";
@@ -97,7 +100,9 @@ import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory
 import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
 import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrategyMock__factory";
 import { AaveV2Mock__factory } from "../../typechain/factories/AaveV2Mock__factory";
-
+import { UniswapV3MathMock__factory } from "../../typechain/factories/UniswapV3MathMock__factory";
+import { UnitConversionUtilsMock__factory } from "../../typechain/factories/UnitConversionUtilsMock__factory";
+import { SetTokenAccessibleMock__factory } from "../../typechain/factories/SetTokenAccessibleMock__factory";
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -292,6 +297,18 @@ export default class DeployMocks {
       },
       this._deployerSigner
     ).deploy();
+  }
+
+  public async deployUniswapV3MathMock(): Promise<UniswapV3MathMock> {
+    return await new UniswapV3MathMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployUnitConversionUtilsMock(): Promise<UnitConversionUtilsMock> {
+    return await new UnitConversionUtilsMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deploySetTokenAccessibleMock(controller: Address): Promise<SetTokenAccessibleMock> {
+    return await new SetTokenAccessibleMock__factory(this._deployerSigner).deploy(controller);
   }
 
   public async deployClaimAdapterMock(): Promise<ClaimAdapterMock> {
