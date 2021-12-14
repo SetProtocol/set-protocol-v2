@@ -223,6 +223,36 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     /* ============ External Functions ============ */
 
     /**
+     * @dev MANAGER ONLY: Initializes this module to the SetToken. Either the SetToken needs to be on the
+     * allowed list or anySetAllowed needs to be true.
+     *
+     * @param _setToken             Instance of the SetToken to initialize
+     */
+    function initialize(
+        ISetToken _setToken
+    )
+        external
+        onlySetManager(_setToken, msg.sender)
+        onlyValidAndPendingSet(_setToken)
+        onlyAllowedSet(_setToken)
+    {
+        // Initialize module before trying register
+        _setToken.initializeModule();
+
+        // Get debt issuance module registered to this module and require that it is initialized
+        require(_setToken.isInitializedModule(
+            getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)),
+            "Issuance not initialized"
+        );
+
+        // Try if register exists on any of the modules including the debt issuance module
+        address[] memory modules = _setToken.getModules();
+        for(uint256 i = 0; i < modules.length; i++) {
+            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
+        }
+    }
+
+    /**
      * @dev MANAGER ONLY: Allows manager to buy or sell perps to change exposure to the underlying baseToken.
      * Providing a positive value for `_baseQuantityUnits` buys vToken on UniswapV3 via Perp's ClearingHouse,
      * Providing a negative value sells the token. `_quoteBoundQuantityUnits` defines a min-receive-like slippage
@@ -336,36 +366,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
         uint256 notionalWithdrawnQuantity = _withdrawAndUpdatePositions(_setToken, _collateralQuantityUnits);
 
         emit CollateralWithdrawn(_setToken, collateralToken, notionalWithdrawnQuantity);
-    }
-
-    /**
-     * @dev MANAGER ONLY: Initializes this module to the SetToken. Either the SetToken needs to be on the
-     * allowed list or anySetAllowed needs to be true.
-     *
-     * @param _setToken             Instance of the SetToken to initialize
-     */
-    function initialize(
-        ISetToken _setToken
-    )
-        external
-        onlySetManager(_setToken, msg.sender)
-        onlyValidAndPendingSet(_setToken)
-        onlyAllowedSet(_setToken)
-    {
-        // Initialize module before trying register
-        _setToken.initializeModule();
-
-        // Get debt issuance module registered to this module and require that it is initialized
-        require(_setToken.isInitializedModule(
-            getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)),
-            "Issuance not initialized"
-        );
-
-        // Try if register exists on any of the modules including the debt issuance module
-        address[] memory modules = _setToken.getModules();
-        for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
-        }
     }
 
     /**
