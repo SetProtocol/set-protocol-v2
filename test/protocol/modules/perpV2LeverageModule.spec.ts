@@ -1753,7 +1753,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker buying 20k USDC of vETH
           // Post trade spot price rises from ~10 USDC to 14_356_833_358_751_766_356
@@ -1806,7 +1806,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is negative owedRealizedPnl", async () => {
+      describe("when there is negative owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price down by maker selling 20k USDC of vETH
           // Post trade spot price rises from ~10 USDC to 6_370_910_537_702_299_856
@@ -2453,7 +2453,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker buying 20k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -2609,7 +2609,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price down by maker selling 10k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -2659,7 +2659,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is negative owedRealizedPnl", async () => {
+      describe("when there is negative owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker buying 20k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -3309,7 +3309,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker selling buying USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -3362,7 +3362,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is negative owedRealizedPnl", async () => {
+      describe("when there is negative owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price down by maker selling 1k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -3698,7 +3698,7 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  describe.skip("#moduleRedeemHook", () => {
+  describe("#moduleRedeemHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
@@ -3804,7 +3804,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker buying 1k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -3852,12 +3852,12 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(owedRealizedPnl).gt(ether(1));
+          expect(owedRealizedPnl).gt(0);
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
         });
       });
 
-      describe.only("when there is negative owedRealizedPnl", async () => {
+      describe("when there is negative owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price down by maker selling 1k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -4476,7 +4476,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker buying 2k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -4546,7 +4546,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      /// .only todo: when there is negative owedRealizedPnl
+      ///  todo: when there is negative owedRealizedPnl
     });
 
     describe("when short", async () => {
@@ -4625,7 +4625,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price down by maker buying 1k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -4678,7 +4678,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is negative owedRealizedPnl", async () => {
+      describe("when there is negative owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price up by maker buy 1k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -5351,7 +5351,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is positive owedRealizedPnl", async () => {
+      describe("when there is positive owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price down by maker selling 2k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
@@ -5404,7 +5404,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe.only("when there is negative owedRealizedPnl", async () => {
+      describe("when there is negative owedRealizedPnl", async () => {
         beforeEach(async () => {
           // Move price down by maker selling 1k USDC of vETH
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
