@@ -2253,10 +2253,6 @@ describe("PerpV2LeverageModule", () => {
       describe("when issuing multiple sets", async () => {
         beforeEach(async () => {
           subjectSetQuantity = ether(2);
-
-          // Deposit more collateral to avoid NEFC error
-          // todo: confirm with chris if we don't need this any longer
-          // await perpLeverageModule.deposit(subjectSetToken, usdcUnits(30));
         });
 
         it("buys expected amount of vETH, vBTC", async () => {
