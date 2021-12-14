@@ -1155,11 +1155,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
-     * @dev Returns a dust tolerant check of whether a base position balance exists. Because we use
-     * position unit math to calculate notional amounts when trading positions, there could be
-     * totalSupply/10 ** 18 amount of wei that we can't account for due to rounding. Method calculates
-     * the basePositionUnit and returns true if it's greater than 1 (or less than -1 for short positions),
-     * false otherwise.
+     * @dev Checks to see if we can make 1 positionUnit worth of a baseToken position, if not we consider the Set to have
+     * no balance and return false
      *
      * @param _setToken     Instance of SetToken
      * @param _baseToken    Address of virtual base token
