@@ -90,15 +90,15 @@ describe("PerpV2LeverageModule", () => {
     await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10));
     await perpSetup.initializePoolWithLiquidityWide(
       vETH,
-      ether(10_000),
-      ether(100_000)
+      ether(10_000_000),
+      ether(100_000_000)
     );
 
     await perpSetup.setBaseTokenOraclePrice(vBTC, usdcUnits(20));
     await perpSetup.initializePoolWithLiquidityWide(
       vBTC,
-      ether(10_000),
-      ether(200_000)
+      ether(10_000_000),
+      ether(200_000_000)
     );
 
     debtIssuanceMock = await deployer.mocks.deployDebtIssuanceMock();
@@ -2547,8 +2547,6 @@ describe("PerpV2LeverageModule", () => {
           .moduleIssueHook(subjectSetToken, subjectSetQuantity);
       }
 
-      // todo: missing when issuing multiple sets
-
       describe("when issuing a single set", async () => {
         let spotPrice: BigNumber;
         let fetchingBlockTimestamp: number;
@@ -4939,8 +4937,6 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when redeeming multiple sets", async () => {
-        // todo: missing check to confirm base token balances
-
         it("should set the expected USDC externalPositionUnit", async () => {
           const spotPrice = await perpSetup.getSpotPrice(baseToken);
           const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
@@ -5822,7 +5818,6 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  // todo: One missing test case.
   describe("#componentRedeemHook", () => {
     let setToken: SetToken;
     let collateralQuantity: BigNumber;

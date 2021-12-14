@@ -72,7 +72,7 @@ export interface PositionInfo {
   quoteBalance: BigNumber;
 }
 
-const ONE_MILLION = "1000000";
+const ONE_BILLION = "1000000000";
 
 export class PerpV2Fixture {
   private _deployer: DeployHelper;
@@ -259,14 +259,14 @@ export class PerpV2Fixture {
     await this.accountBalance.setClearingHouse(this.clearingHouse.address);
 
     // prepare collateral for maker
-    const makerCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
+    const makerCollateralAmount = utils.parseUnits(ONE_BILLION, this._usdcDecimals);
     await this.usdc.mint(this.maker.address, makerCollateralAmount);
-    await this.deposit(this.maker, BigNumber.from(ONE_MILLION), this.usdc);
+    await this.deposit(this.maker, BigNumber.from(ONE_BILLION), this.usdc);
 
     // prepare collateral for maker
-    const otherCollateralAmount = utils.parseUnits(ONE_MILLION, this._usdcDecimals);
+    const otherCollateralAmount = utils.parseUnits(ONE_BILLION, this._usdcDecimals);
     await this.usdc.mint(this.otherTrader.address, otherCollateralAmount);
-    await this.deposit(this.otherTrader, BigNumber.from(ONE_MILLION), this.usdc);
+    await this.deposit(this.otherTrader, BigNumber.from(ONE_BILLION), this.usdc);
   }
 
   async deposit(sender: Account, amount: BigNumber, token: StandardTokenMock): Promise<void> {
