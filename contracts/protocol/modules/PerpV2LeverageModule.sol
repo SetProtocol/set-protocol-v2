@@ -747,17 +747,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         for(uint i = 0; i < positionInfo.length; i++) {
             int256 baseTradeNotionalQuantity = positionInfo[i].baseUnit.preciseMul(setTokenQuantityInt);
 
-            // When redeeming, we flip the sign of baseTradeNotionalQuantity
-            // because we are reducing the size of the position,
+            // When redeeming, we flip the sign of baseTradeNotionalQuantity because we are reducing the size of the position,
             // e.g selling base when long, buying base when short
-            // | ------------------------------------------------------------ |
-            // | Action   | Position Type | Sign of baseTradeNotionalQuantity |
-            // | -------- | ------------  | --------------------------------- |
-            // | Issue    | Long          | Positive                          |
-            // | Issue    | Short         | Negative                          |
-            // | Redeem   | Long          | Negative                          |
-            // | Redeem   | Short         | Positive                          |
-            // | ------------------------------------------------------------ |
             ActionInfo memory actionInfo = _createActionInfoNotional(
                 _setToken,
                 positionInfo[i].baseToken,
