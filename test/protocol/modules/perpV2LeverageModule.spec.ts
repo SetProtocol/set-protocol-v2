@@ -1801,7 +1801,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(owedRealizedPnl).gt(ether(1));
+          expect(owedRealizedPnl).gt(0);
           expect(externalPositionUnit).to.closeTo(expectedExternalPositionUnit, 1);
         });
       });
@@ -2513,7 +2513,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(owedRealizedPnl).gt(ether(1));
+          expect(owedRealizedPnl).gt(0);
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 200);
         });
       });
@@ -3162,7 +3162,7 @@ describe("PerpV2LeverageModule", () => {
               perpLeverageModule.address
             );
 
-            expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
+            expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
           });
         });
 
@@ -4541,7 +4541,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(owedRealizedPnl).gt(ether(1));
+          expect(owedRealizedPnl).gt(0);
           expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 101);
         });
       });
