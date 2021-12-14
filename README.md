@@ -47,11 +47,21 @@ OR `yarn test:clean` if contracts have been typings need to be updated
 
 We publish our contracts as well as [hardhat][22] and [typechain][23] compilation artifacts to npm.
 
+```
+npm install @setprotocol/set-protocol-v2
+```
+
 The distribution also comes with fixtures for mocking and testing SetProtocol's interactions with
 other protocols including Uniswap, Balancer, Compound (and many more.) To use these you'll need to install the peer dependencies listed in `package.json`.
 
-```
-npm install @setprotocol/set-protocol-v2
+#### Example Usage
+
+```ts
+import { PerpV2Fixture } from "@setprotocol/set-protocol-v2/dist/utils/fixtures/PerpV2Fixture";
+import { getPerpV2Fixture } from "@setprotocol/set-protocol-v2/dist/utils/test";
+
+let perpSetup: PerpV2Fixture;
+perpSetup = getPerpV2Fixture(...);
 ```
 
 [22]: https://www.npmjs.com/package/hardhat
