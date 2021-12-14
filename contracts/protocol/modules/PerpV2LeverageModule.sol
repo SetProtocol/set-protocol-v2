@@ -371,23 +371,16 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Deletes
      * position mappings associated with SetToken.
      *
-     * NOTE: Function will revert if there is greater than a position unit amount of USDC left in the PerpV2 vault.
+     * NOTE: Function will revert if there is greater than a position unit amount of USDC of account value.
      */
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
 
-        // Because the `withdraw` flow takes a USDC position unit parameter and can introduce rounding
-        // errors when calculating the notional quantity as `collateralUnits.preciseMul(totalSupply)`,
-        // there's a good chance we will be left with a single USDC unit in the Perp vault which we
-        // should ignore.
-        //
-        // Additionally, we need to allow for the possibility that the collateral balance will be positive
-        // while the account value is negative. This "invalid state" can occur if the account is liquidated
-        // and can't be settled to zero because prices have moved against the position.
-        //
-        // TODO: We need info from Perp about how to clear this state
+        // Check that there is less than 1 position unit of USDC of account value (to tolerate PRECISE_UNIT math rounding errors).
+        // Account value is checked here because liquidation may result in a positive vault balance while net value is below zero.
+        int256 accountValueUnit = perpClearingHouse.getAccountValue(address(setToken)).preciseDiv(setToken.totalSupply().toInt256());
         require(
-            perpClearingHouse.getAccountValue(address(setToken)).fromPreciseUnitToDecimals(collateralDecimals) <= 1,
+            accountValueUnit.fromPreciseUnitToDecimals(collateralDecimals) <= 1,
             "Account balance is positive"
         );
 
