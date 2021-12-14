@@ -1175,10 +1175,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
             );
         }
 
-        int256 externalPositionUnitInPrecisionDecimals = _calculatePartialAccountValuePositionUnit(_setToken)
+        int256 externalPositionUnitInPreciseUnits = _calculatePartialAccountValuePositionUnit(_setToken)
             .add(totalPositionValue.preciseDiv(_setToken.totalSupply().toInt256()));
 
-        return externalPositionUnitInPrecisionDecimals.fromPreciseUnitToDecimals(collateralDecimals);
+        return externalPositionUnitInPreciseUnits.fromPreciseUnitToDecimals(collateralDecimals);
     }
 
     // @dev Retrieves collateral balance as an 18 decimal vUSDC quote value
