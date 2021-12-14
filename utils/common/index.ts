@@ -45,7 +45,7 @@ export {
   calculateUSDCTransferIn,
   calculateUSDCTransferOut,
   calculateExternalPositionUnit,
-  calculateUSDCAmountTransferIn,
-  calculateUSDCAmountTransferOut,
+  calculateUSDCTransferInPreciseUnits,
+  calculateUSDCTransferOutPreciseUnits,
   leverUp
 } from "./perpV2Utils";

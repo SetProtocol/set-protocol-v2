@@ -26,8 +26,8 @@ import {
   calculateUSDCTransferIn,
   calculateUSDCTransferOut,
   calculateExternalPositionUnit,
-  calculateUSDCAmountTransferIn,
-  calculateUSDCAmountTransferOut,
+  calculateUSDCTransferInPreciseUnits,
+  calculateUSDCTransferOutPreciseUnits,
   leverUp
 } from "@utils/common";
 
@@ -1710,7 +1710,7 @@ describe("PerpV2LeverageModule", () => {
             spotPrice = await perpSetup.getSpotPrice(baseToken);
             fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
 
-            usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+            usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
               setToken,
               subjectSetQuantity,
               perpLeverageModule,
@@ -1870,7 +1870,7 @@ describe("PerpV2LeverageModule", () => {
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -1921,7 +1921,7 @@ describe("PerpV2LeverageModule", () => {
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2043,7 +2043,7 @@ describe("PerpV2LeverageModule", () => {
           const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2109,7 +2109,7 @@ describe("PerpV2LeverageModule", () => {
           const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2208,7 +2208,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2293,7 +2293,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2351,7 +2351,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2413,7 +2413,7 @@ describe("PerpV2LeverageModule", () => {
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2580,7 +2580,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2731,7 +2731,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2782,7 +2782,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2904,7 +2904,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -2990,7 +2990,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -3130,7 +3130,7 @@ describe("PerpV2LeverageModule", () => {
             const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
             const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-            const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+            const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
               setToken,
               subjectSetQuantity,
               perpLeverageModule,
@@ -3271,7 +3271,7 @@ describe("PerpV2LeverageModule", () => {
             const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
             const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-            const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+            const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
               setToken,
               subjectSetQuantity,
               perpLeverageModule,
@@ -3438,7 +3438,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -3499,7 +3499,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -3772,7 +3772,7 @@ describe("PerpV2LeverageModule", () => {
           const spotPrice = await perpSetup.getSpotPrice(baseToken);
           const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -3930,7 +3930,7 @@ describe("PerpV2LeverageModule", () => {
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -3981,7 +3981,7 @@ describe("PerpV2LeverageModule", () => {
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4141,7 +4141,7 @@ describe("PerpV2LeverageModule", () => {
           const spotPrice = await perpSetup.getSpotPrice(baseToken);
           const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4243,7 +4243,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4320,7 +4320,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4378,7 +4378,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4440,7 +4440,7 @@ describe("PerpV2LeverageModule", () => {
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4598,7 +4598,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4753,7 +4753,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4804,7 +4804,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -4951,7 +4951,7 @@ describe("PerpV2LeverageModule", () => {
           const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -5036,7 +5036,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -5176,7 +5176,7 @@ describe("PerpV2LeverageModule", () => {
             const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
             const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-            const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+            const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
               setToken,
               subjectSetQuantity,
               perpLeverageModule,
@@ -5317,7 +5317,7 @@ describe("PerpV2LeverageModule", () => {
             const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
             const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-            const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+            const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
               setToken,
               subjectSetQuantity,
               perpLeverageModule,
@@ -5484,7 +5484,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -5545,7 +5545,7 @@ describe("PerpV2LeverageModule", () => {
           const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
 
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -6371,7 +6371,7 @@ describe("PerpV2LeverageModule", () => {
           const spotPrice = await perpSetup.getSpotPrice(baseToken);
           const previousBlockTimestamp = (await provider.getBlock("latest")).timestamp;
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-          const usdcTransferInQuantity = await calculateUSDCAmountTransferIn(
+          const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
@@ -6522,7 +6522,7 @@ describe("PerpV2LeverageModule", () => {
           const spotPrice = await perpSetup.getSpotPrice(baseToken);
           const previousBlockTimestamp = (await provider.getBlock("latest")).timestamp;
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-          const usdcTransferOutQuantity = await calculateUSDCAmountTransferOut(
+          const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
