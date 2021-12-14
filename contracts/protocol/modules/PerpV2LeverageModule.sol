@@ -381,9 +381,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
         // errors when calculating the notional quantity as `collateralUnits.preciseMul(totalSupply)`,
         // there's a good chance we will be left with a single USDC unit in the Perp vault which we
         // should ignore.
+        //
+        // Additionally, we need to allow for the possibility that the collateral balance will be positive
+        // while the account value is negative. This "invalid state" can occur if the account is liquidated
+        // and can't be settled to zero because prices have moved against the position.
+        //
+        // TODO: We need info from Perp about how to clear this state
         require(
-            _getCollateralBalance(setToken).fromPreciseUnitToDecimals(collateralDecimals) <= 1,
-            "Collateral balance remaining"
+            perpClearingHouse.getAccountValue(address(setToken)).fromPreciseUnitToDecimals(collateralDecimals) <= 1,
+            "Account balance is positive"
         );
 
         delete positions[setToken]; // Should already be empty

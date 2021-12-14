@@ -32,7 +32,7 @@ import {
 } from "@utils/test/index";
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "ethers";
-import { ADDRESS_ZERO, ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
@@ -1118,6 +1118,62 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           expect(finalTotalSupply).eq(expectedTotalSupply);
           expect(finalPositionInfo.length).eq(0);
           expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
+        });
+      });
+
+      describe("when liquidation results in negative account value", () => {
+        beforeEach(async () => {
+          // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
+          await leverUp(
+            setToken,
+            perpLeverageModule,
+            perpSetup,
+            owner,
+            baseToken,
+            6,
+            ether(.02),
+            true
+          );
+
+          // Move oracle price down to 5 USDC to enable liquidation
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5.0));
+
+          // Move price down by maker selling 20k USDC of vETH
+          // Post trade spot price rises from ~10 USDC to 6_370_910_537_702_299_856
+          await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
+            baseToken: vETH.address,
+            isBaseToQuote: true,       // short
+            isExactInput: false,       // `amount` is USDC
+            amount: ether(20000),
+            oppositeAmountBound: ZERO,
+            deadline: MAX_UINT_256,
+            sqrtPriceLimitX96: ZERO,
+            referralCode: ZERO_BYTES
+          });
+
+          await perpSetup
+            .clearingHouse
+            .connect(otherTrader.wallet)
+            .liquidate(subjectSetToken, baseToken);
+        });
+
+        it("should be possible to remove the module", async () => {
+          await subject();
+
+          const collateralBalance = await perpSetup.vault.getBalance(subjectSetToken);
+          const freeCollateral = await perpSetup.vault.getFreeCollateral(subjectSetToken);
+          const accountValue = await perpSetup.clearingHouse.getAccountValue(subjectSetToken);
+
+          // collateralBalance:  20_100_000 (10^6)
+          // accountValue:      -43_466_857_276_051_287_954 (10^18)
+          expect(collateralBalance).gt(1);
+          expect(freeCollateral).eq(0);
+          expect(accountValue).lt(-1);
+
+          /// Remove module
+          await setToken.removeModule(perpLeverageModule.address);
+          const finalModules = await setToken.getModules();
+          expect(finalModules.includes(perpLeverageModule.address)).eq(false);
         });
       });
     });

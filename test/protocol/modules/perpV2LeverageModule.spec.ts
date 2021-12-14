@@ -4691,13 +4691,13 @@ describe("PerpV2LeverageModule", () => {
       expect(isRegistered).to.be.false;
     });
 
-    describe("when collateral balance exists", async () => {
+    describe("when the account balance is positive", async () => {
       beforeEach(async () => {
         await perpLeverageModule.deposit(setToken.address, usdcUnits(10));
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Collateral balance remaining");
+        await expect(subject()).to.be.revertedWith("Account balance is positive");
       });
     });
   });
