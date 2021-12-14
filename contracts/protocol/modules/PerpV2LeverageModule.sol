@@ -1077,16 +1077,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     /**
      * @dev Construct the ActionInfo struct for trading. This method takes NOTIONAL token amounts and creates
      * the struct. If the _baseTokenQuantity is greater than zero then we are buying the baseToken. This method
-     * is called during issue and redeem via `_executePositionTrades` and during trade via
-     * `_createAndValidateActionInfo`.
+     * is called during issue and redeem via `_executePositionTrades` and during trade via `_createAndValidateActionInfo`.
      *
-     * `oppositeAmountBound` is defined as below
-     * | ------------------------------------------------ |
-     * | Action  | isBuy   | Opposite Bound Description   |
-     * | ------- |-------- |----------------------------- |
-     * | Buy     |  true   | Max quote to pay             |
-     * | Sell    |  false  | Min quote to receive         |
-     * | -------------------------------------------------|
+     * (See _executeTrade method comments for details about `oppositeAmountBound` configuration)
      *
      * @param _setToken                 Instance of the SetToken
      * @param _baseToken                Address of base token being traded into/out of
