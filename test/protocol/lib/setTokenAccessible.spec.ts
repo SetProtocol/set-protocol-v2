@@ -2,7 +2,7 @@ import "module-alias/register";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { AllowSetTokenMock, SetToken } from "@utils/contracts";
+import { SetTokenAccessibleMock, SetToken } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
 import {
@@ -17,13 +17,13 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("AllowedSetToken", () => {
+describe("SetTokenAccessible", () => {
   let owner: Account;
   let deployer: DeployHelper;
   let setToken: SetToken;
 
   let setup: SystemFixture;
-  let allowSetToken: AllowSetTokenMock;
+  let setTokenAccessible: SetTokenAccessibleMock;
 
   before(async () => {
     [ owner ] = await getAccounts();
@@ -32,13 +32,13 @@ describe("AllowedSetToken", () => {
     await setup.initialize();
     deployer = new DeployHelper(owner.wallet);
 
-    allowSetToken = await deployer.mocks.deployAllowSetTokenMock(setup.controller.address);
+    setTokenAccessible = await deployer.mocks.deploySetTokenAccessibleMock(setup.controller.address);
 
-    await setup.controller.addModule(allowSetToken.address);
+    await setup.controller.addModule(setTokenAccessible.address);
     setToken = await setup.createSetToken(
       [setup.weth.address],
       [ether(1)],
-      [allowSetToken.address],
+      [setTokenAccessible.address],
       owner.address,
     );
   });
@@ -57,7 +57,7 @@ describe("AllowedSetToken", () => {
     });
 
     async function subject(): Promise<any> {
-      return allowSetToken.connect(subjectCaller.wallet).updateAllowedSetToken(
+      return setTokenAccessible.connect(subjectCaller.wallet).updateAllowedSetToken(
         subjectSetToken,
         subjectStatus
       );
@@ -66,13 +66,13 @@ describe("AllowedSetToken", () => {
     it("should add Set to allow list", async () => {
       await subject();
 
-      const isAllowed = await allowSetToken.allowedSetTokens(subjectSetToken);
+      const isAllowed = await setTokenAccessible.allowedSetTokens(subjectSetToken);
 
       expect(isAllowed).to.be.true;
     });
 
     it("should emit the correct SetTokenStatusUpdated event", async () => {
-      await expect(subject()).to.emit(allowSetToken, "SetTokenStatusUpdated").withArgs(
+      await expect(subject()).to.emit(setTokenAccessible, "SetTokenStatusUpdated").withArgs(
         subjectSetToken,
         subjectStatus
       );
@@ -87,13 +87,13 @@ describe("AllowedSetToken", () => {
       it("should remove Set from allow list", async () => {
         await subject();
 
-        const isAllowed = await allowSetToken.allowedSetTokens(subjectSetToken);
+        const isAllowed = await setTokenAccessible.allowedSetTokens(subjectSetToken);
 
         expect(isAllowed).to.be.false;
       });
 
       it("should emit the correct SetTokenStatusUpdated event", async () => {
-        await expect(subject()).to.emit(allowSetToken, "SetTokenStatusUpdated").withArgs(
+        await expect(subject()).to.emit(setTokenAccessible, "SetTokenStatusUpdated").withArgs(
           subjectSetToken,
           subjectStatus
         );
@@ -107,7 +107,7 @@ describe("AllowedSetToken", () => {
         it("should remove the Set from allow list", async () => {
           await subject();
 
-          const isAllowed = await allowSetToken.allowedSetTokens(subjectSetToken);
+          const isAllowed = await setTokenAccessible.allowedSetTokens(subjectSetToken);
 
           expect(isAllowed).to.be.false;
         });
@@ -145,19 +145,19 @@ describe("AllowedSetToken", () => {
     });
 
     async function subject(): Promise<any> {
-      return allowSetToken.connect(subjectCaller.wallet).updateAnySetAllowed(subjectAnySetAllowed);
+      return setTokenAccessible.connect(subjectCaller.wallet).updateAnySetAllowed(subjectAnySetAllowed);
     }
 
     it("should update anySetAllowed to true", async () => {
       await subject();
 
-      const anySetAllowed = await allowSetToken.anySetAllowed();
+      const anySetAllowed = await setTokenAccessible.anySetAllowed();
 
       expect(anySetAllowed).to.be.true;
     });
 
     it("should emit the correct AnySetAllowedUpdated event", async () => {
-      await expect(subject()).to.emit(allowSetToken, "AnySetAllowedUpdated").withArgs(
+      await expect(subject()).to.emit(setTokenAccessible, "AnySetAllowedUpdated").withArgs(
         subjectAnySetAllowed
       );
     });
@@ -183,12 +183,12 @@ describe("AllowedSetToken", () => {
     });
 
     async function subject(): Promise<any> {
-      return allowSetToken.connect(subjectCaller.wallet).testOnlyAllowedSet(subjectSetToken);
+      return setTokenAccessible.connect(subjectCaller.wallet).testOnlyAllowedSet(subjectSetToken);
     }
 
     describe("when anySetAllowed is true", () => {
       beforeEach(async () => {
-        await allowSetToken.connect(subjectCaller.wallet).updateAnySetAllowed(true);
+        await setTokenAccessible.connect(subjectCaller.wallet).updateAnySetAllowed(true);
       });
 
       it("should be ok", async () => {
@@ -198,8 +198,8 @@ describe("AllowedSetToken", () => {
 
     describe("when anySetAllowed is false and specific set is allowed", () => {
       beforeEach(async () => {
-        await allowSetToken.connect(subjectCaller.wallet).updateAnySetAllowed(false);
-        await allowSetToken.updateAllowedSetToken(subjectSetToken, true);
+        await setTokenAccessible.connect(subjectCaller.wallet).updateAnySetAllowed(false);
+        await setTokenAccessible.updateAllowedSetToken(subjectSetToken, true);
       });
 
       it("should be ok", async () => {
@@ -210,8 +210,8 @@ describe("AllowedSetToken", () => {
     describe("when anySetAllowed is false and specific set is not allowed", () => {
       beforeEach(async () => {
         subjectSetToken = await getRandomAddress();
-        await allowSetToken.connect(subjectCaller.wallet).updateAnySetAllowed(false);
-        await allowSetToken.allowedSetTokens(subjectSetToken);
+        await setTokenAccessible.connect(subjectCaller.wallet).updateAnySetAllowed(false);
+        await setTokenAccessible.allowedSetTokens(subjectSetToken);
       });
 
       it("should revert", async () => {

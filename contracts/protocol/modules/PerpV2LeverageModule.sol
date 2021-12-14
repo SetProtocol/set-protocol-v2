@@ -39,7 +39,7 @@ import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
-import { AllowSetToken } from "../lib/AllowSetToken.sol";
+import { SetTokenAccessible } from "../lib/SetTokenAccessible.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
@@ -61,7 +61,7 @@ import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  */
-contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetToken, IModuleIssuanceHook {
+contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenAccessible, IModuleIssuanceHook {
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
     using SignedSafeMath for int256;
@@ -205,7 +205,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, AllowSetT
     )
         public
         ModuleBase(_controller)
-        AllowSetToken(_controller)
+        SetTokenAccessible(_controller)
     {
         // Use temp variables to initialize immutables
         address tempCollateralToken = IVault(_perpVault).getSettlementToken();

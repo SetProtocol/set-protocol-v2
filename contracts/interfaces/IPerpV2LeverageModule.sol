@@ -35,7 +35,7 @@ import { IMarketRegistry } from "./external/perp-v2/IMarketRegistry.sol";
  * @author Set Protocol
  *
  * Interface for the PerpV2LeverageModule. Only specifies Manager permissioned functions, events
- * and getters. PerpV2LeverageModule also inherits from ModuleBase and AllowSetToken which support
+ * and getters. PerpV2LeverageModule also inherits from ModuleBase and SetTokenAccessible which support
  * additional methods.
  */
 interface IPerpV2LeverageModule {

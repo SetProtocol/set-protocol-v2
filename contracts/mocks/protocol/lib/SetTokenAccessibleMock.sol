@@ -20,11 +20,11 @@ pragma solidity 0.6.10;
 
 import { IController } from "../../../interfaces/IController.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
-import { AllowSetToken } from "../../../protocol/lib/AllowSetToken.sol";
+import { SetTokenAccessible } from "../../../protocol/lib/SetTokenAccessible.sol";
 
-contract AllowSetTokenMock is AllowSetToken {
+contract SetTokenAccessibleMock is SetTokenAccessible {
 
-    constructor(IController _controller) public AllowSetToken(_controller) {}
+    constructor(IController _controller) public SetTokenAccessible(_controller) {}
 
     /* ============ External Functions ============ */
 

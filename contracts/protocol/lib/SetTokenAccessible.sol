@@ -24,13 +24,12 @@ import { IController } from "../../interfaces/IController.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 
 /**
- * @title AllowedSetToken
+ * @title  SetTokenAccessible
  * @author Set Protocol
  *
  * Abstract class that houses permissioning of module for SetTokens.
- *
  */
-abstract contract AllowSetToken is Ownable {
+abstract contract SetTokenAccessible is Ownable {
 
     /* ============ Events ============ */
 
