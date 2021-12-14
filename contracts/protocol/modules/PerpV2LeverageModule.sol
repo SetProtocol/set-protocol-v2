@@ -990,13 +990,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     /**
      * @dev Formats Perp Periphery Quoter.swap call and executes via SetToken (and PerpV2 lib)
      *
-     * `isBaseToQuote` and `isExactInput` are configured as below:
-     * | ---------------------------------------------------|
-     * | Action  | isBuy   | isB2Q  | Exact In / Out        |
-     * | ------- |-------- |--------|-----------------------|
-     * | Buy     |  true   | false  | exact output (false)  |
-     * | Sell    |  false  | true   | exact input (true)    |
-     * |----------------------------------------------------|
+     * See _executeTrade method comments for details about `isBaseToQuote` and `isExactInput` configuration.
      *
      * @param _actionInfo   ActionInfo object
      * @return uint256      The base position delta resulting from the trade
