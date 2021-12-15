@@ -83,7 +83,8 @@ describe("PerpV2LeverageModule", () => {
     perpSetup = getPerpV2Fixture(owner.address);
     await perpSetup.initialize(maker, otherTrader);
 
-    // set funding to zero to avoid calculating it in each test case
+    // set funding rate to zero; allows us to avoid calculating small amounts of funding
+    // accrued in our test cases
     await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
 
     vETH = perpSetup.vETH;
@@ -1846,6 +1847,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
@@ -1879,6 +1885,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(15));
@@ -2284,6 +2295,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.8));
@@ -2320,6 +2336,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
@@ -2614,6 +2635,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
@@ -2648,6 +2674,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5));
@@ -3284,6 +3315,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
@@ -3319,6 +3355,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
@@ -3722,6 +3763,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
@@ -3755,6 +3801,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           // todo: Increasing this to 15 leads to failing test cases
@@ -4132,6 +4183,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.8));
@@ -4168,6 +4224,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.3));
@@ -4453,6 +4514,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
@@ -4486,6 +4552,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5));
@@ -5143,6 +5214,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set owes funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.7));
@@ -5178,6 +5254,11 @@ describe("PerpV2LeverageModule", () => {
       });
 
       describe("when the Set is owed funding", async () => {
+        beforeEach(async() => {
+          // set funding rate to non-zero value
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(BigNumber.from(0.1e6));       // 10% in decimal 6
+        });
+
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
