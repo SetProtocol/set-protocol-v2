@@ -8,7 +8,7 @@ import {
   preciseMul
 } from "../index";
 
-import { ZERO } from "../constants";
+import { TWO, ZERO, ONE_DAY_IN_SECONDS } from "../constants";
 import { PerpV2LeverageModule, SetToken } from "../contracts";
 import { PerpV2Fixture } from "../fixtures";
 
@@ -77,12 +77,16 @@ export async function calculateUSDCTransferInPreciseUnits(
   setQuantity: BigNumber,
   module: PerpV2LeverageModule,
   fixture: PerpV2Fixture,
+  includeFunding: boolean = true
 ) {
   const accountInfo = await module.getAccountInfo(setToken.address);
-  const totalCollateralValue = accountInfo.collateralBalance
+  let totalCollateralValue = accountInfo.collateralBalance
     .add(accountInfo.owedRealizedPnl)
-    .add(accountInfo.pendingFundingPayments)
     .add(accountInfo.netQuoteBalance);
+
+  if (includeFunding) {
+    totalCollateralValue = totalCollateralValue.add(accountInfo.pendingFundingPayments);
+  }
 
   const totalSupply = await setToken.totalSupply();
   let usdcAmountIn = preciseMul(
@@ -132,14 +136,17 @@ export async function calculateUSDCTransferOutPreciseUnits(
   setQuantity: BigNumber,
   module: PerpV2LeverageModule,
   fixture: PerpV2Fixture,
+  includeFunding: boolean = true
 ) {
   let totalRealizedPnl = BigNumber.from(0);
 
   const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
   const accountInfo = await module.getAccountInfo(setToken.address);
-  const totalCollateralBalance = accountInfo.collateralBalance
-    .add(accountInfo.owedRealizedPnl)
-    .add(accountInfo.pendingFundingPayments);
+  let totalCollateralBalance = accountInfo.collateralBalance.add(accountInfo.owedRealizedPnl);
+
+  if(includeFunding) {
+    totalCollateralBalance = totalCollateralBalance.add(accountInfo.pendingFundingPayments);
+  }
 
   const collateralPositionUnit = preciseDiv(totalCollateralBalance, await setToken.totalSupply());
   const collateralQuantityNotional = preciseMul(collateralPositionUnit, setQuantity);
@@ -197,4 +204,54 @@ export async function calculateExternalPositionUnit(
     .add(owedRealizedPnl);
 
   return toUSDCDecimals(preciseDiv(numerator, await setToken.totalSupply()));
+}
+
+// On every interaction with perpV2, it settles funding for a trader into owed realized pnl
+// This function returns total funding growth for Set after the last settlement (in USDC units)
+export async function getUSDCDeltaDueToFundingGrowth(
+  setToken: SetToken,
+  setQuantity: BigNumber,
+  baseToken: Address,
+  baseBalance: BigNumber,
+  fixture: PerpV2Fixture
+): Promise<BigNumber> {
+
+  const [fundingGrowthGlobal, markTwap, indexTwap] = await fixture.exchange.getFundingGrowthGlobalAndTwaps(baseToken);
+
+  // twPremium = (markTwp - indexTwap) * (now - lastSettledTimestamp)
+  const twPremium = fundingGrowthGlobal.twPremiumX96
+    .mul(ether(1))
+    .div(TWO.pow(BigNumber.from(96)));
+
+  const fundingGrowth = preciseMul(
+    baseBalance,
+    twPremium.div(ONE_DAY_IN_SECONDS)
+  ).abs();
+
+  const isLong = baseBalance.gt(ZERO);
+
+  let netFundingGrowth;
+  if (markTwap.lt(indexTwap)) {
+    // spot price < oracle price
+    // if long: funding growth leads to increase in value of set
+    // if short: funding growth decrease set value
+    netFundingGrowth = isLong
+      ? fundingGrowth
+      : fundingGrowth.mul(-1);
+  } else {
+    // spot price > oracle price
+    // if long: funding growth decrease set value
+    // if short: funding growth leads to increase in value of set
+    netFundingGrowth = isLong
+      ? fundingGrowth.mul(-1)
+      : fundingGrowth;
+  }
+
+  const totalSupply = await setToken.totalSupply();
+  const usdcAmountDelta = preciseMul(
+    preciseDiv(netFundingGrowth, totalSupply),   // totalExtraAccruedFunding Unit
+    setQuantity
+  );
+
+  return usdcAmountDelta;
 }

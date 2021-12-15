@@ -28,6 +28,7 @@ import {
   calculateExternalPositionUnit,
   calculateUSDCTransferInPreciseUnits,
   calculateUSDCTransferOutPreciseUnits,
+  getUSDCDeltaDueToFundingGrowth,
   leverUp
 } from "@utils/common";
 
@@ -378,7 +379,6 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
-  // todo. One missing test case
   describe("#trade", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
@@ -1703,44 +1703,30 @@ describe("PerpV2LeverageModule", () => {
         });
 
         describe("do not sync oracle in before each", async () => {
-          let fetchingBlockTimestamp: number;
-          let spotPrice: BigNumber;
-
           beforeEach(async () => {
-            spotPrice = await perpSetup.getSpotPrice(baseToken);
-            fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-
             usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
               setToken,
               subjectSetQuantity,
               perpLeverageModule,
-              perpSetup
+              perpSetup,
+              false
             );
           });
 
           it("should set the expected USDC externalPositionUnit", async () => {
-            const totalSupply = await setToken.totalSupply();
             const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
             await subject();
 
-            const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-            const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-            const totalExtraAccruedFunding = preciseMul(
+            const usdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(
+              setToken,
+              subjectSetQuantity,
+              baseToken,
               baseBalance,
-              spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
+              perpSetup
             );
-
-            const usdcAmountInDelta = preciseMul(
-              preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-              subjectSetQuantity
-            );
-
-            // spot price > oracle price, we are long ETH, hence the Set owes funding
-            // usdcAmountInDelta > 0, hence needs to be subtracted
             const expectedExternalPositionUnit = toUSDCDecimals(
-              preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+              preciseDiv(usdcTransferInQuantity.add(usdcAmountDelta), subjectSetQuantity)
             );
 
             const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -1862,38 +1848,21 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price > oracle price, we are long, hence the Set owes funding
-          // totalExtraAccruedFunding > 0 => usdcAmountInDelta > 0, hence subtract
+          const usdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, baseToken, baseBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(usdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -1909,42 +1878,24 @@ describe("PerpV2LeverageModule", () => {
       describe("when the Set is owed funding", async () => {
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price up and wait one day
-          // todo: Increasing this to 15 leads to failing test cases
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(15));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price > oracle price, we are long, and hence the Set owes funding
-          // totalExtraAccruedFunding is a positive value, hence usdcAmountInDelta needs to be subtracted
+          const usdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, baseToken, baseBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(usdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -1952,7 +1903,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(pendingFunding).gt(ether(1));
+          expect(pendingFunding).gt(ZERO);
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
@@ -2334,51 +2285,25 @@ describe("PerpV2LeverageModule", () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.8));
           await perpSetup.setBaseTokenOraclePrice(vBTC, usdcUnits(19.9));
-
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price > eth oracle price, eth totalExtraAccruedFunding is a positive value
-          // we are long eth, and hence the Set owes funding, hence usdcAmountInDelta needs to be subtracted
-          // btc spot price > btc oracle price, btc totalExtraAccruedFunding is a positive value
-          // we are long btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
-          // since both need to be subtracted, we add first then subtract in the next line
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.add(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -2399,48 +2324,23 @@ describe("PerpV2LeverageModule", () => {
 
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price < eth oracle price, eth totalExtraAccruedFunding is a negative value
-          // we are long eth, and hence the Set owes funding, hence usdcAmountInDelta needs to be subtracted
-          // btc spot price < btc oracle price, btc totalExtraAccruedFunding is a negative value
-          // we are long btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
-          // since both need to be subtracted, we add first then subtract in the next line
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.add(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -2448,7 +2348,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(pendingFunding).gt(ether(1));
+          expect(pendingFunding).gt(ZERO);
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
@@ -2716,39 +2616,22 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
+          const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
 
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,    // negative
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price < oracle price, baseBalance < 0, totalExtraAccruedFunding is a positive value
-          // we are short, and hence the Set owes funding, hence usdcAmountInDelta needs to be subtracted
+          const usdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, baseToken, baseBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(usdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -2764,42 +2647,24 @@ describe("PerpV2LeverageModule", () => {
       describe("when the Set is owed funding", async () => {
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));    /// todo: does not work for 5
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const totalSupply = await setToken.totalSupply();
           const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-
+          const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,    // negative
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price > oracle price, baseBalance < 0, totalExtraAccruedFunding is a negative value
-          // we are short, and hence the Set is owed funding, hence usdcAmountInDelta needs to be subtracted
+          const usdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, baseToken, baseBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(usdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -2807,7 +2672,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(pendingFunding).gt(ether(1));
+          expect(pendingFunding).gt(ZERO);
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
@@ -3421,49 +3286,23 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,   // negative
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price > eth oracle price, totalExtraAccruedFunding is a positive value
-          // we are long eth, and hence the Set owes funding, hence eth usdcAmountInDelta needs to be subtracted
-          // btc spot price < btc oracle price, totalExtraAccruedFunding is a positive value
-          // we are short btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
-          // since both needs to be subtracted, we add them together and then subtract.
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.add(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -3482,48 +3321,23 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
           const usdcTransferInQuantity = await calculateUSDCTransferInPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false       // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,   // negative
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price < eth oracle price, totalExtraAccruedFunding is a negative value
-          // we are long, and hence the Set is owed funding, hence absolute value of eth usdcAmountInDelta needs to be added
-          // btc spot price < btc oracle price, totalExtraAccruedFunding is a positive value
-          // we are short btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.abs().sub(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferInQuantity.add(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferInQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -3531,7 +3345,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(pendingFunding).gt(ether(1));
+          expect(pendingFunding).gt(ZERO);
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
@@ -3909,38 +3723,22 @@ describe("PerpV2LeverageModule", () => {
           // Move oracle price down and wait one day
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
-          const totalSupply = await setToken.totalSupply();
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
 
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price > oracle price, we are long, hence the Set owes funding
-          // totalExtraAccruedFunding > 0 => usdcAmountInDelta > 0, hence subtract
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -3960,38 +3758,21 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price > oracle price, we are long, and hence the Set owes funding
-          // totalExtraAccruedFunding is a positive value, hence usdcAmountInDelta needs to be subtracted
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -4354,49 +4135,23 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vBTC, usdcUnits(19.9));
 
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price < eth oracle price, eth totalExtraAccruedFunding is a positive value
-          // we are long eth, and hence the Set owes funding, hence usdcAmountInDelta needs to be subtracted
-          // btc spot price < btc oracle price, btc totalExtraAccruedFunding is a positive value
-          // we are long btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
-          // since both need to be subtracted, we add first then subtract in the next line
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.add(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -4417,48 +4172,23 @@ describe("PerpV2LeverageModule", () => {
 
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price < eth oracle price, eth totalExtraAccruedFunding is a negative value
-          // we are long eth, and hence the Set is owed funding, hence usdcAmountInDelta needs to be subtracted
-          // btc spot price < btc oracle price, btc totalExtraAccruedFunding is a negative value
-          // we are long btc, and hence the Set is owed funding, hence btc accrued funding needs to be subtracted
-          // since both need to be subtracted, we add first then subtract in the next line
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.add(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -4725,39 +4455,21 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const totalSupply = await setToken.totalSupply();
-          const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,    // negative
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price < oracle price, baseBalance < 0, totalExtraAccruedFunding is a positive value
-          // we are short, and hence the Set owes funding, hence usdcAmountInDelta needs to be subtracted
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -4773,42 +4485,24 @@ describe("PerpV2LeverageModule", () => {
       describe("when the Set is owed funding", async () => {
         it("should socialize the funding payment among existing set holders", async () => {
           // Move oracle price down and wait one day
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));    /// todo: does not work for 5
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const totalSupply = await setToken.totalSupply();
-          const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, baseToken);
-
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const oraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-
-          const totalExtraAccruedFunding = preciseMul(
-            baseBalance,    // negative
-            spotPrice.sub(oraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(totalExtraAccruedFunding, totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
-          // spot price > oracle price, baseBalance < 0, totalExtraAccruedFunding is a negative value
-          // we are short, and hence the Set is owed funding, hence usdcAmountInDelta needs to be subtracted
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -4818,7 +4512,6 @@ describe("PerpV2LeverageModule", () => {
 
           // We expect pending funding to be greater than -1 USDC and discount applied
           expect(pendingFunding).gt(0);
-          expect(pendingFunding).gt(ether(1));
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
@@ -5452,49 +5145,23 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.7));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,   // negative
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price > eth oracle price, totalExtraAccruedFunding is a positive value
-          // we are long eth, and hence the Set owes funding, hence eth usdcAmountInDelta needs to be subtracted
-          // btc spot price < btc oracle price, totalExtraAccruedFunding is a positive value
-          // we are short btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
-          // since both needs to be subtracted, we add them together and then subtract.
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.add(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.sub(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -5513,48 +5180,23 @@ describe("PerpV2LeverageModule", () => {
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
           await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
+          const vEthBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          const vBtcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
           const pendingFunding = (await perpLeverageModule.getAccountInfo(subjectSetToken)).pendingFundingPayments;
-
-          const totalSupply = await setToken.totalSupply();
-          const ethSpotPrice = await perpSetup.getSpotPrice(vETH.address);
-          const btcSpotPrice = await perpSetup.getSpotPrice(vBTC.address);
-          const fetchingBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-          const btcBalance = await perpSetup.accountBalance.getBase(setToken.address, vBTC.address);
-
           const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
             setToken,
             subjectSetQuantity,
             perpLeverageModule,
-            perpSetup
+            perpSetup,
+            false         // don't include funding
           );
 
           await subject();
 
-          const latestBlockTimestamp = (await provider.getBlock("latest")).timestamp;
-          const ethOraclePrice = await vETH.getIndexPrice(latestBlockTimestamp);
-          const btcOraclePrice = await vBTC.getIndexPrice(latestBlockTimestamp);
-
-          const ethTotalExtraAccruedFunding = preciseMul(
-            ethBalance,
-            ethSpotPrice.sub(ethOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-          const btcTotalExtraAccruedFunding = preciseMul(
-            btcBalance,   // negative
-            btcSpotPrice.sub(btcOraclePrice).mul(latestBlockTimestamp - fetchingBlockTimestamp).div(ONE_DAY_IN_SECONDS)
-          );
-
-          // eth spot price < eth oracle price, totalExtraAccruedFunding is a negative value
-          // we are long, and hence the Set is owed funding, hence absolute value of eth usdcAmountInDelta needs to be added
-          // btc spot price < btc oracle price, totalExtraAccruedFunding is a positive value
-          // we are short btc, and hence the Set owes funding, hence btc accrued funding needs to be subtracted
-          const usdcAmountInDelta = preciseMul(
-            preciseDiv(ethTotalExtraAccruedFunding.abs().sub(btcTotalExtraAccruedFunding), totalSupply),   // totalExtraAccruedFunding Unit
-            subjectSetQuantity
-          );
-
+          const vEthUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vETH.address, vEthBalance, perpSetup);
+          const vBtcUsdcAmountDelta = await getUSDCDeltaDueToFundingGrowth(setToken, subjectSetQuantity, vBTC.address, vBtcBalance, perpSetup);
           const expectedExternalPositionUnit = toUSDCDecimals(
-            preciseDiv(usdcTransferOutQuantity.add(usdcAmountInDelta), subjectSetQuantity)
+            preciseDiv(usdcTransferOutQuantity.add(vEthUsdcAmountDelta).add(vBtcUsdcAmountDelta), subjectSetQuantity)
           );
 
           const externalPositionUnit = await setToken.getExternalPositionRealUnit(
@@ -5562,7 +5204,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(pendingFunding).gt(ether(1));
+          expect(pendingFunding).gt(ZERO);
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
