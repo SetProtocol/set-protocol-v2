@@ -3828,10 +3828,7 @@ describe("PerpV2LeverageModule", () => {
         });
 
         it("should set the expected USDC externalPositionUnit", async () => {
-          // why shouldn't this be accounted for in the calculateUSDCTransferOut function?
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
-          const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferOutQuantity = await calculateUSDCTransferOut(
             setToken,
@@ -3841,7 +3838,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
+            usdcTransferOutQuantity,
             subjectSetQuantity
           );
 
@@ -3882,8 +3879,6 @@ describe("PerpV2LeverageModule", () => {
 
         it("should set the expected USDC externalPositionUnit", async () => {
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
-          const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferOutQuantity = await calculateUSDCTransferOut(
             setToken,
@@ -3893,7 +3888,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
+            usdcTransferOutQuantity,
             subjectSetQuantity
           );
 
@@ -4519,8 +4514,6 @@ describe("PerpV2LeverageModule", () => {
 
         it("should set the expected USDC externalPositionUnit", async () => {
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
-          const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferOutQuantity = await calculateUSDCTransferOut(
             setToken,
@@ -4530,7 +4523,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
+            usdcTransferOutQuantity,
             subjectSetQuantity
           );
 
@@ -4651,8 +4644,6 @@ describe("PerpV2LeverageModule", () => {
         it("should set the expected USDC externalPositionUnit", async () => {
           // owedRealizedPnl = 1_643_798_014_140_064_947
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
-          const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferOutQuantity = await calculateUSDCTransferOut(
             setToken,
@@ -4662,7 +4653,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
+            usdcTransferOutQuantity,
             subjectSetQuantity
           );
 
@@ -4703,8 +4694,6 @@ describe("PerpV2LeverageModule", () => {
 
         it("should set the expected USDC externalPositionUnit", async () => {
           const owedRealizedPnl = (await perpLeverageModule.getAccountInfo(subjectSetToken)).owedRealizedPnl;
-          const owedRealizedPnlUnit = preciseDiv(owedRealizedPnl, await setToken.totalSupply());
-          const owedRealizedPnlShareNotional = preciseMul(owedRealizedPnlUnit, subjectSetQuantity);
 
           const usdcTransferOutQuantity = await calculateUSDCTransferOut(
             setToken,
@@ -4714,7 +4703,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           const expectedExternalPositionUnit = preciseDiv(
-            usdcTransferOutQuantity.add(toUSDCDecimals(owedRealizedPnlShareNotional)),
+            usdcTransferOutQuantity,
             subjectSetQuantity
           );
 
