@@ -38,17 +38,6 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
  */
 contract SlippageIssuanceModule is DebtIssuanceModule {
 
-    /* ============ Events ============ */
-
-    event SetTokenRedeemed(
-        ISetToken indexed _setToken,
-        address indexed _redeemer,
-        address indexed _to,
-        uint256 _quantity,
-        uint256 _managerFee,
-        uint256 _protocolFee
-    );
-
     constructor(IController _controller) public DebtIssuanceModule(_controller) {}
 
     /* ============ External Functions ============ */
@@ -172,23 +161,26 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
             uint256 protocolFee
         ) = calculateTotalFees(_setToken, _setQuantity, isIssue);
 
-        (
-            address[] memory components,
-            uint256[] memory equityUnits,
-            uint256[] memory debtUnits
-        ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityNetFees, isIssue);
+        {
+            (
+                address[] memory components,
+                uint256[] memory equityUnits,
+                uint256[] memory debtUnits
+            ) = _calculateRequiredComponentIssuanceUnits(_setToken, quantityNetFees, isIssue);
 
-        // Validate the required token amounts don't exceed those passed by redeemer
-        _validateTokenTransferLimits(_checkedComponents, _minTokenAmountsOut, components, equityUnits, isIssue);
+            // Validate the required token amounts don't exceed those passed by redeemer
+            _validateTokenTransferLimits(_checkedComponents, _minTokenAmountsOut, components, equityUnits, isIssue);
 
-        _resolveDebtPositions(_setToken, quantityNetFees, isIssue, components, debtUnits);
-        _resolveEquityPositions(_setToken, quantityNetFees, _to, isIssue, components, equityUnits);
-        _resolveFees(_setToken, managerFee, protocolFee);
+            _resolveDebtPositions(_setToken, quantityNetFees, isIssue, components, debtUnits);
+            _resolveEquityPositions(_setToken, quantityNetFees, _to, isIssue, components, equityUnits);
+            _resolveFees(_setToken, managerFee, protocolFee);
+        }
 
         emit SetTokenRedeemed(
             _setToken,
             msg.sender,
             _to,
+            address(0),
             _setQuantity,
             managerFee,
             protocolFee

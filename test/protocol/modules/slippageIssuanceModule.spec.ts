@@ -896,6 +896,7 @@ describe("SlippageIssuanceModule", () => {
           setToken.address,
           subjectCaller.address,
           subjectTo,
+          ADDRESS_ZERO,
           subjectQuantity,
           feeQuantity,
           ZERO
