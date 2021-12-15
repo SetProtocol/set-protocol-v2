@@ -20,22 +20,28 @@ pragma solidity 0.6.10;
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 
 contract ManagerIssuanceHookMock {
-    ISetToken public retrievedSetToken;
+
+    ISetToken public retrievedIssueSetToken;
     uint256 public retrievedIssueQuantity;
-    address public retrievedSender;
-    address public retrievedTo;
+    address public retrievedIssueSender;
+    address public retrievedIssueTo;
+
+    ISetToken public retrievedRedeemSetToken;
+    uint256 public retrievedRedeemQuantity;
+    address public retrievedRedeemSender;
+    address public retrievedRedeemTo;
 
     function invokePreIssueHook(ISetToken _setToken, uint256 _issueQuantity, address _sender, address _to) external {
-        retrievedSetToken = _setToken;
+        retrievedIssueSetToken = _setToken;
         retrievedIssueQuantity = _issueQuantity;
-        retrievedSender = _sender;    
-        retrievedTo = _to;        
+        retrievedIssueSender = _sender;    
+        retrievedIssueTo = _to;        
     }
 
     function invokePreRedeemHook(ISetToken _setToken, uint256 _redeemQuantity, address _sender, address _to) external {
-        retrievedSetToken = _setToken;
-        retrievedIssueQuantity = _redeemQuantity;
-        retrievedSender = _sender;    
-        retrievedTo = _to;        
+        retrievedRedeemSetToken = _setToken;
+        retrievedRedeemQuantity = _redeemQuantity;
+        retrievedRedeemSender = _sender;    
+        retrievedRedeemTo = _to;        
     }
 }
