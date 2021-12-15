@@ -24,6 +24,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
+import { BasicIssuanceModule } from "../../protocol/modules/BasicIssuanceModule.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IManagerIssuanceHook } from "../../interfaces/IManagerIssuanceHook.sol";
 import { Invoke } from "../lib/Invoke.sol";
@@ -39,35 +40,13 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * Module that enables issuance and redemption functionality on a SetToken. This is a module that is
  * required to bring the totalSupply of a Set above 0.
  */
-contract BasicIssuanceModuleV2 is ModuleBase, ReentrancyGuard {
+contract BasicIssuanceModuleV2 is BasicIssuanceModule {
     using Invoke for ISetToken;
     using Position for ISetToken.Position;
     using Position for ISetToken;
     using PreciseUnitMath for uint256;
     using SafeMath for uint256;
     using SafeCast for int256;
-
-    /* ============ Events ============ */
-
-    event SetTokenIssued(
-        address indexed _setToken,
-        address indexed _issuer,
-        address indexed _to,
-        address _hookContract,
-        uint256 _quantity
-    );
-    event SetTokenRedeemed(
-        address indexed _setToken,
-        address indexed _redeemer,
-        address indexed _to,
-        address _hookContract,
-        uint256 _quantity
-    );
-
-    /* ============ State Variables ============ */
-
-    // Mapping of SetToken to Issuance hook configurations
-    mapping(ISetToken => IManagerIssuanceHook) public managerIssuanceHook;
 
     /* ============ Constructor ============ */
 
@@ -76,52 +55,9 @@ contract BasicIssuanceModuleV2 is ModuleBase, ReentrancyGuard {
      *
      * @param _controller             Address of controller contract
      */
-    constructor(IController _controller) public ModuleBase(_controller) {}
+    constructor(IController _controller) public BasicIssuanceModule(_controller) {}
 
     /* ============ External Functions ============ */
-
-    /**
-     * Deposits the SetToken's position components into the SetToken and mints the SetToken of the given quantity
-     * to the specified _to address. This function only handles Default Positions (positionState = 0).
-     *
-     * @param _setToken             Instance of the SetToken contract
-     * @param _quantity             Quantity of the SetToken to mint
-     * @param _to                   Address to mint SetToken to
-     */
-    function issue(
-        ISetToken _setToken,
-        uint256 _quantity,
-        address _to
-    ) 
-        external
-        nonReentrant
-        onlyValidAndInitializedSet(_setToken)
-    {
-        require(_quantity > 0, "Issue quantity must be > 0");
-
-        address hookContract = _callPreIssueHooks(_setToken, _quantity, msg.sender, _to);
-
-        (
-            address[] memory components,
-            uint256[] memory componentQuantities
-        ) = getRequiredComponentUnitsForIssue(_setToken, _quantity);
-
-        // For each position, transfer the required underlying to the SetToken
-        for (uint256 i = 0; i < components.length; i++) {
-            // Transfer the component to the SetToken
-            transferFrom(
-                IERC20(components[i]),
-                msg.sender,
-                address(_setToken),
-                componentQuantities[i]
-            );
-        }
-
-        // Mint the SetToken
-        _setToken.mint(_to, _quantity);
-
-        emit SetTokenIssued(address(_setToken), msg.sender, _to, hookContract, _quantity);
-    }
 
     /**
      * Redeems the SetToken's positions and sends the components of the given
@@ -137,6 +73,7 @@ contract BasicIssuanceModuleV2 is ModuleBase, ReentrancyGuard {
         address _to
     )
         external
+        override
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
@@ -170,23 +107,10 @@ contract BasicIssuanceModuleV2 is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * Initializes this module to the SetToken with issuance-related hooks. Only callable by the SetToken's manager.
-     * Hook addresses are optional. Address(0) means that no hook will be called
-     *
-     * @param _setToken             Instance of the SetToken to issue
-     * @param _preIssueHook         Instance of the Manager Contract with the Pre-Issuance Hook function
+     * SET TOKEN ONLY: Allows removal (and deletion of state) of BasicIssuanceModuleV2
      */
-    function initialize(
-        ISetToken _setToken,
-        IManagerIssuanceHook _preIssueHook
-    )
-        external
-        onlySetManager(_setToken, msg.sender)
-        onlyValidAndPendingSet(_setToken)
-    {
-        managerIssuanceHook[_setToken] = _preIssueHook;
-
-        _setToken.initializeModule();
+    function removeModule() external override {
+        delete managerIssuanceHook[ISetToken(msg.sender)];
     }
 
     /**
@@ -207,68 +131,7 @@ contract BasicIssuanceModuleV2 is ModuleBase, ReentrancyGuard {
         managerIssuanceHook[_setToken] = _newHook;
     }
 
-    /**
-     * SET TOKEN ONLY: Allows removal (and deletion of state) of BasicIssuanceModuleV2
-     */
-    function removeModule() external override {
-        delete managerIssuanceHook[ISetToken(msg.sender)];
-    }
-
-    /* ============ External Getter Functions ============ */
-
-    /**
-     * Retrieves the addresses and units required to mint a particular quantity of SetToken.
-     *
-     * @param _setToken             Instance of the SetToken to issue
-     * @param _quantity             Quantity of SetToken to issue
-     * @return address[]            List of component addresses
-     * @return uint256[]            List of component units required to issue the quantity of SetTokens
-     */
-    function getRequiredComponentUnitsForIssue(
-        ISetToken _setToken,
-        uint256 _quantity
-    )
-        public
-        view
-        onlyValidAndInitializedSet(_setToken)
-        returns (address[] memory, uint256[] memory)
-    {
-        address[] memory components = _setToken.getComponents();
-
-        uint256[] memory notionalUnits = new uint256[](components.length);
-
-        for (uint256 i = 0; i < components.length; i++) {
-            require(!_setToken.hasExternalPosition(components[i]), "Only default positions are supported");
-
-            notionalUnits[i] = _setToken.getDefaultPositionRealUnit(components[i]).toUint256().preciseMulCeil(_quantity);
-        }
-
-        return (components, notionalUnits);
-    }
-
     /* ============ Internal Functions ============ */
-
-    /**
-     * If a pre-issue hook has been configured, call the external-protocol contract's pre-issue function.
-     * Pre-issue hook logic can contain arbitrary logic including validations, external function calls, etc.
-     */
-    function _callPreIssueHooks(
-        ISetToken _setToken,
-        uint256 _quantity,
-        address _caller,
-        address _to
-    )
-        internal
-        returns(address)
-    {
-        IManagerIssuanceHook preIssueHook = managerIssuanceHook[_setToken];
-        if (address(preIssueHook) != address(0)) {
-            preIssueHook.invokePreIssueHook(_setToken, _quantity, _caller, _to);
-            return address(preIssueHook);
-        }
-
-        return address(0);
-    }
 
     /**
      * If a pre-issue hook has been configured, call the external-protocol contract's pre-redeem function.

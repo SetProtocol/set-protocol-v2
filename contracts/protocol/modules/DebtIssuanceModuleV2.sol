@@ -49,6 +49,9 @@ import { Position } from "../lib/Position.sol";
  *
  * The getRequiredComponentIssuanceUnits function on this module assumes that Default token balances will be synced on every issuance
  * and redemption. If token balances are not being synced it will over-estimate the amount of tokens required to issue a Set.
+ *
+ * CHANGELOG 12/15/2021:
+ * - call manager pre-redeem hooks on redemption
  */
 contract DebtIssuanceModuleV2 is DebtIssuanceModule {
     using Position for uint256;

@@ -412,6 +412,7 @@ describe("BasicIssuanceModule", () => {
           subjectSetToken,
           subjectCaller.address,
           subjectTo,
+          ADDRESS_ZERO,
           subjectRedeemQuantity
         );
       });

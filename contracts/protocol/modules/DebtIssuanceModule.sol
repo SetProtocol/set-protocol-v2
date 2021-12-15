@@ -44,6 +44,11 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * external positions, including debt positions. Module hooks are added to allow for syncing of positions, and component
  * level hooks are added to ensure positions are replicated correctly. The manager can define arbitrary issuance logic
  * in the manager hook, as well as specify issue and redeem fees.
+ *
+ * CHANGELOG 12/15/2021:
+ * - add _hookContract parameter to SetTokenRedeemed
+ * - call manager pre-redeem hooks on redemption
+ * - add function for updating the manager hooks
  */
 contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
