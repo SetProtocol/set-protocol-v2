@@ -66,6 +66,10 @@ contract PreciseUnitMathMock {
         return a.preciseDivCeil(b);
     }
 
+    function preciseDivCeilInt(int256 a, int256 b) external pure returns(int256) {
+        return a.preciseDivCeil(b);
+    }
+
     function divDown(int256 a, int256 b) external pure returns(int256) {
         return a.divDown(b);
     }
@@ -84,5 +88,9 @@ contract PreciseUnitMathMock {
 
     function approximatelyEquals(uint256 a, uint256 b, uint256 range) external pure returns (bool) {
         return a.approximatelyEquals(b, range);
+    }
+
+    function abs(int256 a) external pure returns (uint256) {
+        return a.abs();
     }
 }

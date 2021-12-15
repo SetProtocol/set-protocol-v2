@@ -19,6 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental ABIEncoderV2;
 
+import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
@@ -33,10 +34,13 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
  * CHANGELOG:
  * - 9/21/20: Added safePower function
  * - 4/21/21: Added approximatelyEquals function
+ * - 12/13/21: Added preciseDivCeil (int overloads) function
+ * - 12/13/21: Added abs function
  */
 library PreciseUnitMath {
     using SafeMath for uint256;
     using SignedSafeMath for int256;
+    using SafeCast for int256;
 
     // The number One in precise units.
     uint256 constant internal PRECISE_UNIT = 10 ** 18;
@@ -135,6 +139,22 @@ library PreciseUnitMath {
     }
 
     /**
+     * @dev Divides value a by value b (result is rounded up or away from 0). When `a` is 0, 0 is
+     * returned. When `b` is 0, method reverts with divide-by-zero error.
+     */
+    function preciseDivCeil(int256 a, int256 b) internal pure returns (int256) {
+        require(b != 0, "Cant divide by 0");
+
+        if (a == 0 ) {
+            return 0;
+        } else if ((a > 0 && b > 0) || (a < 0 && b < 0)) {
+            return a.mul(PRECISE_UNIT_INT).sub(1).div(b).add(1);
+        } else {
+            return a.mul(PRECISE_UNIT_INT).add(1).div(b).sub(1);
+        }
+    }
+
+    /**
      * @dev Divides value a by value b (result is rounded down - positive numbers toward 0 and negative away from 0).
      */
     function divDown(int256 a, int256 b) internal pure returns (int256) {
@@ -194,5 +214,12 @@ library PreciseUnitMath {
      */
     function approximatelyEquals(uint256 a, uint256 b, uint256 range) internal pure returns (bool) {
         return a <= b.add(range) && a >= b.sub(range);
+    }
+
+    /**
+     * Returns the absolute value of int256 `a` as a uint256
+     */
+    function abs(int256 a) internal pure returns (uint) {
+        return a >= 0 ? a.toUint256() : a.mul(-1).toUint256();
     }
 }
