@@ -10,6 +10,7 @@ import {
   CompoundLeverageModule,
   CustomOracleNavIssuanceModule,
   DebtIssuanceModule,
+  DebtIssuanceModuleV2,
   GeneralIndexModule,
   GovernanceModule,
   IssuanceModule,
@@ -71,7 +72,7 @@ export default class DeployModules {
     return await new DebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModule> {
+  public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModuleV2> {
     return await new DebtIssuanceModuleV2__factory(this._deployerSigner).deploy(controller);
   }
 

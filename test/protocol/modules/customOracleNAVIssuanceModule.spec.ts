@@ -2812,13 +2812,13 @@ describe("CustomOracleNavIssuanceModule", () => {
         it("should properly call the pre-issue hooks", async () => {
           await subject();
 
-          const retrievedSetToken = await issuanceHookContract.retrievedSetToken();
-          const retrievedIssueQuantity = await issuanceHookContract.retrievedIssueQuantity();
-          const retrievedSender = await issuanceHookContract.retrievedSender();
-          const retrievedTo = await issuanceHookContract.retrievedTo();
+          const retrievedSetToken = await issuanceHookContract.retrievedRedeemSetToken();
+          const retrievedQuantity = await issuanceHookContract.retrievedRedeemQuantity();
+          const retrievedSender = await issuanceHookContract.retrievedRedeemSender();
+          const retrievedTo = await issuanceHookContract.retrievedRedeemTo();
 
           expect(retrievedSetToken).to.eq(subjectSetToken);
-          expect(retrievedIssueQuantity).to.eq(subjectSetTokenQuantity);
+          expect(retrievedQuantity).to.eq(subjectSetTokenQuantity);
           expect(retrievedSender).to.eq(owner.address);
           expect(retrievedTo).to.eq(subjectTo.address);
         });

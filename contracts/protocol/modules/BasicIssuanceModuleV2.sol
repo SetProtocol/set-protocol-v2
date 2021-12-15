@@ -189,6 +189,13 @@ contract BasicIssuanceModuleV2 is ModuleBase, ReentrancyGuard {
         _setToken.initializeModule();
     }
 
+    /**
+     * MANAGER ONLY: Updates the address of the manager issuance hook. To remove the hook
+     * set the new hook address to address(0)
+     *
+     * @param _setToken         Instance of the SetToken to update manager hook
+     * @param _newHook          New manager hook contract address
+     */
     function updateManagerIssuanceHook(
         ISetToken _setToken,
         IManagerIssuanceHook _newHook

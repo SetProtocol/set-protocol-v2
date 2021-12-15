@@ -600,7 +600,7 @@ describe("BasicIssuanceModuleV2", () => {
           return issuanceModule.redeem(subjectSetToken, subjectRedeemQuantity, subjectTo.address);
         }
 
-        it("should properly call the pre-issue hooks", async () => {
+        it("should properly call the pre-redeem hooks", async () => {
           await subject();
           const retrievedSetToken = await issuanceHookContract.retrievedRedeemSetToken();
           const retrievedQuantity = await issuanceHookContract.retrievedRedeemQuantity();

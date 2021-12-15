@@ -755,10 +755,10 @@ describe("DebtIssuanceModule", () => {
             preIssueHook = ADDRESS_ZERO;
           });
 
-          it("should call the issuance hook", async () => {
+          it("should call the pre-issue hook", async () => {
             await subject();
 
-            const setToken = await issuanceHook.retrievedSetToken();
+            const setToken = await issuanceHook.retrievedIssueSetToken();
 
             expect(setToken).to.eq(subjectSetToken);
           });
@@ -879,6 +879,7 @@ describe("DebtIssuanceModule", () => {
             setToken.address,
             subjectCaller.address,
             subjectTo,
+            preIssueHook,
             subjectQuantity,
             feeQuantity,
             ZERO
@@ -998,6 +999,24 @@ describe("DebtIssuanceModule", () => {
           });
         });
 
+        describe("when manager issuance hook is defined", async () => {
+          before(async () => {
+            preIssueHook = issuanceHook.address;
+          });
+
+          after(async () => {
+            preIssueHook = ADDRESS_ZERO;
+          });
+
+          it("should call the pre-redeem hook", async () => {
+            await subject();
+
+            const setToken = await issuanceHook.retrievedRedeemSetToken();
+
+            expect(setToken).to.eq(subjectSetToken);
+          });
+        });
+
         describe("when the issue quantity is 0", async () => {
           beforeEach(async () => {
             subjectQuantity = ZERO;
@@ -1017,6 +1036,59 @@ describe("DebtIssuanceModule", () => {
             );
 
             subjectSetToken = nonEnabledSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
+        });
+      });
+
+      describe("#updateManagerIssuanceHook", async () => {
+        let subjectSetToken: SetToken;
+        let subjectNewManagerIssuanceHook: Address;
+        let subjectCaller: Account;
+
+        beforeEach(async () => {
+          subjectCaller = manager;
+          subjectSetToken = setToken;
+          subjectNewManagerIssuanceHook = await getRandomAddress();
+        });
+
+        async function subject(): Promise<ContractTransaction> {
+          return await debtIssuance.connect(subjectCaller.wallet).updateManagerIssuanceHook(
+            subjectSetToken.address,
+            subjectNewManagerIssuanceHook
+          );
+        }
+
+        it("should update the manager issuance hook", async () => {
+          await subject();
+
+          const issuanceSettings = await debtIssuance.issuanceSettings(subjectSetToken.address);
+          expect(issuanceSettings.managerIssuanceHook).to.eq(subjectNewManagerIssuanceHook);
+        });
+
+        context("when caller is not the manager", async () => {
+          beforeEach(async () => {
+            subjectCaller = await getRandomAccount();
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+          });
+        });
+
+        context("when module is not valid", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+              [setup.weth.address],
+              [ether(1)],
+              [debtIssuance.address],
+              manager.address
+            );
+
+            subjectSetToken = nonEnabledSetToken;
           });
 
           it("should revert", async () => {

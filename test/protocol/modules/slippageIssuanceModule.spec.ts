@@ -675,7 +675,7 @@ describe("SlippageIssuanceModule", () => {
         it("should call the issuance hook", async () => {
           await subject();
 
-          const setToken = await issuanceHook.retrievedSetToken();
+          const setToken = await issuanceHook.retrievedIssueSetToken();
 
           expect(setToken).to.eq(subjectSetToken);
         });

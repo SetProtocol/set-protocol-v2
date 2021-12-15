@@ -38,6 +38,17 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
  */
 contract SlippageIssuanceModule is DebtIssuanceModule {
 
+    /* ============ Events ============ */
+
+    event SetTokenRedeemed(
+        ISetToken indexed _setToken,
+        address indexed _redeemer,
+        address indexed _to,
+        uint256 _quantity,
+        uint256 _managerFee,
+        uint256 _protocolFee
+    );
+
     constructor(IController _controller) public DebtIssuanceModule(_controller) {}
 
     /* ============ External Functions ============ */

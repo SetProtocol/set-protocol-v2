@@ -75,6 +75,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         ISetToken indexed _setToken,
         address indexed _redeemer,
         address indexed _to,
+        address _hookContract,
         uint256 _quantity,
         uint256 _managerFee,
         uint256 _protocolFee
@@ -173,6 +174,8 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     {
         require(_quantity > 0, "Redeem quantity must be > 0");
 
+        address hookContract = _callManagerPreRedeemHooks(_setToken, _quantity, msg.sender, _to);
+
         _callModulePreRedeemHooks(_setToken, _quantity);
 
         // Place burn after pre-redeem hooks because burning tokens may lead to false accounting of synced positions
@@ -198,10 +201,29 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             _setToken,
             msg.sender,
             _to,
+            hookContract,
             _quantity,
             managerFee,
             protocolFee
         );
+    }
+
+    /**
+     * MANAGER ONLY: Updates the address of the manager issuance hook. To remove the hook
+     * set the new hook address to address(0)
+     *
+     * @param _setToken         Instance of the SetToken to update manager hook
+     * @param _newHook          New manager hook contract address
+     */
+    function updateManagerIssuanceHook(
+        ISetToken _setToken,
+        IManagerIssuanceHook _newHook
+    )
+        external
+        onlySetManager(_setToken, msg.sender)
+        onlyValidAndInitializedSet(_setToken)
+    {
+        issuanceSettings[_setToken].managerIssuanceHook = _newHook;
     }
 
     /**
@@ -642,6 +664,28 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         IManagerIssuanceHook preIssueHook = issuanceSettings[_setToken].managerIssuanceHook;
         if (address(preIssueHook) != address(0)) {
             preIssueHook.invokePreIssueHook(_setToken, _quantity, _caller, _to);
+            return address(preIssueHook);
+        }
+
+        return address(0);
+    }
+
+    /**
+     * If a pre-issue hook has been configured, call the external-protocol contract. Pre-issue hook logic
+     * can contain arbitrary logic including validations, external function calls, etc.
+     */
+    function _callManagerPreRedeemHooks(
+        ISetToken _setToken,
+        uint256 _quantity,
+        address _caller,
+        address _to
+    )
+        internal
+        returns(address)
+    {
+        IManagerIssuanceHook preIssueHook = issuanceSettings[_setToken].managerIssuanceHook;
+        if (address(preIssueHook) != address(0)) {
+            preIssueHook.invokePreRedeemHook(_setToken, _quantity, _caller, _to);
             return address(preIssueHook);
         }
 
