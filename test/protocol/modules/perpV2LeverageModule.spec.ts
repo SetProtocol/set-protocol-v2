@@ -83,6 +83,9 @@ describe("PerpV2LeverageModule", () => {
     perpSetup = getPerpV2Fixture(owner.address);
     await perpSetup.initialize(maker, otherTrader);
 
+    // set funding to zero to avoid calculating it in each test case
+    await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
+
     vETH = perpSetup.vETH;
     vBTC = perpSetup.vBTC;
     usdc = perpSetup.usdc;
@@ -1788,7 +1791,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnit).to.closeTo(expectedExternalPositionUnit, 1);
+          expect(externalPositionUnit).to.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -1838,7 +1841,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).lt(ether(1).mul(-1));
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -2414,7 +2417,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 200);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -2555,7 +2558,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -2606,7 +2609,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).lt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -3222,7 +3225,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
           expect(owedRealizedPnl).gt(0);
         });
       });
@@ -3275,7 +3278,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
           expect(owedRealizedPnl).lt(0);
         });
       });
@@ -3664,7 +3667,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -3714,7 +3717,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).lt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -4265,7 +4268,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 101);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -4395,7 +4398,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).gt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -4445,7 +4448,7 @@ describe("PerpV2LeverageModule", () => {
           );
 
           expect(owedRealizedPnl).lt(0);
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 100);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
       });
 
@@ -5081,7 +5084,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 200);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
           expect(owedRealizedPnl).gt(0);
         });
       });
@@ -5134,7 +5137,7 @@ describe("PerpV2LeverageModule", () => {
             perpLeverageModule.address
           );
 
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 200);
+          expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
           expect(owedRealizedPnl).lt(0);
         });
       });
