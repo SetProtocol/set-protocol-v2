@@ -19,7 +19,6 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
@@ -29,7 +28,6 @@ import { IController } from "../../interfaces/IController.sol";
 import { IManagerIssuanceHook } from "../../interfaces/IManagerIssuanceHook.sol";
 import { Invoke } from "../lib/Invoke.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
