@@ -47,6 +47,10 @@ interface IExchange {
         int256 openNotional;
     }
 
+    // Note: Do *NOT* add `getFundingGrowthGlobalAndTwaps` to this interface. It may work with the
+    // custom bytecode we generated to expose the method in our TS tests but it's no longer part of the
+    // public interface of the deployed PerpV2 system contracts. (Removed in v0.15.0).
+
     function getPool(address baseToken) external view returns (address);
     function getTick(address baseToken) external view returns (int24);
     function getSqrtMarkTwapX96(address baseToken, uint32 twapInterval) external view returns (uint160);
