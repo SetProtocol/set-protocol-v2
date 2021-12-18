@@ -20,7 +20,7 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 /**
- * @title DgV2WrapV2Adapter
+ * @title DgMigrationWrapV2Adapter
  * @author Set Protocol
  *
  * Wrap adapter for one time token migration from DG V1 to DG V2.
