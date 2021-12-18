@@ -20,11 +20,11 @@ const expect = getWaffleExpect();
 describe("DgMigrationWrapV2Adapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
-  let dgToken: Dg;
+  let dg: Dg;
   let adapter: DgMigrationWrapV2Adapter;
 
-  let newDgToken: StandardTokenMock;
-  let oldDgToken: StandardTokenMock;
+  let dgV2Token: StandardTokenMock;
+  let dgV1Token: StandardTokenMock;
 
   let mockOtherUnderlyingToken: Account;
   let mockOtherWrappedToken: Account;
@@ -37,39 +37,39 @@ describe("DgMigrationWrapV2Adapter", () => {
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
-    dgToken = await deployer.external.deployDgTokenV2(owner.address);
-    oldDgToken = await deployer.mocks.deployTokenMock(owner.address);
-    newDgToken = await deployer.mocks.deployTokenMock(owner.address);
+    dg = await deployer.external.deployDg(owner.address);
+    dgV1Token = await deployer.mocks.deployTokenMock(owner.address);
+    dgV2Token = await deployer.mocks.deployTokenMock(owner.address);
 
     adapter = await deployer.adapters.deployDgMigrationWrapV2Adapter(
-      oldDgToken.address,
-      newDgToken.address
+      dgV1Token.address,
+      dgV2Token.address
     );
   });
 
   addSnapshotBeforeRestoreAfterEach();
 
   describe("#constructor", () => {
-    let subjectLegacyAddress: string;
-    let subjectNewAddress: string;
+    let subjectV1Address: string;
+    let subjectV2Address: string;
     beforeEach(async () => {
-      subjectLegacyAddress = oldDgToken.address;
-      subjectNewAddress = newDgToken.address;
+      subjectV1Address = dgV1Token.address;
+      subjectV2Address = dgV2Token.address;
     });
     async function subject(): Promise<DgMigrationWrapV2Adapter> {
       return deployer.adapters.deployDgMigrationWrapV2Adapter(
-        subjectLegacyAddress,
-        subjectNewAddress
+        subjectV1Address,
+        subjectV2Address
       );
     }
     it("should have the correct legacy token address", async () => {
       const deployedAdapter = await subject();
 
-      expect(await deployedAdapter.dgLegacyToken()).to.eq(subjectLegacyAddress);
+      expect(await deployedAdapter.dgTokenV1()).to.eq(subjectV1Address);
     });
     it("should have the correct new token address", async () => {
       const deployedAdapter = await subject();
-      expect(await deployedAdapter.dgToken()).to.eq(subjectNewAddress);
+      expect(await deployedAdapter.dgTokenV2()).to.eq(subjectV2Address);
     });
   });
 
@@ -79,8 +79,8 @@ describe("DgMigrationWrapV2Adapter", () => {
     let subjectNotionalUnderlying: BigNumber;
 
     beforeEach(async () => {
-      subjectUnderlyingToken = oldDgToken.address;
-      subjectWrappedToken = newDgToken.address;
+      subjectUnderlyingToken = dgV1Token.address;
+      subjectWrappedToken = dgV2Token.address;
       subjectNotionalUnderlying = ether(2);
     });
 
@@ -91,7 +91,7 @@ describe("DgMigrationWrapV2Adapter", () => {
     it("should return correct calldata", async () => {
       const [targetAddress, ethValue, callData] = await subject();
 
-      const expectedCallData = dgToken.interface.encodeFunctionData("goLight", [subjectNotionalUnderlying]);
+      const expectedCallData = dg.interface.encodeFunctionData("goLight", [subjectNotionalUnderlying]);
       expect(targetAddress).to.eq(subjectWrappedToken);
       expect(ethValue).to.eq(ZERO);
       expect(callData).to.eq(expectedCallData);
@@ -103,7 +103,7 @@ describe("DgMigrationWrapV2Adapter", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be legacy DG token");
+        await expect(subject()).to.be.revertedWith("Must be DG V1 token");
       });
     });
 
@@ -113,7 +113,7 @@ describe("DgMigrationWrapV2Adapter", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be new DG token");
+        await expect(subject()).to.be.revertedWith("Must be DG V2 token");
       });
     });
   });
@@ -124,8 +124,8 @@ describe("DgMigrationWrapV2Adapter", () => {
     let subjectAmount: BigNumber;
 
     beforeEach(async () => {
-      subjectUnderlyingToken = oldDgToken.address;
-      subjectWrappedToken = newDgToken.address;
+      subjectUnderlyingToken = dgV1Token.address;
+      subjectWrappedToken = dgV2Token.address;
       subjectAmount = ether(2);
     });
 
@@ -140,11 +140,11 @@ describe("DgMigrationWrapV2Adapter", () => {
 
   describe("#getSpenderAddress", () => {
     async function subject(): Promise<string> {
-      return adapter.getSpenderAddress(oldDgToken.address, newDgToken.address);
+      return adapter.getSpenderAddress(dgV1Token.address, dgV2Token.address);
     }
     it("should return the correct spender address", async () => {
       const spender = await subject();
-      expect(spender).to.eq(newDgToken.address);
+      expect(spender).to.eq(dgV2Token.address);
     });
   });
 });

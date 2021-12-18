@@ -30,55 +30,54 @@ contract DgMigrationWrapV2Adapter {
 
     /* ============ State Variables ============ */
 
-    address public immutable dgLegacyToken;
-    address public immutable dgToken;
+    address public immutable dgTokenV1;
+    address public immutable dgTokenV2;
 
     /* ============ Constructor ============ */
 
     /**
      * Set state variables
-     * @param _dgLegacyToken            Address of DG legacy token
-     * @param _dgToken                  Address of DG token
+     * @param _dgTokenV1                Address of DG token V1
+     * @param _dgTokenV2                Address of DG token V2
      */
-    constructor(address _dgLegacyToken, address _dgToken) public {
-        dgLegacyToken = _dgLegacyToken;
-        dgToken = _dgToken;
+    constructor(address _dgTokenV1, address _dgTokenV2) public {
+        dgTokenV1 = _dgTokenV1;
+        dgTokenV2 = _dgTokenV2;
     }
 
     /* ============ External Getter Functions ============ */
 
     /**
-     * Generates the calldata to migrate DG legacy tokens to DG token.
-     * @param _underlyingToken          Address of the component to be wrapped
-     * @param _wrappedToken             Address of the wrapped component
-     * @param _notionalUnderlying       Total quantity of underlying tokens to wrap
+     * Generates the calldata to migrate DG V1 tokens to DG V2 tokens.
+     * @param _dgTokenV1                Address of the DG V1 Token
+     * @param _dgTokenV2                Address of the DG V2 Token
+     * @param _dgTokenV1Units           Total quantity of dg v1 tokens to migrate
      *
      * @return address                  Target contract address
      * @return uint256                  Total quantity of underlying units (if underlying is ETH)
      * @return bytes                    Wrap calldata
      */
     function getWrapCallData(
-        address _underlyingToken,
-        address _wrappedToken,
-        uint256 _notionalUnderlying
+        address _dgTokenV1,
+        address _dgTokenV2,
+        uint256 _dgTokenV1Units
     ) external view returns (address, uint256, bytes memory) {
-        require(_underlyingToken == dgLegacyToken, "Must be legacy DG token");
-        require(_wrappedToken == dgToken, "Must be new DG token");
+        require(_dgTokenV1 == dgTokenV1, "Must be DG V1 token");
+        require(_dgTokenV2 == dgTokenV2, "Must be DG V2 token");
 
         // goLight(uint256)
-        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_notionalUnderlying]);
+        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_dgTokenV1Units]);
 
-        // Note: The target address is this contract.
-        return (dgToken, 0, callData);
+        return (dgTokenV2, 0, callData);
     }
 
     /**
      * This function will revert, since migration cannot be reversed.
      */
     function getUnwrapCallData(
-        address /* _underlyingToken */,
-        address /* _wrappedToken */,
-        uint256 /* _wrappedTokenUnits */
+        address /* _dgTokenV1 */,
+        address /* _dgTokenV2 */,
+        uint256 /* _dgTokenV2Units */
     ) external pure returns (address, uint256, bytes memory) {
         revert("DG migration cannot be reversed");
     }
@@ -89,6 +88,6 @@ contract DgMigrationWrapV2Adapter {
      * @return address        Address of the contract to approve tokens to
      */
     function getSpenderAddress(address /* _underlyingToken */, address /* _wrappedToken */) external view returns (address) {
-        return dgToken;
+        return dgTokenV2;
     }
 }

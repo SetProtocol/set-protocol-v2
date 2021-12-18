@@ -812,7 +812,7 @@ export default class DeployExternalContracts {
   }
 
   // DG Token
-  public async deployDgTokenV2(address: Address): Promise<Dg> {
+  public async deployDg(address: Address): Promise<Dg> {
     return await Dg__factory.connect(address, this._deployerSigner);
   }
 
