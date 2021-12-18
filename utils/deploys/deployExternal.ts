@@ -217,7 +217,7 @@ import {
   PerpV2InsuranceFund,
   PerpV2AccountBalance,
   PerpV2Exchange
-} from "./../contracts/perpV2";
+} from "../contracts/perpV2";
 
 import { PerpV2ClearingHouse__factory } from "../../typechain/factories/PerpV2ClearingHouse__factory";
 import { PerpV2MarketRegistry__factory } from "../../typechain/factories/PerpV2MarketRegistry__factory";
@@ -232,6 +232,9 @@ import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/Pe
 import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
 import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
 import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
+
+import { Dg } from "../contracts/dg";
+import { Dg__factory } from "../../typechain/factories/Dg__factory";
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -806,6 +809,11 @@ export default class DeployExternalContracts {
 
   public async getUniswapV3PoolInstance(pool: Address): Promise<UniswapV3Pool> {
     return await new UniswapV3Pool__factory(this._deployerSigner).attach(pool);
+  }
+
+  // DG Token
+  public async deployDgTokenV2(address: Address): Promise<Dg> {
+    return await Dg__factory.connect(address, this._deployerSigner);
   }
 
   // PerpV2

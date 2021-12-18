@@ -49,19 +49,26 @@ contract DgMigrationWrapV2Adapter {
 
     /**
      * Generates the calldata to migrate DG legacy tokens to DG token.
+     * @param _underlyingToken          Address of the component to be wrapped
+     * @param _wrappedToken             Address of the wrapped component
+     * @param _notionalUnderlying       Total quantity of underlying tokens to wrap
+     *
+     * @return address                  Target contract address
+     * @return uint256                  Total quantity of underlying units (if underlying is ETH)
+     * @return bytes                    Wrap calldata
      */
     function getWrapCallData(
         address _underlyingToken,
         address _wrappedToken,
-        uint256 _underlyingUnits
+        uint256 _notionalUnderlying
     ) external view returns (address, uint256, bytes memory) {
         require(_underlyingToken == dgLegacyToken, "Must be legacy DG token");
         require(_wrappedToken == dgToken, "Must be new DG token");
 
         // goLight(uint256)
-        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_underlyingUnits]);
+        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_notionalUnderlying]);
 
-        // The target contract is the new token contract.
+        // Note: The target address is this contract.
         return (dgToken, 0, callData);
     }
 

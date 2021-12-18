@@ -3,6 +3,7 @@ import { BigNumber } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { DgMigrationWrapV2Adapter, StandardTokenMock } from "@utils/contracts";
+import { Dg } from "@utils/contracts/dg";
 import { ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
@@ -19,17 +20,24 @@ const expect = getWaffleExpect();
 describe("DgMigrationWrapV2Adapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
+  let dgToken: Dg;
   let adapter: DgMigrationWrapV2Adapter;
 
   let newDgToken: StandardTokenMock;
   let oldDgToken: StandardTokenMock;
 
+  let mockOtherUnderlyingToken: Account;
+  let mockOtherWrappedToken: Account;
+
   before(async () => {
     [
-      owner
+      owner,
+      mockOtherUnderlyingToken,
+      mockOtherWrappedToken
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
+    dgToken = await deployer.external.deployDgTokenV2(owner.address);
     oldDgToken = await deployer.mocks.deployTokenMock(owner.address);
     newDgToken = await deployer.mocks.deployTokenMock(owner.address);
 
@@ -81,18 +89,32 @@ describe("DgMigrationWrapV2Adapter", () => {
     }
 
     it("should return correct calldata", async () => {
-      // TODO: assert calldata.
-      const [targetAddress, ethValue] = await subject();
+      const [targetAddress, ethValue, callData] = await subject();
+
+      const expectedCallData = dgToken.interface.encodeFunctionData("goLight", [subjectNotionalUnderlying]);
       expect(targetAddress).to.eq(subjectWrappedToken);
       expect(ethValue).to.eq(ZERO);
+      expect(callData).to.eq(expectedCallData);
     });
 
-    it("should revert when underlying is not old dg token", async () => {
+    describe("should revert when underlying is not old dg token", async () => {
+      beforeEach(async () => {
+        subjectUnderlyingToken = mockOtherUnderlyingToken.address;
+      });
 
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be legacy DG token");
+      });
     });
 
-    it("should revert when wrapped asset is not new dg token", async () => {
+    describe("should revert when wrapped asset is not new dg token", async () => {
+      beforeEach(async () => {
+        subjectWrappedToken = mockOtherWrappedToken.address;
+      });
 
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be new DG token");
+      });
     });
   });
 
