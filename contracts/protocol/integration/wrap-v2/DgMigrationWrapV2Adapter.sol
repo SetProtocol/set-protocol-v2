@@ -58,8 +58,11 @@ contract DgMigrationWrapV2Adapter {
         require(_underlyingToken == dgLegacyToken, "Must be legacy DG token");
         require(_wrappedToken == dgToken, "Must be new DG token");
 
+        // goLight(uint256)
         bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_underlyingUnits]);
-        return (address(this), 0, callData);
+
+        // The target contract is the new token contract.
+        return (dgToken, 0, callData);
     }
 
     /**

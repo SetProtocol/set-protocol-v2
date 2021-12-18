@@ -9,6 +9,7 @@ import {
   BalancerV1IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
+  DgMigrationWrapV2Adapter,
   KyberExchangeAdapter,
   KyberV3IndexExchangeAdapter,
   KyberMigrationWrapAdapter,
@@ -42,6 +43,7 @@ import { AxieInfinityMigrationWrapAdapter__factory } from "../../typechain/facto
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
+import { DgMigrationWrapV2Adapter__factory } from "../../typechain/factories/DgMigrationWrapV2Adapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
 import { KyberV3IndexExchangeAdapter__factory } from "../../typechain/factories/KyberV3IndexExchangeAdapter__factory";
 import { KyberMigrationWrapAdapter__factory } from "../../typechain/factories/KyberMigrationWrapAdapter__factory";
@@ -183,6 +185,10 @@ export default class DeployAdapters {
 
   public async deployCurveStakingAdapter(gaugeController: Address): Promise<CurveStakingAdapter> {
     return await new CurveStakingAdapter__factory(this._deployerSigner).deploy(gaugeController);
+  }
+
+  public async deployDgMigrationWrapV2Adapter(legacyAddress: Address, newAddress: Address): Promise<DgMigrationWrapV2Adapter> {
+    return await new DgMigrationWrapV2Adapter__factory(this._deployerSigner).deploy(legacyAddress, newAddress);
   }
 
   public async deployUniswapPairPriceAdapter(
