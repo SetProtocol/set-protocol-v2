@@ -49,24 +49,24 @@ contract DgMigrationWrapV2Adapter {
 
     /**
      * Generates the calldata to migrate DG V1 tokens to DG V2 tokens.
-     * @param _dgTokenV1                Address of the DG V1 Token
-     * @param _dgTokenV2                Address of the DG V2 Token
-     * @param _dgTokenV1Units           Total quantity of dg v1 tokens to migrate
+     * @param _underlyingToken          Address of the underlying token
+     * @param _wrappedToken             Address of the wrapped token
+     * @param _notionalUnderlying       Total quantity of underlying tokens to migrate
      *
      * @return address                  Target contract address
      * @return uint256                  Total quantity of underlying units (if underlying is ETH)
      * @return bytes                    Wrap calldata
      */
     function getWrapCallData(
-        address _dgTokenV1,
-        address _dgTokenV2,
-        uint256 _dgTokenV1Units
+        address _underlyingToken,
+        address _wrappedToken,
+        uint256 _notionalUnderlying
     ) external view returns (address, uint256, bytes memory) {
-        require(_dgTokenV1 == dgTokenV1, "Must be DG V1 token");
-        require(_dgTokenV2 == dgTokenV2, "Must be DG V2 token");
+        require(_underlyingToken == dgTokenV1, "Must be DG V1 token");
+        require(_wrappedToken == dgTokenV2, "Must be DG V2 token");
 
         // goLight(uint256)
-        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_dgTokenV1Units]);
+        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_notionalUnderlying]);
 
         return (dgTokenV2, 0, callData);
     }
@@ -75,9 +75,9 @@ contract DgMigrationWrapV2Adapter {
      * This function will revert, since migration cannot be reversed.
      */
     function getUnwrapCallData(
-        address /* _dgTokenV1 */,
-        address /* _dgTokenV2 */,
-        uint256 /* _dgTokenV2Units */
+        address /* _underlyingToken */,
+        address /* _wrappedToken */,
+        uint256 /* _notionalWrapped */
     ) external pure returns (address, uint256, bytes memory) {
         revert("DG migration cannot be reversed");
     }
