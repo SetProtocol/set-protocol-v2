@@ -66,7 +66,7 @@ contract DgMigrationWrapV2Adapter {
         require(_wrappedToken == dgTokenV2, "Must be DG V2 token");
 
         // goLight(uint256)
-        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", [_notionalUnderlying]);
+        bytes memory callData = abi.encodeWithSignature("goLight(uint256)", _notionalUnderlying);
 
         return (dgTokenV2, 0, callData);
     }

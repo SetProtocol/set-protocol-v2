@@ -1,1 +1,2 @@
-export { Dg } from "../../typechain/dg";
+export { DGLight } from "../../typechain/DGLight";
+export { DgToken } from "../../typechain/DgToken";

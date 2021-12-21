@@ -3,7 +3,7 @@ import { BigNumber } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { DgMigrationWrapV2Adapter, StandardTokenMock } from "@utils/contracts";
-import { Dg } from "@utils/contracts/dg";
+import { DGLight } from "@utils/contracts/dg";
 import { ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
@@ -12,7 +12,7 @@ import {
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
-  getWaffleExpect
+  getWaffleExpect,
 } from "@utils/test/index";
 
 const expect = getWaffleExpect();
@@ -20,10 +20,10 @@ const expect = getWaffleExpect();
 describe("DgMigrationWrapV2Adapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
-  let dg: Dg;
+
+  let dgLight: DGLight;
   let adapter: DgMigrationWrapV2Adapter;
 
-  let dgV2Token: StandardTokenMock;
   let dgV1Token: StandardTokenMock;
 
   let mockOtherUnderlyingToken: Account;
@@ -37,13 +37,12 @@ describe("DgMigrationWrapV2Adapter", () => {
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
-    dg = await deployer.external.deployDg(owner.address);
     dgV1Token = await deployer.mocks.deployTokenMock(owner.address);
-    dgV2Token = await deployer.mocks.deployTokenMock(owner.address);
+    dgLight = await deployer.external.deployDGLight(dgV1Token.address);
 
     adapter = await deployer.adapters.deployDgMigrationWrapV2Adapter(
       dgV1Token.address,
-      dgV2Token.address
+      dgLight.address
     );
   });
 
@@ -54,7 +53,7 @@ describe("DgMigrationWrapV2Adapter", () => {
     let subjectWrappedAddress: string;
     beforeEach(async () => {
       subjectUnderlyingAddress = dgV1Token.address;
-      subjectWrappedAddress = dgV2Token.address;
+      subjectWrappedAddress = dgLight.address;
     });
     async function subject(): Promise<DgMigrationWrapV2Adapter> {
       return deployer.adapters.deployDgMigrationWrapV2Adapter(
@@ -80,7 +79,7 @@ describe("DgMigrationWrapV2Adapter", () => {
 
     beforeEach(async () => {
       subjectUnderlyingToken = dgV1Token.address;
-      subjectWrappedToken = dgV2Token.address;
+      subjectWrappedToken = dgLight.address;
       subjectNotionalUnderlying = ether(2);
     });
 
@@ -91,7 +90,7 @@ describe("DgMigrationWrapV2Adapter", () => {
     it("should return correct calldata", async () => {
       const [targetAddress, ethValue, callData] = await subject();
 
-      const expectedCallData = dg.interface.encodeFunctionData("goLight", [subjectNotionalUnderlying]);
+      const expectedCallData = dgLight.interface.encodeFunctionData("goLight", [subjectNotionalUnderlying]);
       expect(targetAddress).to.eq(subjectWrappedToken);
       expect(ethValue).to.eq(ZERO);
       expect(callData).to.eq(expectedCallData);
@@ -125,7 +124,7 @@ describe("DgMigrationWrapV2Adapter", () => {
 
     beforeEach(async () => {
       subjectUnderlyingToken = dgV1Token.address;
-      subjectWrappedToken = dgV2Token.address;
+      subjectWrappedToken = dgLight.address;
       subjectAmount = ether(2);
     });
 
@@ -140,11 +139,11 @@ describe("DgMigrationWrapV2Adapter", () => {
 
   describe("#getSpenderAddress", () => {
     async function subject(): Promise<string> {
-      return adapter.getSpenderAddress(dgV1Token.address, dgV2Token.address);
+      return adapter.getSpenderAddress(dgV1Token.address, dgLight.address);
     }
     it("should return the correct spender address", async () => {
       const spender = await subject();
-      expect(spender).to.eq(dgV2Token.address);
+      expect(spender).to.eq(dgLight.address);
     });
   });
 });
