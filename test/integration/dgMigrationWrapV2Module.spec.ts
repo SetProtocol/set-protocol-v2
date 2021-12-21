@@ -109,11 +109,11 @@ describe("dgMigrationWrapModule", () => {
           subjectWrappedToken,
           subjectUnderlyingUnits,
           subjectIntegrationName,
-          ZERO_BYTES
+          ZERO_BYTES,
         );
       }
 
-      it("should convert underlying balance of dg tokens to dgLight tokens * 1000", async () => {
+      it("should convert underlying balance of dgClassic tokens to dgLight tokens * 1000", async () => {
         const previousDgTokenBalance = await dgClassic.balanceOf(setToken.address);
         const previousDGLightBalance = await dgLight.balanceOf(setToken.address);
         expect(previousDGLightBalance).to.eq(ZERO);
