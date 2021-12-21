@@ -60,7 +60,9 @@ contract DgMigrationWrapV2Adapter {
     function getWrapCallData(
         address _underlyingToken,
         address _wrappedToken,
-        uint256 _notionalUnderlying
+        uint256 _notionalUnderlying,
+        address /* _to */,
+        bytes memory /* _wrapData */
     ) external view returns (address, uint256, bytes memory) {
         require(_underlyingToken == dgTokenV1, "Must be DG V1 token");
         require(_wrappedToken == dgTokenV2, "Must be DG V2 token");

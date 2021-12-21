@@ -2,9 +2,9 @@ import "module-alias/register";
 import { BigNumber } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { DgMigrationWrapV2Adapter, StandardTokenMock } from "@utils/contracts";
-import { DGLight } from "@utils/contracts/dg";
-import { ZERO } from "@utils/constants";
+import { DgMigrationWrapV2Adapter } from "@utils/contracts";
+import { DGLight, DgToken } from "@utils/contracts/dg";
+import { ZERO, ZERO_BYTES, ADDRESS_ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -21,10 +21,9 @@ describe("DgMigrationWrapV2Adapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
 
+  let dgToken: DgToken;
   let dgLight: DGLight;
   let adapter: DgMigrationWrapV2Adapter;
-
-  let dgV1Token: StandardTokenMock;
 
   let mockOtherUnderlyingToken: Account;
   let mockOtherWrappedToken: Account;
@@ -37,11 +36,11 @@ describe("DgMigrationWrapV2Adapter", () => {
     ] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
-    dgV1Token = await deployer.mocks.deployTokenMock(owner.address);
-    dgLight = await deployer.external.deployDGLight(dgV1Token.address);
+    dgToken = await deployer.mocks.deployTokenMock(owner.address);
+    dgLight = await deployer.external.deployDGLight(dgToken.address);
 
     adapter = await deployer.adapters.deployDgMigrationWrapV2Adapter(
-      dgV1Token.address,
+      dgToken.address,
       dgLight.address
     );
   });
@@ -52,7 +51,7 @@ describe("DgMigrationWrapV2Adapter", () => {
     let subjectUnderlyingAddress: string;
     let subjectWrappedAddress: string;
     beforeEach(async () => {
-      subjectUnderlyingAddress = dgV1Token.address;
+      subjectUnderlyingAddress = dgToken.address;
       subjectWrappedAddress = dgLight.address;
     });
     async function subject(): Promise<DgMigrationWrapV2Adapter> {
@@ -78,13 +77,13 @@ describe("DgMigrationWrapV2Adapter", () => {
     let subjectNotionalUnderlying: BigNumber;
 
     beforeEach(async () => {
-      subjectUnderlyingToken = dgV1Token.address;
+      subjectUnderlyingToken = dgToken.address;
       subjectWrappedToken = dgLight.address;
       subjectNotionalUnderlying = ether(2);
     });
 
     async function subject(): Promise<[string, BigNumber, string]> {
-      return adapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectNotionalUnderlying);
+      return adapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectNotionalUnderlying, ADDRESS_ZERO, ZERO_BYTES);
     }
 
     it("should return correct calldata", async () => {
@@ -123,7 +122,7 @@ describe("DgMigrationWrapV2Adapter", () => {
     let subjectAmount: BigNumber;
 
     beforeEach(async () => {
-      subjectUnderlyingToken = dgV1Token.address;
+      subjectUnderlyingToken = dgToken.address;
       subjectWrappedToken = dgLight.address;
       subjectAmount = ether(2);
     });
@@ -139,7 +138,7 @@ describe("DgMigrationWrapV2Adapter", () => {
 
   describe("#getSpenderAddress", () => {
     async function subject(): Promise<string> {
-      return adapter.getSpenderAddress(dgV1Token.address, dgLight.address);
+      return adapter.getSpenderAddress(dgToken.address, dgLight.address);
     }
     it("should return the correct spender address", async () => {
       const spender = await subject();

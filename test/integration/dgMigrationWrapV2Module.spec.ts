@@ -3,7 +3,7 @@ import { BigNumber } from "ethers";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ADDRESS_ZERO, ZERO, ONE } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, ZERO_BYTES } from "@utils/constants";
 import { DgMigrationWrapV2Adapter, SetToken, WrapModuleV2 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -27,8 +27,8 @@ describe("dgMigrationWrapModule", () => {
 
   let wrapModule: WrapModuleV2;
 
+  let dgClassic: DgToken;
   let dgLight: DGLight;
-  let dgToken: DgToken;
   let adapter: DgMigrationWrapV2Adapter;
 
   const dgMigrationWrapAdapterIntegrationName: string = "DG_MIGRATION_WRAPPER";
@@ -47,13 +47,13 @@ describe("dgMigrationWrapModule", () => {
     wrapModule = await deployer.modules.deployWrapModuleV2(setup.controller.address, setup.weth.address);
     await setup.controller.addModule(wrapModule.address);
 
-    // Deploy DG V1 and DG V2 token
-    dgToken = await deployer.external.deployDgToken();
-    dgLight = await deployer.external.deployDGLight(dgToken.address);
+    // Deploy DG Classic Token (dgClassic) and DG V2 token (DGLight)
+    dgClassic = await deployer.external.deployDgToken();
+    dgLight = await deployer.external.deployDGLight(dgClassic.address);
 
     // DgMigrationWrapV2Adapter setup
     adapter = await deployer.adapters.deployDgMigrationWrapV2Adapter(
-      dgToken.address,
+      dgClassic.address,
       dgLight.address
     );
 
@@ -68,7 +68,7 @@ describe("dgMigrationWrapModule", () => {
 
     before(async () => {
       setToken = await setup.createSetToken(
-        [dgToken.address],
+        [dgClassic.address],
         [BigNumber.from(10 ** 8)],
         [setup.issuanceModule.address, wrapModule.address]
       );
@@ -80,7 +80,7 @@ describe("dgMigrationWrapModule", () => {
       // Issue some Sets
       setTokensIssued = ether(10);
       const underlyingRequired = setTokensIssued.div(10 ** 10);
-      await dgToken.approve(setup.issuanceModule.address, underlyingRequired);
+      await dgClassic.approve(setup.issuanceModule.address, underlyingRequired);
 
       await setup.issuanceModule.issue(setToken.address, setTokensIssued, owner.address);
     });
@@ -95,7 +95,7 @@ describe("dgMigrationWrapModule", () => {
 
       beforeEach(async () => {
         subjectSetToken = setToken.address;
-        subjectUnderlyingToken = dgToken.address;
+        subjectUnderlyingToken = dgClassic.address;
         subjectWrappedToken = dgLight.address;
         subjectUnderlyingUnits = BigNumber.from(10 ** 8);
         subjectIntegrationName = dgMigrationWrapAdapterIntegrationName;
@@ -103,31 +103,30 @@ describe("dgMigrationWrapModule", () => {
       });
 
       async function subject(): Promise<any> {
-        const wrapData = await adapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectUnderlyingUnits);
         return wrapModule.connect(subjectCaller.wallet).wrap(
           subjectSetToken,
           subjectUnderlyingToken,
           subjectWrappedToken,
           subjectUnderlyingUnits,
           subjectIntegrationName,
-          wrapData[2],
+          ZERO_BYTES
         );
       }
 
       it("should convert underlying balance of dg tokens to dgLight tokens * 1000", async () => {
-        const previousUnderlyingBalance = await dgToken.balanceOf(setToken.address);
+        const previousDgTokenBalance = await dgClassic.balanceOf(setToken.address);
+        const previousDGLightBalance = await dgLight.balanceOf(setToken.address);
+        expect(previousDGLightBalance).to.eq(ZERO);
 
         await subject();
 
-        const underlyingBalance = await dgToken.balanceOf(setToken.address);
-        const dgTokenUnit = await setToken.getDefaultPositionRealUnit(dgToken.address);
-        const dgLightUnit = await setToken.getDefaultPositionRealUnit(dgLight.address);
+        const dgTokenBalance = await dgClassic.balanceOf(setToken.address);
+        const DGLightBalance = await dgLight.balanceOf(setToken.address);
         const components = await setToken.getComponents();
 
-        expect(underlyingBalance).to.eq(previousUnderlyingBalance);
-        expect(dgTokenUnit).to.eq(ZERO);
-        expect(dgLightUnit).to.eq(previousUnderlyingBalance.mul(1000));
-        expect(components.length).to.eq(ONE);
+        expect(dgTokenBalance).to.eq(ZERO);
+        expect(DGLightBalance).to.eq(previousDgTokenBalance.mul(1000));
+        expect(components.length).to.eq(1);
       });
     });
   });

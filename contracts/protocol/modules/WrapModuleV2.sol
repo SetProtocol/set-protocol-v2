@@ -33,6 +33,7 @@ import { IWrapV2Adapter } from "../../interfaces/IWrapV2Adapter.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import "hardhat/console.sol";
 
 /**
  * @title WrapModuleV2
@@ -460,6 +461,9 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
             address(_setToken),
             _wrapData
         );
+
+        console.log(callTarget);
+        console.log(callValue);
 
         _setToken.invoke(callTarget, callValue, callByteData);
     }
