@@ -1,9 +1,9 @@
 import "module-alias/register";
 import { BigNumber } from "ethers";
 
-// import { Address } from "@utils/types";
+import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ADDRESS_ZERO, MAX_UINT_256, ZERO } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, ZERO_BYTES } from "@utils/constants";
 import { DgMigrationWrapV2Adapter, SetToken, WrapModuleV2 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -81,54 +81,41 @@ describe("dgMigrationWrapModule", () => {
       setTokensIssued = ether(10);
       const underlyingRequired = setTokensIssued.div(10 ** 9);
       await dgClassic.approve(setup.issuanceModule.address, underlyingRequired);
-
-      await dgClassic.approve(setToken.address, MAX_UINT_256);
-      await dgClassic.approve(owner.address, MAX_UINT_256);
-      await dgClassic.approve(dgLight.address, MAX_UINT_256);
-      await dgLight.approve(setToken.address, MAX_UINT_256);
-      await dgLight.approve(owner.address, MAX_UINT_256);
-      await dgLight.approve(dgClassic.address, MAX_UINT_256);
-
-      await dgClassic.transfer(owner.address, ether(1));
-
       await setup.issuanceModule.issue(setToken.address, setTokensIssued, owner.address);
     });
 
     describe("#wrap", async () => {
-      // let subjectSetToken: Address;
-      // let subjectUnderlyingToken: Address;
-      // let subjectWrappedToken: Address;
-      // let subjectUnderlyingUnits: BigNumber;
-      // let subjectIntegrationName: string;
-      // let subjectCaller: Account;
+      let subjectSetToken: Address;
+      let subjectUnderlyingToken: Address;
+      let subjectWrappedToken: Address;
+      let subjectUnderlyingUnits: BigNumber;
+      let subjectIntegrationName: string;
+      let subjectCaller: Account;
 
       beforeEach(async () => {
-        // subjectSetToken = setToken.address;
-        // subjectUnderlyingToken = dgClassic.address;
-        // subjectWrappedToken = dgLight.address;
-        // subjectUnderlyingUnits = ether(10);
-        // subjectIntegrationName = dgMigrationWrapAdapterIntegrationName;
-        // subjectCaller = owner;
+        subjectSetToken = setToken.address;
+        subjectUnderlyingToken = dgClassic.address;
+        subjectWrappedToken = dgLight.address;
+        subjectUnderlyingUnits = BigNumber.from(10 ** 8);
+        subjectIntegrationName = dgMigrationWrapAdapterIntegrationName;
+        subjectCaller = owner;
       });
 
       async function subject(): Promise<any> {
-        console.log(await (await dgClassic.balanceOf(owner.address)).toString());
-        const contract = await dgLight.connect(owner.wallet).goLight(10000);
-        console.log(contract);
-        return contract;
-        // return wrapModule.connect(subjectCaller.wallet).wrap(
-        //     subjectSetToken,
-        //     subjectUnderlyingToken,
-        //     subjectWrappedToken,
-        //     subjectUnderlyingUnits,
-        //     subjectIntegrationName,
-        //     ZERO_BYTES,
-        // );
+        return wrapModule.connect(subjectCaller.wallet).wrap(
+          subjectSetToken,
+          subjectUnderlyingToken,
+          subjectWrappedToken,
+          subjectUnderlyingUnits,
+          subjectIntegrationName,
+          ZERO_BYTES,
+        );
       }
 
       it("should convert underlying balance of dgClassic tokens to dgLight tokens * 1000", async () => {
         const previousDgTokenBalance = await dgClassic.balanceOf(setToken.address);
         const previousDGLightBalance = await dgLight.balanceOf(setToken.address);
+        expect(previousDgTokenBalance).to.eq(BigNumber.from(10 ** 9));
         expect(previousDGLightBalance).to.eq(ZERO);
 
         await subject();
