@@ -89,8 +89,8 @@ function getHardhatPrivateKeys() {
 
 function checkForkedProviderEnvironment() {
   if (process.env.FORK &&
-    (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
-  ) {
+      (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
+     ) {
     console.log(chalk.red(
       "You are running forked provider tests with invalid Alchemy credentials.\n" +
       "Update your ALCHEMY_TOKEN settings in the `.env` file."
