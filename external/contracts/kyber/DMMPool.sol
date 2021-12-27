@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.6.12;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/math/Math.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/math/SafeMath.sol";
+import "@openzeppelin/math/Math.sol";
+import "@openzeppelin/utils/ReentrancyGuard.sol";
+import "@openzeppelin/token/ERC20/SafeERC20.sol";
 
 import "./libraries/MathExt.sol";
 import "./libraries/FeeFomula.sol";

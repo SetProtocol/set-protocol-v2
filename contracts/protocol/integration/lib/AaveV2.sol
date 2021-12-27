@@ -18,7 +18,7 @@
 
 pragma solidity 0.6.10;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 import { ILendingPool } from "../../../interfaces/external/aave-v2/ILendingPool.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 

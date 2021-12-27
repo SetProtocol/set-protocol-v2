@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 
 import { ISetToken } from "../interfaces/ISetToken.sol";
 

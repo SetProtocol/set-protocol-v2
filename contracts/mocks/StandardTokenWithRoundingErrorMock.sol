@@ -19,9 +19,9 @@
 pragma solidity 0.6.10;
 
 import "./StandardTokenMock.sol";
-import "@openzeppelin/contracts/math/SignedSafeMath.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/SafeCast.sol";
+import "@openzeppelin/math/SignedSafeMath.sol";
+import "@openzeppelin/math/SafeMath.sol";
+import "@openzeppelin/utils/SafeCast.sol";
 
 contract StandardTokenWithRoundingErrorMock {
     using SignedSafeMath for int256;

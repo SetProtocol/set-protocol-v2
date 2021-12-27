@@ -20,7 +20,7 @@ pragma solidity 0.6.10;
 pragma experimental ABIEncoderV2;
 
 import { IController } from "../interfaces/IController.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
 /**
  * @title IntegrationRegistry

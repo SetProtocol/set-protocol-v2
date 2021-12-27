@@ -19,7 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
 
 import { IController } from "../../interfaces/IController.sol";
 import { IGovernanceAdapter } from "../../interfaces/IGovernanceAdapter.sol";

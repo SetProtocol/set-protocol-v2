@@ -18,8 +18,8 @@
 
 pragma solidity 0.6.10;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { SafeMath } from "@openzeppelin/math/SafeMath.sol";
 
 import { IOracle } from "../interfaces/IOracle.sol";
 

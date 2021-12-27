@@ -19,9 +19,9 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/utils/ReentrancyGuard.sol";
 
 import { Compound } from "../integration/lib/Compound.sol";
 import { ICErc20 } from "../../interfaces/external/ICErc20.sol";

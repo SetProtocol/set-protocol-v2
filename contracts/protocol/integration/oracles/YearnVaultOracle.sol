@@ -18,7 +18,7 @@
 
 pragma solidity 0.6.10;
 
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { SafeMath } from "@openzeppelin/math/SafeMath.sol";
 
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { IYearnVault } from "../../../interfaces/external/IYearnVault.sol";
