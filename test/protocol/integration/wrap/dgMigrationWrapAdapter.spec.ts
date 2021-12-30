@@ -2,9 +2,9 @@ import "module-alias/register";
 import { BigNumber } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { DgMigrationWrapV2Adapter } from "@utils/contracts";
+import { DgMigrationWrapAdapter } from "@utils/contracts";
 import { DGLight, DgToken } from "@utils/contracts/dg";
-import { ZERO, ZERO_BYTES, ADDRESS_ZERO } from "@utils/constants";
+import { ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -17,13 +17,13 @@ import {
 
 const expect = getWaffleExpect();
 
-describe("DgMigrationWrapV2Adapter", () => {
+describe("DgMigrationWrapAdapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
 
   let dgToken: DgToken;
   let dgLight: DGLight;
-  let adapter: DgMigrationWrapV2Adapter;
+  let adapter: DgMigrationWrapAdapter;
 
   let mockOtherUnderlyingToken: Account;
   let mockOtherWrappedToken: Account;
@@ -39,7 +39,7 @@ describe("DgMigrationWrapV2Adapter", () => {
     dgToken = await deployer.mocks.deployTokenMock(owner.address);
     dgLight = await deployer.external.deployDGLight(dgToken.address);
 
-    adapter = await deployer.adapters.deployDgMigrationWrapV2Adapter(
+    adapter = await deployer.adapters.deployDgMigrationWrapAdapter(
       dgToken.address,
       dgLight.address
     );
@@ -54,8 +54,8 @@ describe("DgMigrationWrapV2Adapter", () => {
       subjectUnderlyingAddress = dgToken.address;
       subjectWrappedAddress = dgLight.address;
     });
-    async function subject(): Promise<DgMigrationWrapV2Adapter> {
-      return deployer.adapters.deployDgMigrationWrapV2Adapter(
+    async function subject(): Promise<DgMigrationWrapAdapter> {
+      return deployer.adapters.deployDgMigrationWrapAdapter(
         subjectUnderlyingAddress,
         subjectWrappedAddress
       );
@@ -83,7 +83,7 @@ describe("DgMigrationWrapV2Adapter", () => {
     });
 
     async function subject(): Promise<[string, BigNumber, string]> {
-      return adapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectNotionalUnderlying, ADDRESS_ZERO, ZERO_BYTES);
+      return adapter.getWrapCallData(subjectUnderlyingToken, subjectWrappedToken, subjectNotionalUnderlying);
     }
 
     it("should return correct calldata", async () => {

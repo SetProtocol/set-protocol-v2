@@ -3,8 +3,8 @@ import { BigNumber } from "ethers";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ADDRESS_ZERO, ZERO, ZERO_BYTES } from "@utils/constants";
-import { DgMigrationWrapV2Adapter, SetToken, WrapModuleV2 } from "@utils/contracts";
+import { ADDRESS_ZERO, ZERO } from "@utils/constants";
+import { DgMigrationWrapAdapter, SetToken, WrapModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -25,11 +25,11 @@ describe("dgMigrationWrapModule", () => {
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
-  let wrapModule: WrapModuleV2;
+  let wrapModule: WrapModule;
 
   let dgClassic: DgToken;
   let dgLight: DGLight;
-  let adapter: DgMigrationWrapV2Adapter;
+  let adapter: DgMigrationWrapAdapter;
 
   const dgMigrationWrapAdapterIntegrationName: string = "DG_MIGRATION_WRAPPER";
 
@@ -44,7 +44,7 @@ describe("dgMigrationWrapModule", () => {
     await setup.initialize();
 
     // WrapModule setup
-    wrapModule = await deployer.modules.deployWrapModuleV2(setup.controller.address, setup.weth.address);
+    wrapModule = await deployer.modules.deployWrapModule(setup.controller.address, setup.weth.address);
     await setup.controller.addModule(wrapModule.address);
 
     // Deploy DG Classic Token (dgClassic) and DG V2 token (DGLight)
@@ -52,7 +52,7 @@ describe("dgMigrationWrapModule", () => {
     dgLight = await deployer.external.deployDGLight(dgClassic.address);
 
     // DgMigrationWrapV2Adapter setup
-    adapter = await deployer.adapters.deployDgMigrationWrapV2Adapter(
+    adapter = await deployer.adapters.deployDgMigrationWrapAdapter(
       dgClassic.address,
       dgLight.address
     );
@@ -107,8 +107,7 @@ describe("dgMigrationWrapModule", () => {
           subjectUnderlyingToken,
           subjectWrappedToken,
           subjectUnderlyingUnits,
-          subjectIntegrationName,
-          ZERO_BYTES,
+          subjectIntegrationName
         );
       }
 
@@ -127,6 +126,46 @@ describe("dgMigrationWrapModule", () => {
         expect(dgTokenBalance).to.eq(ZERO);
         expect(DGLightBalance).to.eq(previousDgTokenBalance.mul(1000));
         expect(components.length).to.eq(1);
+      });
+    });
+
+    describe("#unwrap", async () => {
+      let subjectSetToken: Address;
+      let subjectUnderlyingToken: Address;
+      let subjectWrappedToken: Address;
+      let subjectWrappedUnits: BigNumber;
+      let subjectIntegrationName: string;
+      let subjectCaller: Account;
+
+      beforeEach(async () => {
+        subjectSetToken = setToken.address;
+        subjectUnderlyingToken = dgClassic.address;
+        subjectWrappedToken = dgLight.address;
+        subjectWrappedUnits = BigNumber.from(10 ** 8);
+        subjectIntegrationName = dgMigrationWrapAdapterIntegrationName;
+        subjectCaller = owner;
+
+        await wrapModule.connect(subjectCaller.wallet).wrap(
+          subjectSetToken,
+          subjectUnderlyingToken,
+          subjectWrappedToken,
+          subjectWrappedUnits,
+          subjectIntegrationName
+        );
+      });
+
+      async function subject(): Promise<any> {
+        return wrapModule.connect(subjectCaller.wallet).unwrap(
+          subjectSetToken,
+          subjectUnderlyingToken,
+          subjectWrappedToken,
+          subjectWrappedUnits,
+          subjectIntegrationName
+        );
+      }
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("DG migration cannot be reversed");
       });
     });
   });

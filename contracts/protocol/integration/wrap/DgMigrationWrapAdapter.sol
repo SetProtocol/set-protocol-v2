@@ -20,13 +20,13 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 /**
- * @title DgMigrationWrapV2Adapter
+ * @title DgMigrationWrapAdapter
  * @author Set Protocol
  *
  * Wrap adapter for one time token migration from DG V1 to DG V2.
  * Note: DG V2 cannot be unwrapped into DG V1, because the migration cannot be reversed.
  */
-contract DgMigrationWrapV2Adapter {
+contract DgMigrationWrapAdapter {
 
     /* ============ State Variables ============ */
 
@@ -60,9 +60,7 @@ contract DgMigrationWrapV2Adapter {
     function getWrapCallData(
         address _underlyingToken,
         address _wrappedToken,
-        uint256 _notionalUnderlying,
-        address /* _to */,
-        bytes memory /* _wrapData */
+        uint256 _notionalUnderlying
     ) external view returns (address, uint256, bytes memory) {
         require(_underlyingToken == dgTokenV1, "Must be DG V1 token");
         require(_wrappedToken == dgTokenV2, "Must be DG V2 token");
@@ -89,7 +87,14 @@ contract DgMigrationWrapV2Adapter {
      *
      * @return address        Address of the contract to approve tokens to
      */
-    function getSpenderAddress(address /* _underlyingToken */, address /* _wrappedToken */) external view returns (address) {
+    function getSpenderAddress(
+        address /* _underlyingToken */,
+        address /* _wrappedToken */
+    )
+        external
+        view
+        returns (address)
+    {
         return dgTokenV2;
     }
 }
