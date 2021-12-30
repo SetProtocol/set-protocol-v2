@@ -8,6 +8,7 @@
     "outDir": "dist",
     "resolveJsonModule": true,
     "declaration": true,
+    "declarationDir": "./dist/types",
     "declarationMap": true,
     "sourceMap": true,
     "baseUrl": ".",
