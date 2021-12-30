@@ -188,7 +188,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
 
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity plus fees of Sets as well as amount of debt
-     * that will be returned to caller. Overrides inherited function to take into account position updates from pre action module hooks.
+     * that will be returned to caller. Takes into account position updates from pre action module hooks.
      * (manager hooks not included).
      *
      * NOTE: This getter is non-view to allow module hooks to determine units by simulating state changes in an external protocol and
@@ -230,7 +230,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
 
     /**
      * Calculates the amount of each component that will be returned on redemption net of fees as well as how much debt needs to be paid down to
-     * redeem. Overrides inherited function to take into account position updates from pre action module hooks (manager hooks not included).
+     * redeem. Takes into account position updates from pre action module hooks (manager hooks not included).
      *
      * NOTE: This getter is non-view to allow module hooks to determine units by simulating state changes in an external protocol and
      * reverting. It should only be called by off-chain methods via static call.
