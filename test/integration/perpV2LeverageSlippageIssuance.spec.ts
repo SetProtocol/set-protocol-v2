@@ -424,6 +424,30 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
           expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
         });
+
+        it("should get required component issuance units correctly", async () => {
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            true
+          ))[0];
+
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+
+          const [components, equityFlows, debtFlows] = await slippageIssuanceModule.callStatic.getRequiredComponentIssuanceUnitsOffChain(
+            subjectSetToken,
+            subjectQuantity
+          );
+
+          const expectedComponents = await setToken.getComponents();
+          const expectedEquityFlows = [feeAdjustedTransferIn];
+          const expectedDebtFlows = [ZERO];
+
+          expect(expectedComponents[0]).to.eq(components[0]);
+          expect(expectedEquityFlows[0]).to.be.closeTo(equityFlows[0], 50);
+          expect(expectedDebtFlows[0]).to.eq(debtFlows[0]);
+        });
       });
 
       describe("when minting multiple sets", () => {
@@ -902,6 +926,32 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         const expectedBaseBalance = initialBaseBalance.sub(baseTokenSoldNotional);
 
         expect(finalBaseBalance).eq(expectedBaseBalance);
+      });
+
+      it("should get required component redemption units correctly", async () => {
+        const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+          subjectSetToken,
+          subjectQuantity,
+          false
+        ))[0];
+
+        const externalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);
+        const feeAdjustedTransferOut = preciseMul(issueQuantityWithFees, externalPositionUnit);
+
+        const [components, equityFlows, debtFlows] = await slippageIssuanceModule
+          .callStatic
+          .getRequiredComponentRedemptionUnitsOffChain(
+            subjectSetToken,
+            subjectQuantity
+          );
+
+        const expectedComponents = await setToken.getComponents();
+        const expectedEquityFlows = [feeAdjustedTransferOut];
+        const expectedDebtFlows = [ZERO];
+
+        expect(expectedComponents[0]).to.eq(components[0]);
+        expect(expectedEquityFlows[0]).to.be.closeTo(equityFlows[0], 50);
+        expect(expectedDebtFlows[0]).to.eq(debtFlows[0]);
       });
 
       // This is slightly off ... over a tenth of a penny.
