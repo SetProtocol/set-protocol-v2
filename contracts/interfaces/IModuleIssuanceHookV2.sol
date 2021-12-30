@@ -59,7 +59,6 @@ interface IModuleIssuanceHookV2 {
         uint256 _setTokenQuantity
     )
         external
-        view
         returns (int256[] memory, int256[] memory);
 
     /**
@@ -73,6 +72,5 @@ interface IModuleIssuanceHookV2 {
         uint256 _setTokenQuantity
     )
         external
-        view
         returns (int256[] memory, int256[] memory);
 }
