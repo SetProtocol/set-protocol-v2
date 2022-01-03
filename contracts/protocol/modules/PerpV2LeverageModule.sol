@@ -36,7 +36,7 @@ import { IQuoter } from "../../interfaces/external/perp-v2/IQuoter.sol";
 import { IMarketRegistry } from "../../interfaces/external/perp-v2/IMarketRegistry.sol";
 import { IController } from "../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
-import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
+import { IModuleIssuanceHookV2 } from "../../interfaces/IModuleIssuanceHookV2.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
 import { SetTokenAccessible } from "../lib/SetTokenAccessible.sol";
@@ -60,7 +60,7 @@ import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  */
-contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenAccessible, IModuleIssuanceHook {
+contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenAccessible, IModuleIssuanceHookV2 {
     using PerpV2 for ISetToken;
     using PreciseUnitMath for int256;
     using SignedSafeMath for int256;
@@ -546,6 +546,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         uint256 _setTokenQuantity
     )
         external
+        override
         returns (int256[] memory, int256[] memory)
     {
         address[] memory components = _setToken.getComponents();
@@ -573,6 +574,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         uint256 _setTokenQuantity
     )
         external
+        override
         returns (int256[] memory, int256[] memory _)
     {
         address[] memory components = _setToken.getComponents();

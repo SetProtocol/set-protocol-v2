@@ -105,7 +105,7 @@ describe("SlippageIssuanceModule", () => {
       await debtModule.connect(manager.wallet).initialize(setToken.address);
     });
 
-    describe("#getRequiredComponentIssuanceUnits", async () => {
+    describe("#getRequiredComponentIssuanceUnitsOffChain", async () => {
       let subjectSetToken: Address;
       let subjectQuantity: BigNumber;
 
@@ -119,7 +119,7 @@ describe("SlippageIssuanceModule", () => {
       });
 
       async function subject(): Promise<any> {
-        return slippageIssuance.getRequiredComponentIssuanceUnits(
+        return slippageIssuance.callStatic.getRequiredComponentIssuanceUnitsOffChain(
           subjectSetToken,
           subjectQuantity
         );
@@ -287,7 +287,7 @@ describe("SlippageIssuanceModule", () => {
       });
     });
 
-    describe("#getRequiredComponentRedemptionUnits", async () => {
+    describe("#getRequiredComponentRedemptionUnitsOffChain", async () => {
       let subjectSetToken: Address;
       let subjectQuantity: BigNumber;
 
@@ -301,7 +301,7 @@ describe("SlippageIssuanceModule", () => {
       });
 
       async function subject(): Promise<any> {
-        return slippageIssuance.getRequiredComponentRedemptionUnits(
+        return slippageIssuance.callStatic.getRequiredComponentRedemptionUnitsOffChain(
           subjectSetToken,
           subjectQuantity
         );
@@ -474,7 +474,10 @@ describe("SlippageIssuanceModule", () => {
         await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
         await setup.dai.transfer(debtModule.address, ether(100.5));
 
-        const [, equityFlows ] = await slippageIssuance.getRequiredComponentIssuanceUnits(setToken.address, ether(1));
+        const [, equityFlows ] = await slippageIssuance
+          .callStatic
+          .getRequiredComponentIssuanceUnitsOffChain(setToken.address, ether(1));
+
         await setup.weth.approve(slippageIssuance.address, equityFlows[0].mul(ether(1.005)));
 
         subjectSetToken = setToken.address;
@@ -816,7 +819,10 @@ describe("SlippageIssuanceModule", () => {
         await debtModule.addDebt(setToken.address, setup.dai.address, debtUnits);
         await setup.dai.transfer(debtModule.address, ether(100.5));
 
-        const [, equityFlows ] = await slippageIssuance.getRequiredComponentRedemptionUnits(setToken.address, ether(1));
+        const [, equityFlows ] = await slippageIssuance
+          .callStatic
+          .getRequiredComponentRedemptionUnitsOffChain(setToken.address, ether(1));
+
         await setup.weth.approve(slippageIssuance.address, equityFlows[0].mul(ether(1.005)));
 
         await slippageIssuance.issue(setToken.address, ether(1), owner.address);

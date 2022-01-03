@@ -184,12 +184,13 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         );
     }
 
-    /* ============ External View Functions ============ */
-
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity plus fees of Sets as well as amount of debt
-     * that will be returned to caller. Overrides inherited function to take into account position updates from pre action module hooks.
+     * that will be returned to caller. Takes into account position updates from pre action module hooks.
      * (manager hooks not included).
+     *
+     * NOTE: This getter is non-view to allow module hooks to determine units by simulating state changes in an external protocol and
+     * reverting. It should only be called by off-chain methods via static call.
      *
      * @param _setToken         Instance of the SetToken to issue
      * @param _quantity         Amount of Sets to be issued
@@ -198,13 +199,11 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
      * @return uint256[]        Array of equity notional amounts of each component, respectively, represented as uint256
      * @return uint256[]        Array of debt notional amounts of each component, respectively, represented as uint256
      */
-    function getRequiredComponentIssuanceUnits(
+    function getRequiredComponentIssuanceUnitsOffChain(
         ISetToken _setToken,
         uint256 _quantity
     )
         external
-        view
-        override
         returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         bool isIssue = true;
@@ -229,7 +228,10 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
 
     /**
      * Calculates the amount of each component that will be returned on redemption net of fees as well as how much debt needs to be paid down to
-     * redeem. Overrides inherited function to take into account position updates from pre action module hooks (manager hooks not included).
+     * redeem. Takes into account position updates from pre action module hooks (manager hooks not included).
+     *
+     * NOTE: This getter is non-view to allow module hooks to determine units by simulating state changes in an external protocol and
+     * reverting. It should only be called by off-chain methods via static call.
      *
      * @param _setToken         Instance of the SetToken to issue
      * @param _quantity         Amount of Sets to be redeemed
@@ -238,13 +240,11 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
      * @return uint256[]        Array of equity notional amounts of each component, respectively, represented as uint256
      * @return uint256[]        Array of debt notional amounts of each component, respectively, represented as uint256
      */
-    function getRequiredComponentRedemptionUnits(
+    function getRequiredComponentRedemptionUnitsOffChain(
         ISetToken _setToken,
         uint256 _quantity
     )
         external
-        view
-        override
         returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         bool isIssue = false;
@@ -348,7 +348,6 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         bool _isIssue
     )
         internal
-        view
         returns (int256[] memory, int256[] memory) 
     {
         uint256 componentsLength = _setToken.getComponents().length;
