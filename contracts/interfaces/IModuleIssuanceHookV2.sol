@@ -26,14 +26,14 @@ import { ISetToken } from "./ISetToken.sol";
  * CHANGELOG:
  *      - Added a module level issue hook that can be used to set state ahead of component level
  *        issue hooks
- *      - Added view function that return expected positional adjustments during issue/redeem to
+ *      - Added non-view getter that returns expected positional adjustments during issue/redeem to
  *        the issuance module in order to give more accurate token flow information
  */
 interface IModuleIssuanceHookV2 {
 
     function moduleIssueHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
     function moduleRedeemHook(ISetToken _setToken, uint256 _setTokenQuantity) external;
-    
+
     function componentIssueHook(
         ISetToken _setToken,
         uint256 _setTokenQuantity,
@@ -53,6 +53,9 @@ interface IModuleIssuanceHookV2 {
      * components array (i.e. if debt is greater than current debt position unit return negative number).
      * Each entry in the returned arrays should index to the same component in the SetToken's components
      * array (called using getComponents()).
+     *
+     * NOTE: This getter is non-view to allow module hooks to determine units by simulating state changes in
+     * an external protocol and reverting. It should only be called by off-chain methods via static call.
      */
     function getIssuanceAdjustments(
         ISetToken _setToken,
@@ -66,6 +69,9 @@ interface IModuleIssuanceHookV2 {
      * components array (i.e. if debt is greater than current debt position unit return negative number).
      * Each entry in the returned arrays should index to the same component in the SetToken's components
      * array (called using getComponents()).
+     *
+     * NOTE: This getter is non-view to allow module hooks to determine units by simulating state changes in
+     * an external protocol and reverting. It should only be called by off-chain methods via static call.
      */
     function getRedemptionAdjustments(
         ISetToken _setToken,
