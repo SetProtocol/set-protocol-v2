@@ -39,6 +39,7 @@ export { DebtIssuanceModule } from "../../typechain/DebtIssuanceModule";
 export { DebtIssuanceModuleV2 } from "../../typechain/DebtIssuanceModuleV2";
 export { DebtModuleMock } from "../../typechain/DebtModuleMock";
 export { DelegateRegistry } from "../../typechain/DelegateRegistry";
+export { DgMigrationWrapAdapter } from "../../typechain/DgMigrationWrapAdapter";
 export { ExplicitERC20Mock } from "../../typechain/ExplicitERC20Mock";
 export { ForceFunderMock } from "../../typechain/ForceFunderMock";
 export { GaugeControllerMock } from "../../typechain/GaugeControllerMock";

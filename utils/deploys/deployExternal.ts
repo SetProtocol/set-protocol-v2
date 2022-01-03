@@ -217,7 +217,7 @@ import {
   PerpV2InsuranceFund,
   PerpV2AccountBalance,
   PerpV2Exchange
-} from "./../contracts/perpV2";
+} from "../contracts/perpV2";
 
 import { PerpV2ClearingHouse__factory } from "../../typechain/factories/PerpV2ClearingHouse__factory";
 import { PerpV2MarketRegistry__factory } from "../../typechain/factories/PerpV2MarketRegistry__factory";
@@ -232,6 +232,10 @@ import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/Pe
 import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
 import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
 import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
+
+import { DGLight, DgToken } from "../contracts/dg";
+import { DgToken__factory } from "../../typechain/factories/DgToken__factory";
+import { DGLight__factory } from "../../typechain/factories/DGLight__factory";
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -806,6 +810,15 @@ export default class DeployExternalContracts {
 
   public async getUniswapV3PoolInstance(pool: Address): Promise<UniswapV3Pool> {
     return await new UniswapV3Pool__factory(this._deployerSigner).attach(pool);
+  }
+
+  // Decentral Games
+  public async deployDGLight(dgToken: Address): Promise<DGLight> {
+    return await new DGLight__factory(this._deployerSigner).deploy(dgToken);
+  }
+
+  public async deployDgToken(): Promise<DgToken> {
+    return await new DgToken__factory(this._deployerSigner).deploy();
   }
 
   // PerpV2
