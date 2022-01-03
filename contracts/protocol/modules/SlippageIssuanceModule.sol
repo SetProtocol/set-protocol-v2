@@ -184,8 +184,6 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         );
     }
 
-    /* ============ External View Functions ============ */
-
     /**
      * Calculates the amount of each component needed to collateralize passed issue quantity plus fees of Sets as well as amount of debt
      * that will be returned to caller. Takes into account position updates from pre action module hooks.
