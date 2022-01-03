@@ -50,21 +50,25 @@ describe("DgMigrationWrapAdapter", () => {
   describe("#constructor", () => {
     let subjectUnderlyingAddress: string;
     let subjectWrappedAddress: string;
+
     beforeEach(async () => {
       subjectUnderlyingAddress = dgToken.address;
       subjectWrappedAddress = dgLight.address;
     });
+
     async function subject(): Promise<DgMigrationWrapAdapter> {
       return deployer.adapters.deployDgMigrationWrapAdapter(
         subjectUnderlyingAddress,
         subjectWrappedAddress
       );
     }
+
     it("should have the correct legacy token address", async () => {
       const deployedAdapter = await subject();
 
       expect(await deployedAdapter.dgTokenV1()).to.eq(subjectUnderlyingAddress);
     });
+
     it("should have the correct new token address", async () => {
       const deployedAdapter = await subject();
       expect(await deployedAdapter.dgTokenV2()).to.eq(subjectWrappedAddress);
