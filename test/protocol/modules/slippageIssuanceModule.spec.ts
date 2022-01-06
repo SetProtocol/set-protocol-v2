@@ -60,8 +60,8 @@ describe("SlippageIssuanceModule", () => {
 
     await setup.initialize();
 
-    slippageIssuance = await deployer.modules.deploySlippageIssuanceModule(setup.controller.address);
-    debtModule = await deployer.mocks.deployDebtModuleMock(setup.controller.address, slippageIssuance.address);
+    debtModule = await deployer.mocks.deployDebtModuleMock(setup.controller.address);
+    slippageIssuance = await deployer.modules.deploySlippageIssuanceModule(debtModule.address);
     externalPositionModule = await deployer.mocks.deployModuleIssuanceHookMock();
     issuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
 
@@ -102,7 +102,7 @@ describe("SlippageIssuanceModule", () => {
         );
       }
 
-      await debtModule.connect(manager.wallet).initialize(setToken.address);
+      await debtModule.connect(manager.wallet).initialize(setToken.address, slippageIssuance.address);
     });
 
     describe("#getRequiredComponentIssuanceUnitsOffChain", async () => {

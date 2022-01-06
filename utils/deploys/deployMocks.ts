@@ -155,8 +155,8 @@ export default class DeployMocks {
     return await new GodModeMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
 
-  public async deployDebtModuleMock(controllerAddress: Address, moduleAddress: Address): Promise<DebtModuleMock> {
-    return await new DebtModuleMock__factory(this._deployerSigner).deploy(controllerAddress, moduleAddress);
+  public async deployDebtModuleMock(controllerAddress: Address): Promise<DebtModuleMock> {
+    return await new DebtModuleMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
 
   public async deployGovernanceAdapterMock(initialProposalId: BigNumberish): Promise<GovernanceAdapterMock> {

@@ -48,7 +48,16 @@ contract PerpProtocolIssuanceModule is SlippageIssuanceModule {
 
     /* ============ External Getter Functions ============ */
 
-    function getSetTokenIssuanceMax(ISetToken _setToken) external view returns(uint256) {
+    /**
+     * @dev Returns the maximum amount of Sets that can be issued. Because upon issuance we lever up the Set
+     * before depositing collateral there is a ceiling on the amount of Sets that can be issued before the max
+     * leverage ratio is met. This amount is roughly equal to (maxLeverageRatio/currentLeverageRatio)*totalSupply.
+     *
+     * @param _setToken             Instance of SetToken
+     *
+     * @return Maximum amount of Sets that can be issued
+     */
+    function getMaximumSetTokenIssueAmount(ISetToken _setToken) external view returns (uint256) {
         return perpModule.getMaximumSetTokenIssueAmount(_setToken);
     }
 }
