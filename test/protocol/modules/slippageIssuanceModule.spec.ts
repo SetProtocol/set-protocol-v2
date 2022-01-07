@@ -61,7 +61,7 @@ describe("SlippageIssuanceModule", () => {
     await setup.initialize();
 
     debtModule = await deployer.mocks.deployDebtModuleMock(setup.controller.address);
-    slippageIssuance = await deployer.modules.deploySlippageIssuanceModule(debtModule.address);
+    slippageIssuance = await deployer.modules.deploySlippageIssuanceModule(setup.controller.address);
     externalPositionModule = await deployer.mocks.deployModuleIssuanceHookMock();
     issuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
 

@@ -19,7 +19,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("SlippageIssuanceModule", () => {
+describe("PerpProtocolIssuanceModule", () => {
   let owner: Account;
   let manager: Account;
   let feeRecipient: Account;

@@ -693,6 +693,29 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         return priceX96.formatX96ToX10_18();
     }
 
+    /**
+     * @dev Returns the maximum amount of Sets that can be issued. Because upon issuance we lever up the Set
+     * before depositing collateral there is a ceiling on the amount of Sets that can be issued before the max
+     * leverage ratio is met. This amount is roughly equal to:
+     * (1 - (freeCollateral/collateralBalance))*totalSupply - totalSupply.
+     *
+     * @param _setToken             Instance of SetToken
+     *
+     * @return Maximum amount of Sets that can be issued
+     */
+    function getMaximumSetTokenIssueAmount(ISetToken _setToken) external view returns (uint256) {
+        uint256 setTotalSupply = _setToken.totalSupply();
+
+        int256 freeCollateral = perpVault.getFreeCollateral(address(_setToken))
+                                    .toInt256()
+                                    .toPreciseUnitsFromDecimals(collateralDecimals);
+        int256 collateralBalance = _getCollateralBalance(_setToken);
+
+        // Use (collateralBalance - freeCollateral)/collateralBalance since balance is already in memory
+        int256 freeCollateralRatio = collateralBalance.sub(freeCollateral).preciseDiv(collateralBalance);
+        return setTotalSupply.preciseDiv(freeCollateralRatio.toUint256()).sub(setTotalSupply);
+    }
+
     /* ============ Internal Functions ============ */
 
     /**

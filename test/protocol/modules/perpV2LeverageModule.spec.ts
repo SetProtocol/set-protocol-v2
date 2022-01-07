@@ -5757,6 +5757,99 @@ describe("PerpV2LeverageModule", () => {
     });
   });
 
+  describe("#getMaximumSetTokenIssueAmount", () => {
+    let setToken: SetToken;
+    let collateralQuantity: BigNumber;
+
+    let subjectSetToken: Address;
+
+    const initializeContracts = async () => {
+      collateralQuantity = usdcUnits(10);
+      setToken = await issueSetsAndDepositToPerp(collateralQuantity);
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule.getMaximumSetTokenIssueAmount(subjectSetToken);
+    }
+
+    describe("when long", async () => {
+      let baseToken: Address;
+
+      // Set up as 2X Long, allow 2% slippage
+      cacheBeforeEach(async () => {
+        baseToken = vETH.address;
+
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          baseToken,
+          2,
+          ether(.02),
+          true
+        );
+      });
+
+      it("should return the correct max issue amount", async () => {
+        const actualIssuanceMax = await subject();
+
+        const freeCollateral = await perpSetup.vault.getFreeCollateral(setToken.address);
+        const collateralBalance = await perpSetup.vault.getBalance(setToken.address);
+        const totalSupply = await setToken.totalSupply();
+
+        const expectedIssuanceMax = preciseDiv(
+          totalSupply,
+          preciseDiv(collateralBalance.sub(freeCollateral), collateralBalance)
+        ).sub(totalSupply);
+
+        expect(actualIssuanceMax).eq(expectedIssuanceMax);
+      });
+    });
+
+    describe("when short", async () => {
+      let baseToken: Address;
+
+      // Set up as 2X Short, allow 2% slippage
+      cacheBeforeEach(async () => {
+        baseToken = vETH.address;
+
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          baseToken,
+          2,
+          ether(.02),
+          false
+        );
+      });
+
+      it("should return the correct max issue amount", async () => {
+        const actualIssuanceMax = await subject();
+
+        const freeCollateral = await perpSetup.vault.getFreeCollateral(setToken.address);
+        const collateralBalance = await perpSetup.vault.getBalance(setToken.address);
+        const totalSupply = await setToken.totalSupply();
+
+        const expectedIssuanceMax = preciseDiv(
+          totalSupply,
+          preciseDiv(collateralBalance.sub(freeCollateral), collateralBalance)
+        ).sub(totalSupply);
+
+        expect(actualIssuanceMax).eq(expectedIssuanceMax);
+      });
+    });
+  });
+
   describe("#getPositionNotionalInfo", () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
