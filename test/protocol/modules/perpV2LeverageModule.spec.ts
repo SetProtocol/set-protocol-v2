@@ -3282,6 +3282,24 @@ describe("PerpV2LeverageModule", () => {
       });
     });
 
+    describe("when collateral is deposited but no position is open", async () => {
+      async function subject(): Promise<any> {
+        await perpLeverageModule
+          .connect(subjectCaller.wallet)
+          .moduleIssueHook(subjectSetToken, subjectSetQuantity);
+      }
+
+      it("deposits the correct amount of collateral", async () => {
+        const currentPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
+
+        await subject();
+
+        const newPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
+
+        expect(currentPositionUnit).eq(newPositionUnit);
+      });
+    });
+
     describe("when total supply is 0", async () => {
       let otherSetToken: SetToken;
 
@@ -5846,6 +5864,107 @@ describe("PerpV2LeverageModule", () => {
         ).sub(totalSupply);
 
         expect(actualIssuanceMax).eq(expectedIssuanceMax);
+      });
+    });
+
+    describe("when no position is open", async () => {
+
+      it("should return the correct max issue amount (max uint256)", async () => {
+        const actualIssuanceMax = await subject();
+        expect(actualIssuanceMax).eq(MAX_UINT_256);
+      });
+    });
+  });
+
+  describe("#getCurrentLeverageRatios", () => {
+    let setToken: SetToken;
+    let collateralQuantity: BigNumber;
+
+    let subjectSetToken: Address;
+
+    const initializeContracts = async () => {
+      collateralQuantity = usdcUnits(10);
+      setToken = await issueSetsAndDepositToPerp(collateralQuantity);
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpLeverageModule.getCurrentLeverageRatios(subjectSetToken);
+    }
+
+    describe("when long", async () => {
+      let baseToken: Address;
+
+      // Set up as 2X Long, allow 2% slippage
+      cacheBeforeEach(async () => {
+        baseToken = vETH.address;
+
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          baseToken,
+          2,
+          ether(.02),
+          true
+        );
+      });
+
+      it("should return the correct leverage ratio", async () => {
+        const [vTokens, leverageRatios] = await subject();
+        const positionInfo = await perpLeverageModule.getPositionNotionalInfo(setToken.address);
+
+        const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+        const expectedLeverageRatio = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo[0], collateralBalance);
+
+        expect(vTokens[0]).eq(baseToken);
+        expect(leverageRatios[0]).eq(expectedLeverageRatio);
+      });
+    });
+
+    describe.only("when short", async () => {
+      let baseToken: Address;
+
+      // Set up as 2X Short, allow 2% slippage
+      cacheBeforeEach(async () => {
+        baseToken = vETH.address;
+
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          baseToken,
+          2,
+          ether(.02),
+          false
+        );
+      });
+
+      it("should return the correct leverage ratio", async () => {
+        const [vTokens, leverageRatios] = await subject();
+        const positionInfo = await perpLeverageModule.getPositionNotionalInfo(setToken.address);
+
+        const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
+        const expectedLeverageRatio = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo[0], collateralBalance);
+        console.log(expectedLeverageRatio.toString());
+        expect(vTokens[0]).eq(baseToken);
+        expect(leverageRatios[0]).eq(expectedLeverageRatio);
+      });
+    });
+
+    describe("when no position is open", async () => {
+
+      it("should return empty arrays", async () => {
+        const actualIssuanceMax = await subject();
+        expect(actualIssuanceMax).eq(MAX_UINT_256);
       });
     });
   });

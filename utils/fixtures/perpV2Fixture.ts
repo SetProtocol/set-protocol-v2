@@ -35,7 +35,8 @@ import {
 
 import {
   StandardTokenMock,
-  ChainlinkAggregatorMock
+  ChainlinkAggregatorMock,
+  SetToken
 } from "../contracts";
 
 import DeployHelper from "../deploys";
@@ -388,7 +389,7 @@ export class PerpV2Fixture {
   }
 
   public async getCurrentLeverage(
-    _setToken: Address,
+    _setToken: SetToken,
     _positionInfo: PositionInfo,
     _collateralBalance: BigNumber
   ): Promise<BigNumber> {
