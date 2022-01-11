@@ -715,9 +715,15 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
-     * @dev INTENDED FOR OFF-CHAIN USE. Do not use on-chain since AMM prices are used to calculate.
+     * @dev Returns an array of leverage ratios per base asset. Leverage ratio is defined as follows:
+     * lr_asset = positionValue / accountValue where,
+     * positionValue = indexPrice_asset * notionalBaseTokenAmount_asset and
+     * accountValue = collateral + owedRealizedPnl + funding + positionValue_asset + quoteBalance_asset
      *
      * @param _setToken             Instance of SetToken
+     *
+     * @return vTokens              Array of vToken addresses 
+     * @return leverageRatios       Array of leverage ratios, mapping to index of vTokens
      */
     function getCurrentLeverageRatios(
         ISetToken _setToken

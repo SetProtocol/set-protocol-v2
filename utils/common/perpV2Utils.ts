@@ -258,3 +258,30 @@ export async function getUSDCDeltaDueToFundingGrowth(
 
   return usdcAmountDelta;
 }
+
+export async function calculateLeverageRatios(
+  setToken: Address,
+  perpModule: PerpV2LeverageModule,
+  fixture: PerpV2Fixture,
+): Promise<[Address[], BigNumber[]]> {
+  const accountInfo = await perpModule.getAccountInfo(setToken);
+  const notionalPositionInfo = await perpModule.getPositionNotionalInfo(setToken);
+
+  const partialAccountValue = accountInfo.collateralBalance
+    .add(accountInfo.owedRealizedPnl)
+    .add(accountInfo.pendingFundingPayments);
+
+  const vTokens: Address[] = [];
+  const leverageRatios: BigNumber[] = [];
+  for (const positionInfo of notionalPositionInfo) {
+    const vTokenInstance = await fixture.getVTokenInstance(positionInfo.baseToken);
+    const tokenPrice = await vTokenInstance.getIndexPrice(ZERO);
+    const positionValue = preciseMul(tokenPrice, positionInfo.baseBalance);
+    const accountValue = positionValue.add(partialAccountValue).add(positionInfo.quoteBalance);
+
+    vTokens.push(vTokenInstance.address);
+    leverageRatios.push(preciseDiv(positionValue, accountValue));
+  }
+
+  return [vTokens, leverageRatios];
+}

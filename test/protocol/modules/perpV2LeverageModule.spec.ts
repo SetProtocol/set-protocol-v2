@@ -22,14 +22,15 @@ import {
 } from "@utils/index";
 
 import {
-  toUSDCDecimals,
+  calculateExternalPositionUnit,
+  calculateLeverageRatios,
   calculateUSDCTransferIn,
   calculateUSDCTransferOut,
-  calculateExternalPositionUnit,
   calculateUSDCTransferInPreciseUnits,
   calculateUSDCTransferOutPreciseUnits,
   getUSDCDeltaDueToFundingGrowth,
-  leverUp
+  leverUp,
+  toUSDCDecimals,
 } from "@utils/common";
 
 import {
@@ -5899,11 +5900,10 @@ describe("PerpV2LeverageModule", () => {
     }
 
     describe("when long", async () => {
-      let baseToken: Address;
 
       // Set up as 2X Long, allow 2% slippage
       cacheBeforeEach(async () => {
-        baseToken = vETH.address;
+        const baseToken = vETH.address;
 
         await leverUp(
           setToken,
@@ -5919,22 +5919,21 @@ describe("PerpV2LeverageModule", () => {
 
       it("should return the correct leverage ratio", async () => {
         const [vTokens, leverageRatios] = await subject();
-        const positionInfo = await perpLeverageModule.getPositionNotionalInfo(setToken.address);
 
-        const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
-        const expectedLeverageRatio = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo[0], collateralBalance);
+        const [
+          expectedVTokens,
+          expectedLeverageRatios
+        ] = await calculateLeverageRatios(subjectSetToken, perpLeverageModule, perpSetup);
 
-        expect(vTokens[0]).eq(baseToken);
-        expect(leverageRatios[0]).eq(expectedLeverageRatio);
+        expect(vTokens[0]).eq(expectedVTokens[0]);
+        expect(leverageRatios[0]).eq(expectedLeverageRatios[0]);
       });
     });
 
-    describe.only("when short", async () => {
-      let baseToken: Address;
-
+    describe("when short", async () => {
       // Set up as 2X Short, allow 2% slippage
       cacheBeforeEach(async () => {
-        baseToken = vETH.address;
+        const baseToken = vETH.address;
 
         await leverUp(
           setToken,
@@ -5950,21 +5949,68 @@ describe("PerpV2LeverageModule", () => {
 
       it("should return the correct leverage ratio", async () => {
         const [vTokens, leverageRatios] = await subject();
-        const positionInfo = await perpLeverageModule.getPositionNotionalInfo(setToken.address);
 
-        const { collateralBalance } = await perpLeverageModule.getAccountInfo(subjectSetToken);
-        const expectedLeverageRatio = await perpSetup.getCurrentLeverage(subjectSetToken, positionInfo[0], collateralBalance);
-        console.log(expectedLeverageRatio.toString());
-        expect(vTokens[0]).eq(baseToken);
-        expect(leverageRatios[0]).eq(expectedLeverageRatio);
+        const [
+          expectedVTokens,
+          expectedLeverageRatios
+        ] = await calculateLeverageRatios(subjectSetToken, perpLeverageModule, perpSetup);
+
+        expect(vTokens[0]).eq(expectedVTokens[0]);
+        expect(leverageRatios[0]).eq(expectedLeverageRatios[0]);
+      });
+    });
+
+    describe("when long and short", async () => {
+      // Set up as 2X Long in ETH and short in BTC, allow 2% slippage
+      cacheBeforeEach(async () => {
+        const longBaseToken = vETH.address;
+        const shortBaseToken = vBTC.address;
+
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          longBaseToken,
+          2,
+          ether(.02),
+          true
+        );
+
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          shortBaseToken,
+          2,
+          ether(.02),
+          false
+        );
+      });
+
+      it("should return the correct leverage ratio", async () => {
+        const [vTokens, leverageRatios] = await subject();
+
+        const [
+          expectedVTokens,
+          expectedLeverageRatios
+        ] = await calculateLeverageRatios(subjectSetToken, perpLeverageModule, perpSetup);
+
+        expect(vTokens[0]).eq(expectedVTokens[0]);
+        expect(leverageRatios[0]).eq(expectedLeverageRatios[0]);
+        expect(vTokens[1]).eq(expectedVTokens[1]);
+        expect(leverageRatios[1]).eq(expectedLeverageRatios[1]);
       });
     });
 
     describe("when no position is open", async () => {
 
       it("should return empty arrays", async () => {
-        const actualIssuanceMax = await subject();
-        expect(actualIssuanceMax).eq(MAX_UINT_256);
+        const [vTokens, leverageRatios] = await subject();
+
+        expect(vTokens).to.be.empty;
+        expect(leverageRatios).to.be.empty;
       });
     });
   });

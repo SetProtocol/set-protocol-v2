@@ -874,4 +874,8 @@ export default class DeployExternalContracts {
   public async deployPerpV2ClearingHouse(): Promise<PerpV2ClearingHouse> {
     return await new PerpV2ClearingHouse__factory(this._deployerSigner).deploy();
   }
+
+  public async getVToken(token: Address): Promise<PerpV2BaseToken> {
+    return await new PerpV2BaseToken__factory(this._deployerSigner).attach(token);
+  }
 }

@@ -35,8 +35,7 @@ import {
 
 import {
   StandardTokenMock,
-  ChainlinkAggregatorMock,
-  SetToken
+  ChainlinkAggregatorMock
 } from "../contracts";
 
 import DeployHelper from "../deploys";
@@ -389,7 +388,7 @@ export class PerpV2Fixture {
   }
 
   public async getCurrentLeverage(
-    _setToken: SetToken,
+    _setToken: Address,
     _positionInfo: PositionInfo,
     _collateralBalance: BigNumber
   ): Promise<BigNumber> {
@@ -406,6 +405,10 @@ export class PerpV2Fixture {
         .add(_positionInfo.quoteBalance)
         .add(_collateralBalance)
     );
+  }
+
+  public async getVTokenInstance(token: Address): Promise<PerpV2BaseToken> {
+    return await this._deployer.external.getVToken(token);
   }
 
   // UniV3 AddLiquidity helpers
