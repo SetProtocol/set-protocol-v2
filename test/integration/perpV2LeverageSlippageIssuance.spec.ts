@@ -1179,16 +1179,16 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             true
           );
 
-          // Move oracle price down to 5 USDC to enable liquidation
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5.0));
+          // Move oracle price down to 500 USDC to enable liquidation
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(500));
 
-          // Move price down by maker selling 20k USDC of vETH
-          // Post trade spot price rises from ~10 USDC to 6_370_910_537_702_299_856
+          // Move price down by maker selling 200M USDC of vETH
+          // Post trade spot price drops from ~1000 USDC to 636_772_014_614_233_874_296
           await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
             baseToken: vETH.address,
             isBaseToQuote: true,       // short
             isExactInput: false,       // `amount` is USDC
-            amount: ether(20000),
+            amount: ether(200_000_000),
             oppositeAmountBound: ZERO,
             deadline: MAX_UINT_256,
             sqrtPriceLimitX96: ZERO,
@@ -1209,7 +1209,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const accountValue = await perpSetup.clearingHouse.getAccountValue(subjectSetToken);
 
           // collateralBalance:  20_100_000 (10^6)
-          // accountValue:      -43_466_857_276_051_287_954 (10^18)
+          // accountValue:      -43_515_369_499_756_442_084 (10^18)
           expect(collateralBalance).gt(1);
           expect(freeCollateral).eq(0);
           expect(accountValue).lt(-1);
