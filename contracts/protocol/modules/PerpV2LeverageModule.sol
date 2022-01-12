@@ -159,28 +159,28 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     /* ============ State Variables ============ */
 
     // PerpV2 contract which provides getters for base, quote, and owedRealizedPnl balances
-    IAccountBalance public immutable perpAccountBalance;
+    IAccountBalance internal immutable perpAccountBalance;
 
     // PerpV2 contract which provides a trading API
-    IClearingHouse public immutable perpClearingHouse;
+    IClearingHouse internal immutable perpClearingHouse;
 
     // PerpV2 contract which manages trading logic. Provides getters for UniswapV3 pools and pending funding balances
-    IExchange public immutable perpExchange;
+    IExchange internal immutable perpExchange;
 
     // PerpV2 contract which handles deposits and withdrawals. Provides getter for collateral balances
-    IVault public immutable perpVault;
+    IVault internal immutable perpVault;
 
     // PerpV2 contract which makes it possible to simulate a trade before it occurs
-    IQuoter public immutable perpQuoter;
+    IQuoter internal immutable perpQuoter;
 
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
-    IMarketRegistry public immutable perpMarketRegistry;
+    IMarketRegistry internal immutable perpMarketRegistry;
 
     // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's settlement and collateral token
-    IERC20 public immutable collateralToken;
+    IERC20 internal immutable collateralToken;
 
     // Decimals of collateral token. We set this in the constructor for later reading
-    uint8 public immutable collateralDecimals;
+    uint8 internal immutable collateralDecimals;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
@@ -334,7 +334,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
       onlyManagerAndValidSet(_setToken)
     {
         require(_collateralQuantityUnits > 0, "Deposit amount is 0");
-        require(_setToken.totalSupply() > 0, "SetToken supply is 0");
 
         uint256 notionalDepositedQuantity = _depositAndUpdatePositions(_setToken, _collateralQuantityUnits);
 
@@ -361,7 +360,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
       onlyManagerAndValidSet(_setToken)
     {
         require(_collateralQuantityUnits > 0, "Withdraw amount is 0");
-        require(_setToken.totalSupply() > 0, "SetToken supply is 0");
 
         uint256 notionalWithdrawnQuantity = _withdrawAndUpdatePositions(_setToken, _collateralQuantityUnits);
 
@@ -382,7 +380,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         int256 accountValueUnit = perpClearingHouse.getAccountValue(address(setToken)).preciseDiv(setToken.totalSupply().toInt256());
         require(
             accountValueUnit.fromPreciseUnitToDecimals(collateralDecimals) <= 1,
-            "Account balance is positive"
+            "Account balance exists"
         );
 
         delete positions[setToken]; // Should already be empty
@@ -682,19 +680,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
-     * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
-     *
-     * @param  _baseToken)          Address of virtual token to price
-     * @return price                Mid-point price of virtual token in UniswapV3 AMM market
-     */
-    function getAMMSpotPrice(address _baseToken) public view returns (uint256 price) {
-        address pool = perpMarketRegistry.getPool(_baseToken);
-        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
-        uint256 priceX96 = sqrtPriceX96.formatSqrtPriceX96ToPriceX96();
-        return priceX96.formatX96ToX10_18();
-    }
-
-    /**
      * @dev Returns the maximum amount of Sets that can be issued. Because upon issuance we lever up the Set
      * before depositing collateral there is a ceiling on the amount of Sets that can be issued before the max
      * leverage ratio is met. This amount is roughly equal to:
@@ -753,6 +738,24 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             vTokens[i] = position.baseToken;
             leverageRatios[i] = positionValue.preciseDiv(accountValue);
         }
+    }
+
+    /**
+     * @dev Returns important Perpetual Protocol addresses such as ClearingHouse, Vault, AccountBalance, etc. in an array.
+     * Array is used in order to save bytecode vs a struct. Returned addresses are in the following order:
+     * [AccountBalance, ClearingHouse, Exchange, Vault, Quoter, MarketRegistry]
+     *
+     * @return  Struct containing important Perpetual Protocol addresses
+     */
+    function getPerpContracts() external view returns (address[6] memory) {
+        return [
+            address(perpAccountBalance),
+            address(perpClearingHouse),
+            address(perpExchange),
+            address(perpVault),
+            address(perpQuoter),
+            address(perpMarketRegistry)
+        ];
     }
 
     /* ============ Internal Functions ============ */
@@ -1174,6 +1177,20 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
+     * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
+     *
+     * @param  _baseToken)          Address of virtual token to price
+     * @return price                Mid-point price of virtual token in UniswapV3 AMM market
+     */
+    function _calculateAMMSpotPrice(address _baseToken) internal view returns (uint256 price) {
+        address pool = perpMarketRegistry.getPool(_baseToken);
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
+        uint256 priceX96 = sqrtPriceX96.formatSqrtPriceX96ToPriceX96();
+        return priceX96.formatX96ToX10_18();
+    }
+
+
+    /**
      * @dev Calculates the sum of collateralToken denominated market-prices of assets and debt for the Perp account per
      * SetToken
      *
@@ -1185,7 +1202,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         int256 totalPositionValue = 0;
 
         for (uint i = 0; i < positionInfo.length; i++ ) {
-            int256 spotPrice = getAMMSpotPrice(positionInfo[i].baseToken).toInt256();
+            int256 spotPrice = _calculateAMMSpotPrice(positionInfo[i].baseToken).toInt256();
             totalPositionValue = totalPositionValue.add(
                 positionInfo[i].baseBalance.preciseMul(spotPrice)
             );
