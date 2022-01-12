@@ -1189,7 +1189,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         return priceX96.formatX96ToX10_18();
     }
 
-
     /**
      * @dev Calculates the sum of collateralToken denominated market-prices of assets and debt for the Perp account per
      * SetToken
