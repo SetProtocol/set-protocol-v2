@@ -70,7 +70,7 @@ export { CTokenOracle } from "../../typechain/CTokenOracle";
 export { YearnVaultMock } from "../../typechain/YearnVaultMock";
 export { YearnVaultOracle } from "../../typechain/YearnVaultOracle";
 export { PositionMock } from "../../typechain/PositionMock";
-export { PerpProtocolIssuanceModule } from "../../typechain/PerpProtocolIssuanceModule";
+export { PerpV2IssuanceModule } from "../../typechain/PerpV2IssuanceModule";
 export { PerpV2 } from "../../typechain/PerpV2";
 export { PerpV2Mock } from "../../typechain/PerpV2Mock";
 export { PerpV2LeverageModule } from "../../typechain/PerpV2LeverageModule";

@@ -3,7 +3,7 @@ import { ContractTransaction } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
-  PerpProtocolIssuanceModule,
+  PerpV2IssuanceModule,
   PerpV2,
   PerpV2LeverageModule,
   SetToken,
@@ -45,7 +45,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
   let perpLib: PerpV2;
   let perpLeverageModule: PerpV2LeverageModule;
-  let perpIssuanceModule: PerpProtocolIssuanceModule;
+  let perpIssuanceModule: PerpV2IssuanceModule;
   let setup: SystemFixture;
   let perpSetup: PerpV2Fixture;
 
@@ -98,7 +98,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
-    perpIssuanceModule = await deployer.modules.deployPerpProtocolIssuanceModule(
+    perpIssuanceModule = await deployer.modules.deployPerpV2IssuanceModule(
       setup.controller.address,
       perpLeverageModule.address
     );

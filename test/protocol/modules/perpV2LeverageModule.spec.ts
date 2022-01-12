@@ -50,7 +50,7 @@ import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe.only("PerpV2LeverageModule", () => {
+describe("PerpV2LeverageModule", () => {
   let owner: Account;
   let maker: Account;
   let otherTrader: Account;

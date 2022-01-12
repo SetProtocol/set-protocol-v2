@@ -5,7 +5,7 @@ import { BigNumber } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO } from "@utils/constants";
-import { DebtModuleMock, ModuleIssuanceHookMock, SetToken, PerpProtocolIssuanceModule } from "@utils/contracts";
+import { DebtModuleMock, ModuleIssuanceHookMock, SetToken, PerpV2IssuanceModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -19,7 +19,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("PerpProtocolIssuanceModule", () => {
+describe("PerpV2IssuanceModule", () => {
   let owner: Account;
   let manager: Account;
   let feeRecipient: Account;
@@ -28,7 +28,7 @@ describe("PerpProtocolIssuanceModule", () => {
 
   let debtModule: DebtModuleMock;
   let externalPositionModule: ModuleIssuanceHookMock;
-  let perpIssuance: PerpProtocolIssuanceModule;
+  let perpIssuance: PerpV2IssuanceModule;
   let setToken: SetToken;
 
   let preIssueHook: Address;
@@ -49,7 +49,7 @@ describe("PerpProtocolIssuanceModule", () => {
     await setup.initialize();
 
     debtModule = await deployer.mocks.deployDebtModuleMock(setup.controller.address);
-    perpIssuance = await deployer.modules.deployPerpProtocolIssuanceModule(setup.controller.address, debtModule.address);
+    perpIssuance = await deployer.modules.deployPerpV2IssuanceModule(setup.controller.address, debtModule.address);
     externalPositionModule = await deployer.mocks.deployModuleIssuanceHookMock();
 
     await setup.controller.addModule(perpIssuance.address);
@@ -82,8 +82,8 @@ describe("PerpProtocolIssuanceModule", () => {
       subjectPerpModule = debtModule.address;
     });
 
-    async function subject(): Promise<PerpProtocolIssuanceModule> {
-      return await deployer.modules.deployPerpProtocolIssuanceModule(
+    async function subject(): Promise<PerpV2IssuanceModule> {
+      return await deployer.modules.deployPerpV2IssuanceModule(
         subjectController,
         subjectPerpModule
       );

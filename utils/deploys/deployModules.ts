@@ -13,7 +13,7 @@ import {
   GovernanceModule,
   IssuanceModule,
   NavIssuanceModule,
-  PerpProtocolIssuanceModule,
+  PerpV2IssuanceModule,
   PerpV2LeverageModule,
   SingleIndexModule,
   SlippageIssuanceModule,
@@ -39,7 +39,7 @@ import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIn
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
-import { PerpProtocolIssuanceModule__factory } from "../../typechain/factories/PerpProtocolIssuanceModule__factory";
+import { PerpV2IssuanceModule__factory } from "../../typechain/factories/PerpV2IssuanceModule__factory";
 import { PerpV2LeverageModule__factory } from "../../typechain/factories/PerpV2LeverageModule__factory";
 import { SingleIndexModule__factory } from "../../typechain/factories/SingleIndexModule__factory";
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
@@ -75,8 +75,8 @@ export default class DeployModules {
     return await new SlippageIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async deployPerpProtocolIssuanceModule(controller: Address, perpModule: Address): Promise<PerpProtocolIssuanceModule> {
-    return await new PerpProtocolIssuanceModule__factory(this._deployerSigner).deploy(controller, perpModule);
+  public async deployPerpV2IssuanceModule(controller: Address, perpModule: Address): Promise<PerpV2IssuanceModule> {
+    return await new PerpV2IssuanceModule__factory(this._deployerSigner).deploy(controller, perpModule);
   }
 
   public async deployAmmModule(controller: Address): Promise<AmmModule> {

@@ -25,14 +25,14 @@ import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { SlippageIssuanceModule } from "./SlippageIssuanceModule.sol";
 
 /**
- * @title PerpProtocolIssuanceModule
+ * @title PerpV2IssuanceModule
  * @author Set Protocol
  *
- * The IssuanceModule is a module that enables users to issue and redeem SetTokens that contain default and 
+ * The PerpV2IssuanceModule is a module that enables users to issue and redeem SetTokens that contain default and 
  * non-debt external Positions. Managers are able to set an external contract hook that is called before an
  * issuance is called.
  */
-contract PerpProtocolIssuanceModule is SlippageIssuanceModule {
+contract PerpV2IssuanceModule is SlippageIssuanceModule {
 
     IPerpV2LeverageModule public perpModule;
 
