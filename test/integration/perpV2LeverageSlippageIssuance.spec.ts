@@ -50,7 +50,6 @@ describe("PerpV2LeverageSlippageIssuance", () => {
   let perpSetup: PerpV2Fixture;
 
   let vETH: PerpV2BaseToken;
-  let vBTC: PerpV2BaseToken;
   let usdc: StandardTokenMock;
 
   cacheBeforeEach(async () => {
@@ -69,22 +68,17 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     await perpSetup.initialize(maker, otherTrader);
 
     vETH = perpSetup.vETH;
-    vBTC = perpSetup.vBTC;
     usdc = perpSetup.usdc;
 
     // Create liquidity
-    await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10));
+    await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(1000));
+    await perpSetup.usdc.mint(perpSetup.maker.address, usdcUnits(500_000_000));
+    await perpSetup.deposit(perpSetup.maker, BigNumber.from(500_000_000), perpSetup.usdc);
+
     await perpSetup.initializePoolWithLiquidityWide(
       vETH,
-      ether(10_000),
-      ether(100_000)
-    );
-
-    await perpSetup.setBaseTokenOraclePrice(vBTC, usdcUnits(20));
-    await perpSetup.initializePoolWithLiquidityWide(
-      vBTC,
-      ether(10_000),
-      ether(200_000)
+      ether(1_000_000),
+      ether(1_000_000_000)
     );
 
     slippageIssuanceModule = await deployer.modules.deploySlippageIssuanceModule(setup.controller.address);
@@ -1224,6 +1218,147 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           await setToken.removeModule(perpLeverageModule.address);
           const finalModules = await setToken.getModules();
           expect(finalModules.includes(perpLeverageModule.address)).eq(false);
+        });
+      });
+    });
+  });
+
+  describe("#redemption (with streamingFeeModule)", async () => {
+    let setToken: SetToken;
+    let baseToken: Address;
+    let issueFee: BigNumber;
+    let redeemFee: BigNumber;
+    let maxStreamingFeePercentage: BigNumber;
+    let streamingFeePercentage: BigNumber;
+    let usdcDefaultPositionUnit: BigNumber;
+
+    let subjectSetToken: Address;
+    let subjectQuantity: BigNumber;
+    let subjectCheckedComponents: Address[];
+    let subjectMaxTokenAmountsIn: BigNumber[];
+    let subjectTo: Address;
+    let subjectCaller: Account;
+
+    const initializeContracts = async function() {
+      usdcDefaultPositionUnit = usdcUnits(100);
+
+      setToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcDefaultPositionUnit],
+        [
+          perpLeverageModule.address,
+          slippageIssuanceModule.address,
+          setup.streamingFeeModule.address
+        ]
+      );
+
+      await slippageIssuanceModule.initialize(
+        setToken.address,
+        ZERO,       // maxManagerFee
+        issueFee,   // managerIssueFee
+        redeemFee,  // managerRedeemFee
+        feeRecipient.address,
+        ADDRESS_ZERO
+      );
+
+      const streamingFeeSettings = {
+        feeRecipient: owner.address,
+        maxStreamingFeePercentage,
+        streamingFeePercentage,
+        lastStreamingFeeTimestamp: ZERO,
+      };
+      await setup.streamingFeeModule.initialize(setToken.address, streamingFeeSettings);
+
+      // Add SetToken to allow list
+      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
+      await perpLeverageModule.initialize(setToken.address);
+
+      // Approve tokens to issuance module and call issue
+      await usdc.approve(slippageIssuanceModule.address, usdcUnits(1_000_000));
+    };
+
+    async function subject(): Promise<ContractTransaction> {
+      return slippageIssuanceModule.connect(subjectCaller.wallet).redeemWithSlippage(
+        subjectSetToken,
+        subjectQuantity,
+        subjectCheckedComponents,
+        subjectMaxTokenAmountsIn,
+        subjectTo
+      );
+    }
+
+    context("when total supply is 100", async () => {
+      let issueQuantity: BigNumber;
+      let depositQuantityUnit: BigNumber;
+
+      // Issue 100 SetTokens
+      const issueAndLeverUp = async() => {
+        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+        // Deposit entire default position
+        depositQuantityUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+        await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
+
+        // Lever up 2X
+        baseToken = vETH.address;
+        await leverUp(
+          setToken,
+          perpLeverageModule,
+          perpSetup,
+          owner,
+          baseToken,
+          2,
+          ether(.02),
+          true
+        );
+      };
+
+      describe("redeeming all when there are no fees", () => {
+        beforeEach(async () => {
+          issueFee = ZERO;
+          redeemFee = ZERO;
+          maxStreamingFeePercentage = ZERO;
+          streamingFeePercentage = ZERO;
+          issueQuantity = ether(100);
+
+          await initializeContracts();
+          await issueAndLeverUp();
+
+          subjectSetToken = setToken.address;
+          subjectQuantity = issueQuantity;
+          subjectCheckedComponents = [];
+          subjectMaxTokenAmountsIn = [];
+          subjectTo = owner.address;
+          subjectCaller = owner;
+        });
+
+        it("should redeem the entire issuance at once", async () => {
+          const initialTotalSupply = await setToken.totalSupply();
+          await subject();
+          const finalTotalSupply = await setToken.totalSupply();
+
+          expect(initialTotalSupply).eq(ether(100));
+          expect(finalTotalSupply).eq(ZERO);
+        });
+
+        it("should have the expected virtual token balance", async () => {
+          const totalSupply = await setToken.totalSupply();
+
+          const initialBaseBalance = (
+            await perpLeverageModule.getPositionNotionalInfo(subjectSetToken)
+          )[0].baseBalance;
+
+          await subject();
+
+          const finalBaseBalance = (
+            await perpLeverageModule.getPositionNotionalInfo(subjectSetToken)
+          )[0].baseBalance;
+
+          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+          const baseTokenSoldNotional = preciseMul(basePositionUnit, subjectQuantity);
+          const expectedBaseBalance = initialBaseBalance.sub(baseTokenSoldNotional);
+
+          expect(finalBaseBalance).eq(expectedBaseBalance);
         });
       });
     });
