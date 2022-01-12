@@ -587,17 +587,17 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
       describe("when flash-issuing at high margin (failure)", async () => {
         beforeEach(async () => {
-          subjectQuantity = ether(3.5);
+          subjectQuantity = ether(4.5);
         });
 
-        // Calculated leverage = 9_911_554_370_685_102_958
-        it("~9.9X fails", async () => {
+        // Calculated leverage = 12_318_370_314_634_461_976
+        it("~12.3X fails", async () => {
           const flashLeverage = await calculateFlashLeverage(subjectSetToken, subjectQuantity);
 
           await expect(subject()).to.be.revertedWith("CH_NEFCI");
 
-          expect(flashLeverage).to.be.gt(ether(9));
-          expect(flashLeverage).to.be.lt(ether(10));
+          expect(flashLeverage).to.be.gt(ether(12));
+          expect(flashLeverage).to.be.lt(ether(13));
         });
       });
 
