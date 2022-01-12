@@ -720,7 +720,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
         AccountInfo memory accountInfo = getAccountInfo(_setToken);
 
-        int256 partialAccountValue = accountInfo.collateralBalance
+        int256 totalCollateralValue = accountInfo.collateralBalance
             .add(accountInfo.owedRealizedPnl)
             .add(accountInfo.pendingFundingPayments);
 
@@ -733,7 +733,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             int256 indexPrice = IIndexPrice(position.baseToken).getIndexPrice(0).toInt256();
 
             int256 positionValue = indexPrice.preciseMul(position.baseBalance);
-            int256 accountValue = positionValue.add(partialAccountValue).add(position.quoteBalance);
+            int256 accountValue = positionValue.add(totalCollateralValue).add(position.quoteBalance);
 
             vTokens[i] = position.baseToken;
             leverageRatios[i] = positionValue.preciseDiv(accountValue);
@@ -745,7 +745,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * Array is used in order to save bytecode vs a struct. Returned addresses are in the following order:
      * [AccountBalance, ClearingHouse, Exchange, Vault, Quoter, MarketRegistry]
      *
-     * @return  Struct containing important Perpetual Protocol addresses
+     * @return  Array containing important Perpetual Protocol addresses
      */
     function getPerpContracts() external view returns (address[6] memory) {
         return [
@@ -1179,7 +1179,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     /**
      * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
      *
-     * @param  _baseToken)          Address of virtual token to price
+     * @param  _baseToken           Address of virtual token to price
      * @return price                Mid-point price of virtual token in UniswapV3 AMM market
      */
     function _calculateAMMSpotPrice(address _baseToken) internal view returns (uint256 price) {
