@@ -20,6 +20,33 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 contract RgtMigrationWrapAdapter {
+
+    /* ============ State Variables ============ */
+
+    address public immutable rgtToken;
+    address public immutable tribeToken;
+    address public immutable pegExchanger;
+
+    /* ============ Constructor ============ */
+
+    /**
+     * Set state variables
+     *
+     * @param _rgtToken                           Address of KNC Legacy token
+     * @param _tribeToken                         Address of KNC token
+     */
+    constructor(
+        address _rgtToken,
+        address _tribeToken,
+        address _pegExchanger
+    )
+        public
+    {
+        rgtToken = _rgtToken;
+        tribeToken = _tribeToken;
+        pegExchanger = _pegExchanger;
+    }
+
     
 
     /* ============ External Getter Functions ============ */
@@ -44,10 +71,13 @@ contract RgtMigrationWrapAdapter {
         view
         returns (address, uint256, bytes memory)
     {
-        // mintWithOldKnc(uint256 amount)
-        bytes memory callData = abi.encodeWithSignature("mintWithOldKnc(uint256)", _underlyingUnits);
+        require(_underlyingToken == rgtToken, "Must be RGT token");
+        require(_wrappedToken == _tribeToken, "Must be TRIBE token");
 
-        return (kncToken, 0, callData);
+        // exchange(uint256 amount)
+        bytes memory callData = abi.encodeWithSignature("exchange(uint256)", _underlyingUnits);
+
+        return (pegExchanger, 0, callData);
     }
 
     /**
@@ -71,6 +101,6 @@ contract RgtMigrationWrapAdapter {
      * @return address        Address of the contract to approve tokens to
      */
     function getSpenderAddress(address /* _underlyingToken */, address /* _wrappedToken */) external view returns(address) {
-        return kncToken;
+        return pegExchanger;
     }
 }
