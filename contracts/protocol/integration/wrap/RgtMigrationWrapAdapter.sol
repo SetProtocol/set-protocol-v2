@@ -20,5 +20,57 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 contract RgtMigrationWrapAdapter {
+    
 
+    /* ============ External Getter Functions ============ */
+
+    /**
+     * Generates the calldata to migrate KNC Legacy to KNC.
+     *
+     * @param _underlyingToken      Address of the component to be wrapped
+     * @param _wrappedToken         Address of the wrapped component
+     * @param _underlyingUnits      Total quantity of underlying units to wrap
+     *
+     * @return address              Target contract address
+     * @return uint256              Total quantity of underlying units (if underlying is ETH)
+     * @return bytes                Wrap calldata
+     */
+    function getWrapCallData(
+        address _underlyingToken,
+        address _wrappedToken,
+        uint256 _underlyingUnits
+    )
+        external
+        view
+        returns (address, uint256, bytes memory)
+    {
+        // mintWithOldKnc(uint256 amount)
+        bytes memory callData = abi.encodeWithSignature("mintWithOldKnc(uint256)", _underlyingUnits);
+
+        return (kncToken, 0, callData);
+    }
+
+    /**
+     * This function will revert, since migration cannot be reversed.
+     */
+    function getUnwrapCallData(
+        address /* _underlyingToken */,
+        address /* _wrappedToken */,
+        uint256 /* _wrappedTokenUnits */
+    )
+        external
+        pure
+        returns (address, uint256, bytes memory)
+    {
+        revert("RGT migration cannot be reversed");
+    }
+
+    /**
+     * Returns the address to approve source tokens for wrapping.
+     *
+     * @return address        Address of the contract to approve tokens to
+     */
+    function getSpenderAddress(address /* _underlyingToken */, address /* _wrappedToken */) external view returns(address) {
+        return kncToken;
+    }
 }
