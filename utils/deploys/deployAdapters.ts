@@ -33,6 +33,7 @@ import {
   SynthetixExchangeAdapter,
   CompoundBravoGovernanceAdapter,
   CompClaimAdapter,
+  RgtMigrationWrapAdapter,
 } from "../contracts";
 import { Address, Bytes } from "./../types";
 
@@ -67,6 +68,7 @@ import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/Sn
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
 import { CompClaimAdapter__factory, AGIMigrationWrapAdapter__factory } from "../../typechain";
+import { RgtMigrationWrapAdapter__factory } from "@typechain/factories/RgtMigrationWrapAdapter__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -189,6 +191,10 @@ export default class DeployAdapters {
 
   public async deployDgMigrationWrapAdapter(legacyAddress: Address, newAddress: Address): Promise<DgMigrationWrapAdapter> {
     return await new DgMigrationWrapAdapter__factory(this._deployerSigner).deploy(legacyAddress, newAddress);
+  }
+
+  public async deployRgtMigrationWrapAdater(pegExchanger: Address): Promise<RgtMigrationWrapAdapter> {
+    return await new RgtMigrationWrapAdapter__factory(this._deployerSigner).deploy(pegExchanger);
   }
 
   public async deployUniswapPairPriceAdapter(

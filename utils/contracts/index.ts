@@ -77,6 +77,7 @@ export { PreciseUnitMathMock } from "../../typechain/PreciseUnitMathMock";
 export { PriceOracle } from "../../typechain/PriceOracle";
 export { ProtocolViewer } from "../../typechain/ProtocolViewer";
 export { ResourceIdentifierMock } from "../../typechain/ResourceIdentifierMock";
+export { RgtMigrationWrapAdapter } from "../../typechain/RgtMigrationWrapAdapter";
 export { SetToken } from "../../typechain/SetToken";
 export { SetTokenAccessibleMock } from "../../typechain/SetTokenAccessibleMock";
 export { SetTokenCreator } from "../../typechain/SetTokenCreator";

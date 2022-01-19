@@ -237,6 +237,10 @@ import { DGLight, DgToken } from "../contracts/dg";
 import { DgToken__factory } from "../../typechain/factories/DgToken__factory";
 import { DGLight__factory } from "../../typechain/factories/DGLight__factory";
 
+import { PegExchanger } from "../../typechain/PegExchanger";
+import { PegExchanger__factory } from "../../typechain/factories/PegExchanger__factory";
+import { FeiDAO } from "../../typechain/FeiDAO";
+
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
 
@@ -819,6 +823,15 @@ export default class DeployExternalContracts {
 
   public async deployDgToken(): Promise<DgToken> {
     return await new DgToken__factory(this._deployerSigner).deploy();
+  }
+
+  // Fei
+  public async deployFeiDAO(): Promise<FeiDAO> {
+    throw new Error("Not yet implemented");
+  }
+
+  public async deployPegExchanger(rariTribeDAO: Address): Promise<PegExchanger> {
+    return await new PegExchanger__factory(this._deployerSigner).deploy(rariTribeDAO);
   }
 
   // PerpV2

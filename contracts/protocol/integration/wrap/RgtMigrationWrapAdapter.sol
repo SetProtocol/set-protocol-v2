@@ -19,12 +19,17 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+/**
+  * @title RgtMigrationWrapAdater
+  * @author Set Protocol
+  *
+  * Wrap adapter for one time token migration that returns data for wrapping RGT into TRIBE. 
+  * Note: RGT can not be unwrapped into TRIBE, because migration can not be reversed.
+ */
 contract RgtMigrationWrapAdapter {
 
     /* ============ State Variables ============ */
 
-    address public immutable rgtToken;
-    address public immutable tribeToken;
     address public immutable pegExchanger;
 
     /* ============ Constructor ============ */
@@ -32,30 +37,21 @@ contract RgtMigrationWrapAdapter {
     /**
      * Set state variables
      *
-     * @param _rgtToken                           Address of KNC Legacy token
-     * @param _tribeToken                         Address of KNC token
+     * @param _pegExchanger                       Address of PegExchanger contract
      */
     constructor(
-        address _rgtToken,
-        address _tribeToken,
         address _pegExchanger
     )
         public
     {
-        rgtToken = _rgtToken;
-        tribeToken = _tribeToken;
         pegExchanger = _pegExchanger;
-    }
-
-    
+    } 
 
     /* ============ External Getter Functions ============ */
 
     /**
      * Generates the calldata to migrate KNC Legacy to KNC.
      *
-     * @param _underlyingToken      Address of the component to be wrapped
-     * @param _wrappedToken         Address of the wrapped component
      * @param _underlyingUnits      Total quantity of underlying units to wrap
      *
      * @return address              Target contract address
@@ -63,17 +59,14 @@ contract RgtMigrationWrapAdapter {
      * @return bytes                Wrap calldata
      */
     function getWrapCallData(
-        address _underlyingToken,
-        address _wrappedToken,
+        address /* _underlyingToken */,
+        address /* _wrappedToken */,
         uint256 _underlyingUnits
     )
         external
         view
         returns (address, uint256, bytes memory)
     {
-        require(_underlyingToken == rgtToken, "Must be RGT token");
-        require(_wrappedToken == _tribeToken, "Must be TRIBE token");
-
         // exchange(uint256 amount)
         bytes memory callData = abi.encodeWithSignature("exchange(uint256)", _underlyingUnits);
 
