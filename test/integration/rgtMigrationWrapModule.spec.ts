@@ -4,7 +4,7 @@ import { BigNumber } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";
-import { RgtMigrationWrapAdapter, SetToken, WrapModule } from "@utils/contracts";
+import { RgtMigrationWrapAdapter, SetToken, StandardTokenMock, WrapModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -26,8 +26,8 @@ describe("rgtMigrationWrapModule", () => {
 
   let wrapModule: WrapModule;
 
-  //   let rgtToken: RgtToken;
-  //   let tribeToken: TribeToken;
+  let rgtToken: StandardTokenMock;
+  let tribeToken: StandardTokenMock;
   let adapter: RgtMigrationWrapAdapter;
 
   const rgtMigrationWrapAdapterIntegrationName: string = "RGT_MIGRATION_WRAPPER";
@@ -47,7 +47,14 @@ describe("rgtMigrationWrapModule", () => {
     await setup.controller.addModule(wrapModule.address);
 
     // RgtMigrationWrapV2Adapter setup
-    adapter = await deployer.adapters.deployRgtMigrationWrapAdapter();
+    rgtToken = await deployer.mocks.deployTokenMock(owner.address);
+    tribeToken = await deployer.mocks.deployTokenMock(owner.address);
+
+    const rariTimelock = await deployer.external.deployRariTimelock(owner.address, 3);
+    const tribe = await deployer.external.deployFeiTribe(owner.address, owner.address);
+    const rariTribeDao = await deployer.external.deployFeiDAO(tribe.address, rariTimelock.address, ADDRESS_ZERO);
+    const pegExchanger = await deployer.external.deployPegExchanger(rariTribeDao.address);
+    adapter = await deployer.adapters.deployRgtMigrationWrapAdapter(pegExchanger.address);
 
     await setup.integrationRegistry.addIntegration(wrapModule.address, rgtMigrationWrapAdapterIntegrationName, adapter.address);
   });
@@ -60,7 +67,7 @@ describe("rgtMigrationWrapModule", () => {
 
     before(async () => {
       setToken = await setup.createSetToken(
-        [dgClassic.address],
+        [rgtToken.address],
         [BigNumber.from(10 ** 8)],
         [setup.issuanceModule.address, wrapModule.address]
       );
@@ -72,7 +79,7 @@ describe("rgtMigrationWrapModule", () => {
       // Issue some Sets
       setTokensIssued = ether(10);
       const underlyingRequired = setTokensIssued.div(10 ** 9);
-      await dgClassic.approve(setup.issuanceModule.address, underlyingRequired);
+      await rgtToken.approve(setup.issuanceModule.address, underlyingRequired);
       await setup.issuanceModule.issue(setToken.address, setTokensIssued, owner.address);
     });
 
@@ -86,8 +93,8 @@ describe("rgtMigrationWrapModule", () => {
 
       beforeEach(async () => {
         subjectSetToken = setToken.address;
-        subjectUnderlyingToken = dgClassic.address;
-        subjectWrappedToken = dgLight.address;
+        subjectUnderlyingToken = rgtToken.address;
+        subjectWrappedToken = tribeToken.address;
         subjectUnderlyingUnits = BigNumber.from(10 ** 8);
         subjectIntegrationName = rgtMigrationWrapAdapterIntegrationName;
         subjectCaller = owner;
@@ -103,20 +110,20 @@ describe("rgtMigrationWrapModule", () => {
         );
       }
 
-      it("should convert underlying balance of RGT tokens to TRIBE tokens * 1000", async () => {
-        const previousDgTokenBalance = await dgClassic.balanceOf(setToken.address);
-        const previousDGLightBalance = await dgLight.balanceOf(setToken.address);
-        expect(previousDgTokenBalance).to.eq(BigNumber.from(10 ** 9));
-        expect(previousDGLightBalance).to.eq(ZERO);
+      it("should convert underlying balance of RGT tokens to TRIBE tokens * 26705673430 / 10e9", async () => {
+        const previousRgtTokenBalance = await rgtToken.balanceOf(setToken.address);
+        const previousTribeTokenBalance = await tribeToken.balanceOf(setToken.address);
+        expect(previousRgtTokenBalance).to.eq(BigNumber.from(10 ** 9));
+        expect(previousTribeTokenBalance).to.eq(ZERO);
 
         await subject();
 
-        const dgTokenBalance = await dgClassic.balanceOf(setToken.address);
-        const DGLightBalance = await dgLight.balanceOf(setToken.address);
+        const rgtTokenBalance = await rgtToken.balanceOf(setToken.address);
+        const tribeTokenBalance = await tribeToken.balanceOf(setToken.address);
         const components = await setToken.getComponents();
 
-        expect(dgTokenBalance).to.eq(ZERO);
-        expect(DGLightBalance).to.eq(previousDgTokenBalance.mul(1000));
+        expect(rgtTokenBalance).to.eq(ZERO);
+        expect(tribeTokenBalance).to.eq(previousRgtTokenBalance.mul(26705673430).div(10e9));
         expect(components.length).to.eq(1);
       });
     });
@@ -131,8 +138,8 @@ describe("rgtMigrationWrapModule", () => {
 
       beforeEach(async () => {
         subjectSetToken = setToken.address;
-        subjectUnderlyingToken = dgClassic.address;
-        subjectWrappedToken = dgLight.address;
+        subjectUnderlyingToken = rgtToken.address;
+        subjectWrappedToken = tribeToken.address;
         subjectWrappedUnits = BigNumber.from(10 ** 8);
         subjectIntegrationName = rgtMigrationWrapAdapterIntegrationName;
         subjectCaller = owner;
@@ -157,7 +164,7 @@ describe("rgtMigrationWrapModule", () => {
       }
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("DG migration cannot be reversed");
+        await expect(subject()).to.be.revertedWith("RGT migration cannot be reversed");
       });
     });
   });

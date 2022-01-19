@@ -193,7 +193,7 @@ export default class DeployAdapters {
     return await new DgMigrationWrapAdapter__factory(this._deployerSigner).deploy(legacyAddress, newAddress);
   }
 
-  public async deployRgtMigrationWrapAdater(pegExchanger: Address): Promise<RgtMigrationWrapAdapter> {
+  public async deployRgtMigrationWrapAdapter(pegExchanger: Address): Promise<RgtMigrationWrapAdapter> {
     return await new RgtMigrationWrapAdapter__factory(this._deployerSigner).deploy(pegExchanger);
   }
 

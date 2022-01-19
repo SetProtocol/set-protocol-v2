@@ -34,7 +34,7 @@ describe("RgtMigrationWrapAdapter", () => {
     const rariTribeDAO = await deployer.mocks.deployTokenMock(owner.address);
     pegExchanger = await deployer.external.deployPegExchanger(rariTribeDAO.address);
 
-    rgtMigrationWrapAdapter = await deployer.adapters.deployRgtMigrationWrapAdater(pegExchanger.address);
+    rgtMigrationWrapAdapter = await deployer.adapters.deployRgtMigrationWrapAdapter(pegExchanger.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -47,7 +47,7 @@ describe("RgtMigrationWrapAdapter", () => {
     });
 
     async function subject(): Promise<any> {
-      return deployer.adapters.deployRgtMigrationWrapAdater(subjectPegExchanger);
+      return deployer.adapters.deployRgtMigrationWrapAdapter(subjectPegExchanger);
     }
 
     it("should have the correct PegExchanger address", async () => {
