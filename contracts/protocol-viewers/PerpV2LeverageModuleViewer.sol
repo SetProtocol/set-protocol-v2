@@ -97,20 +97,30 @@ contract PerpV2LeverageModuleViewer {
      * leverage ratio is met. In order to accurately predict this amount the user must pass in an expected
      * slippage amount, this amount should be calculated relative to Index price(s) of vAssets held by the Set,
      * not the mid-market prices. The formulas used here are based on the "conservative" definition of free
-     * collateral as defined in PerpV2's docs.
+     * collateral as defined in PerpV2's docs: freeCollateral = min(totalCollateral, accountValue) - totalDebt * imRatio
+     *
+     * We want to find the point where freeCollateral = 0 after all trades have been executed. We know accountValue
+     * is less than totalCollateral when unrealizedPnl < 0 which gives us the following equations:
+     * availableDebt = (totalCollateral / imRatio) - currentDebt                        if unrealizedPnl >= 0
+     * availableDebt = ((totalCollateral + unrealizedPnl) / imRatio) - currentDebt      if unrealizedPnl < 0
+     *
+     * We also know that any slippage gets accrued to unrealizedPnl BEFORE any new collateral is being deposited so
+     * we need to account for our expected slippage accrual impact on accountValue by subtracting our expected amount of 
+     * of slippage divided by the imRatio from the availableDebt. We can then divide the availableDebtWithSlippage by
+     * the absolute value of our current position and multiply by our totalSupply to get the max issue amount.
      *
      * @param _setToken             Instance of SetToken
      * @param _slippage             Expected slippage from entering position in precise units (1% = 10^16)
      *
-     * @return                       Maximum amount of Sets that can be issued
+     * @return                      Maximum amount of Sets that can be issued
      */
     function getMaximumSetTokenIssueAmount(ISetToken _setToken, int256 _slippage) external view returns (uint256) {
         uint256 totalAbsPositionValue = perpAccountBalance.getTotalAbsPositionValue(address(_setToken));
 
         if (totalAbsPositionValue == 0) { return PreciseUnitMath.maxUint256(); }
 
-        uint256 setTotalSupply = _setToken.totalSupply();
-        int256 imRatio = uint256(perpClearingHouseConfig.getImRatio()).toInt256();
+        // Scale imRatio to 10 ** 18 (preciseUnits)
+        int256 imRatio = uint256(perpClearingHouseConfig.getImRatio()).mul(1e12).toInt256();
 
         (, int256 unrealizedPnl, ) = perpAccountBalance.getPnlAndPendingFee(address(_setToken));
         int256 totalDebtValue = perpAccountBalance.getTotalDebtValue(address(_setToken)).toInt256();
@@ -119,14 +129,14 @@ contract PerpV2LeverageModuleViewer {
 
         int256 availableDebt;
         if (unrealizedPnl >= 0) {
-            availableDebt = totalCollateralValue.mul(1e6).div(imRatio).sub(totalDebtValue);
+            availableDebt = totalCollateralValue.preciseDiv(imRatio).sub(totalDebtValue);
         } else {
-            availableDebt = totalCollateralValue.add(unrealizedPnl).mul(1e6).div(imRatio).sub(totalDebtValue);
+            availableDebt = totalCollateralValue.add(unrealizedPnl).preciseDiv(imRatio).sub(totalDebtValue);
         }
 
-        int256 availableDebtWithSlippage = availableDebt.sub(availableDebt.preciseMul(_slippage).mul(1e6).div(imRatio));
+        int256 availableDebtWithSlippage = availableDebt.sub(availableDebt.preciseMul(_slippage).preciseDiv(imRatio));
 
-        return availableDebtWithSlippage.toUint256().preciseDiv(totalAbsPositionValue).preciseMul(setTotalSupply);
+        return availableDebtWithSlippage.toUint256().preciseDiv(totalAbsPositionValue).preciseMul(_setToken.totalSupply());
     }
 
     /**

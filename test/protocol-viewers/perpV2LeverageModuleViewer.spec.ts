@@ -543,4 +543,49 @@ describe("PerpV2LeverageModuleViewer", () => {
       });
     });
   });
+
+  describe("#getTotalCollateralUnit", () => {
+    let setToken: SetToken;
+    let collateralQuantity: BigNumber;
+
+    let subjectSetToken: Address;
+
+    const initializeContracts = async () => {
+      collateralQuantity = usdcUnits(10);
+      setToken = await issueSetsAndDepositToPerp(collateralQuantity);
+
+      perpViewer = await deployer.viewers.deployPerpV2LeverageModuleViewer(
+        perpLeverageModule.address,
+        perpSetup.accountBalance.address,
+        perpSetup.clearingHouseConfig.address,
+        perpSetup.vQuote.address
+      );
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<[string, BigNumber]> {
+      return await perpViewer.getTotalCollateralUnit(subjectSetToken);
+    }
+
+    it("should return the correct max issue amount", async () => {
+      const [ collateralToken, collateralUnit ] = await subject();
+
+      const totalSupply = await setToken.totalSupply();
+      const accountInfo = await perpLeverageModule.getAccountInfo(setToken.address);
+      const totalCollateral = accountInfo.collateralBalance
+        .add(accountInfo.owedRealizedPnl)
+        .add(accountInfo.pendingFundingPayments);
+
+      const expectedCollateralUnit = preciseDiv(totalCollateral, totalSupply);
+
+      expect(collateralToken).eq(perpSetup.usdc.address);
+      expect(collateralUnit).eq(expectedCollateralUnit);
+    });
+  });
 });
