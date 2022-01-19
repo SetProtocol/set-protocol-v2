@@ -51,20 +51,20 @@ contract PerpV2LeverageModuleViewer {
     /* ============ Structs ============ */
 
     struct VAssetDisplayInfo {
-        string symbol;
-        address vAssetAddress;
-        int256 positionUnit;
-        uint256 indexPrice;
-        int256 currentLeverageRatio;
+        string symbol;                  // Symbol of vAsset
+        address vAssetAddress;          // Address of vAsset
+        int256 positionUnit;            // Position unit of vAsset
+        uint256 indexPrice;             // Current index price of vAsset
+        int256 currentLeverageRatio;    // Current leverage ratio of vAsset (using total collateral value)
     }
 
     /* ============ State Variables ============ */
 
-    IPerpV2LeverageModule public immutable perpModule;
-    IAccountBalance public immutable perpAccountBalance;
-    IClearingHouseConfig public immutable perpClearingHouseConfig;
-    ERC20 public immutable vQuoteToken;
-    IERC20 public immutable collateralToken;
+    IPerpV2LeverageModule public immutable perpModule;              // PerpV2LeverageModule instance
+    IAccountBalance public immutable perpAccountBalance;            // Perp's Account Balance contract
+    IClearingHouseConfig public immutable perpClearingHouseConfig;  // PerpV2's ClearingHouseConfig contract
+    ERC20 public immutable vQuoteToken;                             // Virtual Quote asset for PerpV2 (vUSDC)
+    IERC20 public immutable collateralToken;                        // Address of collateral token used by Perp (USDC)
 
     /* ============ Constructor ============ */
 
@@ -100,9 +100,9 @@ contract PerpV2LeverageModuleViewer {
      * collateral as defined in PerpV2's docs.
      *
      * @param _setToken             Instance of SetToken
-     * @param _slippage             Expected slippage from entering position in precise units
+     * @param _slippage             Expected slippage from entering position in precise units (1% = 10^16)
      *
-     * @return Maximum amount of Sets that can be issued
+     * @return                       Maximum amount of Sets that can be issued
      */
     function getMaximumSetTokenIssueAmount(ISetToken _setToken, int256 _slippage) external view returns (uint256) {
         uint256 totalAbsPositionValue = perpAccountBalance.getTotalAbsPositionValue(address(_setToken));
@@ -134,7 +134,7 @@ contract PerpV2LeverageModuleViewer {
      *
      * @param _setToken             Instance of SetToken
      *
-     * @return                      Quote token address
+     * @return                      Collateral token address
      * @return                      Total collateral value position unit
      */
     function getTotalCollateralUnit(ISetToken _setToken) external view returns (IERC20, int256) {
@@ -144,11 +144,12 @@ contract PerpV2LeverageModuleViewer {
 
     /**
      * @dev Returns relevant data for displaying current positions. Identifying info for each position plus current
-     * size, index price, and leverage of each vAsset with an open position is returned. The sum quantity of USDC
+     * size, index price, and leverage of each vAsset with an open position is returned. The sum quantity of vUSDC
+     * is returned along with identifying info in last index of array. 
      *
      * @param _setToken             Instance of SetToken
      *
-     * @return assetInfo             Array of info about size and leverage of current vAsset positions
+     * @return assetInfo            Array of info concerning size and leverage of current vAsset positions
      */
     function getVirtualAssetsDisplayInfo(
         ISetToken _setToken
@@ -191,6 +192,13 @@ contract PerpV2LeverageModuleViewer {
 
     /* ============ Internal Functions ============ */
 
+    /**
+     * @dev Returns total collateral value attributed to SetToken. TCV = collateral + owedRealizedPnl + funding.
+     *
+     * @param _setToken         Instance of SetToken
+     *
+     * @return                  Total collateral value attributed to SetToken
+     */
     function _calculateTotalCollateralValue(ISetToken _setToken) internal view returns (int256) {
         IPerpV2LeverageModule.AccountInfo memory accountInfo = perpModule.getAccountInfo(_setToken);
 
@@ -200,16 +208,16 @@ contract PerpV2LeverageModuleViewer {
     }
 
     /**
-     * @dev Returns an array of leverage ratios per base asset. Leverage ratio is defined as follows:
+     * @dev Returns leverage of passed position relative total collateral value of Set. Leverage ratio is defined as follows:
      * lr_asset = positionValue / accountValue where,
      * positionValue = indexPrice_asset * notionalBaseTokenAmount_asset and
      * accountValue = collateral + owedRealizedPnl + funding + positionValue_asset + quoteBalance_asset
      *
-     * @param _position                 Instance of SetToken
-     * @param _indexPrice               Instance of SetToken
-     * @param _totalCollateralValue     Instance of SetToken
+     * @param _position                 Struct containing position info for the vAsset
+     * @param _indexPrice               Index price of vAsset
+     * @param _totalCollateralValue     Value of total collateral attributed to SetToken
      *
-     * @return leverageRatio            Array of leverage ratios, mapping to index of vTokens
+     * @return                          Leverage ratio of vAsset relative to current total collateral
      */
     function _calculateCurrentLeverageRatio(
         IPerpV2LeverageModule.PositionNotionalInfo memory _position,
