@@ -45,6 +45,7 @@ export {
   calculateUSDCTransferIn,
   calculateUSDCTransferOut,
   calculateExternalPositionUnit,
+  calculateMaxIssueQuantity,
   calculateUSDCTransferInPreciseUnits,
   calculateUSDCTransferOutPreciseUnits,
   calculateLeverageRatios,

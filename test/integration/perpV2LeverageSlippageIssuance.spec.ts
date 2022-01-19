@@ -3,7 +3,7 @@ import { ContractTransaction } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
-  PerpV2IssuanceModule,
+  SlippageIssuanceModule,
   PerpV2,
   PerpV2LeverageModule,
   SetToken,
@@ -45,7 +45,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
   let perpLib: PerpV2;
   let perpLeverageModule: PerpV2LeverageModule;
-  let perpIssuanceModule: PerpV2IssuanceModule;
+  let slippageIssuanceModule: SlippageIssuanceModule;
   let setup: SystemFixture;
   let perpSetup: PerpV2Fixture;
 
@@ -98,16 +98,15 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
-    perpIssuanceModule = await deployer.modules.deployPerpV2IssuanceModule(
-      setup.controller.address,
-      perpLeverageModule.address
+    slippageIssuanceModule = await deployer.modules.deploySlippageIssuanceModule(
+      setup.controller.address
     );
-    await setup.controller.addModule(perpIssuanceModule.address);
+    await setup.controller.addModule(slippageIssuanceModule.address);
 
     await setup.integrationRegistry.addIntegration(
       perpLeverageModule.address,
       "DefaultIssuanceModule",
-      perpIssuanceModule.address
+      slippageIssuanceModule.address
     );
   });
 
@@ -171,7 +170,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     usdcTransferOutQuantity: BigNumber
   ) {
     // Calculate fee adjusted usdcTransferOut
-    const redeemQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+    const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
       setToken,
       redeemQuantity,
       false
@@ -229,10 +228,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       setToken = await setup.createSetToken(
         [usdc.address],
         [usdcDefaultPositionUnit],
-        [perpLeverageModule.address, perpIssuanceModule.address]
+        [perpLeverageModule.address, slippageIssuanceModule.address]
       );
       issueFee = ether(0.005);
-      await perpIssuanceModule.initialize(
+      await slippageIssuanceModule.initialize(
         setToken.address,
         ether(0.02),
         issueFee,
@@ -245,11 +244,11 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       await perpLeverageModule.initialize(setToken.address);
 
       // Approve tokens to issuance module and call issue
-      await usdc.approve(perpIssuanceModule.address, usdcUnits(1000));
+      await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
     };
 
     async function subject(): Promise<ContractTransaction> {
-      return perpIssuanceModule.connect(subjectCaller.wallet).issueWithSlippage(
+      return slippageIssuanceModule.connect(subjectCaller.wallet).issueWithSlippage(
         subjectSetToken,
         subjectQuantity,
         subjectCheckedComponents,
@@ -323,7 +322,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       beforeEach(async () => {
         // Issue 1 SetToken
         issueQuantity = ether(1);
-        await perpIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         depositQuantityUnit = usdcDefaultPositionUnit;
         await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
@@ -414,7 +413,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           await subject();
           const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
-          const issueQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
             subjectSetToken,
             subjectQuantity,
             true
@@ -429,7 +428,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         });
 
         it("should get required component issuance units correctly", async () => {
-          const issueQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
             subjectSetToken,
             subjectQuantity,
             true
@@ -438,7 +437,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
           const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
 
-          const [components, equityFlows, debtFlows] = await perpIssuanceModule.callStatic.getRequiredComponentIssuanceUnitsOffChain(
+          const [components, equityFlows, debtFlows] = await slippageIssuanceModule.callStatic.getRequiredComponentIssuanceUnitsOffChain(
             subjectSetToken,
             subjectQuantity
           );
@@ -498,7 +497,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           await subject();
           const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
-          const issueQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
             subjectSetToken,
             subjectQuantity,
             true
@@ -514,7 +513,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         });
 
         it("should deposit the expected amount into the Perp vault", async () => {
-          const issueQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
             subjectSetToken,
             subjectQuantity,
             true
@@ -535,7 +534,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
         // This is slightly off ... over a tenth of a penny.
         it.skip("should not incur a premium", async () => {
-          const issueQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
             subjectSetToken,
             subjectQuantity,
             true
@@ -653,7 +652,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const finalPositionInfo = await perpLeverageModule.getPositionNotionalInfo(subjectSetToken);
           const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
-          const issueQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
             subjectSetToken,
             subjectQuantity,
             true
@@ -670,86 +669,6 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
         });
       });
-    });
-  });
-
-  describe("#getMaximumSetTokenIssueAmount", async () => {
-    let setToken: SetToken;
-    let issueFee: BigNumber;
-    let usdcDefaultPositionUnit: BigNumber;
-
-    let baseToken: Address;
-    let depositQuantityUnit: BigNumber;
-    let issueQuantity: BigNumber;
-
-    let subjectSetToken: Address;
-
-    const initializeContracts = async function() {
-      usdcDefaultPositionUnit = usdcUnits(10);
-      setToken = await setup.createSetToken(
-        [usdc.address],
-        [usdcDefaultPositionUnit],
-        [perpLeverageModule.address, perpIssuanceModule.address]
-      );
-      issueFee = ether(0.005);
-      await perpIssuanceModule.initialize(
-        setToken.address,
-        ether(0.02),
-        issueFee,
-        ether(0.005),
-        feeRecipient.address,
-        ADDRESS_ZERO
-      );
-      // Add SetToken to allow list
-      await perpLeverageModule.updateAllowedSetToken(setToken.address, true);
-      await perpLeverageModule.initialize(setToken.address);
-
-      // Approve tokens to issuance module and call issue
-      await usdc.approve(perpIssuanceModule.address, usdcUnits(1000));
-
-      issueQuantity = ether(1);
-      await perpIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
-
-      depositQuantityUnit = usdcDefaultPositionUnit;
-      await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
-
-      // Lever up
-      baseToken = vETH.address;
-      await leverUp(
-        setToken,
-        perpLeverageModule,
-        perpSetup,
-        owner,
-        baseToken,
-        2,
-        ether(.02),
-        true
-      );
-    };
-
-    cacheBeforeEach(initializeContracts);
-
-    beforeEach(() => {
-      subjectSetToken = setToken.address;
-    });
-
-    async function subject(): Promise<BigNumber> {
-      return perpIssuanceModule.getMaximumSetTokenIssueAmount(subjectSetToken);
-    }
-
-    it("should be return the correct max issuance amount", async() => {
-      const actualIssuanceMax = await subject();
-
-      const freeCollateral = await perpSetup.vault.getFreeCollateral(setToken.address);
-      const collateralBalance = await perpSetup.vault.getBalance(setToken.address);
-      const totalSupply = await setToken.totalSupply();
-
-      const expectedIssuanceMax = preciseDiv(
-        totalSupply,
-        preciseDiv(collateralBalance.sub(freeCollateral), collateralBalance)
-      ).sub(totalSupply);
-
-      expect(actualIssuanceMax).eq(expectedIssuanceMax);
     });
   });
 
@@ -774,10 +693,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       setToken = await setup.createSetToken(
         [usdc.address],
         [usdcDefaultPositionUnit],
-        [perpLeverageModule.address, perpIssuanceModule.address]
+        [perpLeverageModule.address, slippageIssuanceModule.address]
       );
       redeemFee = ether(0.005);
-      await perpIssuanceModule.initialize(
+      await slippageIssuanceModule.initialize(
         setToken.address,
         ether(0.02),
         ether(0.005),
@@ -790,11 +709,11 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       await perpLeverageModule.initialize(setToken.address);
 
       // Approve tokens to issuance module and call issue
-      await usdc.approve(perpIssuanceModule.address, usdcUnits(1000));
+      await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
     };
 
     async function subject(): Promise<ContractTransaction> {
-      return perpIssuanceModule.connect(subjectCaller.wallet).redeemWithSlippage(
+      return slippageIssuanceModule.connect(subjectCaller.wallet).redeemWithSlippage(
         subjectSetToken,
         subjectQuantity,
         subjectCheckedComponents,
@@ -809,7 +728,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       beforeEach(async () => {
         // Issue 1 SetToken
         issueQuantity = ether(1);
-        await perpIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         depositQuantityUnit = usdcUnits(10);
         await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
@@ -942,7 +861,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       beforeEach(async () => {
         // Issue 2 SetTokens
         issueQuantity = ether(2);
-        await perpIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
         // Deposit entire default position
         depositQuantityUnit = usdcDefaultPositionUnit;
@@ -1012,7 +931,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       });
 
       it("should get required component redemption units correctly", async () => {
-        const issueQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+        const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
           subjectSetToken,
           subjectQuantity,
           false
@@ -1021,7 +940,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         const externalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);
         const feeAdjustedTransferOut = preciseMul(issueQuantityWithFees, externalPositionUnit);
 
-        const [components, equityFlows, debtFlows] = await perpIssuanceModule
+        const [components, equityFlows, debtFlows] = await slippageIssuanceModule
           .callStatic
           .getRequiredComponentRedemptionUnitsOffChain(
             subjectSetToken,
@@ -1039,7 +958,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
       // This is slightly off ... over a tenth of a penny.
       it.skip("should not incur a premium", async () => {
-        const redeemQuantityWithFees = (await perpIssuanceModule.calculateTotalFees(
+        const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
           subjectSetToken,
           subjectQuantity,
           false

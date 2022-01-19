@@ -30,6 +30,7 @@ import { PerpV2 } from "../integration/lib/PerpV2.sol";
 import { UniswapV3Math } from "../integration/lib/UniswapV3Math.sol";
 import { IAccountBalance } from "../../interfaces/external/perp-v2/IAccountBalance.sol";
 import { IClearingHouse } from "../../interfaces/external/perp-v2/IClearingHouse.sol";
+import { IClearingHouseConfig } from "../../interfaces/external/perp-v2/IClearingHouseConfig.sol";
 import { IExchange } from "../../interfaces/external/perp-v2/IExchange.sol";
 import { IIndexPrice } from "../../interfaces/external/perp-v2/IIndexPrice.sol";
 import { IVault } from "../../interfaces/external/perp-v2/IVault.sol";
@@ -158,6 +159,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
     /* ============ State Variables ============ */
 
+    // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's settlement and collateral token
+    IERC20 public immutable collateralToken;
+
+    // Decimals of collateral token. We set this in the constructor for later reading
+    uint8 internal immutable collateralDecimals;
+
     // PerpV2 contract which provides getters for base, quote, and owedRealizedPnl balances
     IAccountBalance internal immutable perpAccountBalance;
 
@@ -175,12 +182,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
     IMarketRegistry internal immutable perpMarketRegistry;
-
-    // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's settlement and collateral token
-    IERC20 internal immutable collateralToken;
-
-    // Decimals of collateral token. We set this in the constructor for later reading
-    uint8 internal immutable collateralDecimals;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
@@ -680,67 +681,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
-     * @dev Returns the maximum amount of Sets that can be issued. Because upon issuance we lever up the Set
-     * before depositing collateral there is a ceiling on the amount of Sets that can be issued before the max
-     * leverage ratio is met. This amount is roughly equal to:
-     * totalSupply/usedCollateralRatio - totalSupply.
-     *
-     * @param _setToken             Instance of SetToken
-     *
-     * @return Maximum amount of Sets that can be issued
-     */
-    function getMaximumSetTokenIssueAmount(ISetToken _setToken) external view returns (uint256) {
-        uint256 setTotalSupply = _setToken.totalSupply();
-
-        uint256 usedCollateralRatio = _calculateUsedCollateralRatio(_setToken);
-
-        // If usedCollateral == 0 then return maxUint256
-        return usedCollateralRatio == 0 ? PreciseUnitMath.maxUint256() : 
-            setTotalSupply.preciseDiv(usedCollateralRatio).sub(setTotalSupply);
-    }
-
-    /**
-     * @dev Returns an array of leverage ratios per base asset. Leverage ratio is defined as follows:
-     * lr_asset = positionValue / accountValue where,
-     * positionValue = indexPrice_asset * notionalBaseTokenAmount_asset and
-     * accountValue = collateral + owedRealizedPnl + funding + positionValue_asset + quoteBalance_asset
-     *
-     * @param _setToken             Instance of SetToken
-     *
-     * @return vTokens              Array of vToken addresses 
-     * @return leverageRatios       Array of leverage ratios, mapping to index of vTokens
-     */
-    function getCurrentLeverageRatios(
-        ISetToken _setToken
-    )
-        external
-        view
-        returns (address[] memory vTokens, int256[] memory leverageRatios)
-    {
-        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-        AccountInfo memory accountInfo = getAccountInfo(_setToken);
-
-        int256 totalCollateralValue = accountInfo.collateralBalance
-            .add(accountInfo.owedRealizedPnl)
-            .add(accountInfo.pendingFundingPayments);
-
-        uint256 positionsLength = positionInfo.length;
-        vTokens = new address[](positionsLength);
-        leverageRatios = new int256[](positionsLength);
-
-        for (uint256 i = 0; i < positionsLength; i++) {
-            PositionNotionalInfo memory position = positionInfo[i];
-            int256 indexPrice = IIndexPrice(position.baseToken).getIndexPrice(0).toInt256();
-
-            int256 positionValue = indexPrice.preciseMul(position.baseBalance);
-            int256 accountValue = positionValue.add(totalCollateralValue).add(position.quoteBalance);
-
-            vTokens[i] = position.baseToken;
-            leverageRatios[i] = positionValue.preciseDiv(accountValue);
-        }
-    }
-
-    /**
      * @dev Returns important Perpetual Protocol addresses such as ClearingHouse, Vault, AccountBalance, etc. in an array.
      * Array is used in order to save bytecode vs a struct. Returned addresses are in the following order:
      * [AccountBalance, ClearingHouse, Exchange, Vault, Quoter, MarketRegistry]
@@ -1211,24 +1151,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             .add(totalPositionValue.preciseDiv(_setToken.totalSupply().toInt256()));
 
         return externalPositionUnitInPreciseUnits.fromPreciseUnitToDecimals(collateralDecimals);
-    }
-
-    /**
-     * @dev Calculates the amount of collateral that is "used" by the current position. This maps to the amount of collateral
-     * that must be left in Perp in order to collateralize the current position. This ratio is used for calculating the max issue
-     * amount and the current margin ratio. 
-     *
-     * @param _setToken     Instance of SetToken
-     * @return uint256      External position unit
-     */
-    function _calculateUsedCollateralRatio(ISetToken _setToken) internal view returns (uint256) {
-        int256 freeCollateral = perpVault.getFreeCollateral(address(_setToken))
-                                    .toInt256()
-                                    .toPreciseUnitsFromDecimals(collateralDecimals);
-        int256 collateralBalance = _getCollateralBalance(_setToken);
-
-        // usedCollateralRatio = (collateralBalance - freeCollateral)/collateralBalance 
-        return collateralBalance.sub(freeCollateral).preciseDiv(collateralBalance).toUint256();    
     }
 
     // @dev Retrieves collateral balance as an 18 decimal vUSDC quote value

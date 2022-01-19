@@ -267,7 +267,7 @@ export async function calculateLeverageRatios(
   const accountInfo = await perpModule.getAccountInfo(setToken);
   const notionalPositionInfo = await perpModule.getPositionNotionalInfo(setToken);
 
-  const partialAccountValue = accountInfo.collateralBalance
+  const totalCollateralValue = accountInfo.collateralBalance
     .add(accountInfo.owedRealizedPnl)
     .add(accountInfo.pendingFundingPayments);
 
@@ -277,11 +277,39 @@ export async function calculateLeverageRatios(
     const vTokenInstance = await fixture.getVTokenInstance(positionInfo.baseToken);
     const tokenPrice = await vTokenInstance.getIndexPrice(ZERO);
     const positionValue = preciseMul(tokenPrice, positionInfo.baseBalance);
-    const accountValue = positionValue.add(partialAccountValue).add(positionInfo.quoteBalance);
+    const accountValue = positionValue.add(totalCollateralValue).add(positionInfo.quoteBalance);
 
     vTokens.push(vTokenInstance.address);
     leverageRatios.push(preciseDiv(positionValue, accountValue));
   }
 
   return [vTokens, leverageRatios];
+}
+
+export async function calculateMaxIssueQuantity(
+  setToken: SetToken,
+  slippage: BigNumber,
+  perpModule: PerpV2LeverageModule,
+  fixture: PerpV2Fixture,
+): Promise<BigNumber> {
+  const totalSupply = await setToken.totalSupply();
+  const imRatio = await fixture.clearingHouseConfig.getImRatio();
+  const accountInfo = await perpModule.getAccountInfo(setToken.address);
+
+  const [, unrealizedPnl ] = await fixture.accountBalance.getPnlAndPendingFee(setToken.address);
+  const totalDebtValue = await fixture.accountBalance.getTotalDebtValue(setToken.address);
+
+  const totalCollateralValue = accountInfo.collateralBalance.add(accountInfo.owedRealizedPnl).add(accountInfo.pendingFundingPayments);
+
+  let availableDebt;
+  if (unrealizedPnl.gte(ZERO)) {
+    availableDebt = totalCollateralValue.mul(10 ** 6).div(imRatio).sub(totalDebtValue);
+  } else {
+    availableDebt = totalCollateralValue.add(unrealizedPnl).mul(10 ** 6).div(imRatio).sub(totalDebtValue);
+  }
+
+  const availableDebtWithSlippage = availableDebt.sub(preciseMul(availableDebt, slippage).mul(10 ** 6).div(imRatio));
+  const totalAbsPositionValue = await fixture.accountBalance.getTotalAbsPositionValue(setToken.address);
+
+  return preciseMul(preciseDiv(availableDebtWithSlippage, totalAbsPositionValue), totalSupply);
 }

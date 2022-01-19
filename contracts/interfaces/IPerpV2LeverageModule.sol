@@ -108,32 +108,6 @@ interface IPerpV2LeverageModule {
         uint256 _amountWithdrawn
     );
 
-    /* ============ State Variable Getters ============ */
-
-    // PerpV2 contract which provides getters for base, quote, and owedRealizedPnl balances
-    function perpAccountBalance() external view returns(IAccountBalance);
-
-    // PerpV2 contract which provides a trading API
-    function perpClearingHouse() external view returns(IClearingHouse);
-
-    // PerpV2 contract which manages trading logic. Provides getters for UniswapV3 pools and pending funding balances
-    function perpExchange() external view returns(IExchange);
-
-    // PerpV2 contract which handles deposits and withdrawals. Provides getter for collateral balances
-    function perpVault() external view returns(IVault);
-
-    // PerpV2 contract which makes it possible to simulate a trade before it occurs
-    function perpQuoter() external view returns(IQuoter);
-
-    // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
-    function perpMarketRegistry() external view returns(IMarketRegistry);
-
-    // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's settlement and collateral token
-    function collateralToken() external view returns(IERC20);
-
-    // Decimals of collateral token. We set this in the constructor for later reading
-    function collateralDecimals() external view returns(uint8);
-
     /* ============ External Functions ============ */
 
     /**
@@ -285,19 +259,15 @@ interface IPerpV2LeverageModule {
     /**
      * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
      *
-     * @param  _baseToken)          Address of virtual token to price
+     * @param  _baseToken           Address of virtual token to price
      * @return price                Mid-point price of virtual token in UniswapV3 AMM market
      */
     function getAMMSpotPrice(address _baseToken) external view returns (uint256 price);
 
     /**
-     * @dev Returns the maximum amount of Sets that can be issued. Because upon issuance we lever up the Set
-     * before depositing collateral there is a ceiling on the amount of Sets that can be issued before the max
-     * leverage ratio is met. This amount is roughly equal to (maxLeverageRatio/currentLeverageRatio)*totalSupply.
+     * @dev Returns address of collateral token used by Perpetual Protocol (USDC)
      *
-     * @param _setToken             Instance of SetToken
-     *
-     * @return Maximum amount of Sets that can be issued
+     * @return                      Address of Perpetual Protocol collateral token (USDC)
      */
-    function getMaximumSetTokenIssueAmount(ISetToken _setToken) external view returns (uint256);
+    function collateralToken() external view returns (IERC20);
 }
