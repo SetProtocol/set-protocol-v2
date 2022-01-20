@@ -97,15 +97,20 @@ contract PerpV2LeverageModuleViewer {
      * leverage ratio is met. In order to accurately predict this amount the user must pass in an expected
      * slippage amount, this amount should be calculated relative to Index price(s) of vAssets held by the Set,
      * not the mid-market prices. The formulas used here are based on the "conservative" definition of free
-     * collateral as defined in PerpV2's docs: freeCollateral = min(totalCollateral, accountValue) - totalDebt * imRatio
+     * collateral as defined in PerpV2's docs: freeCollateral = min(totalCollateral, accountValue) - totalDebt * initialMarginRatio
      *
-     * We want to find the point where freeCollateral = 0 after all trades have been executed. We know accountValue
-     * is less than totalCollateral when unrealizedPnl < 0 which gives us the following equations:
-     * availableDebt = (totalCollateral / imRatio) - currentDebt                        if unrealizedPnl >= 0
-     * availableDebt = ((totalCollateral + unrealizedPnl) / imRatio) - currentDebt      if unrealizedPnl < 0
+     * We want to find the point where freeCollateral = 0 after all trades have been executed. 
+     * 
+     * Now, accountValue = totalCollateral + unrealizedPnl
+     * if unrealizedPnl >=0:
+     *     min(totalCollateral, accountValue) = totalCollateral
+     *     availableDebt = (totalCollateral / imRatio) - currentDebt
+     * if unrealizedPnl < 0:
+     *     min(totalCollateral, accountValue) = accountValue
+     *     availableDebt = ((totalCollateral + unrealizedPnl) / imRatio) - currentDebt
      *
      * We also know that any slippage gets accrued to unrealizedPnl BEFORE any new collateral is being deposited so
-     * we need to account for our expected slippage accrual impact on accountValue by subtracting our expected amount of 
+     * we need to account for our expected slippage accrual impact on accountValue by subtracting our expected amount 
      * of slippage divided by the imRatio from the availableDebt. We can then divide the availableDebtWithSlippage by
      * the absolute value of our current position and multiply by our totalSupply to get the max issue amount.
      *
@@ -140,7 +145,7 @@ contract PerpV2LeverageModuleViewer {
     }
 
     /**
-     * @dev Returns the position unit for total collateral value as defined by Perpetual Protocol.
+     * @dev Returns the position unit for total collateral value as defined by Perpetual Protocol. TCV = collateral + owedRealizedPnl + pendingFunding.
      *
      * @param _setToken             Instance of SetToken
      *
