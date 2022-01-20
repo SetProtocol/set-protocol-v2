@@ -18,6 +18,6 @@
 
 pragma solidity 0.6.10;
 
-interface IBaseToken {
+interface IIndexPrice {
     function getIndexPrice(uint256 interval) external view returns (uint256 indexPrice);
 }

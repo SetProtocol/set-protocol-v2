@@ -32,7 +32,7 @@ import { IAccountBalance } from "../../interfaces/external/perp-v2/IAccountBalan
 import { IClearingHouse } from "../../interfaces/external/perp-v2/IClearingHouse.sol";
 import { IClearingHouseConfig } from "../../interfaces/external/perp-v2/IClearingHouseConfig.sol";
 import { IExchange } from "../../interfaces/external/perp-v2/IExchange.sol";
-import { IBaseToken } from "../../interfaces/external/perp-v2/IBaseToken.sol";
+import { IIndexPrice } from "../../interfaces/external/perp-v2/IIndexPrice.sol";
 import { IVault } from "../../interfaces/external/perp-v2/IVault.sol";
 import { IQuoter } from "../../interfaces/external/perp-v2/IQuoter.sol";
 import { IMarketRegistry } from "../../interfaces/external/perp-v2/IMarketRegistry.sol";

@@ -27,7 +27,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 
 import { IAccountBalance } from "../interfaces/external/perp-v2/IAccountBalance.sol";
 import { IClearingHouseConfig } from "../interfaces/external/perp-v2/IClearingHouseConfig.sol";
-import { IBaseToken } from "../interfaces/external/perp-v2/IBaseToken.sol";
+import { IIndexPrice } from "../interfaces/external/perp-v2/IIndexPrice.sol";
 import { IPerpV2LeverageModule } from "../interfaces/IPerpV2LeverageModule.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
@@ -184,7 +184,7 @@ contract PerpV2LeverageModuleViewer {
         int256 vQuoteBalance;
         for (uint256 i = 0; i < positionsLength; i++) {
             IPerpV2LeverageModule.PositionNotionalInfo memory position = positionInfo[i];
-            uint256 indexPrice = IBaseToken(position.baseToken).getIndexPrice(0);
+            uint256 indexPrice = IIndexPrice(position.baseToken).getIndexPrice(0);
             assetInfo[i] = VAssetDisplayInfo({
                 symbol: ERC20(position.baseToken).symbol(),
                 vAssetAddress: position.baseToken,
