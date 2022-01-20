@@ -141,7 +141,7 @@ contract PerpV2LeverageModuleViewer {
         int256 availableDebtWithSlippage = availableDebt.sub(availableDebt.preciseMul(_slippage).preciseDiv(imRatio));
 
         // max issue amount = available debt in USD (with slippage) / increase in totalDebtValue per Set issued
-        //                  = availableDebtWithSlippage / (totalAbsPositionValue / setTotalSupply)
+        //                  = (availableDebtWithSlippage / totalAbsPositionValue) * setTotalSupply
         return availableDebtWithSlippage.toUint256().preciseDiv(totalAbsPositionValue).preciseMul(_setToken.totalSupply());
     }
 
