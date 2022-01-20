@@ -44,7 +44,6 @@ contract DebtModuleMock is ModuleBase {
     address public module;
     bool public moduleIssueHookCalled;
     bool public moduleRedeemHookCalled;
-    mapping(ISetToken=>uint256) public issuanceMaximums;
     mapping(address=>int256) public equityIssuanceAdjustment;
     mapping(address=>int256) public debtIssuanceAdjustment;
 
@@ -60,10 +59,6 @@ contract DebtModuleMock is ModuleBase {
 
     function addDebtIssuanceAdjustment(address _token, int256 _amount) external {
         debtIssuanceAdjustment[_token] = _amount;
-    }
-
-    function setIssuanceMaximum(ISetToken _setToken, uint256 _issuanceMax) external {
-        issuanceMaximums[_setToken] = _issuanceMax;
     }
 
     function moduleIssueHook(ISetToken /*_setToken*/, uint256 /*_setTokenQuantity*/) external { moduleIssueHookCalled = true; }
@@ -132,10 +127,6 @@ contract DebtModuleMock is ModuleBase {
         }
 
         return (equityAdjustments, debtAdjustments);
-    }
-
-    function getMaximumSetTokenIssueAmount(ISetToken _setToken) external view returns(uint256) {
-        return issuanceMaximums[_setToken];
     }
 
     function initialize(ISetToken _setToken, address _module) external {
