@@ -20,11 +20,10 @@ pragma solidity 0.6.10;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import "hardhat/console.sol";
 
 /**
- @title Contract to exchange RGT with TRIBE post-merger
-*/
+  * @title Contract to exchange RGT with TRIBE post-merger
+  */
 contract TribePegExchangerMock {
     using SafeERC20 for IERC20;
 
@@ -49,11 +48,8 @@ contract TribePegExchangerMock {
     function exchange(uint256 amount) public {
         uint256 tribeOut = amount * exchangeRate / scalar;
         IERC20(rgt).safeTransferFrom(msg.sender, address(this), amount);
-        console.log("transferred from rgt");
-        console.log("transferring %s", tribeOut);
         console.log(IERC20(tribe).balanceOf(address(this)));
         IERC20(tribe).safeTransfer(msg.sender, tribeOut);
-        console.log("transferred tribe");
         emit Exchange(msg.sender, amount, tribeOut);
     }
 }

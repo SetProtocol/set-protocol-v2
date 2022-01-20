@@ -50,7 +50,7 @@ contract RgtMigrationWrapAdapter {
     /* ============ External Getter Functions ============ */
 
     /**
-     * Generates the calldata to migrate KNC Legacy to KNC.
+     * Generates the calldata to migrate RGT tokens to TRIBE tokens.
      *
      * @param _underlyingUnits      Total quantity of underlying units to wrap
      *
