@@ -3,8 +3,8 @@ import { BigNumber } from "ethers";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ADDRESS_ZERO, MAX_UINT_256, ZERO } from "@utils/constants";
-import { RgtMigrationWrapAdapter, SetToken, StandardTokenMock, WrapModule } from "@utils/contracts";
+import { ADDRESS_ZERO, ZERO } from "@utils/constants";
+import { RgtMigrationWrapAdapter, SetToken, StandardTokenMock, TribePegExchangerMock, WrapModule } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -28,9 +28,12 @@ describe("rgtMigrationWrapModule", () => {
 
   let rgtToken: StandardTokenMock;
   let tribeToken: StandardTokenMock;
+  let pegExchanger: TribePegExchangerMock;
   let adapter: RgtMigrationWrapAdapter;
 
   const rgtMigrationWrapAdapterIntegrationName: string = "RGT_MIGRATION_WRAPPER";
+  const exchangeRate = 26705673430;
+  const scalar = 1e9;
 
   before(async () => {
     [
@@ -50,9 +53,7 @@ describe("rgtMigrationWrapModule", () => {
     tribeToken = await deployer.mocks.deployTokenMock(owner.address);
 
     // RgtMigrationWrapV2Adapter setup
-    const pegExchanger = await deployer.mocks.deployTribePegExchangerMock(rgtToken.address, tribeToken.address);
-    await tribeToken.approve(pegExchanger.address, MAX_UINT_256);
-    await rgtToken.approve(pegExchanger.address, MAX_UINT_256);
+    pegExchanger = await deployer.mocks.deployTribePegExchangerMock(rgtToken.address, tribeToken.address);
     adapter = await deployer.adapters.deployRgtMigrationWrapAdapter(pegExchanger.address);
 
     await setup.integrationRegistry.addIntegration(wrapModule.address, rgtMigrationWrapAdapterIntegrationName, adapter.address);
@@ -93,11 +94,11 @@ describe("rgtMigrationWrapModule", () => {
         subjectSetToken = setToken.address;
         subjectUnderlyingToken = rgtToken.address;
         subjectWrappedToken = tribeToken.address;
-        subjectUnderlyingUnits = BigNumber.from(10 ** 9);
+        subjectUnderlyingUnits = BigNumber.from(10 ** 8);
         subjectIntegrationName = rgtMigrationWrapAdapterIntegrationName;
         subjectCaller = owner;
 
-        tribeToken.mint(tribeToken.address, BigNumber.from(10 ** 9).mul(28));
+        await tribeToken.mint(pegExchanger.address, BigNumber.from(10 ** 9).mul(exchangeRate).div(scalar));
       });
 
       async function subject(): Promise<any> {
@@ -110,22 +111,20 @@ describe("rgtMigrationWrapModule", () => {
         );
       }
 
-      it("should convert underlying balance of RGT tokens to TRIBE tokens * 26705673430 / 10e9", async () => {
+      it("should convert underlying balance of RGT tokens to TRIBE tokens * multiplier", async () => {
         const previousRgtTokenBalance = await rgtToken.balanceOf(setToken.address);
         const previousTribeTokenBalance = await tribeToken.balanceOf(setToken.address);
         expect(previousRgtTokenBalance).to.eq(BigNumber.from(10 ** 9));
         expect(previousTribeTokenBalance).to.eq(ZERO);
 
-        console.log("subject");
         await subject();
-        console.log("subject complete");
 
         const rgtTokenBalance = await rgtToken.balanceOf(setToken.address);
         const tribeTokenBalance = await tribeToken.balanceOf(setToken.address);
         const components = await setToken.getComponents();
 
         expect(rgtTokenBalance).to.eq(ZERO);
-        expect(tribeTokenBalance).to.eq(previousRgtTokenBalance.mul(26705673430).div(10e9));
+        expect(tribeTokenBalance).to.eq(previousRgtTokenBalance.mul(exchangeRate).div(scalar));
         expect(components.length).to.eq(1);
       });
     });
@@ -146,7 +145,7 @@ describe("rgtMigrationWrapModule", () => {
         subjectIntegrationName = rgtMigrationWrapAdapterIntegrationName;
         subjectCaller = owner;
 
-        tribeToken.mint(tribeToken.address, BigNumber.from(10 ** 9).mul(28));
+        await tribeToken.mint(pegExchanger.address, BigNumber.from(10 ** 9).mul(exchangeRate).div(scalar));
 
         await wrapModule.connect(subjectCaller.wallet).wrap(
           subjectSetToken,

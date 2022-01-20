@@ -45,13 +45,13 @@ contract TribePegExchangerMock {
 
     /// @notice call to exchange held RGT with TRIBE
     /// @param amount the amount to exchange
+    /// Mirrors the real contract without the permission state checks.
     function exchange(uint256 amount) public {
-        uint256 tribeOut =  amount * exchangeRate / scalar;
-        console.log("starting transfer");
-        console.log(tribeOut);
+        uint256 tribeOut = amount * exchangeRate / scalar;
         IERC20(rgt).safeTransferFrom(msg.sender, address(this), amount);
-        console.log("transferred rgt");
-        console.log(IERC20(tribe).balanceOf(tribe));
+        console.log("transferred from rgt");
+        console.log("transferring %s", tribeOut);
+        console.log(IERC20(tribe).balanceOf(address(this)));
         IERC20(tribe).safeTransfer(msg.sender, tribeOut);
         console.log("transferred tribe");
         emit Exchange(msg.sender, amount, tribeOut);
