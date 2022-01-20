@@ -68,7 +68,7 @@ import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/Sn
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
 import { CompClaimAdapter__factory, AGIMigrationWrapAdapter__factory } from "../../typechain";
-import { RgtMigrationWrapAdapter__factory } from "@typechain/factories/RgtMigrationWrapAdapter__factory";
+import { RgtMigrationWrapAdapter__factory } from "../../typechain/factories/RgtMigrationWrapAdapter__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
