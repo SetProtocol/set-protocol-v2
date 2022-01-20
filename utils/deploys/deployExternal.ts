@@ -237,18 +237,6 @@ import { DGLight, DgToken } from "../contracts/dg";
 import { DgToken__factory } from "../../typechain/factories/DgToken__factory";
 import { DGLight__factory } from "../../typechain/factories/DGLight__factory";
 
-import { PegExchanger } from "../../typechain/PegExchanger";
-import { PegExchanger__factory } from "../../typechain/factories/PegExchanger__factory";
-import { FeiDAO } from "../../typechain/FeiDAO";
-import { FeiDAO__factory } from "../../typechain/factories/FeiDAO__factory";
-import { Tribe } from "../../typechain/Tribe";
-import { Tribe__factory } from "../../typechain/factories/Tribe__factory";
-import { FeiDAOTimelock } from "../../typechain/FeiDAOTimelock";
-import { FeiDAOTimelock__factory } from "../../typechain/factories/FeiDAOTimelock__factory";
-
-import { Timelock } from "../../typechain/Timelock";
-import { Timelock__factory } from "../../typechain/factories/Timelock__factory";
-
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
 
@@ -831,28 +819,6 @@ export default class DeployExternalContracts {
 
   public async deployDgToken(): Promise<DgToken> {
     return await new DgToken__factory(this._deployerSigner).deploy();
-  }
-
-  // Rari
-  public async deployRariTimelock(admin: Address, delay: BigNumberish): Promise<Timelock> {
-    return await new Timelock__factory(this._deployerSigner).deploy(admin, delay);
-  }
-
-  // Fei Protocol
-  public async deployFeiTimelock(core: Address, admin: Address, delay: BigNumberish, minDelay: BigNumberish): Promise<FeiDAOTimelock> {
-    return await new FeiDAOTimelock__factory(this._deployerSigner).deploy(core, admin, delay, minDelay);
-  }
-
-  public async deployFeiTribe(account: Address, minter: Address): Promise<Tribe> {
-    return await new Tribe__factory(this._deployerSigner).deploy(account, minter);
-  }
-
-  public async deployFeiDAO(tribe: Address, timelock: Address, guardian: Address): Promise<FeiDAO> {
-    return await new FeiDAO__factory(this._deployerSigner).deploy(tribe, timelock, guardian);
-  }
-
-  public async deployPegExchanger(rariTribeDAO: Address): Promise<PegExchanger> {
-    return await new PegExchanger__factory(this._deployerSigner).deploy(rariTribeDAO);
   }
 
   // PerpV2

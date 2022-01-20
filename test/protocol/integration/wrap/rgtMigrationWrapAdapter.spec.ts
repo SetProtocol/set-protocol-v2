@@ -31,8 +31,9 @@ describe("RgtMigrationWrapAdapter", () => {
 
     deployer = new DeployHelper(owner.wallet);
 
-    const rariTribeDAO = await deployer.mocks.deployTokenMock(owner.address);
-    pegExchanger = await deployer.external.deployPegExchanger(rariTribeDAO.address);
+    const rgt = await deployer.mocks.deployTokenMock(owner.address);
+    const tribe = await deployer.mocks.deployTokenMock(owner.address);
+    pegExchanger = await deployer.mocks.deployTribePegExchangerMock(rgt.address, tribe.address);
 
     rgtMigrationWrapAdapter = await deployer.adapters.deployRgtMigrationWrapAdapter(pegExchanger.address);
   });

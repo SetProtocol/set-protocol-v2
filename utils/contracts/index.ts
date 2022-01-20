@@ -96,6 +96,7 @@ export { StreamingFeeModule } from "../../typechain/StreamingFeeModule";
 export { SynthetixExchangeAdapter } from "../../typechain/SynthetixExchangeAdapter";
 export { SynthetixExchangerMock } from "../../typechain/SynthetixExchangerMock";
 export { SynthMock } from "../../typechain/SynthMock";
+export { TribePegExchangerMock } from "../../typechain/TribePegExchangerMock";
 export { TokenSwap } from "../../typechain/TokenSwap";
 export { TradeModule } from "../../typechain/TradeModule";
 export { TradeAdapterMock } from "../../typechain/TradeAdapterMock";

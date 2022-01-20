@@ -48,12 +48,9 @@ describe("rgtMigrationWrapModule", () => {
 
     // RgtMigrationWrapV2Adapter setup
     rgtToken = await deployer.mocks.deployTokenMock(owner.address);
-    tribeToken = await deployer.mocks.deployTokenMock(owner.address);
+    tribeToken = await deployer.mocks.deployTokenMock(owner.address, ether(267056734300));
 
-    const rariTimelock = await deployer.external.deployRariTimelock(owner.address, 3);
-    const tribe = await deployer.external.deployFeiTribe(owner.address, owner.address);
-    const rariTribeDao = await deployer.external.deployFeiDAO(tribe.address, rariTimelock.address, ADDRESS_ZERO);
-    const pegExchanger = await deployer.external.deployPegExchanger(rariTribeDao.address);
+    const pegExchanger = await deployer.mocks.deployTribePegExchangerMock(rgtToken.address, tribeToken.address);
     adapter = await deployer.adapters.deployRgtMigrationWrapAdapter(pegExchanger.address);
 
     await setup.integrationRegistry.addIntegration(wrapModule.address, rgtMigrationWrapAdapterIntegrationName, adapter.address);
@@ -95,7 +92,7 @@ describe("rgtMigrationWrapModule", () => {
         subjectSetToken = setToken.address;
         subjectUnderlyingToken = rgtToken.address;
         subjectWrappedToken = tribeToken.address;
-        subjectUnderlyingUnits = BigNumber.from(10 ** 8);
+        subjectUnderlyingUnits = BigNumber.from(10 ** 9);
         subjectIntegrationName = rgtMigrationWrapAdapterIntegrationName;
         subjectCaller = owner;
       });
@@ -111,12 +108,17 @@ describe("rgtMigrationWrapModule", () => {
       }
 
       it("should convert underlying balance of RGT tokens to TRIBE tokens * 26705673430 / 10e9", async () => {
+        console.log("started");
         const previousRgtTokenBalance = await rgtToken.balanceOf(setToken.address);
+        console.log("rgtToken balance " + previousRgtTokenBalance);
         const previousTribeTokenBalance = await tribeToken.balanceOf(setToken.address);
+        console.log("started 3");
         expect(previousRgtTokenBalance).to.eq(BigNumber.from(10 ** 9));
         expect(previousTribeTokenBalance).to.eq(ZERO);
 
+        console.log("subject");
         await subject();
+        console.log("subject complete");
 
         const rgtTokenBalance = await rgtToken.balanceOf(setToken.address);
         const tribeTokenBalance = await tribeToken.balanceOf(setToken.address);
