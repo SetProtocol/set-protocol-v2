@@ -3,9 +3,9 @@ import { ContractTransaction } from "ethers";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
+  SlippageIssuanceModule,
   PerpV2,
   PerpV2LeverageModule,
-  SlippageIssuanceModule,
   SetToken,
   StandardTokenMock,
 } from "@utils/contracts";
@@ -87,9 +87,6 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       ether(200_000)
     );
 
-    slippageIssuanceModule = await deployer.modules.deploySlippageIssuanceModule(setup.controller.address);
-    await setup.controller.addModule(slippageIssuanceModule.address);
-
     perpLib = await deployer.libraries.deployPerpV2();
     perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
       setup.controller.address,
@@ -101,6 +98,11 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
+    slippageIssuanceModule = await deployer.modules.deploySlippageIssuanceModule(
+      setup.controller.address
+    );
+    await setup.controller.addModule(slippageIssuanceModule.address);
+
     await setup.integrationRegistry.addIntegration(
       perpLeverageModule.address,
       "DefaultIssuanceModule",
@@ -110,7 +112,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
   // Helper to calculate how leveraged the Perp account gets as it mints tokens on margin
   async function calculateFlashLeverage(setToken: Address, setQuantity: BigNumber): Promise<BigNumber> {
-    const spotPrice = await perpLeverageModule.getAMMSpotPrice(vETH.address);
+    const spotPrice = await perpSetup.getSpotPrice(vETH.address);
     const { collateralBalance } = await perpLeverageModule.getAccountInfo(setToken);
     const positionNotionalInfo = (await perpLeverageModule.getPositionNotionalInfo(setToken))[0];
     const positionUnitInfo = (await perpLeverageModule.getPositionUnitInfo(setToken))[0];

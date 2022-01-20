@@ -407,6 +407,10 @@ export class PerpV2Fixture {
     );
   }
 
+  public async getVTokenInstance(token: Address): Promise<PerpV2BaseToken> {
+    return await this._deployer.external.getVToken(token);
+  }
+
   // UniV3 AddLiquidity helpers
   private _getMinTick(tickSpacing: number) {
     return Math.ceil(-887272 / tickSpacing) * tickSpacing;

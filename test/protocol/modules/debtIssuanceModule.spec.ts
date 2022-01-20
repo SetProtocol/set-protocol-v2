@@ -56,7 +56,7 @@ describe("DebtIssuanceModule", () => {
     await setup.initialize();
 
     debtIssuance = await deployer.modules.deployDebtIssuanceModule(setup.controller.address);
-    debtModule = await deployer.mocks.deployDebtModuleMock(setup.controller.address, debtIssuance.address);
+    debtModule = await deployer.mocks.deployDebtModuleMock(setup.controller.address);
     externalPositionModule = await deployer.mocks.deployModuleIssuanceHookMock();
     issuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
 
@@ -373,7 +373,7 @@ describe("DebtIssuanceModule", () => {
 
     context("External debt module has been registered with DebtIssuanceModule", async () => {
       beforeEach(async () => {
-        await debtModule.connect(manager.wallet).initialize(setToken.address);
+        await debtModule.connect(manager.wallet).initialize(setToken.address, debtIssuance.address);
       });
 
       describe("#getRequiredComponentIssuanceUnits", async () => {

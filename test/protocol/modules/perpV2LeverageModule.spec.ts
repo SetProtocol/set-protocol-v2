@@ -22,14 +22,14 @@ import {
 } from "@utils/index";
 
 import {
-  toUSDCDecimals,
+  calculateExternalPositionUnit,
   calculateUSDCTransferIn,
   calculateUSDCTransferOut,
-  calculateExternalPositionUnit,
   calculateUSDCTransferInPreciseUnits,
   calculateUSDCTransferOutPreciseUnits,
   getUSDCDeltaDueToFundingGrowth,
-  leverUp
+  leverUp,
+  toUSDCDecimals,
 } from "@utils/common";
 
 import {
@@ -204,21 +204,21 @@ describe("PerpV2LeverageModule", () => {
     it("should set the correct PerpV2 contracts and collateralToken", async () => {
       const perpLeverageModule = await subject();
 
-      const perpAccountBalance = await perpLeverageModule.perpAccountBalance();
-      const perpClearingHouse = await perpLeverageModule.perpClearingHouse();
-      const perpExchange = await perpLeverageModule.perpExchange();
-      const perpVault = await perpLeverageModule.perpVault();
-      const perpQuoter = await perpLeverageModule.perpQuoter();
-      const collateralToken = await perpLeverageModule.collateralToken();
-      const collateralDecimals = await perpLeverageModule.collateralDecimals();
+      const [
+        perpAccountBalance,
+        perpClearingHouse,
+        perpExchange,
+        perpVault,
+        perpQuoter,
+        perpMarketRegistry
+      ] = await perpLeverageModule.getPerpContracts();
 
       expect(perpAccountBalance).to.eq(perpSetup.accountBalance.address);
       expect(perpClearingHouse).to.eq(perpSetup.clearingHouse.address);
       expect(perpExchange).to.eq(perpSetup.exchange.address);
       expect(perpVault).to.eq(perpSetup.vault.address);
       expect(perpQuoter).to.eq(perpSetup.quoter.address);
-      expect(collateralToken).to.eq(perpSetup.usdc.address);
-      expect(collateralDecimals).to.eq(await perpSetup.usdc.decimals());
+      expect(perpMarketRegistry).to.eq(perpSetup.marketRegistry.address);
     });
   });
 
@@ -1345,30 +1345,6 @@ describe("PerpV2LeverageModule", () => {
           await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
         });
       });
-
-      describe("when total supply is 0", async () => {
-        let otherSetToken: SetToken;
-
-        cacheBeforeEach(initializeContracts);
-        beforeEach(initializeSubjectVariables);
-
-        beforeEach(async () => {
-          otherSetToken = await setup.createSetToken(
-            [usdc.address],
-            [usdcUnits(10)],
-            [perpLeverageModule.address, debtIssuanceMock.address]
-          );
-          await debtIssuanceMock.initialize(otherSetToken.address);
-          await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
-          await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
-
-          subjectSetToken = otherSetToken;
-        });
-
-        it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("SetToken supply is 0");
-        });
-      });
     });
 
     describe("when module is not initialized", async () => {
@@ -1579,30 +1555,6 @@ describe("PerpV2LeverageModule", () => {
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
         });
-      });
-    });
-
-    describe("when total supply is 0", async () => {
-      let otherSetToken: SetToken;
-
-      cacheBeforeEach(initializeContracts);
-      beforeEach(() => initializeSubjectVariables());
-
-      beforeEach(async () => {
-        otherSetToken = await setup.createSetToken(
-          [usdc.address],
-          [usdcUnits(10)],
-          [perpLeverageModule.address, debtIssuanceMock.address]
-        );
-        await debtIssuanceMock.initialize(otherSetToken.address);
-        await perpLeverageModule.updateAllowedSetToken(otherSetToken.address, true);
-        await perpLeverageModule.connect(owner.wallet).initialize(otherSetToken.address);
-
-        subjectSetToken = otherSetToken;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("SetToken supply is 0");
       });
     });
 
@@ -3279,6 +3231,24 @@ describe("PerpV2LeverageModule", () => {
 
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
+      });
+    });
+
+    describe("when collateral is deposited but no position is open", async () => {
+      async function subject(): Promise<any> {
+        await perpLeverageModule
+          .connect(subjectCaller.wallet)
+          .moduleIssueHook(subjectSetToken, subjectSetQuantity);
+      }
+
+      it("deposits the correct amount of collateral", async () => {
+        const currentPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
+
+        await subject();
+
+        const newPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
+
+        expect(currentPositionUnit).eq(newPositionUnit);
       });
     });
 
@@ -5490,7 +5460,7 @@ describe("PerpV2LeverageModule", () => {
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Account balance is positive");
+        await expect(subject()).to.be.revertedWith("Account balance exists");
       });
     });
   });
@@ -5927,32 +5897,6 @@ describe("PerpV2LeverageModule", () => {
       expect(toUSDCDecimals(accountInfo.collateralBalance)).eq(expectedDepositQuantity);
       expect(accountInfo.owedRealizedPnl).eq(0);
       expect(accountInfo.pendingFundingPayments).eq(expectedFunding);
-    });
-  });
-
-  describe("#getAMMSpotPrice", () => {
-    let subjectVETHToken: Address;
-    let subjectVBTCToken: Address;
-
-    beforeEach(() => {
-      subjectVETHToken = vETH.address;
-      subjectVBTCToken = vBTC.address;
-    });
-
-    async function subject(vToken: Address): Promise<BigNumber> {
-      return perpLeverageModule.getAMMSpotPrice(vToken);
-    }
-
-    it("should get the mid-point price for vETH", async () => {
-      const expectedPrice = await perpSetup.getSpotPrice(subjectVETHToken);
-      const price = await subject(subjectVETHToken);
-      expect(price).eq(expectedPrice);
-    });
-
-    it("should get the mid-point price for vBTC", async () => {
-      const expectedPrice = await perpSetup.getSpotPrice(subjectVBTCToken);
-      const price = await subject(subjectVBTCToken);
-      expect(price).eq(expectedPrice);
     });
   });
 });
