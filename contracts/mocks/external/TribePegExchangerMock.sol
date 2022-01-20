@@ -51,6 +51,7 @@ contract TribePegExchangerMock {
         console.log(tribeOut);
         IERC20(rgt).safeTransferFrom(msg.sender, address(this), amount);
         console.log("transferred rgt");
+        console.log(IERC20(tribe).balanceOf(tribe));
         IERC20(tribe).safeTransfer(msg.sender, tribeOut);
         console.log("transferred tribe");
         emit Exchange(msg.sender, amount, tribeOut);
