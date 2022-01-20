@@ -99,7 +99,9 @@ contract PerpV2LeverageModuleViewer {
      * not the mid-market prices. The formulas used here are based on the "conservative" definition of free
      * collateral as defined in PerpV2's docs: freeCollateral = min(totalCollateral, accountValue) - totalDebt * initialMarginRatio
      *
-     * We want to find the point where freeCollateral = 0 after all trades have been executed. 
+     * We want to find the point where freeCollateral = 0 after all trades have been executed.
+     * freeCollateral = 0 => totalDebt = min(totalCollateral, accountValue) / initialMarginRatio
+     * and, availableDebt = totalDebt - currentDebt
      * 
      * Now, accountValue = totalCollateral + unrealizedPnl
      * if unrealizedPnl >=0:
@@ -132,15 +134,14 @@ contract PerpV2LeverageModuleViewer {
 
         int256 totalCollateralValue = _calculateTotalCollateralValue(_setToken);
 
-        int256 availableDebt;
-        if (unrealizedPnl >= 0) {
-            availableDebt = totalCollateralValue.preciseDiv(imRatio).sub(totalDebtValue);
-        } else {
-            availableDebt = totalCollateralValue.add(unrealizedPnl).preciseDiv(imRatio).sub(totalDebtValue);
-        }
+        int256 availableDebt = unrealizedPnl >= 0
+            ? totalCollateralValue.preciseDiv(imRatio).sub(totalDebtValue)
+            : totalCollateralValue.add(unrealizedPnl).preciseDiv(imRatio).sub(totalDebtValue);
 
         int256 availableDebtWithSlippage = availableDebt.sub(availableDebt.preciseMul(_slippage).preciseDiv(imRatio));
 
+        // max issue amount = available debt in USD (with slippage) / increase in totalDebtValue per Set issued
+        //                  = availableDebtWithSlippage / (totalAbsPositionValue / setTotalSupply)
         return availableDebtWithSlippage.toUint256().preciseDiv(totalAbsPositionValue).preciseMul(_setToken.totalSupply());
     }
 
