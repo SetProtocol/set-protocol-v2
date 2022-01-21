@@ -669,6 +669,69 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
         });
       });
+
+      describe("when liquidation results in negative account value", () => {
+        beforeEach(async () => {
+          subjectQuantity = ether(1);
+
+          // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
+          await leverUp(
+            setToken,
+            perpLeverageModule,
+            perpSetup,
+            owner,
+            baseToken,
+            6,
+            ether(.02),
+            true
+          );
+
+          // Move oracle price down to 5 USDC to enable liquidation
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5));
+
+          // Move price down by maker selling 20_000 USDC of vETH
+          // Post trade spot price drops from ~10 USDC to 6_380_562_015_950_425_028
+          await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
+            baseToken: vETH.address,
+            isBaseToQuote: true,       // short
+            isExactInput: false,       // `amount` is USDC
+            amount: ether(20_000),
+            oppositeAmountBound: ZERO,
+            deadline: MAX_UINT_256,
+            sqrtPriceLimitX96: ZERO,
+            referralCode: ZERO_BYTES
+          });
+
+          await perpSetup
+            .clearingHouse
+            .connect(otherTrader.wallet)
+            .liquidate(subjectSetToken, baseToken);
+        });
+
+        // In this test case, the account is bankrupt:
+        // collateralBalance =  10050000000000000000
+        // owedRealizedPnl =   -31795534271984084912
+        it("should issue without transferring any usdc (because account worth 0)", async () => {
+          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            true
+          ))[0];
+
+          const initialIssuerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+          const initialTotalSupply = await setToken.totalSupply();
+
+          await subject();
+
+          const finalIssuerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+          const finalTotalSupply = await setToken.totalSupply();
+
+          const expectedTotalSupply = initialTotalSupply.add(issueQuantityWithFees);
+
+          expect(finalTotalSupply).eq(expectedTotalSupply);
+          expect(finalIssuerUSDCBalance).eq(initialIssuerUSDCBalance);
+        });
+      });
     });
   });
 
@@ -1207,6 +1270,30 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             .clearingHouse
             .connect(otherTrader.wallet)
             .liquidate(subjectSetToken, baseToken);
+        });
+
+        // In this test case, the account is bankrupt:
+        // collateralBalance =  10050000000000000000
+        // owedRealizedPnl =   -31795534271984084912
+        it("should redeem without transferring any usdc (because account worth 0)", async () => {
+          const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
+            subjectSetToken,
+            subjectQuantity,
+            false
+          ))[0];
+
+          const initialRedeemerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+          const initialTotalSupply = await setToken.totalSupply();
+
+          await subject();
+
+          const finalRedeemerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
+          const finalTotalSupply = await setToken.totalSupply();
+
+          const expectedTotalSupply = initialTotalSupply.sub(redeemQuantityWithFees);
+
+          expect(finalTotalSupply).eq(expectedTotalSupply);
+          expect(finalRedeemerUSDCBalance).eq(initialRedeemerUSDCBalance);
         });
 
         it("should be possible to remove the module", async () => {
