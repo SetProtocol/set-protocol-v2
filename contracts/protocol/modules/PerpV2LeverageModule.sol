@@ -772,6 +772,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
                 accountValueIssued.sub(deltaQuote.toInt256());
         }
 
+        // After trading, verify that accountValueIssued is not negative. In some post-liquidation states the
+        // account could be bankrupt and we represent that as zero.
+        if (accountValueIssued <= 0) {
+            return 0;
+        }
+
         // Return value in collateral decimals (e.g USDC = 6)
         // Use preciseDivCeil when issuing to ensure we don't under-collateralize due to rounding error
         return (_isIssue)
