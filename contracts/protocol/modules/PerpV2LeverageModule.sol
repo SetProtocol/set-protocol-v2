@@ -604,7 +604,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     function getPositionNotionalInfo(ISetToken _setToken) public view returns (PositionNotionalInfo[] memory) {
         PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positions[_setToken].length);
 
-        for(uint i = 0; i < positions[_setToken].length; i++){
+        for(uint i = 0; i < positionInfo.length; i++){
             address baseToken = positions[_setToken][i];
             positionInfo[i] = PositionNotionalInfo({
                 baseToken: baseToken,
@@ -638,7 +638,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         PositionNotionalInfo[] memory positionNotionalInfo = getPositionNotionalInfo(_setToken);
         PositionUnitInfo[] memory positionUnitInfo = new PositionUnitInfo[](positionNotionalInfo.length);
 
-        for(uint i = 0; i < positions[_setToken].length; i++){
+        for(uint i = 0; i < positionUnitInfo.length; i++){
             positionUnitInfo[i] = PositionUnitInfo({
                 baseToken: positionNotionalInfo[i].baseToken,
                 baseUnit: positionNotionalInfo[i].baseBalance.preciseDiv(totalSupply),
