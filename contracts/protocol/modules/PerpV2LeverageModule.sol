@@ -635,24 +635,18 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     function getPositionUnitInfo(ISetToken _setToken) public view returns (PositionUnitInfo[] memory) {
         int256 totalSupply = _setToken.totalSupply().toInt256();
-        PositionUnitInfo[] memory positionInfo = new PositionUnitInfo[](positions[_setToken].length);
+        PositionNotionalInfo[] memory positionNotionalInfo = getPositionNotionalInfo(_setToken);
+        PositionUnitInfo[] memory positionUnitInfo = new PositionUnitInfo[](positionNotionalInfo.length);
 
         for(uint i = 0; i < positions[_setToken].length; i++){
-            address baseToken = positions[_setToken][i];
-            positionInfo[i] = PositionUnitInfo({
-                baseToken: baseToken,
-                baseUnit: perpAccountBalance.getBase(
-                    address(_setToken),
-                    baseToken
-                ).preciseDiv(totalSupply),
-                quoteUnit: perpAccountBalance.getQuote(
-                    address(_setToken),
-                    baseToken
-                ).preciseDiv(totalSupply)
+            positionUnitInfo[i] = PositionUnitInfo({
+                baseToken: positionNotionalInfo[i].baseToken,
+                baseUnit: positionNotionalInfo[i].baseBalance.preciseDiv(totalSupply),
+                quoteUnit: positionNotionalInfo[i].quoteBalance.preciseDiv(totalSupply)
             });
         }
 
-        return positionInfo;
+        return positionUnitInfo;
     }
 
 
@@ -734,10 +728,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // and variable may refer to the value which will be redeemed.
         int256 accountValueIssued = _calculatePartialAccountValuePositionUnit(_setToken).preciseMul(setTokenQuantityInt);
 
-        PositionUnitInfo[] memory positionInfo = getPositionUnitInfo(_setToken);
+        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
+        int256 totalSupply = _setToken.totalSupply().toInt256();
 
         for(uint i = 0; i < positionInfo.length; i++) {
-            int256 baseTradeNotionalQuantity = positionInfo[i].baseUnit.preciseMul(setTokenQuantityInt);
+            int256 baseTradeNotionalQuantity = positionInfo[i].baseBalance.preciseDiv(totalSupply).preciseMul(setTokenQuantityInt);
 
             // When redeeming, we flip the sign of baseTradeNotionalQuantity because we are reducing the size of the position,
             // e.g selling base when long, buying base when short
