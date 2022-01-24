@@ -602,11 +602,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + quoteBalance: USDC quote asset balance as notional quantity (10**18)
      */
     function getPositionNotionalInfo(ISetToken _setToken) public view returns (PositionNotionalInfo[] memory) {
-        address[] memory basePositions = positions[_setToken];
-        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](basePositions.length);
+        address[] memory positionList = positions[_setToken];
+        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positionList.length);
 
         for(uint i = 0; i < positionInfo.length; i++){
-            address baseToken = basePositions[i];
+            address baseToken = positionList[i];
             positionInfo[i] = PositionNotionalInfo({
                 baseToken: baseToken,
                 baseBalance: perpAccountBalance.getBase(
@@ -1084,8 +1084,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         address[] memory positionList = positions[_setToken];
 
         for (uint256 i = 0; i < positionList.length; i++) {
-            if (!_hasBaseBalance(_setToken, positionList[i])) {
-                positions[_setToken].removeStorage(positionList[i]);
+            address currPosition = positionList[i];
+            if (!_hasBaseBalance(_setToken, currPosition)) {
+                positions[_setToken].removeStorage(currPosition);
             }
         }
     }
@@ -1156,10 +1157,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     // @param _setToken     Instance of SetToken
     // @return int256       Net quote balance of all open positions
     function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
-        address[] memory basePositions = positions[_setToken];
-        for (uint256 i = 0; i < basePositions.length; i++) {
+        address[] memory positionList = positions[_setToken];
+        for (uint256 i = 0; i < positionList.length; i++) {
             netQuoteBalance = netQuoteBalance.add(
-                perpAccountBalance.getQuote(address(_setToken), basePositions[i])
+                perpAccountBalance.getQuote(address(_setToken), positionList[i])
             );
         }
     }
