@@ -184,7 +184,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     IMarketRegistry public immutable perpMarketRegistry;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
-    // Array is automatically updated when new positions are opened or old positions are zeroed out.
+    // Array is updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) internal positions;
 
     /* ============ Constructor ============ */
@@ -384,7 +384,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             "Account balance exists"
         );
 
-        delete positions[setToken]; // Should already be empty
+        // `positions[setToken]` mapping stores an array of addresses. The base token addresses are removed from the array when the
+        // corresponding base token positions are zeroed out. Since no positions exist when removing the module, the stored array should
+        // already be empty, and the mapping can be deleted directly.
+        delete positions[setToken]; 
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
