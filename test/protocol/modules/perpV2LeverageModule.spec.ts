@@ -204,14 +204,13 @@ describe("PerpV2LeverageModule", () => {
     it("should set the correct PerpV2 contracts and collateralToken", async () => {
       const perpLeverageModule = await subject();
 
-      const [
-        perpAccountBalance,
-        perpClearingHouse,
-        perpExchange,
-        perpVault,
-        perpQuoter,
-        perpMarketRegistry
-      ] = await perpLeverageModule.getPerpContracts();
+      const perpAccountBalance = await perpLeverageModule.perpAccountBalance();
+      const perpClearingHouse = await perpLeverageModule.perpClearingHouse();
+      const perpExchange = await perpLeverageModule.perpExchange();
+      const perpVault = await perpLeverageModule.perpVault();
+      const perpQuoter = await perpLeverageModule.perpQuoter();
+      const perpMarketRegistry = await perpLeverageModule.perpMarketRegistry();
+      const collateralToken = await perpLeverageModule.collateralToken();
 
       expect(perpAccountBalance).to.eq(perpSetup.accountBalance.address);
       expect(perpClearingHouse).to.eq(perpSetup.clearingHouse.address);
@@ -219,6 +218,7 @@ describe("PerpV2LeverageModule", () => {
       expect(perpVault).to.eq(perpSetup.vault.address);
       expect(perpQuoter).to.eq(perpSetup.quoter.address);
       expect(perpMarketRegistry).to.eq(perpSetup.marketRegistry.address);
+      expect(collateralToken).to.eq(perpSetup.usdc.address);
     });
   });
 

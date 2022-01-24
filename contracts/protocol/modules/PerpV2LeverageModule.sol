@@ -166,22 +166,22 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     uint8 internal immutable collateralDecimals;
 
     // PerpV2 contract which provides getters for base, quote, and owedRealizedPnl balances
-    IAccountBalance internal immutable perpAccountBalance;
+    IAccountBalance public immutable perpAccountBalance;
 
     // PerpV2 contract which provides a trading API
-    IClearingHouse internal immutable perpClearingHouse;
+    IClearingHouse public immutable perpClearingHouse;
 
     // PerpV2 contract which manages trading logic. Provides getters for UniswapV3 pools and pending funding balances
-    IExchange internal immutable perpExchange;
+    IExchange public immutable perpExchange;
 
     // PerpV2 contract which handles deposits and withdrawals. Provides getter for collateral balances
-    IVault internal immutable perpVault;
+    IVault public immutable perpVault;
 
     // PerpV2 contract which makes it possible to simulate a trade before it occurs
-    IQuoter internal immutable perpQuoter;
+    IQuoter public immutable perpQuoter;
 
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
-    IMarketRegistry internal immutable perpMarketRegistry;
+    IMarketRegistry public immutable perpMarketRegistry;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is automatically updated when new positions are opened or old positions are zeroed out.
@@ -678,24 +678,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).mul(-1),
             netQuoteBalance: _getNetQuoteBalance(_setToken)
         });
-    }
-
-    /**
-     * @dev Returns important Perpetual Protocol addresses such as ClearingHouse, Vault, AccountBalance, etc. in an array.
-     * Array is used in order to save bytecode vs a struct. Returned addresses are in the following order:
-     * [AccountBalance, ClearingHouse, Exchange, Vault, Quoter, MarketRegistry]
-     *
-     * @return  Array containing important Perpetual Protocol addresses
-     */
-    function getPerpContracts() external view returns (address[6] memory) {
-        return [
-            address(perpAccountBalance),
-            address(perpClearingHouse),
-            address(perpExchange),
-            address(perpVault),
-            address(perpQuoter),
-            address(perpMarketRegistry)
-        ];
     }
 
     /* ============ Internal Functions ============ */

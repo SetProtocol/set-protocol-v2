@@ -108,6 +108,32 @@ interface IPerpV2LeverageModule {
         uint256 _amountWithdrawn
     );
 
+    /* ============ State Variable Getters ============ */
+
+    // PerpV2 contract which provides getters for base, quote, and owedRealizedPnl balances
+    function perpAccountBalance() external view returns(IAccountBalance);
+
+    // PerpV2 contract which provides a trading API
+    function perpClearingHouse() external view returns(IClearingHouse);
+
+    // PerpV2 contract which manages trading logic. Provides getters for UniswapV3 pools and pending funding balances
+    function perpExchange() external view returns(IExchange);
+
+    // PerpV2 contract which handles deposits and withdrawals. Provides getter for collateral balances
+    function perpVault() external view returns(IVault);
+
+    // PerpV2 contract which makes it possible to simulate a trade before it occurs
+    function perpQuoter() external view returns(IQuoter);
+
+    // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
+    function perpMarketRegistry() external view returns(IMarketRegistry);
+
+    // Token (USDC) used as a vault deposit, Perp currently only supports USDC as it's settlement and collateral token
+    function collateralToken() external view returns(IERC20);
+
+    // Decimals of collateral token. We set this in the constructor for later reading
+    function collateralDecimals() external view returns(uint8);
+    
     /* ============ External Functions ============ */
 
     /**
@@ -263,11 +289,4 @@ interface IPerpV2LeverageModule {
      * @return price                Mid-point price of virtual token in UniswapV3 AMM market
      */
     function getAMMSpotPrice(address _baseToken) external view returns (uint256 price);
-
-    /**
-     * @dev Returns address of collateral token used by Perpetual Protocol (USDC)
-     *
-     * @return                      Address of Perpetual Protocol collateral token (USDC)
-     */
-    function collateralToken() external view returns (IERC20);
 }
