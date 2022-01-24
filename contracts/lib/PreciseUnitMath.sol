@@ -144,14 +144,13 @@ library PreciseUnitMath {
      */
     function preciseDivCeil(int256 a, int256 b) internal pure returns (int256) {
         require(b != 0, "Cant divide by 0");
-
-        if (a == 0 ) {
-            return 0;
-        } else if ((a > 0 && b > 0) || (a < 0 && b < 0)) {
-            return a.mul(PRECISE_UNIT_INT).sub(1).div(b).add(1);
-        } else {
-            return a.mul(PRECISE_UNIT_INT).add(1).div(b).sub(1);
+        
+        a = a.mul(PRECISE_UNIT_INT);
+        int256 c = a.div(b);
+        if (c * b != a) {
+            c = c > 0 ? c + 1 : c - 1;
         }
+        return c;
     }
 
     /**
