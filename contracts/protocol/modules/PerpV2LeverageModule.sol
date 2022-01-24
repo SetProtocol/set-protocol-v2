@@ -1062,9 +1062,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         address[] memory positionList = positions[_setToken];
         bool hasBaseToken = positionList.contains(_baseToken);
 
-        if (hasBaseToken && !_hasBaseBalance(_setToken, _baseToken)) {
-            positions[_setToken].removeStorage(_baseToken);
-        } else if (!hasBaseToken) {
+        if (hasBaseToken) {
+            if(!_hasBaseBalance(_setToken, _baseToken)) {
+                positions[_setToken].removeStorage(_baseToken);
+            }
+        } else {
             positions[_setToken].push(_baseToken);
         }
     }
