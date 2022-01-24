@@ -602,10 +602,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + quoteBalance: USDC quote asset balance as notional quantity (10**18)
      */
     function getPositionNotionalInfo(ISetToken _setToken) public view returns (PositionNotionalInfo[] memory) {
-        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positions[_setToken].length);
+        address[] memory basePositions = positions[_setToken];
+        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](basePositions.length);
 
         for(uint i = 0; i < positionInfo.length; i++){
-            address baseToken = positions[_setToken][i];
+            address baseToken = basePositions[i];
             positionInfo[i] = PositionNotionalInfo({
                 baseToken: baseToken,
                 baseBalance: perpAccountBalance.getBase(
@@ -639,10 +640,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         PositionUnitInfo[] memory positionUnitInfo = new PositionUnitInfo[](positionNotionalInfo.length);
 
         for(uint i = 0; i < positionUnitInfo.length; i++){
+            PositionNotionalInfo memory currPosition = positionNotionalInfo[i];
             positionUnitInfo[i] = PositionUnitInfo({
-                baseToken: positionNotionalInfo[i].baseToken,
-                baseUnit: positionNotionalInfo[i].baseBalance.preciseDiv(totalSupply),
-                quoteUnit: positionNotionalInfo[i].quoteBalance.preciseDiv(totalSupply)
+                baseToken: currPosition.baseToken,
+                baseUnit: currPosition.baseBalance.preciseDiv(totalSupply),
+                quoteUnit: currPosition.quoteBalance.preciseDiv(totalSupply)
             });
         }
 
@@ -1154,9 +1156,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     // @param _setToken     Instance of SetToken
     // @return int256       Net quote balance of all open positions
     function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
-        for (uint256 i = 0; i < positions[_setToken].length; i++) {
+        address[] memory basePositions = positions[_setToken];
+        for (uint256 i = 0; i < basePositions.length; i++) {
             netQuoteBalance = netQuoteBalance.add(
-                perpAccountBalance.getQuote(address(_setToken), positions[_setToken][i])
+                perpAccountBalance.getQuote(address(_setToken), basePositions[i])
             );
         }
     }
