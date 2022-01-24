@@ -75,7 +75,7 @@ interface IPerpV2LeverageModule {
      * @param _protocolFee      Quantity in collateral decimals sent to fee recipient during lever trade
      * @param _isBuy            True when baseToken is being bought, false when being sold
      */
-    event PerpTraded(
+    event PerpTrade(
         ISetToken indexed _setToken,
         address indexed _baseToken,
         uint256 _deltaBase,
@@ -90,7 +90,7 @@ interface IPerpV2LeverageModule {
      * @param _collateralToken      Token being deposited as collateral (USDC)
      * @param _amountDeposited      Amount of collateral being deposited into Perp
      */
-    event CollateralDeposited(
+    event CollateralDeposit(
         ISetToken indexed _setToken,
         IERC20 _collateralToken,
         uint256 _amountDeposited
@@ -102,7 +102,7 @@ interface IPerpV2LeverageModule {
      * @param _collateralToken      Token being withdrawn as collateral (USDC)
      * @param _amountWithdrawn      Amount of collateral being withdrawn from Perp
      */
-    event CollateralWithdrawn(
+    event CollateralWithdrawl(
         ISetToken indexed _setToken,
         IERC20 _collateralToken,
         uint256 _amountWithdrawn

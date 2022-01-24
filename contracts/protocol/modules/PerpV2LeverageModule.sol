@@ -115,7 +115,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @param _protocolFee      Quantity in collateral decimals sent to fee recipient during lever trade
      * @param _isBuy            True when baseToken is being bought, false when being sold
      */
-    event PerpTraded(
+    event PerpTrade(
         ISetToken indexed _setToken,
         address indexed _baseToken,
         uint256 _deltaBase,
@@ -130,7 +130,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @param _collateralToken      Token being deposited as collateral (USDC)
      * @param _amountDeposited      Amount of collateral being deposited into Perp
      */
-    event CollateralDeposited(
+    event CollateralDeposit(
         ISetToken indexed _setToken,
         IERC20 _collateralToken,
         uint256 _amountDeposited
@@ -142,7 +142,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @param _collateralToken      Token being withdrawn as collateral (USDC)
      * @param _amountWithdrawn      Amount of collateral being withdrawn from Perp
      */
-    event CollateralWithdrawn(
+    event CollateralWithdrawl(
         ISetToken indexed _setToken,
         IERC20 _collateralToken,
         uint256 _amountWithdrawn
@@ -306,7 +306,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
         _updatePositionList(_setToken, _baseToken);
 
-        emit PerpTraded(
+        emit PerpTrade(
             _setToken,
             _baseToken,
             deltaBase,
@@ -338,7 +338,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
         uint256 notionalDepositedQuantity = _depositAndUpdatePositions(_setToken, _collateralQuantityUnits);
 
-        emit CollateralDeposited(_setToken, collateralToken, notionalDepositedQuantity);
+        emit CollateralDeposit(_setToken, collateralToken, notionalDepositedQuantity);
     }
 
     /**
@@ -364,7 +364,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
         uint256 notionalWithdrawnQuantity = _withdrawAndUpdatePositions(_setToken, _collateralQuantityUnits);
 
-        emit CollateralWithdrawn(_setToken, collateralToken, notionalWithdrawnQuantity);
+        emit CollateralWithdrawl(_setToken, collateralToken, notionalWithdrawnQuantity);
     }
 
     /**

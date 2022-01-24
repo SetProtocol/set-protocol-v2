@@ -445,7 +445,7 @@ describe("PerpV2LeverageModule", () => {
             expect(finalPositionInfo.quoteBalance.mul(-1)).lt(subjectQuoteBoundQuantityUnits);
           });
 
-          it("should emit the correct PerpTraded event", async () => {
+          it("should emit the correct PerpTrade event", async () => {
             const {
               deltaBase: expectedDeltaBase,
               deltaQuote: expectedDeltaQuote
@@ -454,7 +454,7 @@ describe("PerpV2LeverageModule", () => {
             const expectedProtocolFee = ether(0);
             const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
@@ -722,7 +722,7 @@ describe("PerpV2LeverageModule", () => {
             const expectedProtocolFee = toUSDCDecimals(preciseMul(expectedDeltaQuote, feePercentage));
             const expectedIsBuy = true;
 
-            await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
+            await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
               subjectSetToken,
               subjectBaseToken,
               expectedDeltaBase,
@@ -785,7 +785,7 @@ describe("PerpV2LeverageModule", () => {
           expect(finalPositionInfo.quoteBalance).gt(subjectQuoteBoundQuantityUnits);
         });
 
-        it("should emit the correct PerpTraded event", async () => {
+        it("should emit the correct PerpTrade event", async () => {
           const {
             deltaBase: expectedDeltaBase,
             deltaQuote: expectedDeltaQuote
@@ -794,7 +794,7 @@ describe("PerpV2LeverageModule", () => {
           const expectedProtocolFee = ether(0);
           const expectedIsBuy = false;
 
-          await expect(subject()).to.emit(perpLeverageModule, "PerpTraded").withArgs(
+          await expect(subject()).to.emit(perpLeverageModule, "PerpTrade").withArgs(
             subjectSetToken,
             subjectBaseToken,
             expectedDeltaBase,
@@ -1081,10 +1081,10 @@ describe("PerpV2LeverageModule", () => {
         expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
       });
 
-      it("should emit the correct CollateralDeposited event", async () => {
+      it("should emit the correct CollateralDeposit event", async () => {
         const totalSupply = await subjectSetToken.totalSupply();
 
-        await expect(subject()).to.emit(perpLeverageModule, "CollateralDeposited").withArgs(
+        await expect(subject()).to.emit(perpLeverageModule, "CollateralDeposit").withArgs(
           subjectSetToken.address,
           perpSetup.usdc.address,
           preciseMul(subjectDepositQuantity, totalSupply)
@@ -1443,10 +1443,10 @@ describe("PerpV2LeverageModule", () => {
         expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
       });
 
-      it("should emit the correct CollateralWithdrawn event", async () => {
+      it("should emit the correct CollateralWithdrawl event", async () => {
         const totalSupply = await subjectSetToken.totalSupply();
 
-        await expect(subject()).to.emit(perpLeverageModule, "CollateralWithdrawn").withArgs(
+        await expect(subject()).to.emit(perpLeverageModule, "CollateralWithdrawl").withArgs(
           subjectSetToken.address,
           perpSetup.usdc.address,
           preciseMul(subjectWithdrawQuantity, totalSupply)
