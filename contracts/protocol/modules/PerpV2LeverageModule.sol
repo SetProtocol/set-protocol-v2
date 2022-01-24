@@ -118,7 +118,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     event PerpTrade(
         ISetToken indexed _setToken,
         address indexed _baseToken,
-        uint256 _deltaBase,
+        uint256 indexed _deltaBase,
         uint256 _deltaQuote,
         uint256 _protocolFee,
         bool _isBuy
@@ -132,8 +132,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     event CollateralDeposit(
         ISetToken indexed _setToken,
-        IERC20 _collateralToken,
-        uint256 _amountDeposited
+        IERC20 indexed _collateralToken,
+        uint256 indexed _amountDeposited
     );
 
     /**
@@ -144,8 +144,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     event CollateralWithdrawl(
         ISetToken indexed _setToken,
-        IERC20 _collateralToken,
-        uint256 _amountWithdrawn
+        IERC20 indexed _collateralToken,
+        uint256 indexed _amountWithdrawn
     );
 
     /* ============ Constants ============ */
