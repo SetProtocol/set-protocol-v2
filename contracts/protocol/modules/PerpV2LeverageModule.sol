@@ -642,11 +642,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         PositionUnitInfo[] memory positionUnitInfo = new PositionUnitInfo[](positionLength);
 
         for(uint i = 0; i < positionLength; i++){
-            PositionNotionalInfo memory currPosition = positionNotionalInfo[i];
+            PositionNotionalInfo memory currentPosition = positionNotionalInfo[i];
             positionUnitInfo[i] = PositionUnitInfo({
-                baseToken: currPosition.baseToken,
-                baseUnit: currPosition.baseBalance.preciseDiv(totalSupply),
-                quoteUnit: currPosition.quoteBalance.preciseDiv(totalSupply)
+                baseToken: currentPosition.baseToken,
+                baseUnit: currentPosition.baseBalance.preciseDiv(totalSupply),
+                quoteUnit: currentPosition.quoteBalance.preciseDiv(totalSupply)
             });
         }
 
