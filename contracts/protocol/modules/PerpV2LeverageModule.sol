@@ -676,7 +676,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         accountInfo = AccountInfo({
             collateralBalance: _getCollateralBalance(_setToken),
             owedRealizedPnl: owedRealizedPnl,
-            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).mul(-1),
+            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).neg(),
             netQuoteBalance: _getNetQuoteBalance(_setToken)
         });
     }
@@ -744,7 +744,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             ActionInfo memory actionInfo = _createActionInfoNotional(
                 _setToken,
                 positionInfo[i].baseToken,
-                _isIssue ? baseTradeNotionalQuantity : baseTradeNotionalQuantity.mul(-1),
+                _isIssue ? baseTradeNotionalQuantity : baseTradeNotionalQuantity.neg(),
                 0
             );
 

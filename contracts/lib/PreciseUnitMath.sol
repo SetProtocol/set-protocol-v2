@@ -221,4 +221,12 @@ library PreciseUnitMath {
     function abs(int256 a) internal pure returns (uint) {
         return a >= 0 ? a.toUint256() : a.mul(-1).toUint256();
     }
+
+    /**
+     * Returns the negation of a
+     */
+    function neg(int256 a) internal pure returns (int256) {
+        require(a > -2**255, "PerpMath: inversion overflow");
+        return -a;
+    }
 }
