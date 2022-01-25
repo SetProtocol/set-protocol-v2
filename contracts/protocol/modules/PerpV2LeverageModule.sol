@@ -635,7 +635,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + baseUnit:  baseToken balance as position unit (10**18)
      *         + quoteUnit: USDC quote asset balance as position unit (10**18)
      */
-    function getPositionUnitInfo(ISetToken _setToken) public view returns (PositionUnitInfo[] memory) {
+    function getPositionUnitInfo(ISetToken _setToken) external view returns (PositionUnitInfo[] memory) {
         int256 totalSupply = _setToken.totalSupply().toInt256();
         PositionNotionalInfo[] memory positionNotionalInfo = getPositionNotionalInfo(_setToken);
         uint positionLength = positionNotionalInfo.length;
