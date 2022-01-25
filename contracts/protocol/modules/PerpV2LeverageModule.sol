@@ -1149,18 +1149,22 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         return externalPositionUnitInPreciseUnits.fromPreciseUnitToDecimals(collateralDecimals);
     }
 
-    // @dev Retrieves collateral balance as an 18 decimal vUSDC quote value
-    //
-    // @param _setToken     Instance of SetToken
-    // @return int256       Collateral balance as an 18 decimal vUSDC quote value
+    /**
+     * @dev Retrieves collateral balance as an 18 decimal vUSDC quote value
+     *
+     * @param _setToken     Instance of SetToken
+     * @return int256       Collateral balance as an 18 decimal vUSDC quote value
+     */
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         return perpVault.getBalance(address(_setToken)).toPreciseUnitsFromDecimals(collateralDecimals);
     }
 
-    // @dev Retrieves net quote balance of all open positions
-    //
-    // @param _setToken     Instance of SetToken
-    // @return int256       Net quote balance of all open positions
+    /**
+     * @dev Retrieves net quote balance of all open positions
+     *
+     * @param _setToken             Instance of SetToken
+     * @return netQuoteBalance      Net quote balance of all open positions
+     */
     function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
         address[] memory positionList = positions[_setToken];
         uint256 positionLength = positionList.length;
