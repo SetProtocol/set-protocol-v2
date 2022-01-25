@@ -226,7 +226,7 @@ library PreciseUnitMath {
      * Returns the negation of a
      */
     function neg(int256 a) internal pure returns (int256) {
-        require(a > -2**255, "PerpMath: inversion overflow");
+        require(a > MIN_INT_256, "Inversion overflow");
         return -a;
     }
 }
