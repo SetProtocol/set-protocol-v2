@@ -603,7 +603,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     function getPositionNotionalInfo(ISetToken _setToken) public view returns (PositionNotionalInfo[] memory) {
         address[] memory positionList = positions[_setToken];
-        uint positionLength = positionList.length;
+        uint256 positionLength = positionList.length;
         PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positionLength);
 
         for(uint i = 0; i < positionLength; i++){
@@ -638,7 +638,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     function getPositionUnitInfo(ISetToken _setToken) external view returns (PositionUnitInfo[] memory) {
         int256 totalSupply = _setToken.totalSupply().toInt256();
         PositionNotionalInfo[] memory positionNotionalInfo = getPositionNotionalInfo(_setToken);
-        uint positionLength = positionNotionalInfo.length;
+        uint256 positionLength = positionNotionalInfo.length;
         PositionUnitInfo[] memory positionUnitInfo = new PositionUnitInfo[](positionLength);
 
         for(uint i = 0; i < positionLength; i++){
@@ -733,7 +733,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         int256 accountValueIssued = _calculatePartialAccountValuePositionUnit(_setToken).preciseMul(setTokenQuantityInt);
 
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-        uint positionLength = positionInfo.length;
+        uint256 positionLength = positionInfo.length;
         int256 totalSupply = _setToken.totalSupply().toInt256();
 
         for(uint i = 0; i < positionLength; i++) {
@@ -1085,7 +1085,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     function _syncPositionList(ISetToken _setToken) internal {
         address[] memory positionList = positions[_setToken];
-        uint positionLength = positionList.length;
+        uint256 positionLength = positionList.length;
         
         for (uint256 i = 0; i < positionLength; i++) {
             address currPosition = positionList[i];
@@ -1133,7 +1133,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-        uint positionLength = positionInfo.length;
+        uint256 positionLength = positionInfo.length;
         int256 totalPositionValue = 0;
 
         for (uint i = 0; i < positionLength; i++ ) {
@@ -1163,7 +1163,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     // @return int256       Net quote balance of all open positions
     function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
         address[] memory positionList = positions[_setToken];
-        uint positionLength = positionList.length;
+        uint256 positionLength = positionList.length;
 
         for (uint256 i = 0; i < positionLength; i++) {
             netQuoteBalance = netQuoteBalance.add(
