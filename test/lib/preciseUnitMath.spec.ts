@@ -715,15 +715,5 @@ describe("PreciseUnitMath", () => {
         await expect(subject()).to.be.revertedWith("Inversion overflow");
       });
     });
-
-    describe("when a is less than MIN_INT_256", () => {
-      beforeEach( async () => {
-        subjectA = BigNumber.from(MIN_INT_256).add(-1);
-      });
-
-      it("returns zero", async () => {
-        await expect(subject()).to.be.revertedWith("Inversion overflow");
-      });
-    });
   });
 });
