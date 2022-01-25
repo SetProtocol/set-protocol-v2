@@ -118,7 +118,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     event PerpTraded(
         ISetToken indexed _setToken,
         address indexed _baseToken,
-        uint256 _deltaBase,
+        uint256 indexed _deltaBase,
         uint256 _deltaQuote,
         uint256 _protocolFee,
         bool _isBuy
@@ -132,8 +132,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     event CollateralDeposited(
         ISetToken indexed _setToken,
-        IERC20 _collateralToken,
-        uint256 _amountDeposited
+        IERC20 indexed _collateralToken,
+        uint256 indexed _amountDeposited
     );
 
     /**
@@ -144,8 +144,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     event CollateralWithdrawn(
         ISetToken indexed _setToken,
-        IERC20 _collateralToken,
-        uint256 _amountWithdrawn
+        IERC20 indexed _collateralToken,
+        uint256 indexed _amountWithdrawn
     );
 
     /* ============ Constants ============ */
@@ -166,25 +166,25 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     uint8 internal immutable collateralDecimals;
 
     // PerpV2 contract which provides getters for base, quote, and owedRealizedPnl balances
-    IAccountBalance internal immutable perpAccountBalance;
+    IAccountBalance public immutable perpAccountBalance;
 
     // PerpV2 contract which provides a trading API
-    IClearingHouse internal immutable perpClearingHouse;
+    IClearingHouse public immutable perpClearingHouse;
 
     // PerpV2 contract which manages trading logic. Provides getters for UniswapV3 pools and pending funding balances
-    IExchange internal immutable perpExchange;
+    IExchange public immutable perpExchange;
 
     // PerpV2 contract which handles deposits and withdrawals. Provides getter for collateral balances
-    IVault internal immutable perpVault;
+    IVault public immutable perpVault;
 
     // PerpV2 contract which makes it possible to simulate a trade before it occurs
-    IQuoter internal immutable perpQuoter;
+    IQuoter public immutable perpQuoter;
 
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
-    IMarketRegistry internal immutable perpMarketRegistry;
+    IMarketRegistry public immutable perpMarketRegistry;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
-    // Array is automatically updated when new positions are opened or old positions are zeroed out.
+    // Array is updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) internal positions;
 
     /* ============ Constructor ============ */
@@ -249,7 +249,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // Try if register exists on any of the modules including the debt issuance module
         address[] memory modules = _setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
+            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {
+                // This module registered itself on `modules[i]` issuance module.
+            } catch {
+                // Try will fail if `modules[i]` is not an instance of IDebtIssuanceModule and does not
+                // implement the `registerToIssuanceModule` function, or if the `registerToIssuanceModule`
+                // function call reverted. Irrespective of the reason for failure, continue to the next module.
+            }
         }
     }
 
@@ -384,7 +390,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             "Account balance exists"
         );
 
-        delete positions[setToken]; // Should already be empty
+        // `positions[setToken]` mapping stores an array of addresses. The base token addresses are removed from the array when the
+        // corresponding base token positions are zeroed out. Since no positions exist when removing the module, the stored array should
+        // already be empty, and the mapping can be deleted directly.
+        delete positions[setToken]; 
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
@@ -599,10 +608,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + quoteBalance: USDC quote asset balance as notional quantity (10**18)
      */
     function getPositionNotionalInfo(ISetToken _setToken) public view returns (PositionNotionalInfo[] memory) {
-        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positions[_setToken].length);
+        address[] memory positionList = positions[_setToken];
+        uint256 positionLength = positionList.length;
+        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positionLength);
 
-        for(uint i = 0; i < positions[_setToken].length; i++){
-            address baseToken = positions[_setToken][i];
+        for(uint i = 0; i < positionLength; i++){
+            address baseToken = positionList[i];
             positionInfo[i] = PositionNotionalInfo({
                 baseToken: baseToken,
                 baseBalance: perpAccountBalance.getBase(
@@ -630,26 +641,22 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + baseUnit:  baseToken balance as position unit (10**18)
      *         + quoteUnit: USDC quote asset balance as position unit (10**18)
      */
-    function getPositionUnitInfo(ISetToken _setToken) public view returns (PositionUnitInfo[] memory) {
+    function getPositionUnitInfo(ISetToken _setToken) external view returns (PositionUnitInfo[] memory) {
         int256 totalSupply = _setToken.totalSupply().toInt256();
-        PositionUnitInfo[] memory positionInfo = new PositionUnitInfo[](positions[_setToken].length);
+        PositionNotionalInfo[] memory positionNotionalInfo = getPositionNotionalInfo(_setToken);
+        uint256 positionLength = positionNotionalInfo.length;
+        PositionUnitInfo[] memory positionUnitInfo = new PositionUnitInfo[](positionLength);
 
-        for(uint i = 0; i < positions[_setToken].length; i++){
-            address baseToken = positions[_setToken][i];
-            positionInfo[i] = PositionUnitInfo({
-                baseToken: baseToken,
-                baseUnit: perpAccountBalance.getBase(
-                    address(_setToken),
-                    baseToken
-                ).preciseDiv(totalSupply),
-                quoteUnit: perpAccountBalance.getQuote(
-                    address(_setToken),
-                    baseToken
-                ).preciseDiv(totalSupply)
+        for(uint i = 0; i < positionLength; i++){
+            PositionNotionalInfo memory currentPosition = positionNotionalInfo[i];
+            positionUnitInfo[i] = PositionUnitInfo({
+                baseToken: currentPosition.baseToken,
+                baseUnit: currentPosition.baseBalance.preciseDiv(totalSupply),
+                quoteUnit: currentPosition.quoteBalance.preciseDiv(totalSupply)
             });
         }
 
-        return positionInfo;
+        return positionUnitInfo;
     }
 
 
@@ -675,27 +682,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         accountInfo = AccountInfo({
             collateralBalance: _getCollateralBalance(_setToken),
             owedRealizedPnl: owedRealizedPnl,
-            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).mul(-1),
+            pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).neg(),
             netQuoteBalance: _getNetQuoteBalance(_setToken)
         });
-    }
-
-    /**
-     * @dev Returns important Perpetual Protocol addresses such as ClearingHouse, Vault, AccountBalance, etc. in an array.
-     * Array is used in order to save bytecode vs a struct. Returned addresses are in the following order:
-     * [AccountBalance, ClearingHouse, Exchange, Vault, Quoter, MarketRegistry]
-     *
-     * @return  Array containing important Perpetual Protocol addresses
-     */
-    function getPerpContracts() external view returns (address[6] memory) {
-        return [
-            address(perpAccountBalance),
-            address(perpClearingHouse),
-            address(perpExchange),
-            address(perpVault),
-            address(perpQuoter),
-            address(perpMarketRegistry)
-        ];
     }
 
     /* ============ Internal Functions ============ */
@@ -749,17 +738,19 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // and variable may refer to the value which will be redeemed.
         int256 accountValueIssued = _calculatePartialAccountValuePositionUnit(_setToken).preciseMul(setTokenQuantityInt);
 
-        PositionUnitInfo[] memory positionInfo = getPositionUnitInfo(_setToken);
+        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
+        uint256 positionLength = positionInfo.length;
+        int256 totalSupply = _setToken.totalSupply().toInt256();
 
-        for(uint i = 0; i < positionInfo.length; i++) {
-            int256 baseTradeNotionalQuantity = positionInfo[i].baseUnit.preciseMul(setTokenQuantityInt);
+        for(uint i = 0; i < positionLength; i++) {
+            int256 baseTradeNotionalQuantity = positionInfo[i].baseBalance.preciseDiv(totalSupply).preciseMul(setTokenQuantityInt);
 
             // When redeeming, we flip the sign of baseTradeNotionalQuantity because we are reducing the size of the position,
             // e.g selling base when long, buying base when short
             ActionInfo memory actionInfo = _createActionInfoNotional(
                 _setToken,
                 positionInfo[i].baseToken,
-                _isIssue ? baseTradeNotionalQuantity : baseTradeNotionalQuantity.mul(-1),
+                _isIssue ? baseTradeNotionalQuantity : baseTradeNotionalQuantity.neg(),
                 0
             );
 
@@ -1082,9 +1073,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         address[] memory positionList = positions[_setToken];
         bool hasBaseToken = positionList.contains(_baseToken);
 
-        if (hasBaseToken && !_hasBaseBalance(_setToken, _baseToken)) {
-            positions[_setToken].removeStorage(_baseToken);
-        } else if (!hasBaseToken) {
+        if (hasBaseToken) {
+            if(!_hasBaseBalance(_setToken, _baseToken)) {
+                positions[_setToken].removeStorage(_baseToken);
+            }
+        } else {
             positions[_setToken].push(_baseToken);
         }
     }
@@ -1098,10 +1091,12 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     function _syncPositionList(ISetToken _setToken) internal {
         address[] memory positionList = positions[_setToken];
-
-        for (uint256 i = 0; i < positionList.length; i++) {
-            if (!_hasBaseBalance(_setToken, positionList[i])) {
-                positions[_setToken].removeStorage(positionList[i]);
+        uint256 positionLength = positionList.length;
+        
+        for (uint256 i = 0; i < positionLength; i++) {
+            address currPosition = positionList[i];
+            if (!_hasBaseBalance(_setToken, currPosition)) {
+                positions[_setToken].removeStorage(currPosition);
             }
         }
     }
@@ -1144,9 +1139,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
         PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
+        uint256 positionLength = positionInfo.length;
         int256 totalPositionValue = 0;
 
-        for (uint i = 0; i < positionInfo.length; i++ ) {
+        for (uint i = 0; i < positionLength; i++ ) {
             int256 spotPrice = _calculateAMMSpotPrice(positionInfo[i].baseToken).toInt256();
             totalPositionValue = totalPositionValue.add(
                 positionInfo[i].baseBalance.preciseMul(spotPrice)
@@ -1159,22 +1155,29 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         return externalPositionUnitInPreciseUnits.fromPreciseUnitToDecimals(collateralDecimals);
     }
 
-    // @dev Retrieves collateral balance as an 18 decimal vUSDC quote value
-    //
-    // @param _setToken     Instance of SetToken
-    // @return int256       Collateral balance as an 18 decimal vUSDC quote value
+    /**
+     * @dev Retrieves collateral balance as an 18 decimal vUSDC quote value
+     *
+     * @param _setToken     Instance of SetToken
+     * @return int256       Collateral balance as an 18 decimal vUSDC quote value
+     */
     function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
         return perpVault.getBalance(address(_setToken)).toPreciseUnitsFromDecimals(collateralDecimals);
     }
 
-    // @dev Retrieves net quote balance of all open positions
-    //
-    // @param _setToken     Instance of SetToken
-    // @return int256       Net quote balance of all open positions
+    /**
+     * @dev Retrieves net quote balance of all open positions
+     *
+     * @param _setToken             Instance of SetToken
+     * @return netQuoteBalance      Net quote balance of all open positions
+     */
     function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
-        for (uint256 i = 0; i < positions[_setToken].length; i++) {
+        address[] memory positionList = positions[_setToken];
+        uint256 positionLength = positionList.length;
+
+        for (uint256 i = 0; i < positionLength; i++) {
             netQuoteBalance = netQuoteBalance.add(
-                perpAccountBalance.getQuote(address(_setToken), positions[_setToken][i])
+                perpAccountBalance.getQuote(address(_setToken), positionList[i])
             );
         }
     }

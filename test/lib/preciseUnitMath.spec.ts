@@ -659,4 +659,61 @@ describe("PreciseUnitMath", () => {
       });
     });
   });
+
+  describe("#neg", async () => {
+    let subjectA: BigNumber;
+
+    async function subject(): Promise<BigNumber> {
+      return mathMock.neg(subjectA);
+    }
+
+    describe("when a is positive", () => {
+      beforeEach(() => {
+        subjectA = BigNumber.from(5);
+      });
+
+      it("returns the correct negation", async () => {
+        const negatedValue = await subject();
+
+        const expectedNegatedValue = subjectA.mul(-1);
+        expect(negatedValue).to.eq(expectedNegatedValue);
+      });
+    });
+
+    describe("when a is negative", () => {
+      beforeEach(() => {
+        subjectA = BigNumber.from(-5);
+      });
+
+      it("returns the correct number", async () => {
+        const negatedValue = await subject();
+
+        const expectedNegatedValue = subjectA.mul(-1);
+        expect(negatedValue).to.eq(expectedNegatedValue);
+      });
+    });
+
+    describe("when a is zero", () => {
+      beforeEach(() => {
+        subjectA = ZERO;
+      });
+
+      it("returns zero", async () => {
+        const absoluteValue = await subject();
+
+        const expectedAbsoluteValue = ZERO;
+        expect(absoluteValue).to.eq(expectedAbsoluteValue);
+      });
+    });
+
+    describe("when a is equal to MIN_INT_256", () => {
+      beforeEach( async () => {
+        subjectA = BigNumber.from(MIN_INT_256);
+      });
+
+      it("returns zero", async () => {
+        await expect(subject()).to.be.revertedWith("Inversion overflow");
+      });
+    });
+  });
 });
