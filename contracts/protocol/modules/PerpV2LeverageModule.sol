@@ -249,7 +249,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // Try if register exists on any of the modules including the debt issuance module
         address[] memory modules = _setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
+            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {
+                // This module registered itself on `modules[i]` issuance module.
+            } catch {
+                // Try will fail if `modules[i]` is not an instance of IDebtIssuanceModule and does not
+                // implement the `registerToIssuanceModule` function, or if the `registerToIssuanceModule`
+                // function call reverted. Irrespective of the reason for failure, continue to the next module.
+            }
         }
     }
 
