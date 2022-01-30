@@ -39,14 +39,15 @@ export const preciseDivCeil = (a: BigNumber, b: BigNumber): BigNumber => {
 };
 
 export const preciseDivCeilInt = (a: BigNumber, b: BigNumber): BigNumber => {
-  if (a.eq(0) || b.eq(0)) {
-    return ZERO;
+  const result = a.mul(PRECISE_UNIT).div(b);
+  if (result.mul(b).eq(a.mul(PRECISE_UNIT))) {
+    return result;
   }
 
-  if (a.gt(0) && b.gt(0) || a.lt(0) && b.lt(0)) {
-    return a.mul(PRECISE_UNIT).sub(1).div(b).add(1);
+  if ((a.gt(0) && b.gt(0)) || (a.lt(0) && b.lt(0))) {
+    return result.add(1);
   } else {
-    return a.mul(PRECISE_UNIT).add(1).div(b).sub(1);
+    return result.sub(1);
   }
 };
 
