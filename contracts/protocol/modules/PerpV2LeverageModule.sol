@@ -183,6 +183,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
     IMarketRegistry public immutable perpMarketRegistry;
 
+    // Max perpetual positions per SetToken
+    uint256 public maxPerpPositionsPerSet;
+
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) internal positions;
@@ -202,7 +205,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         IController _controller,
         IVault _perpVault,
         IQuoter _perpQuoter,
-        IMarketRegistry _perpMarketRegistry
+        IMarketRegistry _perpMarketRegistry,
+        uint256 _maxPerpPositionsPerSet
     )
         public
         ModuleBase(_controller)
@@ -219,6 +223,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         perpVault = _perpVault;
         perpQuoter = _perpQuoter;
         perpMarketRegistry = _perpMarketRegistry;
+        maxPerpPositionsPerSet = _maxPerpPositionsPerSet;
     }
 
     /* ============ External Functions ============ */
@@ -535,6 +540,17 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
             _withdraw(_setToken, usdcTransferOutNotionalQuantity);
         }
+    }
+
+    /* ============ External Setter Functions ============ */
+
+    /**
+     * @dev GOVERNANCE ONLY: Update max perpetual positions per SetToken. Only callable by governance.
+     * 
+     * @param _maxPerpPositionsPerSet       New max perpetual positons per set
+     */
+    function updateMaxPerpPositionsPerSet(uint256 _maxPerpPositionsPerSet) external onlyOwner {
+        maxPerpPositionsPerSet = _maxPerpPositionsPerSet;
     }
 
     /* ============ External Getter Functions ============ */
@@ -1078,6 +1094,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
                 positions[_setToken].removeStorage(_baseToken);
             }
         } else {
+            require(positions[_setToken].length < maxPerpPositionsPerSet, "Exceeds max perpetual positions per set");
             positions[_setToken].push(_baseToken);
         }
     }

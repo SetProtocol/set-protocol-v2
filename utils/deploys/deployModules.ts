@@ -1,4 +1,4 @@
-import { Signer } from "ethers";
+import { BigNumber, Signer } from "ethers";
 
 import {
   AaveLeverageModule,
@@ -202,6 +202,7 @@ export default class DeployModules {
     perpVault: Address,
     perpQuoter: Address,
     perpMarketRegistry: Address,
+    maxPerpPositionsPerSet: BigNumber,
     libraryName: string,
     libraryAddress: Address
   ): Promise<PerpV2LeverageModule> {
@@ -215,7 +216,8 @@ export default class DeployModules {
       controller,
       perpVault,
       perpQuoter,
-      perpMarketRegistry
+      perpMarketRegistry,
+      maxPerpPositionsPerSet
     );
   }
 }
