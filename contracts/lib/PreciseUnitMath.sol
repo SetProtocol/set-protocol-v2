@@ -147,9 +147,11 @@ library PreciseUnitMath {
         
         a = a.mul(PRECISE_UNIT_INT);
         int256 c = a.div(b);
-        if (c * b != a) {
-            c = c > 0 ? c + 1 : c - 1;
+
+        if (a % b != 0) {
+            (a ^ b > 0) ? ++c : --c;
         }
+
         return c;
     }
 
