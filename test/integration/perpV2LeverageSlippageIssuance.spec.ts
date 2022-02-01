@@ -93,6 +93,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
+      BigNumber.from(3),
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
       perpLib.address,
     );
