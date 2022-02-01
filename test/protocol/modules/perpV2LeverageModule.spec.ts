@@ -618,12 +618,6 @@ describe("PerpV2LeverageModule", () => {
             const totalSupply = await setToken.totalSupply();
             const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
-            const { deltaBase } = await perpSetup.getSwapQuote(
-              subjectBaseToken,
-              baseTradeQuantityNotional,
-              false
-            );
-
             const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             await subject();
@@ -632,7 +626,7 @@ describe("PerpV2LeverageModule", () => {
             const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
             const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
 
-            const expectedBaseBalance = initialPositionInfo.baseBalance.add(deltaBase);
+            const expectedBaseBalance = initialPositionInfo.baseBalance.add(baseTradeQuantityNotional);
             const expectedQuoteBalance = initialPositionInfo.quoteBalance.add(reducedOpenNotional);
 
             expect(finalPositionInfo.baseBalance).gt(initialPositionInfo.baseBalance);
@@ -655,6 +649,42 @@ describe("PerpV2LeverageModule", () => {
 
               expect(initialPositionInfo.length).eq(1);
               expect(finalPositionInfo.length).eq(0);
+            });
+          });
+
+          describe("when reversing the position", async () => {
+            beforeEach(async () => {
+              subjectBaseTradeQuantityUnits = ether(2);
+              subjectQuoteBoundQuantityUnits = ether(20.45);
+            });
+
+            it("long trade should reverse the short position to a long position", async () => {
+              const totalSupply = await setToken.totalSupply();
+              const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+
+              const { deltaQuote } = await perpSetup.getSwapQuote(
+                subjectBaseToken,
+                baseTradeQuantityNotional.abs(),
+                true    // long
+              );
+              const quote = deltaQuote.mul(-1);
+
+              const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+
+              await subject();
+
+              const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+              const closeRatio = preciseDiv(baseTradeQuantityNotional.abs(), initialPositionInfo.baseBalance.abs());
+              const closedPositionNotional = preciseDiv(quote, closeRatio);
+
+              const expectedBaseBalance = initialPositionInfo.baseBalance.add(baseTradeQuantityNotional);
+              const expectedQuoteBalance = quote.sub(closedPositionNotional);
+
+              expect(finalPositionInfo.baseBalance).gt(ZERO);
+              expect(finalPositionInfo.quoteBalance).lt(ZERO);
+
+              expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+              expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
             });
           });
         });
@@ -836,12 +866,6 @@ describe("PerpV2LeverageModule", () => {
             const totalSupply = await setToken.totalSupply();
             const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
-            const { deltaBase } = await perpSetup.getSwapQuote(
-              subjectBaseToken,
-              baseTradeQuantityNotional.mul(-1),
-              false
-            );
-
             const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             await subject();
@@ -850,7 +874,7 @@ describe("PerpV2LeverageModule", () => {
             const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
             const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
 
-            const expectedBaseBalance = initialPositionInfo.baseBalance.sub(deltaBase);
+            const expectedBaseBalance = initialPositionInfo.baseBalance.sub(baseTradeQuantityNotional.abs());
             const expectedQuoteBalance = initialPositionInfo.quoteBalance.add(reducedOpenNotional);
 
             expect(finalPositionInfo.baseBalance).lt(initialPositionInfo.baseBalance);
@@ -876,7 +900,40 @@ describe("PerpV2LeverageModule", () => {
             });
           });
 
-          // todo: a test case which tries to flip the position?
+          describe("when the position reversed", async () => {
+            beforeEach(async () => {
+              subjectBaseTradeQuantityUnits = ether(-2);
+              subjectQuoteBoundQuantityUnits = ether(19.45);
+            });
+
+            it("short trade should reverse the long position to a short position", async () => {
+              const totalSupply = await setToken.totalSupply();
+              const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+
+              const { deltaQuote } = await perpSetup.getSwapQuote(
+                subjectBaseToken,
+                baseTradeQuantityNotional.abs(),
+                false   // short
+              );
+
+              const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+
+              await subject();
+
+              const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+              const closeRatio = preciseDiv(baseTradeQuantityNotional.abs(), initialPositionInfo.baseBalance.abs());
+              const closedPositionNotional = preciseDiv(deltaQuote, closeRatio);
+
+              const expectedBaseBalance = initialPositionInfo.baseBalance.sub(baseTradeQuantityNotional.abs());
+              const expectedQuoteBalance = deltaQuote.sub(closedPositionNotional);
+
+              expect(finalPositionInfo.baseBalance).lt(ZERO);
+              expect(finalPositionInfo.quoteBalance).gt(ZERO);
+
+              expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+              expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
+            });
+          });
         });
 
         describe("when an existing position is short", async () => {

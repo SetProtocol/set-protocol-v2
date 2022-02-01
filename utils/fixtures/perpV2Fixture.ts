@@ -362,7 +362,7 @@ export class PerpV2Fixture {
     return BigNumber.from(JSBI.divide(scaledPrice, denominator).toString());
   }
 
-  public async getSwapQuote(baseToken: Address, baseQuantityUnits: BigNumber, isBuy: boolean):
+  public async getSwapQuote(baseToken: Address, baseQuantity: BigNumber, isBuy: boolean):
   Promise<{
     deltaBase: BigNumber;
     deltaQuote: BigNumber;
@@ -377,7 +377,7 @@ export class PerpV2Fixture {
         baseToken: baseToken,
         isBaseToQuote: !isBuy,
         isExactInput: !isBuy,
-        amount: baseQuantityUnits,
+        amount: baseQuantity,
         oppositeAmountBound: ZERO,
         deadline:  MAX_UINT_256,
         sqrtPriceLimitX96: ZERO,
