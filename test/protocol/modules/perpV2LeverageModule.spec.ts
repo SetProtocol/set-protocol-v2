@@ -430,7 +430,7 @@ describe("PerpV2LeverageModule", () => {
     }
 
     describe("when module is initialized", async () => {
-      describe("when long", () => {
+      describe("when going long", () => {
         describe("when no positions are open (total supply is 1)", async () => {
           beforeEach(async () => {
             // Long ~10 USDC of vETH
@@ -770,7 +770,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe("when short", () => {
+      describe("when going short", () => {
         beforeEach(async () => {
           // Short ~10 USDC of vETH
           subjectBaseTradeQuantityUnits = ether(-1);
