@@ -24,6 +24,7 @@
     "compile:npm": "SKIP_ABI_GAS_MODS=true npx hardhat compile",
     "coverage": "yarn clean && yarn build && yarn cov:command",
     "cov:command": "COVERAGE=true node --max-old-space-size=4096 ./node_modules/.bin/hardhat coverage",
+    "deploy-mock": "hardhat run --no-compile scripts/deploy-mock.ts --network localhost",
     "etherscan:verify": "hardhat --network kovan etherscan-verify --solc-input --license 'None'",
     "flatten": "npx waffle flatten",
     "lint": "yarn run lint-sol && yarn run lint-ts",
