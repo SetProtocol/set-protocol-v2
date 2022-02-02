@@ -158,7 +158,7 @@ describe("PerpV2LeverageModule", () => {
         await setToken.connect(mockModule.wallet).initializeModule();
       }
 
-      await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+      await usdc.approve(setup.issuanceModule.address, preciseMul(usdcUnits(100), issueQuantity));
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
       await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
@@ -650,6 +650,13 @@ describe("PerpV2LeverageModule", () => {
               expect(initialPositionInfo.length).eq(1);
               expect(finalPositionInfo.length).eq(0);
             });
+
+            it("should ensure no dust amount is left on PerpV2", async () => {
+              await subject();
+
+              const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+              expect(baseBalance).to.be.eq(ZERO);
+            });
           });
 
           describe("when reversing the position", async () => {
@@ -897,6 +904,13 @@ describe("PerpV2LeverageModule", () => {
 
               expect(initialPositionInfo.length).eq(1);
               expect(finalPositionInfo.length).eq(0);
+            });
+
+            it("should ensure no dust amount is left on PerpV2", async () => {
+              await subject();
+
+              const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+              expect(baseBalance).to.be.eq(ZERO);
             });
           });
 
