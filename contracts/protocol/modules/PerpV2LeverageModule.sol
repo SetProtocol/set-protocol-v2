@@ -323,23 +323,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
-        _validateTrade(_baseToken, _baseQuantityUnits);
-
-        int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
-        uint256 totalSupply = _setToken.totalSupply();
-        int256 basePositionUnit = baseBalance.preciseDiv(totalSupply.toInt256());
-        
-        int256 baseNotional = _baseQuantityUnits == basePositionUnit.neg() 
-            ? baseBalance.neg()
-            : _baseQuantityUnits.preciseMul(totalSupply.toInt256());
-
-        ActionInfo memory actionInfo = _createActionInfoNotional(
+        ActionInfo memory actionInfo = _createAndValidateActionInfo(
             _setToken,
             _baseToken,
-            baseNotional,        
-            _quoteBoundQuantityUnits.preciseMul(totalSupply)
+            _baseQuantityUnits,
+            _quoteBoundQuantityUnits
         );
-            
+
         (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
 
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
@@ -1035,15 +1025,46 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
-     * @dev Called in `trade()`. Reverts if _baseTokenQuantity is zero or _baseToken does not exist 
-     * on PerpV2 market resgistry.
+     * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to
+     *  _createActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert. If
+     * the _baseTokenQuantity = -(baseBalance/setSupply) then close the position entirely. This method is
+     * only called from `trade` - the issue/redeem flow uses createActionInfoNotional directly.
      *
+     * @param _setToken             Instance of the SetToken
      * @param _baseToken            Address of base token being traded into/out of
-     * @param _baseTokenUnits       Quantity of baseToken to trade in PositionUnits
+     * @param _baseQuantityUnits    Quantity of baseToken to trade in PositionUnits
+     * @param _quoteReceiveUnits    Quantity of quote to receive if selling base and pay if buying, in PositionUnits
+     *
+     * @return ActionInfo           Instance of constructed ActionInfo struct
      */
-    function _validateTrade(address _baseToken, int256 _baseTokenUnits) internal view {
-        require(_baseTokenUnits != 0, "Amount is 0");
+    function _createAndValidateActionInfo(
+        ISetToken _setToken,
+        address _baseToken,
+        int256 _baseQuantityUnits,
+        uint256 _quoteReceiveUnits
+    )
+        internal
+        view
+        returns(ActionInfo memory)
+    {
+        require(_baseQuantityUnits != 0, "Amount is 0");
         require(perpMarketRegistry.hasPool(_baseToken), "Base token does not exist");
+
+        uint256 totalSupply = _setToken.totalSupply();
+
+        int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
+        int256 basePositionUnit = baseBalance.preciseDiv(totalSupply.toInt256());
+        
+        int256 baseNotional = _baseQuantityUnits == basePositionUnit.neg() 
+            ? baseBalance.neg()         // To close position completely
+            : _baseQuantityUnits.preciseMul(totalSupply.toInt256());
+
+        return _createActionInfoNotional(
+            _setToken,
+            _baseToken,
+            baseNotional,
+            _quoteReceiveUnits.preciseMul(totalSupply)
+        );
     }
 
     /**
