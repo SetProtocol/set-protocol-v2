@@ -44,7 +44,7 @@ import {
 } from "@utils/test/index";
 
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
-import { ADDRESS_ZERO, ZERO, ZERO_BYTES, MAX_UINT_256, ONE_DAY_IN_SECONDS } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, ZERO_BYTES, MAX_UINT_256, ONE_DAY_IN_SECONDS, ONE, TWO, THREE } from "@utils/constants";
 import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
@@ -61,6 +61,7 @@ describe("PerpV2LeverageModule", () => {
   let debtIssuanceMock: DebtIssuanceMock;
   let setup: SystemFixture;
   let perpSetup: PerpV2Fixture;
+  let maxPerpPositionsPerSet: BigNumber;
 
   let vETH: PerpV2BaseToken;
   let vBTC: PerpV2BaseToken;
@@ -107,12 +108,14 @@ describe("PerpV2LeverageModule", () => {
     debtIssuanceMock = await deployer.mocks.deployDebtIssuanceMock();
     await setup.controller.addModule(debtIssuanceMock.address);
 
+    maxPerpPositionsPerSet = TWO;
     perpLib = await deployer.libraries.deployPerpV2();
     perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
       setup.controller.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
+      maxPerpPositionsPerSet,
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
       perpLib.address,
     );
@@ -155,7 +158,7 @@ describe("PerpV2LeverageModule", () => {
         await setToken.connect(mockModule.wallet).initializeModule();
       }
 
-      await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+      await usdc.approve(setup.issuanceModule.address, preciseMul(usdcUnits(100), issueQuantity));
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
       await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
@@ -175,12 +178,14 @@ describe("PerpV2LeverageModule", () => {
     let subjectVault: Address;
     let subjectQuoter: Address;
     let subjectMarketRegistry: Address;
+    let subjectMaxPerpPositionsPerSet: BigNumber;
 
     beforeEach(async () => {
       subjectController = setup.controller.address;
       subjectVault = perpSetup.vault.address;
       subjectQuoter = perpSetup.quoter.address;
       subjectMarketRegistry = perpSetup.marketRegistry.address;
+      subjectMaxPerpPositionsPerSet = ONE;
     });
 
     async function subject(): Promise<PerpV2LeverageModule> {
@@ -189,6 +194,7 @@ describe("PerpV2LeverageModule", () => {
         subjectVault,
         subjectQuoter,
         subjectMarketRegistry,
+        subjectMaxPerpPositionsPerSet,
         "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
         perpLib.address,
       );
@@ -219,6 +225,14 @@ describe("PerpV2LeverageModule", () => {
       expect(perpQuoter).to.eq(perpSetup.quoter.address);
       expect(perpMarketRegistry).to.eq(perpSetup.marketRegistry.address);
       expect(collateralToken).to.eq(perpSetup.usdc.address);
+    });
+
+    it("should set the correct max perp positions per Set", async () => {
+      const perpLeverageModule = await subject();
+
+      const maxPerpPositionsPerSet = await perpLeverageModule.maxPerpPositionsPerSet();
+
+      expect(maxPerpPositionsPerSet).to.eq(ONE);
     });
   });
 
@@ -416,7 +430,7 @@ describe("PerpV2LeverageModule", () => {
     }
 
     describe("when module is initialized", async () => {
-      describe("when long", () => {
+      describe("when going long", () => {
         describe("when no positions are open (total supply is 1)", async () => {
           beforeEach(async () => {
             // Long ~10 USDC of vETH
@@ -604,12 +618,6 @@ describe("PerpV2LeverageModule", () => {
             const totalSupply = await setToken.totalSupply();
             const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
-            const { deltaBase } = await perpSetup.getSwapQuote(
-              subjectBaseToken,
-              baseTradeQuantityNotional,
-              false
-            );
-
             const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             await subject();
@@ -618,7 +626,7 @@ describe("PerpV2LeverageModule", () => {
             const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
             const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
 
-            const expectedBaseBalance = initialPositionInfo.baseBalance.add(deltaBase);
+            const expectedBaseBalance = initialPositionInfo.baseBalance.add(baseTradeQuantityNotional);
             const expectedQuoteBalance = initialPositionInfo.quoteBalance.add(reducedOpenNotional);
 
             expect(finalPositionInfo.baseBalance).gt(initialPositionInfo.baseBalance);
@@ -641,6 +649,49 @@ describe("PerpV2LeverageModule", () => {
 
               expect(initialPositionInfo.length).eq(1);
               expect(finalPositionInfo.length).eq(0);
+            });
+
+            it("should ensure no dust amount is left on PerpV2", async () => {
+              await subject();
+
+              const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+              expect(baseBalance).to.be.eq(ZERO);
+            });
+          });
+
+          describe("when reversing the position", async () => {
+            beforeEach(async () => {
+              subjectBaseTradeQuantityUnits = ether(2);
+              subjectQuoteBoundQuantityUnits = ether(20.45);
+            });
+
+            it("long trade should reverse the short position to a long position", async () => {
+              const totalSupply = await setToken.totalSupply();
+              const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+
+              const { deltaQuote } = await perpSetup.getSwapQuote(
+                subjectBaseToken,
+                baseTradeQuantityNotional.abs(),
+                true    // long
+              );
+              const quote = deltaQuote.mul(-1);
+
+              const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+
+              await subject();
+
+              const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+              const closeRatio = preciseDiv(baseTradeQuantityNotional.abs(), initialPositionInfo.baseBalance.abs());
+              const closedPositionNotional = preciseDiv(quote, closeRatio);
+
+              const expectedBaseBalance = initialPositionInfo.baseBalance.add(baseTradeQuantityNotional);
+              const expectedQuoteBalance = quote.sub(closedPositionNotional);
+
+              expect(finalPositionInfo.baseBalance).gt(ZERO);
+              expect(finalPositionInfo.quoteBalance).lt(ZERO);
+
+              expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+              expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
             });
           });
         });
@@ -756,7 +807,7 @@ describe("PerpV2LeverageModule", () => {
         });
       });
 
-      describe("when short", () => {
+      describe("when going short", () => {
         beforeEach(async () => {
           // Short ~10 USDC of vETH
           subjectBaseTradeQuantityUnits = ether(-1);
@@ -822,12 +873,6 @@ describe("PerpV2LeverageModule", () => {
             const totalSupply = await setToken.totalSupply();
             const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
 
-            const { deltaBase } = await perpSetup.getSwapQuote(
-              subjectBaseToken,
-              baseTradeQuantityNotional.mul(-1),
-              false
-            );
-
             const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
 
             await subject();
@@ -836,7 +881,7 @@ describe("PerpV2LeverageModule", () => {
             const closeRatio = preciseDiv(baseTradeQuantityNotional, initialPositionInfo.baseBalance);
             const reducedOpenNotional = preciseMul(initialPositionInfo.quoteBalance, closeRatio);
 
-            const expectedBaseBalance = initialPositionInfo.baseBalance.sub(deltaBase);
+            const expectedBaseBalance = initialPositionInfo.baseBalance.sub(baseTradeQuantityNotional.abs());
             const expectedQuoteBalance = initialPositionInfo.quoteBalance.add(reducedOpenNotional);
 
             expect(finalPositionInfo.baseBalance).lt(initialPositionInfo.baseBalance);
@@ -860,9 +905,49 @@ describe("PerpV2LeverageModule", () => {
               expect(initialPositionInfo.length).eq(1);
               expect(finalPositionInfo.length).eq(0);
             });
+
+            it("should ensure no dust amount is left on PerpV2", async () => {
+              await subject();
+
+              const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+              expect(baseBalance).to.be.eq(ZERO);
+            });
           });
 
-          // todo: a test case which tries to flip the position?
+          describe("when the position reversed", async () => {
+            beforeEach(async () => {
+              subjectBaseTradeQuantityUnits = ether(-2);
+              subjectQuoteBoundQuantityUnits = ether(19.45);
+            });
+
+            it("short trade should reverse the long position to a short position", async () => {
+              const totalSupply = await setToken.totalSupply();
+              const baseTradeQuantityNotional = preciseMul(subjectBaseTradeQuantityUnits, totalSupply);
+
+              const { deltaQuote } = await perpSetup.getSwapQuote(
+                subjectBaseToken,
+                baseTradeQuantityNotional.abs(),
+                false   // short
+              );
+
+              const initialPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+
+              await subject();
+
+              const finalPositionInfo = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0];
+              const closeRatio = preciseDiv(baseTradeQuantityNotional.abs(), initialPositionInfo.baseBalance.abs());
+              const closedPositionNotional = preciseDiv(deltaQuote, closeRatio);
+
+              const expectedBaseBalance = initialPositionInfo.baseBalance.sub(baseTradeQuantityNotional.abs());
+              const expectedQuoteBalance = deltaQuote.sub(closedPositionNotional);
+
+              expect(finalPositionInfo.baseBalance).lt(ZERO);
+              expect(finalPositionInfo.quoteBalance).gt(ZERO);
+
+              expect(finalPositionInfo.baseBalance).eq(expectedBaseBalance);
+              expect(finalPositionInfo.quoteBalance).eq(expectedQuoteBalance);
+            });
+          });
         });
 
         describe("when an existing position is short", async () => {
@@ -941,6 +1026,32 @@ describe("PerpV2LeverageModule", () => {
             await expect(subject()).to.be.revertedWith("CH_TLRS");
           });
         });
+      });
+    });
+
+    describe("when exceeds the max number of postions", async () => {
+      beforeEach(async () => {
+        // Open a WBTC position to max out the number of positions that can be opened per Set
+        await perpLeverageModule.connect(owner.wallet).updateMaxPerpPositionsPerSet(ONE);
+
+        await perpLeverageModule.trade(
+          subjectSetToken,
+          vBTC.address,
+          ether(0.1),
+          ether(2.1)    // 2.1 > 2 (20 * 0.1)
+        );
+
+        // Long ~10 USDC of vETH
+        subjectBaseTradeQuantityUnits = ether(1);
+        subjectQuoteBoundQuantityUnits = ether(10.15);
+      });
+
+      after(async () => {
+        await perpLeverageModule.connect(owner.wallet).updateMaxPerpPositionsPerSet(TWO);
+      });
+
+      it("should revert with exceeds max perpetual positions per set", async () => {
+        await expect(subject()).to.be.revertedWith("Exceeds max perpetual positions per set");
       });
     });
 
@@ -5897,6 +6008,38 @@ describe("PerpV2LeverageModule", () => {
       expect(toUSDCDecimals(accountInfo.collateralBalance)).eq(expectedDepositQuantity);
       expect(accountInfo.owedRealizedPnl).eq(0);
       expect(accountInfo.pendingFundingPayments).eq(expectedFunding);
+    });
+  });
+
+  describe("#updateMaxPerpPositionsPerSet", async () => {
+    let subjectCaller: Account;
+    let subjectMaxPerpPositionsPerSet: BigNumber;
+
+    beforeEach(async () => {
+      subjectCaller = owner;
+      subjectMaxPerpPositionsPerSet = THREE;
+    });
+
+    async function subject(): Promise<any> {
+      await perpLeverageModule.connect(subjectCaller.wallet).updateMaxPerpPositionsPerSet(subjectMaxPerpPositionsPerSet);
+    }
+
+    it("should update max perp positions per set", async () => {
+      await subject();
+
+      const maxPerpPositionsPerSet = await perpLeverageModule.maxPerpPositionsPerSet();
+
+      expect(maxPerpPositionsPerSet).to.eq(THREE);
+    });
+
+    describe("when owner is not caller", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
     });
   });
 });

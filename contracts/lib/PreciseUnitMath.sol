@@ -149,6 +149,7 @@ library PreciseUnitMath {
         int256 c = a.div(b);
 
         if (a % b != 0) {
+            // a ^ b == 0 case is covered by the previous if statement, hence it won't resolve to --c
             (a ^ b > 0) ? ++c : --c;
         }
 

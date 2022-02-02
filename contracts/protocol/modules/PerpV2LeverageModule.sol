@@ -183,6 +183,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
     IMarketRegistry public immutable perpMarketRegistry;
 
+    // PerpV2 operations are very gas intensive and there is a limit on the number of positions that can be opened in a single transaction
+    // during issuance/redemption. `maxPerpPositionsPerSet` is a safe limit set by governance taking Optimism's block gas limit into account.
+    uint256 public maxPerpPositionsPerSet;
+
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
     // Array is updated when new positions are opened or old positions are zeroed out.
     mapping(ISetToken => address[]) internal positions;
@@ -202,7 +206,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         IController _controller,
         IVault _perpVault,
         IQuoter _perpQuoter,
-        IMarketRegistry _perpMarketRegistry
+        IMarketRegistry _perpMarketRegistry,
+        uint256 _maxPerpPositionsPerSet
     )
         public
         ModuleBase(_controller)
@@ -219,6 +224,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         perpVault = _perpVault;
         perpQuoter = _perpQuoter;
         perpMarketRegistry = _perpMarketRegistry;
+        maxPerpPositionsPerSet = _maxPerpPositionsPerSet;
     }
 
     /* ============ External Functions ============ */
@@ -268,6 +274,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * NOTE: This method doesn't update the externalPositionUnit because it is a function of UniswapV3 virtual
      * token market prices and needs to be generated on the fly to be meaningful.
      *
+     * In the tables below, basePositionUnit = baseTokenBalance / setTotalSupply.
+     * 
      * As a user when levering, e.g increasing the magnitude of your position, you'd trade as below
      * | ----------------------------------------------------------------------------------------------- |
      * | Type  |  Action | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits` |
@@ -276,13 +284,29 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * | Short | Sell    | get most amt. of vQuote   | lower bound of output quote | negative            |
      * | ----------------------------------------------------------------------------------------------- |
      *
-     * As a user when delevering, e.g decreasing the magnitude of your position, you'd trade as below
-     * | ----------------------------------------------------------------------------------------------- |
-     * | Type  |  Action | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits` |
-     * | ----- |-------- | ------------------------- | --------------------------- | ------------------- |
-     * | Long  | Sell    | get most amt. of vQuote   | upper bound of input quote  | negative            |
-     * | Short | Buy     | pay least amt. of vQuote  | lower bound of output quote | positive            |
-     * | ----------------------------------------------------------------------------------------------- |
+     * As a user when delevering by partially closing your position, you'd trade as below
+     * -----------------------------------------------------------------------------------------------------------------------------------
+     * | Type  |  Action | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits`                                 |
+     * | ----- |-------- | ------------------------- | --------------------------- | ----------------------------------------------------|
+     * | Long  | Sell    | get most amt. of vQuote   | upper bound of input quote  | negative, |baseQuantityUnits| < |basePositionUnit|  |
+     * | Short | Buy     | pay least amt. of vQuote  | lower bound of output quote | positive, |baseQuantityUnits| < |basePositionUnit|  |
+     * -----------------------------------------------------------------------------------------------------------------------------------
+     *
+     * As a user when completely closing a position, you'd trade as below
+     * -------------------------------------------------------------------------------------------------------------------------------------------
+     * | Type  |  Action         | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits`                                 |
+     * | ----- |-----------------| ------------------------- | --------------------------- | ----------------------------------------------------|
+     * | Long  | Sell to close   | get most amt. of vQuote   | upper bound of input quote  | negative, baseQuantityUnits = -1 * basePositionUnit |
+     * | Short | Buy to close    | pay least amt. of vQuote  | lower bound of output quote | positive, baseQuantityUnits = -1 * basePositionUnit |
+     * -------------------------------------------------------------------------------------------------------------------------------------------
+     *
+     * As a user when reversing a position, e.g going from a long position to a short position in a single trade, you'd trade as below
+     * -------------------------------------------------------------------------------------------------------------------------------------------
+     * | Type  |  Action         | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits`                                 |
+     * | ----- |-----------------|---------------------------| --------------------------- | ----------------------------------------------------|
+     * | Long  | Sell to reverse | get most amt. of vQuote   | upper bound of input quote  | negative, |baseQuantityUnits| > |basePositionUnit|  |
+     * | Short | Buy to reverse  | pay least amt. of vQuote  | lower bound of output quote | positive, |baseQuantityUnits| > |basePositionUnit|  |
+     * -------------------------------------------------------------------------------------------------------------------------------------------
      *
      * @param _setToken                     Instance of the SetToken
      * @param _baseToken                    Address virtual token being traded
@@ -535,6 +559,17 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
             _withdraw(_setToken, usdcTransferOutNotionalQuantity);
         }
+    }
+
+    /* ============ External Setter Functions ============ */
+
+    /**
+     * @dev GOVERNANCE ONLY: Update max perpetual positions per SetToken. Only callable by governance.
+     * 
+     * @param _maxPerpPositionsPerSet       New max perpetual positons per set
+     */
+    function updateMaxPerpPositionsPerSet(uint256 _maxPerpPositionsPerSet) external onlyOwner {
+        maxPerpPositionsPerSet = _maxPerpPositionsPerSet;
     }
 
     /* ============ External Getter Functions ============ */
@@ -991,12 +1026,13 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
     /**
      * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to
-     *  _createActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert. This
-     *  method is only called from `trade` - the issue/redeem flow uses createActionInfoNotional directly.
+     *  _createActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert. If
+     * the _baseTokenQuantity = -(baseBalance/setSupply) then close the position entirely. This method is
+     * only called from `trade` - the issue/redeem flow uses createActionInfoNotional directly.
      *
      * @param _setToken             Instance of the SetToken
      * @param _baseToken            Address of base token being traded into/out of
-     * @param _baseTokenUnits       Quantity of baseToken to trade in PositionUnits
+     * @param _baseQuantityUnits    Quantity of baseToken to trade in PositionUnits
      * @param _quoteReceiveUnits    Quantity of quote to receive if selling base and pay if buying, in PositionUnits
      *
      * @return ActionInfo           Instance of constructed ActionInfo struct
@@ -1004,22 +1040,29 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     function _createAndValidateActionInfo(
         ISetToken _setToken,
         address _baseToken,
-        int256 _baseTokenUnits,
+        int256 _baseQuantityUnits,
         uint256 _quoteReceiveUnits
     )
         internal
         view
         returns(ActionInfo memory)
     {
-        require(_baseTokenUnits != 0, "Amount is 0");
+        require(_baseQuantityUnits != 0, "Amount is 0");
         require(perpMarketRegistry.hasPool(_baseToken), "Base token does not exist");
 
         uint256 totalSupply = _setToken.totalSupply();
 
+        int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
+        int256 basePositionUnit = baseBalance.preciseDiv(totalSupply.toInt256());
+        
+        int256 baseNotional = _baseQuantityUnits == basePositionUnit.neg() 
+            ? baseBalance.neg()         // To close position completely
+            : _baseQuantityUnits.preciseMul(totalSupply.toInt256());
+
         return _createActionInfoNotional(
             _setToken,
             _baseToken,
-            _baseTokenUnits.preciseMul(totalSupply.toInt256()),
+            baseNotional,
             _quoteReceiveUnits.preciseMul(totalSupply)
         );
     }
@@ -1078,6 +1121,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
                 positions[_setToken].removeStorage(_baseToken);
             }
         } else {
+            require(positions[_setToken].length < maxPerpPositionsPerSet, "Exceeds max perpetual positions per set");
             positions[_setToken].push(_baseToken);
         }
     }
