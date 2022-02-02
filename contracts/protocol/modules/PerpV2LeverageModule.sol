@@ -183,7 +183,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     // PerpV2 contract which provides a getter for baseToken UniswapV3 pools
     IMarketRegistry public immutable perpMarketRegistry;
 
-    // Max perpetual positions per SetToken
+    // PerpV2 operations are very gas intensive and there is a limit on the number of positions that can be opened in a single transaction
+    // during issuance/redemption. `maxPerpPositionsPerSet` is a safe limit set by governance taking Optimism's block gas limit into account.
     uint256 public maxPerpPositionsPerSet;
 
     // Mapping of SetTokens to an array of virtual token addresses the Set has open positions for.
