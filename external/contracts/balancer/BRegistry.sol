@@ -1,8 +1,8 @@
 pragma solidity 0.5.12;
 
-import "@openzeppelin/contracts/math/Math.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/EnumerableSet.sol";
+import "@openzeppelin/math/Math.sol";
+import "@openzeppelin/math/SafeMath.sol";
+import "@openzeppelin/utils/EnumerableSet.sol";
 
 interface IBPool {
     function getDenormalizedWeight(address token) external view returns(uint256);

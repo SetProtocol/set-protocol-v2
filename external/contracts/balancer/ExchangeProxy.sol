@@ -14,8 +14,8 @@
 pragma solidity 0.5.12;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/ownership/Ownable.sol";
+import "@openzeppelin/math/SafeMath.sol";
+import "@openzeppelin/ownership/Ownable.sol";
 
 interface PoolInterface {
     function swapExactAmountIn(address, uint, address, uint, uint) external returns (uint, uint);

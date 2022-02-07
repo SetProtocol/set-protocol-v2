@@ -21,7 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 import { BytesLib } from "external/contracts/uniswap/v3/lib/BytesLib.sol";
 import { IDMMFactory } from "../../../interfaces/external/IDMMFactory.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "@openzeppelin/token/ERC20/IERC20.sol";
 import { IIndexExchangeAdapter } from "../../../interfaces/IIndexExchangeAdapter.sol";
 
 /**

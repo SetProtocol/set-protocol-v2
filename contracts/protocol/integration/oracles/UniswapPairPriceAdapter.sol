@@ -18,9 +18,9 @@
 
 pragma solidity 0.6.10;
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
+import { SafeMath } from "@openzeppelin/math/SafeMath.sol";
 
 import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
 import { IController } from "../../../interfaces/IController.sol";

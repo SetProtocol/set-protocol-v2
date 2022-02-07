@@ -1,6 +1,6 @@
 pragma solidity ^0.5.16;
 
-import "@openzeppelin/contracts/ownership/Ownable.sol";
+import "@openzeppelin/ownership/Ownable.sol";
 
 import "../interfaces/IAssetVotingWeightProvider.sol";
 

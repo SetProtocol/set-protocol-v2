@@ -18,7 +18,7 @@
 
 pragma solidity 0.6.10;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable } from "@openzeppelin/access/Ownable.sol";
 
 import { IController } from "../../interfaces/IController.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";

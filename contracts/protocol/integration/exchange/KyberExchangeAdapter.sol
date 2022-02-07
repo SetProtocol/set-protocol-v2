@@ -26,8 +26,8 @@ pragma experimental "ABIEncoderV2";
  * Exchange adapter for Kyber that returns data for trades
  */
 
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+import { ERC20 } from "@openzeppelin/token/ERC20/ERC20.sol";
+import { SafeMath } from "@openzeppelin/math/SafeMath.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { IKyberNetworkProxy } from "../../../interfaces/external/IKyberNetworkProxy.sol";
 

@@ -22,8 +22,8 @@ import "../../../interfaces/external/IUniswapV2Router.sol";
 import "../../../interfaces/external/IUniswapV2Pair.sol";
 import "../../../interfaces/external/IUniswapV2Factory.sol";
 import "../../../interfaces/IAmmAdapter.sol";
-import "@openzeppelin/contracts/math/Math.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/math/Math.sol";
+import "@openzeppelin/math/SafeMath.sol";
 
 /**
  * @title UniswapV2AmmAdapter

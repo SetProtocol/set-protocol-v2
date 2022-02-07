@@ -1,0 +1,14 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "removeModule",
+      "inputs": [],
+      "outputs": [],
+      "constant": false,
+      "stateMutability": "nonpayable"
+    }
+  ],
+  "bin": "0x",
+  "bin-runtime": "0x"
+}
