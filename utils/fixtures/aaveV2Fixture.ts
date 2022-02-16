@@ -234,7 +234,7 @@ export class AaveV2Fixture {
   }
 
   public async setMarketBorrowRate(asset: Address, rate: BigNumberish): Promise<void> {
-    this.lendingRateOracle.setMarketBorrowRate(asset, rate);
+    await this.lendingRateOracle.setMarketBorrowRate(asset, rate);
   }
 
   public getForkedAaveLendingPoolAddressesProvider(): AaveV2LendingPoolAddressesProvider {
