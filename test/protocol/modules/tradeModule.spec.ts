@@ -1405,7 +1405,7 @@ describe("TradeModule", () => {
 
         describe("when receive token does not match calldata", async () => {
           beforeEach(async () => {
-            // Get random source token
+            // Get random destination token
             const randomToken = await getRandomAccount();
             subjectData = oneInchExchangeMock.interface.encodeFunctionData("swap", [
               sourceToken.address, // Send token
@@ -1626,7 +1626,7 @@ describe("TradeModule", () => {
 
         describe("when receive token does not match calldata", async () => {
           beforeEach(async () => {
-            // Get random source token
+            // Get random destination token
             const randomToken = await getRandomAccount();
             subjectData = zeroExMock.interface.encodeFunctionData("transformERC20", [
               sourceToken.address, // Send token
