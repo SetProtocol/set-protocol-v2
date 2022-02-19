@@ -2901,7 +2901,7 @@ describe("AaveLeverageModule", () => {
         await aWETH.approve(setup.issuanceModule.address, ether(10));
         await aDAI.approve(setup.issuanceModule.address, ether(10000));
 
-        // Issue 10 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+        // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
         const issueQuantity = ether(1);
         await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
