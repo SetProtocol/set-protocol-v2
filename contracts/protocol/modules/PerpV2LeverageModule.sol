@@ -238,7 +238,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     function initialize(
         ISetToken _setToken
     )
-        external
+        public
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
         onlyAllowedSet(_setToken)
@@ -319,7 +319,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         int256 _baseQuantityUnits,
         uint256 _quoteBoundQuantityUnits
     )
-        external
+        public
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
@@ -403,7 +403,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *
      * NOTE: Function will revert if there is greater than a position unit amount of USDC of account value.
      */
-    function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
+    function removeModule() public virtual override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
 
         // Check that there is less than 1 position unit of USDC of account value (to tolerate PRECISE_UNIT math rounding errors).
@@ -456,7 +456,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         ISetToken _setToken,
         uint256 _setTokenQuantity
     )
-        external
+        public
+        virtual
         override
         onlyModule(_setToken)
     {
@@ -488,6 +489,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         uint256 _setTokenQuantity
     )
         external
+        virtual
         override
         onlyModule(_setToken)
     {
@@ -618,6 +620,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         uint256 _setTokenQuantity
     )
         external
+        virtual
         override
         returns (int256[] memory, int256[] memory _)
     {
