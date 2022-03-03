@@ -32,11 +32,15 @@ import { PerpV2LeverageModule } from "./PerpV2LeverageModule.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
+import "hardhat/console.sol";
+
+// TODO
+// 1. Add a settle funding helper function, that updates tracked settled funding can calls ClearingHouse.settleAllFunding()?
+// 2. Add javadocs.
 
 /**
  * @title PerpV2BasisTradingModule
  * @author Set Protocol
- * @notice 
  *
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
@@ -98,9 +102,6 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         FeeState memory _settings
     )
         external
-        onlySetManager(_setToken, msg.sender)
-        onlyValidAndPendingSet(_setToken)
-        onlyAllowedSet(_setToken)
     {
         _validateFeeState(_settings);
 
@@ -109,7 +110,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         feeStates[_setToken] = _settings;
     }
 
-    function trade(
+    function tradeAndTrackFunding(
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
@@ -117,17 +118,17 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         bool _trackSettledFunding
     )
         external
-        nonReentrant
-        onlyManagerAndValidSet(_setToken)
+        // nonReentrant     // fix this
     {
-        super.trade(
+        _updateSettledFunding(_setToken, _trackSettledFunding);
+
+        trade(
             _setToken,
             _baseToken,
             _baseQuantityUnits,
             _quoteBoundQuantityUnits
         );
 
-        _updateSettledFunding(_setToken, _trackSettledFunding);
     }
 
     function withdrawFundingAndAccrueFees(
@@ -139,31 +140,24 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         nonReentrant
         onlyManagerAndValidSet(_setToken)   
     {
-        require(_amount <= settledFunding[_setToken], "Withdraw amount too high");
-
         _updateSettledFunding(_setToken, _trackSettledFunding);
+        
+        require(_amount <= settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals), "Withdraw amount too high");
+
+        uint256 collateralBalanceBefore = collateralToken.balanceOf(address(_setToken));
 
         _withdraw(_setToken, _amount);
 
         (uint256 managerFee, uint256 protocolFee, ) = _handleFees(_setToken, _amount);
-
-        // Fees has been transferred out
+        
         _setToken.calculateAndEditDefaultPosition(
             address(collateralToken),
             _setToken.totalSupply(),
-            collateralToken.balanceOf(address(_setToken))
-        );
-
-        // TBD: Should we do this?
-        _setToken.editExternalPosition(
-            address(collateralToken),
-            address(this),
-            _calculateExternalPositionUnit(_setToken),
-            ""
+            collateralBalanceBefore
         );
 
         // Update settled funding
-        settledFunding[_setToken] = settledFunding[_setToken].sub(_amount);
+        settledFunding[_setToken] = settledFunding[_setToken].sub(_amount.toPreciseUnitsFromDecimals(collateralDecimals));
 
         emit FundingWithdrawn(_setToken, collateralToken, _amount, managerFee, protocolFee);
     }
@@ -172,6 +166,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         super.removeModule();
 
         ISetToken setToken = ISetToken(msg.sender);
+        
         // Not charging any fees
         delete feeStates[setToken];
         delete settledFunding[setToken];
@@ -183,11 +178,10 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     )
         public
         override
-        onlyModule(_setToken)
     {
-        super.moduleIssueHook(_setToken, _setTokenQuantity);
-
         _updateSettledFunding(_setToken, true);
+        
+        super.moduleIssueHook(_setToken, _setTokenQuantity);
     }
 
     function moduleRedeemHook(
@@ -204,13 +198,14 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         _updateSettledFunding(_setToken, true);
 
         int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, false);
-
+            
         if (settledFunding[_setToken] > 0) {
             uint256 performanceFeeUnit = settledFunding[_setToken]
                 .preciseDivCeil(_setTokenQuantity)
-                .preciseMul(_performanceFeePercentage(_setToken));
+                .preciseMul(_performanceFeePercentage(_setToken))
+                .fromPreciseUnitToDecimals(collateralDecimals);
 
-            newExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());    
+            newExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());
         }
 
         // Set USDC externalPositionUnit such that DIM can use it for transfer calculation
@@ -231,6 +226,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         onlyManagerAndValidSet(_setToken)
     {
         require(_newFee < _maxPerformanceFeePercentage(_setToken), "Fee must be less than max");
+
+        // todo: call updateSettledFunding here?
         require(settledFunding[_setToken] == 0, "Non-zero settled funding remains");
 
         feeStates[_setToken].performanceFeePercentage = _newFee;
@@ -242,7 +239,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         external
         onlyManagerAndValidSet(_setToken)
     {
-        require(_newFeeRecipient != address(0), "Fee Recipient must be non-zero address.");
+        require(_newFeeRecipient != address(0), "Fee Recipient must be non-zero address");
 
         feeStates[_setToken].feeRecipient = _newFeeRecipient;
 
@@ -286,8 +283,18 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     // Tracks settled funding across ALL markets
     function _updateSettledFunding(ISetToken _setToken, bool _trackSettledFunding) internal {
         if (_trackSettledFunding) {
+            
+            // todo: Add a table here explaining all different cases
+
             int256 fundingToBeSettled =  perpExchange.getAllPendingFundingPayment(address(_setToken)).neg();
-            settledFunding[_setToken] = settledFunding[_setToken].add(fundingToBeSettled.toUint256());
+            
+            if (fundingToBeSettled < 0) {
+                settledFunding[_setToken] = settledFunding[_setToken] > fundingToBeSettled.abs()
+                    ? settledFunding[_setToken].sub(fundingToBeSettled.abs())
+                    : 0;
+            } else {
+                settledFunding[_setToken] = settledFunding[_setToken].add(fundingToBeSettled.abs());
+            }
         }
     }
 
@@ -316,9 +323,9 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     }
 
     function _validateFeeState(FeeState memory _settings) internal view {
-        require(_settings.feeRecipient != address(0), "Fee Recipient must be non-zero address.");
-        require(_settings.maxPerformanceFeePercentage < PreciseUnitMath.preciseUnit(), "Max fee must be < 100%.");
-        require(_settings.performanceFeePercentage <= _settings.maxPerformanceFeePercentage, "Fee must be <= max.");
+        require(_settings.feeRecipient != address(0), "Fee Recipient must be non-zero address");
+        require(_settings.maxPerformanceFeePercentage < PreciseUnitMath.preciseUnit(), "Max fee must be < 100%");
+        require(_settings.performanceFeePercentage <= _settings.maxPerformanceFeePercentage, "Fee must be <= max");
     }
 
     function _maxPerformanceFeePercentage(ISetToken _set) internal view returns (uint256) {
@@ -326,7 +333,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     }
 
     function _performanceFeePercentage(ISetToken _set) internal view returns (uint256) {
-        return feeStates[_set].maxPerformanceFeePercentage;
+        return feeStates[_set].performanceFeePercentage;
     }
 
 }

@@ -67,4 +67,15 @@ library UnitConversionUtils {
     function toPreciseUnitsFromDecimals(int256 _amount, uint8 _decimals) internal pure returns (int256) {
         return _amount.mul(int256(10**(18 - (uint(_decimals)))));
     }
+
+    /**
+     * @dev Converts an arbitrarily decimalized quantity into a PRECISE_UNIT quantity.
+     *
+     * @param _amount       Non-PRECISE_UNIT amount to convert
+     * @param _decimals     Decimal precision of amount being converted to PRECISE_UNIT
+     * @return              Input converted to PRECISE_UNIT decimal format
+     */
+    function toPreciseUnitsFromDecimals(uint256 _amount, uint8 _decimals) internal pure returns (uint256) {
+        return _amount.mul(uint(10**(18 - (uint(_decimals)))));
+    }
 }

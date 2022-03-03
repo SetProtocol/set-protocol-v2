@@ -50,5 +50,6 @@ export {
   calculateUSDCTransferOutPreciseUnits,
   calculateLeverageRatios,
   getUSDCDeltaDueToFundingGrowth,
-  leverUp
+  leverUp,
+  getNetFundingGrowth
 } from "./perpV2Utils";

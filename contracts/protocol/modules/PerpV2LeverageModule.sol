@@ -322,7 +322,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         public
         nonReentrant
         onlyManagerAndValidSet(_setToken)
-    {
+    {        
         ActionInfo memory actionInfo = _createAndValidateActionInfo(
             _setToken,
             _baseToken,
