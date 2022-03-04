@@ -136,6 +136,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         )
     {}
 
+    /* ============ External Functions ============ */
+
     /**
      * @dev MANAGER ONLY: Initializes this module to the SetToken and sets fee settings. Either the SetToken needs to 
      * be on the allowed list or anySetAllowed needs to be true.
@@ -178,7 +180,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _quoteBoundQuantityUnits
     )
         external
-        // nonReentrant     // fix this
+        // `trade` function has a redundancy check
     {
         // Track funding before it is settled
         _updateSettledFunding(_setToken, true);
@@ -190,7 +192,6 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
             _baseQuantityUnits,
             _quoteBoundQuantityUnits
         );
-
     }
 
     /**
@@ -424,9 +425,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      * @param _trackSettledFunding  Updates tracked settled funding if true
      */
     function _updateSettledFunding(ISetToken _setToken, bool _trackSettledFunding) internal {
-        if (_trackSettledFunding) {
-            settledFunding[_setToken] = _getUpdateSettledFunding(_setToken);
-        }
+        if (_trackSettledFunding) { settledFunding[_setToken] = _getUpdateSettledFunding(_setToken); }
     }
 
     /**

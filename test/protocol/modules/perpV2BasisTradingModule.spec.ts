@@ -451,7 +451,7 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
-  describe("#tradeAndTrackFunding", () => {
+  describe.only("#tradeAndTrackFunding", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
     let depositQuantity: BigNumber;
