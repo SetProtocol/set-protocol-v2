@@ -5,7 +5,6 @@ import { Account } from "@utils/test/types";
 import {
   PerpV2,
   PerpV2BasisTradingModule,
-  PerpV2LeverageModule,
   DebtIssuanceMock,
   StandardTokenMock,
   SetToken
@@ -41,16 +40,20 @@ import {
 } from "@utils/test/index";
 
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
-import { ADDRESS_ZERO, ZERO, ZERO_BYTES, MAX_UINT_256, ONE_DAY_IN_SECONDS, ONE, TWO, THREE } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, ONE_DAY_IN_SECONDS, ONE, TWO } from "@utils/constants";
 import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
 
 interface FeeSettings {
-  feeRecipient: Address,
-  maxPerformanceFeePercentage: BigNumber,
-  performanceFeePercentage: BigNumber
+  feeRecipient: Address;
+  maxPerformanceFeePercentage: BigNumber;
+  performanceFeePercentage: BigNumber;
 }
+
+// TODO:
+// 1. Add tests for getRedemptionAdjustments
+// 2. Remove closeTo in moduleRedeemHook test
 
 describe("PerpV2BasisTradingModule", () => {
   let owner: Account;
@@ -157,7 +160,7 @@ describe("PerpV2BasisTradingModule", () => {
       await perpBasisTradingModule.updateAllowedSetToken(setToken.address, true);
 
       await perpBasisTradingModule.connect(owner.wallet)["initialize(address,(address,uint256,uint256))"](
-        setToken.address, 
+        setToken.address,
         feeSettings
       );
 
@@ -172,7 +175,9 @@ describe("PerpV2BasisTradingModule", () => {
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
       await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
 
-      await perpBasisTradingModule.deposit(setToken.address, depositQuantityUnit);
+      if (depositQuantityUnit.gt(ZERO)) {
+        await perpBasisTradingModule.deposit(setToken.address, depositQuantityUnit);
+      }
     }
 
     return setToken;
@@ -243,16 +248,13 @@ describe("PerpV2BasisTradingModule", () => {
 
   describe("#initialize", async () => {
     let setToken: SetToken;
-    let isAllowListed: boolean;
     let subjectSetToken: Address;
-    let subjectFeeSettings: FeeSettings;
+    let subjectFeeRecipient: Address;
+    let subjectMaxPerformanceFeePercentage: BigNumber;
+    let subjectPerformanceFeePercentage: BigNumber;
     let subjectCaller: Account;
 
-    let feeRecipient: Address;
-    let maxPerformanceFeePercentage: BigNumber;
-    let performanceFeePercentage: BigNumber;
-
-    const initializeContracts = async () => {
+    const initializeContracts = async (isAllowListed: boolean) => {
       setToken = await setup.createSetToken(
         [usdc.address],
         [ether(100)],
@@ -268,31 +270,28 @@ describe("PerpV2BasisTradingModule", () => {
 
     const initializeSubjectVariables = () => {
       subjectSetToken = setToken.address;
-      subjectFeeSettings = {
-        feeRecipient,
-        maxPerformanceFeePercentage,
-        performanceFeePercentage
-      }
+      subjectFeeRecipient = owner.address;
+      subjectMaxPerformanceFeePercentage = ether(.2);
+      subjectPerformanceFeePercentage = ether(.1);
       subjectCaller = owner;
     };
 
     async function subject(): Promise<any> {
-      return perpBasisTradingModule.connect(subjectCaller.wallet)['initialize(address,(address,uint256,uint256))'](
+      return perpBasisTradingModule.connect(subjectCaller.wallet)["initialize(address,(address,uint256,uint256))"](
         subjectSetToken,
-        subjectFeeSettings
+        {
+          feeRecipient: subjectFeeRecipient,
+          maxPerformanceFeePercentage: subjectMaxPerformanceFeePercentage,
+          performanceFeePercentage: subjectPerformanceFeePercentage
+        }
       );
     }
 
     describe("when SetToken is added to allowed Sets list", () => {
-      before(async () => {
-        isAllowListed = true;
-
-        feeRecipient = owner.address;
-        maxPerformanceFeePercentage = ether(.2);
-        performanceFeePercentage = ether(.1);
+      cacheBeforeEach(async () => {
+        await initializeContracts(true);
       });
 
-      cacheBeforeEach(initializeContracts);
       beforeEach(initializeSubjectVariables);
 
       it("should enable the Module on the SetToken", async () => {
@@ -315,14 +314,10 @@ describe("PerpV2BasisTradingModule", () => {
         expect(feeSettings.maxPerformanceFeePercentage).to.be.eq(ether(.2));
         expect(feeSettings.performanceFeePercentage).to.be.eq(ether(.1));
       });
-    
-      describe("when the fee is greater than max fee", async () => {
-        before(async () => {
-          performanceFeePercentage = ether(.21);
-        });
 
-        after(async () => {
-          performanceFeePercentage = ether(.1);
+      describe("when the fee is greater than max fee", async () => {
+        beforeEach(async () => {
+          subjectPerformanceFeePercentage = ether(.21);
         });
 
         it("should revert", async () => {
@@ -331,12 +326,8 @@ describe("PerpV2BasisTradingModule", () => {
       });
 
       describe("when the max performance fee is greater than 100%", async () => {
-        before(async () => {
-          maxPerformanceFeePercentage = ether(1.01);
-        });
-
-        after(async () => {
-          maxPerformanceFeePercentage = ether(.2);
+        beforeEach(async () => {
+          subjectMaxPerformanceFeePercentage = ether(1.01);
         });
 
         it("should revert", async () => {
@@ -345,12 +336,8 @@ describe("PerpV2BasisTradingModule", () => {
       });
 
       describe("when the fee recipient is the ZERO_ADDRESS", async () => {
-        before(async () => {
-          feeRecipient = ADDRESS_ZERO;
-        });
-
-        after(async () => {
-          feeRecipient = owner.address;
+        beforeEach(async () => {
+          subjectFeeRecipient = ADDRESS_ZERO;
         });
 
         it("should revert", async () => {
@@ -439,11 +426,9 @@ describe("PerpV2BasisTradingModule", () => {
     });
 
     describe("when SetToken is not added to allowed Sets list", async () => {
-      before(async () => {
-        isAllowListed = false;
+      cacheBeforeEach(async () => {
+        await initializeContracts(false);
       });
-
-      cacheBeforeEach(initializeContracts);
       beforeEach(initializeSubjectVariables);
 
       describe("when SetToken is not allowlisted", async () => {
@@ -466,7 +451,7 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
-  describe("#trade", () => {
+  describe("#tradeAndTrackFunding", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
     let depositQuantity: BigNumber;
@@ -476,27 +461,26 @@ describe("PerpV2BasisTradingModule", () => {
     let subjectBaseToken: Address;
     let subjectBaseTradeQuantityUnits: BigNumber;
     let subjectQuoteBoundQuantityUnits: BigNumber;
-    let subjectTrackSettledFunding: boolean;
 
     const initializeContracts = async () => {
       depositQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
+      if (isInitialized) {
+        await perpBasisTradingModule.connect(owner.wallet).trade(
+          setToken.address,
+          vETH.address,
+          ether(1),
+          ether(10.15)
+        );
+      }
     };
 
     const initializeSubjectVariables = async () => {
       subjectSetToken = setToken.address;
       subjectCaller = owner;
       subjectBaseToken = vETH.address;
-      subjectTrackSettledFunding = true;
       subjectBaseTradeQuantityUnits = ether(1);
       subjectQuoteBoundQuantityUnits = ether(10.15);
-
-      await perpBasisTradingModule.connect(subjectCaller.wallet).trade(
-        subjectSetToken,
-        subjectBaseToken,
-        subjectBaseTradeQuantityUnits,
-        subjectQuoteBoundQuantityUnits
-      );
     };
 
     cacheBeforeEach(initializeContracts);
@@ -507,33 +491,59 @@ describe("PerpV2BasisTradingModule", () => {
         subjectSetToken,
         subjectBaseToken,
         subjectBaseTradeQuantityUnits,
-        subjectQuoteBoundQuantityUnits,
-        subjectTrackSettledFunding
+        subjectQuoteBoundQuantityUnits
       );
     }
 
     describe("when module is initialized", async () => {
-      describe("when track settled funding is true", async () => {
-        describe("when pending funding payment is positive", async () => {
+      describe("when pending funding payment is positive", async () => {
+        beforeEach(async () => {
+          // Move oracle price up and wait one day
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        });
+
+        it("should update tracked settled funding", async () => {
+          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+          const [owedRealizedPnlBefore ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+
+          await subject();
+
+          const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
+          const [owedRealizedPnlAfter ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+          const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
+
+          expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
+        });
+
+        it("should set pending funding on PerpV2 to zero", async () => {
+          await subject();
+          const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
+          expect(pendingFunding).to.be.eq(ZERO);
+        });
+      });
+
+      describe("when pending funding payment is negative", async () => {
+        describe("when absolute settled funding is less than absoluate negative funding", async () => {
           beforeEach(async () => {
             // Move oracle price down and wait one day
-            await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+            await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
             await increaseTimeAsync(ONE_DAY_IN_SECONDS);
           });
 
-          it("should update tracked settled funding", async () => {
+          it("verify testing conditions", async () => {
             const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
             const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-            const [owedRealizedPnlBefore, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
 
+            expect(pendingFundingBefore.abs()).to.be.gt(settledFundingBefore);
+          });
+
+          it("should set tracked settled funding to zero", async () => {
             await subject();
 
             const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-            const [owedRealizedPnlAfter, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
-            const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
 
-            expect(settledFundingAfter).to.be.gt(settledFundingBefore.add(pendingFundingBefore));
-            expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
+            expect(settledFundingAfter).to.be.eq(ZERO);
           });
 
           it("should set pending funding on PerpV2 to zero", async () => {
@@ -543,101 +553,50 @@ describe("PerpV2BasisTradingModule", () => {
           });
         });
 
-        describe("when pending funding payment is negative", async () => {
-          describe("when absolute settled funding is less than absoluate negative funding", async () => {
-            beforeEach(async () => {
-              // set funding rate to non-zero value
-              await perpSetup.clearingHouseConfig.setMaxFundingRate(usdcUnits(0.1));       // 10% in 6 decimals
-              // Move oracle price down and wait one day
-              await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
-              await increaseTimeAsync(ONE_DAY_IN_SECONDS);
-            });
-            
-            it("verify testing conditions", async () => {
-              const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-              const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-              
-              expect(pendingFundingBefore.abs()).to.be.gt(settledFundingBefore);
-            });
+        describe("when absolute settled funding is greater then absolute negative pending funding", async () => {
+          beforeEach(async () => {
+            // Move oracle price up and wait one day
+            await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
+            await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-            it("should set tracked settled funding to zero", async () => {
-              await subject();
-  
-              const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
+            // Trade to accrue pending funding to tracked settled funding
+            await perpBasisTradingModule.connect(subjectCaller.wallet).tradeAndTrackFunding(
+              subjectSetToken,
+              subjectBaseToken,
+              subjectBaseTradeQuantityUnits,
+              subjectQuoteBoundQuantityUnits
+            );
 
-              expect(settledFundingAfter).to.be.eq(ZERO);
-            });
-  
-            it("should set pending funding on PerpV2 to zero", async () => {
-              await subject();
-              const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-              expect(pendingFunding).to.be.eq(ZERO);
-            });
+            // Move oracle price down and wait one day
+            await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.8));
+            await increaseTimeAsync(ONE_DAY_IN_SECONDS);
           });
 
-          describe("when absolute settled funding is greater then absolute negative pending funding", async () => {
-            beforeEach(async () => {
-              // Move oracle price down and wait one day
-              await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
-              await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+          it("verify testing conditions", async () => {
+            const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+            const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
 
-              await perpBasisTradingModule.connect(subjectCaller.wallet).tradeAndTrackFunding(
-                subjectSetToken,
-                subjectBaseToken,
-                subjectBaseTradeQuantityUnits,
-                subjectQuoteBoundQuantityUnits,
-                true
-              );
-              
-              await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.8));
-              await increaseTimeAsync(ONE_DAY_IN_SECONDS);
-            });
-            
-            it("verify testing conditions", async () => {
-              const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-              const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-              
-              expect(settledFundingBefore.abs()).to.be.gt(pendingFundingBefore.abs());
-            });
-
-            it("should update tracked settled funding", async () => {
-              const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-              const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-              const [owedRealizedPnlBefore, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
-  
-              await subject();
-  
-              const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-              const [owedRealizedPnlAfter, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
-              const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
-              
-              expect(settledFundingAfter).to.be.lt(settledFundingBefore.sub(pendingFundingBefore));
-              expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
-            });
-  
-            it("should set pending funding on PerpV2 to zero", async () => {
-              await subject();
-              const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-              expect(pendingFunding).to.be.eq(ZERO);
-            });
+            expect(settledFundingBefore.abs()).to.be.gt(pendingFundingBefore.abs());
           });
-        });
-      });
 
-      describe("when track settled funding is false", async () => {
-        beforeEach(async () => {
-          subjectTrackSettledFunding = false;
-        });
+          it("should update tracked settled funding", async () => {
+            const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+            const [owedRealizedPnlBefore ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
 
-        it("should not update tracked settled funding", async () => {
+            await subject();
 
-          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+            const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
+            const [owedRealizedPnlAfter ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+            const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
 
-          await subject();
+            expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
+          });
 
-          const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-
-          expect(settledFundingBefore).to.eq(settledFundingAfter);
+          it("should set pending funding on PerpV2 to zero", async () => {
+            await subject();
+            const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
+            expect(pendingFunding).to.be.eq(ZERO);
+          });
         });
       });
     });
@@ -669,7 +628,7 @@ describe("PerpV2BasisTradingModule", () => {
       });
     });
 
-    describe.skip("when module is not initialized", async () => {
+    describe("when module is not initialized", async () => {
       beforeEach(async () => {
         isInitialized = false;
         await initializeContracts();
@@ -686,43 +645,44 @@ describe("PerpV2BasisTradingModule", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
     let depositQuantity: BigNumber;
+    let performanceFeePercentage: BigNumber = ZERO;
+    let skipMockModuleInitialization: boolean = false;
 
     let subjectSetToken: Address;
     let subjectCaller: Account;
-    let subjectAmount: BigNumber;
+    let subjectNotionalFunding: BigNumber;
     let subjectTrackSettledFunding: boolean;
-    let performanceFeePercentage: BigNumber;
 
     const initializeContracts = async () => {
       depositQuantity = usdcUnits(10);
-      performanceFeePercentage = ZERO;
-      setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized, 
+      // Issue 1 set
+      setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized,
         ether(1),
-        false,
+        skipMockModuleInitialization,
         {
           feeRecipient: owner.address,
           maxPerformanceFeePercentage: ether(.2),
           performanceFeePercentage
         }
       );
+      if (isInitialized) {
+        await perpBasisTradingModule.connect(owner.wallet).trade(
+          setToken.address,
+          vETH.address,
+          ether(1),
+          ether(10.15)
+        );
+        // Move index price up and wait one day to accrue positive funding
+        await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11.5));
+        await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+      }
     };
 
     const initializeSubjectVariables = async () => {
       subjectSetToken = setToken.address;
       subjectCaller = owner;
-      subjectAmount = usdcUnits(0.1);
+      subjectNotionalFunding = usdcUnits(0.1);
       subjectTrackSettledFunding = true;
-
-      await perpBasisTradingModule.connect(owner.wallet).trade(
-        setToken.address,
-        vETH.address,
-        ether(1),
-        ether(10.15)
-      );
-
-      // Move index price up and wait one day
-      await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
-      await increaseTimeAsync(ONE_DAY_IN_SECONDS);
     };
 
     cacheBeforeEach(initializeContracts);
@@ -731,40 +691,39 @@ describe("PerpV2BasisTradingModule", () => {
     async function subject(): Promise<any> {
       return await perpBasisTradingModule.connect(subjectCaller.wallet).withdrawFundingAndAccrueFees(
         subjectSetToken,
-        subjectAmount,
+        subjectNotionalFunding,
         subjectTrackSettledFunding
       );
     }
 
     it("should update tracked settled funding", async () => {
       const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-      // const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-      // const [owedRealizedPnlBefore, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+      const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
 
       await subject();
 
       const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-      // const [owedRealizedPnlAfter, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
-      // const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
-      
+
       // Can't rely on owedReazliedPnl because that is settled to collateral and reset to zero.
-      const netFundingGrowth = await getNetFundingGrowth(vETH.address, ether(1), perpSetup);
-      
+      const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
+
       expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(netFundingGrowth).sub(ether(0.1)));
     });
 
     it("should update default position unit", async () => {
       const usdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
       const totalSupply = await setToken.totalSupply();
-      const usdcBalance = preciseMul(usdcDefaultPositionUnit, totalSupply);
-      
-      
+      const usdcBalanceBefore = preciseMul(usdcDefaultPositionUnit, totalSupply);
+
       await subject();
-      
-      const expectedUsdcDefaultPositionUnit = preciseDiv(usdcBalance.add(usdcUnits(0.1)), totalSupply);
+
+      const expectedUsdcDefaultPositionUnit = preciseDiv(
+        usdcBalanceBefore.add(subjectNotionalFunding),
+        totalSupply
+      );
       const newUsdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-      
-      expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit); 
+
+      expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit);
     });
 
     it("should emit FundingWithdrawn event", async () => {
@@ -773,50 +732,74 @@ describe("PerpV2BasisTradingModule", () => {
         usdc.address,
         usdcUnits(0.1),
         ZERO,
-        ZERO    
+        ZERO
       );
+    });
+
+    // Hint: might be due to missing modifiers. Do we even need this particular test?
+    describe.skip("when track settled funding is false", async () => {
+      beforeEach(async () => {
+        subjectTrackSettledFunding = false;
+        subjectNotionalFunding = usdcUnits(0.01);
+      });
+
+      it("should update tracked settled funding", async () => {
+        const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+
+        await subject();
+
+        const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
+        expect(settledFundingAfter).to.be.eq(settledFundingBefore.sub(ether(0.01)));
+      });
+    });
+
+    describe.skip("when amount is greater than track settled funding", async () => {
+      beforeEach(async () => {
+        const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
+        subjectNotionalFunding = trackedSettledFunding.mul(10);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Withdraw amount too high");
+      });
+    });
+
+    describe("when the caller is not the SetToken manager", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      });
     });
 
     describe("when manager performance fee is non-zero", async () => {
 
-      before(async () => {
-        performanceFeePercentage = ether(.1); // 10%
-      });
-
       cacheBeforeEach(async () => {
-        depositQuantity = usdcUnits(10);
-        performanceFeePercentage = ZERO;
-        setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized, 
-          ether(1),
-          true,
-          {
-            feeRecipient: owner.address,
-            maxPerformanceFeePercentage: ether(.2),
-            performanceFeePercentage
-          }
-        );
+        performanceFeePercentage = ether(.1); // 10%
+        skipMockModuleInitialization = true;
+        await initializeContracts();
       });
       beforeEach(initializeSubjectVariables);
-  
+
       it("should update default position unit", async () => {
         const usdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
         const totalSupply = await setToken.totalSupply();
-        const usdcBalance = preciseMul(usdcDefaultPositionUnit, totalSupply);
-        console.log(usdcBalance.toString());
-        
-        await subject();
-        const usdcBAlanceAfter = await usdc.balanceOf(setToken.address);
-        console.log(usdcBAlanceAfter.toString());
+        const usdcBalanceBefore = preciseMul(usdcDefaultPositionUnit, totalSupply);
         const managerFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
         const expectedUsdcDefaultPositionUnit = preciseDiv(
-          usdcBalance.add(usdcUnits(0.1)).sub(managerFees),
+          usdcBalanceBefore.add(usdcUnits(0.1)).sub(managerFees),
           totalSupply
         );
+
+        await subject();
+
         const newUsdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-        console.log(newUsdcDefaultPositionUnit.toString());
-        expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit); 
+
+        expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit);
       });
-  
+
       it("should emit FundingWithdrawn event", async () => {
         const managerFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
         await expect(subject()).to.emit(perpBasisTradingModule, "FundingWithdrawn").withArgs(
@@ -829,40 +812,39 @@ describe("PerpV2BasisTradingModule", () => {
       });
     });
 
-    describe.skip("when manager and protocol performance fees are non-zero", async () => {
+    describe("when manager and protocol performance fees are non-zero", async () => {
       let protocolFeePercentage: BigNumber;
-      before(async () => {
-        performanceFeePercentage = ether(.1); // 10%
+
+      cacheBeforeEach(async () => {
         protocolFeePercentage = ether(0.05); // 5%
+        await setup.controller.addFee(perpBasisTradingModule.address, ONE, protocolFeePercentage);
+
+        performanceFeePercentage = ether(.1); // 10%
+        skipMockModuleInitialization = true;
+
+        await initializeContracts();
       });
 
-      cacheBeforeEach(initializeContracts);
-      beforeEach(async () => {
-        await initializeSubjectVariables();
-        console.log(setup.controller.address);
-        await setup.controller.addFee(perpBasisTradingModule.address, ONE, protocolFeePercentage);
-      });
+      beforeEach(initializeSubjectVariables);
 
       it("should update default position unit", async () => {
         const usdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
         const totalSupply = await setToken.totalSupply();
         const usdcBalance = preciseMul(usdcDefaultPositionUnit, totalSupply);
-        console.log(usdcBalance.toString());
-        
-        await subject();
-        const usdcBAlanceAfter = await usdc.balanceOf(setToken.address);
-        console.log(usdcBAlanceAfter.toString());
         const managerFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
         const protocolFees = preciseMul(usdcUnits(0.1), protocolFeePercentage);
         const expectedUsdcDefaultPositionUnit = preciseDiv(
           usdcBalance.add(usdcUnits(0.1)).sub(managerFees).sub(protocolFees),
           totalSupply
         );
+
+        await subject();
+
         const newUsdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-        console.log(newUsdcDefaultPositionUnit.toString());
-        expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit); 
+
+        expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit);
       });
-  
+
       it("should emit FundingWithdrawn event", async () => {
         const managerFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
         const protocolFees = preciseMul(usdcUnits(0.1), protocolFeePercentage);
@@ -873,40 +855,6 @@ describe("PerpV2BasisTradingModule", () => {
           managerFees,
           protocolFees
         );
-      });
-    });
-
-    describe.skip("when track settled funding is false", async () => {
-      it("should update track settled funding", async () => {
-        it("should update tracked settled funding", async () => {
-          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-        
-          await subject();
-    
-          const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-          expect(settledFundingAfter).to.be.eq(settledFundingBefore.sub(ether(0.1)));
-        });
-      });  
-    });
-
-    describe("when amount is greater than track settled funding", async () => {
-      beforeEach(async () => {
-        const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
-        subjectAmount = trackedSettledFunding.add(ONE);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Withdraw amount too high");
-      })
-    });
-
-    describe("when the caller is not the SetToken manager", async () => {
-      beforeEach(async () => {
-        subjectCaller = await getRandomAccount();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
       });
     });
 
@@ -927,7 +875,7 @@ describe("PerpV2BasisTradingModule", () => {
       });
     });
 
-    describe.skip("when module is not initialized", async () => {
+    describe("when module is not initialized", async () => {
       beforeEach(async () => {
         isInitialized = false;
         await initializeContracts();
@@ -945,24 +893,8 @@ describe("PerpV2BasisTradingModule", () => {
     let subjectModule: Address;
 
     cacheBeforeEach(async () => {
-      setToken = await setup.createSetToken(
-        [usdc.address],
-        [ether(100)],
-        [perpBasisTradingModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
-      );
-      await debtIssuanceMock.initialize(setToken.address);
-      // Add SetToken to allow list
-      await perpBasisTradingModule.updateAllowedSetToken(setToken.address, true);
-      await perpBasisTradingModule["initialize(address,(address,uint256,uint256))"](setToken.address, {
-        feeRecipient: owner.address,
-        maxPerformanceFeePercentage: ether(.2),
-        performanceFeePercentage: ether(.1)
-      });
-      await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
-
-      // Approve tokens to issuance module and call issue
-      await usdc.approve(setup.issuanceModule.address, ether(100));
-      await setup.issuanceModule.issue(setToken.address, ether(1), owner.address);
+      // Note: solved `function call to a non-contract account`
+      setToken = await issueSetsAndDepositToPerp(ZERO, true, ether(1), true);
     });
 
     beforeEach(() => {
@@ -976,24 +908,36 @@ describe("PerpV2BasisTradingModule", () => {
     it("should delete the fee settings", async () => {
       await subject();
       const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
-      
+
       expect(feeSettings.feeRecipient).to.eq(ADDRESS_ZERO);
       expect(feeSettings.maxPerformanceFeePercentage).to.eq(ZERO);
       expect(feeSettings.performanceFeePercentage).to.eq(ZERO);
     });
-    
+
     it("should set settled funding to zero", async () => {
       await subject();
-      
+
       const settledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
-      
+
       expect(settledFunding).to.eq(ZERO);
+    });
+
+    it("should remove the Module on the SetToken", async () => {
+      await subject();
+      const isModuleEnabled = await setToken.isInitializedModule(perpBasisTradingModule.address);
+      expect(isModuleEnabled).to.be.false;
+    });
+
+    it("should unregister on the debt issuance module", async () => {
+      await subject();
+      const isRegistered = await debtIssuanceMock.isRegistered(setToken.address);
+      expect(isRegistered).to.be.false;
     });
   });
 
   describe("#moduleIssueHook", () => {
     let setToken: SetToken;
-    let isInitialized: boolean = true;
+    const isInitialized: boolean = true;
     let depositQuantity: BigNumber;
 
     let subjectSetToken: Address;
@@ -1003,19 +947,20 @@ describe("PerpV2BasisTradingModule", () => {
     const initializeContracts = async () => {
       depositQuantity = usdcUnits(10);
       setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
+      if (isInitialized) {
+        await perpBasisTradingModule.connect(owner.wallet).trade(
+          setToken.address,
+          vETH.address,
+          ether(1),
+          ether(10.15)
+        );
+      }
     };
 
     const initializeSubjectVariables = async () => {
       subjectSetToken = setToken.address;
       subjectCaller = mockModule;
       subjectSetQuantity = ether(1);
-
-      await perpBasisTradingModule.connect(owner.wallet).trade(
-        setToken.address,
-        vETH.address,
-        ether(1),
-        ether(10.15)
-      );
     };
 
     cacheBeforeEach(initializeContracts);
@@ -1038,16 +983,14 @@ describe("PerpV2BasisTradingModule", () => {
 
         it("should update tracked settled funding", async () => {
           const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-          const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-          const [owedRealizedPnlBefore, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+          const [owedRealizedPnlBefore ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
 
           await subject();
 
           const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-          const [owedRealizedPnlAfter, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+          const [owedRealizedPnlAfter ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
           const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
 
-          expect(settledFundingAfter).to.be.gt(settledFundingBefore.add(pendingFundingBefore));
           expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
         });
 
@@ -1061,17 +1004,15 @@ describe("PerpV2BasisTradingModule", () => {
       describe("when pending funding payment is negative", async () => {
         describe("when absolute settled funding is less than absolute negative funding", async () => {
           beforeEach(async () => {
-            // set funding rate to non-zero value
-            await perpSetup.clearingHouseConfig.setMaxFundingRate(usdcUnits(0.1));       // 10% in 6 decimals
             // Move oracle price down and wait one day
             await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
             await increaseTimeAsync(ONE_DAY_IN_SECONDS);
           });
-          
+
           it("verify testing conditions", async () => {
             const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
             const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-            
+
             expect(pendingFundingBefore.abs()).to.be.gt(settledFundingBefore);
           });
 
@@ -1090,43 +1031,42 @@ describe("PerpV2BasisTradingModule", () => {
           });
         });
 
-        describe.skip("when absolute settled funding is greater then absolute negative pending funding", async () => {
+        describe("when absolute settled funding is greater then absolute negative pending funding", async () => {
           beforeEach(async () => {
-            // Move oracle price down and wait one day
+            // Move oracle price up and wait one day
             await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
             await increaseTimeAsync(ONE_DAY_IN_SECONDS);
 
-            await perpBasisTradingModule.connect(subjectCaller.wallet).tradeAndTrackFunding(
+            // Accrue pending funding to tracked settled funding
+            await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
               setToken.address,
               vETH.address,
               ether(1),
-              ether(10.15),
-              true
+              ether(10.15)
             );
-            
+
+            // Move oracle price down and wait one day
             await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.8));
             await increaseTimeAsync(ONE_DAY_IN_SECONDS);
           });
-          
+
           it("verify testing conditions", async () => {
             const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
             const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-            
+
             expect(settledFundingBefore.abs()).to.be.gt(pendingFundingBefore.abs());
           });
 
           it("should update tracked settled funding", async () => {
             const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-            const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-            const [owedRealizedPnlBefore, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+            const [owedRealizedPnlBefore ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
 
             await subject();
 
             const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-            const [owedRealizedPnlAfter, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
+            const [owedRealizedPnlAfter ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
             const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
-            
-            expect(settledFundingAfter).to.be.lt(settledFundingBefore.sub(pendingFundingBefore));
+
             expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
           });
 
@@ -1149,242 +1089,24 @@ describe("PerpV2BasisTradingModule", () => {
       });
     });
 
-    describe("when SetToken is not valid", async () => {
+    describe("if disabled module is caller", async () => {
       beforeEach(async () => {
-        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [perpSetup.usdc.address],
-          [usdcUnits(100)],
-          [perpBasisTradingModule.address],
-          owner.address
-        );
-
-        subjectSetToken = nonEnabledSetToken.address;
+        await setup.controller.removeModule(mockModule.address);
       });
 
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-
-    describe.skip("when module is not initialized", async () => {
-      beforeEach(async () => {
-        isInitialized = false;
-        await initializeContracts();
-        await initializeSubjectVariables();
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-  });
-
-  describe("#updateFeeRecipient", async () => {
-    let setToken: SetToken;
-    let isInitialized: boolean;
-
-    let subjectSetToken: Address;
-    let subjectNewFeeRecipient: Address;
-    let subjectCaller: Account;
-    let depositQuantity: BigNumber;
-    let newFeeRecipient: Address;
-
-    before(async () => {
-      isInitialized = true;
-      newFeeRecipient = await getRandomAddress();
-    });
-
-    const initializeContracts = async () => {
-      depositQuantity = usdcUnits(10);
-      setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
-    };
-
-    const initializeSubjectVariables = async () => {
-      subjectSetToken = setToken.address;
-      subjectCaller = owner;
-      subjectNewFeeRecipient = newFeeRecipient;
-    };
-    
-    cacheBeforeEach(initializeContracts);
-    beforeEach(initializeSubjectVariables);
-
-    async function subject(): Promise<any> {
-      return perpBasisTradingModule.connect(subjectCaller.wallet).updateFeeRecipient(subjectSetToken, subjectNewFeeRecipient);
-    }
-
-    it("should change the fee recipient to the new address", async () => {
-      await subject();
-
-      const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
-      expect(feeSettings.feeRecipient).to.eq(subjectNewFeeRecipient);
-    });
-
-    it("should emit the correct FeeRecipientUpdated event", async () => {
-      await expect(subject()).to.emit(perpBasisTradingModule, "FeeRecipientUpdated").withArgs(
-        subjectSetToken,
-        subjectNewFeeRecipient
-      );
-    });
-
-    describe("when passed address is zero", async () => {
-      beforeEach(async () => {
-        subjectNewFeeRecipient = ADDRESS_ZERO;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Fee Recipient must be non-zero address");
-      });
-    });
-
-    describe.skip("when module is not initialized", async () => {
-      before(async () => {
-        isInitialized = false;
-      });
-
-      after(async () => {
-        isInitialized = true;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-
-    describe("when SetToken is not valid", async () => {
-      beforeEach(async () => {
-        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
-          [ether(1)],
-          [perpBasisTradingModule.address]
-        );
-
-        subjectSetToken = nonEnabledSetToken.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-  });
-
-  describe("#updatePerformanceFee", async () => {
-    let performanceFee: BigNumber;
-    let setToken: SetToken;
-    let depositQuantity: BigNumber;
-    let isInitialized: boolean;
-
-    let subjectSetToken: Address;
-    let subjectCaller: Account;
-    let subjectNewFee: BigNumber;
-
-    before(async () => {
-      isInitialized = true;
-      performanceFee = ether(.12); // 12%
-    });
-
-    const initializeContracts = async () => {
-      depositQuantity = usdcUnits(10);
-      setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
-    };
-
-    const initializeSubjectVariables = async () => {
-      subjectSetToken = setToken.address;
-      subjectCaller = owner;
-      subjectNewFee = performanceFee;
-    };
-    
-    cacheBeforeEach(initializeContracts);
-    beforeEach(initializeSubjectVariables);
-
-    async function subject(): Promise<any> {
-      return perpBasisTradingModule.connect(subjectCaller.wallet).updatePerformanceFee(subjectSetToken, subjectNewFee);
-    }
-
-    it("should set the new fee", async () => {
-      await subject();
-
-      const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
-      expect(feeSettings.performanceFeePercentage).to.eq(subjectNewFee);
-    });
-
-    it("should emit the correct PerformanceFeeUpdated event", async () => {
-      await expect(subject()).to.emit(perpBasisTradingModule, "PerformanceFeeUpdated").withArgs(
-        subjectSetToken,
-        subjectNewFee
-      );
-    });
-
-    describe("when settled funding is not zero", async () => {
-      beforeEach(async () => {
-        await perpBasisTradingModule.connect(owner.wallet).trade(
-          setToken.address,
-          vETH.address,
-          ether(1),
-          ether(10.15)
-        );  
-        await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
-        await increaseTimeAsync(ONE_DAY_IN_SECONDS);
-        await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
-          setToken.address,
-          vETH.address,
-          ether(1),
-          ether(10.15),
-          true
-        );  
-      });
-      
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Non-zero settled funding remains");
-      });
-    });
-
-    describe("when new fee exceeds max performance fee", async () => {
-      beforeEach(async () => {
-        subjectNewFee = ether(.21);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Fee must be less than max");
-      });
-    });
-
-    describe.skip("when module is not initialized", async () => {
-      before(async () => {
-        isInitialized = false;
-      });
-
-      after(async () => {
-        isInitialized = true;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-      });
-    });
-
-    describe("when SetToken is not valid", async () => {
-      beforeEach(async () => {
-        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
-          [setup.weth.address],
-          [ether(1)],
-          [perpBasisTradingModule.address]
-        );
-
-        subjectSetToken = nonEnabledSetToken.address;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
       });
     });
   });
 
   describe("#moduleRedeemHook", () => {
     let setToken: SetToken;
-    let collateralQuantity: BigNumber;
     let subjectSetToken: Address;
     let subjectSetQuantity: BigNumber;
     let subjectCaller: Account;
+
+    let collateralQuantity: BigNumber;
 
     // Start with initial total supply (2)
     const initializeContracts = async () => {
@@ -1407,8 +1129,7 @@ describe("PerpV2BasisTradingModule", () => {
         .moduleRedeemHook(subjectSetToken, subjectSetQuantity);
     }
 
-    // WIP
-    describe.skip("when tracked settled funding is greater than zero", async () => {
+    describe("when tracked settled funding is greater than zero", async () => {
       beforeEach(async () => {
         await perpBasisTradingModule.connect(owner.wallet).trade(
           setToken.address,
@@ -1417,108 +1138,55 @@ describe("PerpV2BasisTradingModule", () => {
           ether(10.15)
         );
 
-        // Move oracle price down and wait one day
+        // Move oracle price up and wait one day to accrue positive funding
         await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
         await increaseTimeAsync(ONE_DAY_IN_SECONDS);
       });
 
       it("should update tracked settled funding", async () => {
         const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-        const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
-        const [owedRealizedPnlBefore, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
-        
+        const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+
         await subject();
 
         const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-        const [owedRealizedPnlAfter, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
-        const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
-        // can't use owed realized pnl because it also contains realized pnl
-        const netFundingGrowth = await getNetFundingGrowth(vETH.address, ether(1), perpSetup);
-        console.log(netFundingGrowth.toString());
 
-        const takerOpenNotional = await perpSetup.accountBalance.getTakerOpenNotional(setToken.address, vETH.address);
-        const swapOutput = await perpSetup.quoter.callStatic.swap(
-          {
-           baseToken: vETH.address,
-           isBaseToQuote: true,
-           isExactInput: true,
-           amount: ether(.5),
-           sqrtPriceLimitX96: ZERO
-          }
-        );
-        
-        const reducedOpenNotional = takerOpenNotional.div(TWO);
-        const pnlToBeRealized = swapOutput.deltaAvailableQuote.add(reducedOpenNotional);
-        console.log(pnlToBeRealized.toString())
+        // Can't rely on owed realized pnl because realized Pnl upon closing positions is also settled to it.
+        const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
 
-        // uint256 closedRatio = FullMath.mulDiv(params.base.abs(), _FULLY_CLOSED_RATIO, params.takerPositionSize.abs());
-
-        // int256 pnlToBeRealized;
-        // // if closedRatio <= 1, it's reducing or closing a position; else, it's opening a larger reverse position
-        // if (closedRatio <= _FULLY_CLOSED_RATIO) {
-        //     // https://docs.google.com/spreadsheets/d/1QwN_UZOiASv3dPBP7bNVdLR_GTaZGUrHW3-29ttMbLs/edit#gid=148137350
-        //     // taker:
-        //     // step 1: long 20 base
-        //     // openNotionalFraction = 252.53
-        //     // openNotional = -252.53
-        //     // step 2: short 10 base (reduce half of the position)
-        //     // quote = 137.5
-        //     // closeRatio = 10/20 = 0.5
-        //     // reducedOpenNotional = openNotional * closedRatio = -252.53 * 0.5 = -126.265
-        //     // realizedPnl = quote + reducedOpenNotional = 137.5 + -126.265 = 11.235
-        //     // openNotionalFraction = openNotionalFraction - quote + realizedPnl
-        //     //                      = 252.53 - 137.5 + 11.235 = 126.265
-        //     // openNotional = -openNotionalFraction = 126.265
-
-        //     // overflow inspection:
-        //     // max closedRatio = 1e18; range of oldOpenNotional = (-2 ^ 255, 2 ^ 255)
-        //     // only overflow when oldOpenNotional < -2 ^ 255 / 1e18 or oldOpenNotional > 2 ^ 255 / 1e18
-        //     int256 reducedOpenNotional = params.takerOpenNotional.mulDiv(closedRatio.toInt256(), _FULLY_CLOSED_RATIO);
-        //     pnlToBeRealized = params.quote.add(reducedOpenNotional);
-
-        expect(settledFundingAfter).to.be.gt(settledFundingBefore.add(pendingFundingBefore));
-        expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
+        expect(settledFundingAfter).to.be.closeTo(settledFundingBefore.add(netFundingGrowth), 1);
       });
 
       it("should set the expected USDC externalPositionUnit", async () => {
+        const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
         const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
           setToken,
           subjectSetQuantity,
           perpBasisTradingModule,
           perpSetup
         );
+        const totalSupplyBeforeRedeem = await setToken.totalSupply();
         const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-        const [owedRealizedPnlBefore, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
         const performanceFeePercentage = (await perpBasisTradingModule.feeStates(subjectSetToken)).performanceFeePercentage;
 
         await subject();
-        
-        const [owedRealizedPnlAfter, ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken);
-        const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
-        
+
+        const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
         const performanceFeeUnit = toUSDCDecimals(
           preciseMul(
-            preciseDivCeil(settledFundingBefore.add(exactPendingFunding), subjectSetQuantity),
+            preciseDivCeil(settledFundingBefore.add(netFundingGrowth), totalSupplyBeforeRedeem),
             performanceFeePercentage
           )
         );
-        console.log(settledFundingBefore.toString())
-        console.log(settledFundingBefore.add(exactPendingFunding).toString());
-        console.log(performanceFeePercentage.toString());
-        console.log(performanceFeeUnit.toString());
-
         const expectedExternalPositionUnit = toUSDCDecimals(
           preciseDiv(usdcTransferOutQuantity, subjectSetQuantity)
         );
-        console.log(expectedExternalPositionUnit.toString());
-        console.log(expectedExternalPositionUnit.sub(performanceFeeUnit).toString());
-
         const externalPositionUnit = await setToken.getExternalPositionRealUnit(
           usdc.address,
           perpBasisTradingModule.address
         );
 
-        expect(externalPositionUnit).to.eq(expectedExternalPositionUnit.sub(performanceFeeUnit));
+        expect(externalPositionUnit).to.closeTo(expectedExternalPositionUnit.sub(performanceFeeUnit), 100);
       });
 
     });
@@ -1535,7 +1203,7 @@ describe("PerpV2BasisTradingModule", () => {
         );
 
         // Move oracle price down and wait one day
-        await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+        await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
         await increaseTimeAsync(ONE_DAY_IN_SECONDS);
       });
 
@@ -1579,7 +1247,7 @@ describe("PerpV2BasisTradingModule", () => {
           {
             feeRecipient: owner.address,
             maxPerformanceFeePercentage: ether(.2),
-            performanceFeePercentage: ether(.1)    
+            performanceFeePercentage: ether(.1)
           }
         );
 
@@ -1619,7 +1287,7 @@ describe("PerpV2BasisTradingModule", () => {
           {
             feeRecipient: owner.address,
             maxPerformanceFeePercentage: ether(.2),
-            performanceFeePercentage: ether(.1)    
+            performanceFeePercentage: ether(.1)
           }
         );
 
@@ -1667,6 +1335,201 @@ describe("PerpV2BasisTradingModule", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+      });
+    });
+  });
+
+  describe("#updateFeeRecipient", async () => {
+    let setToken: SetToken;
+    let isInitialized: boolean;
+
+    let subjectSetToken: Address;
+    let subjectNewFeeRecipient: Address;
+    let subjectCaller: Account;
+    let depositQuantity: BigNumber;
+    let newFeeRecipient: Address;
+
+    before(async () => {
+      isInitialized = true;
+      newFeeRecipient = await getRandomAddress();
+    });
+
+    const initializeContracts = async () => {
+      depositQuantity = usdcUnits(10);
+      setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
+    };
+
+    const initializeSubjectVariables = async () => {
+      subjectSetToken = setToken.address;
+      subjectCaller = owner;
+      subjectNewFeeRecipient = newFeeRecipient;
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return perpBasisTradingModule.connect(subjectCaller.wallet).updateFeeRecipient(subjectSetToken, subjectNewFeeRecipient);
+    }
+
+    it("should change the fee recipient to the new address", async () => {
+      await subject();
+
+      const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
+      expect(feeSettings.feeRecipient).to.eq(subjectNewFeeRecipient);
+    });
+
+    it("should emit the correct FeeRecipientUpdated event", async () => {
+      await expect(subject()).to.emit(perpBasisTradingModule, "FeeRecipientUpdated").withArgs(
+        subjectSetToken,
+        subjectNewFeeRecipient
+      );
+    });
+
+    describe("when passed address is zero", async () => {
+      beforeEach(async () => {
+        subjectNewFeeRecipient = ADDRESS_ZERO;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Fee Recipient must be non-zero address");
+      });
+    });
+
+    describe("when SetToken is not valid", async () => {
+      beforeEach(async () => {
+        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+          [setup.weth.address],
+          [ether(1)],
+          [perpBasisTradingModule.address]
+        );
+
+        subjectSetToken = nonEnabledSetToken.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        await initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+  });
+
+  describe("#updatePerformanceFee", async () => {
+    let performanceFee: BigNumber;
+    let setToken: SetToken;
+    let depositQuantity: BigNumber;
+    let isInitialized: boolean;
+
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+    let subjectNewFee: BigNumber;
+
+    before(async () => {
+      isInitialized = true;
+      performanceFee = ether(.12); // 12%
+    });
+
+    const initializeContracts = async () => {
+      depositQuantity = usdcUnits(10);
+      setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized);
+    };
+
+    const initializeSubjectVariables = async () => {
+      subjectSetToken = setToken.address;
+      subjectCaller = owner;
+      subjectNewFee = performanceFee;
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return perpBasisTradingModule.connect(subjectCaller.wallet).updatePerformanceFee(subjectSetToken, subjectNewFee);
+    }
+
+    it("should set the new fee", async () => {
+      await subject();
+
+      const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
+      expect(feeSettings.performanceFeePercentage).to.eq(subjectNewFee);
+    });
+
+    it("should emit the correct PerformanceFeeUpdated event", async () => {
+      await expect(subject()).to.emit(perpBasisTradingModule, "PerformanceFeeUpdated").withArgs(
+        subjectSetToken,
+        subjectNewFee
+      );
+    });
+
+    describe("when settled funding is not zero", async () => {
+      beforeEach(async () => {
+        await perpBasisTradingModule.connect(owner.wallet).trade(
+          setToken.address,
+          vETH.address,
+          ether(1),
+          ether(10.15)
+        );
+        await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+        await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
+          setToken.address,
+          vETH.address,
+          ether(1),
+          ether(10.15)
+        );
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Non-zero settled funding remains");
+      });
+    });
+
+    describe("when new fee exceeds max performance fee", async () => {
+      beforeEach(async () => {
+        subjectNewFee = ether(.21);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Fee must be less than max");
+      });
+    });
+
+    describe("when SetToken is not valid", async () => {
+      beforeEach(async () => {
+        const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
+          [setup.weth.address],
+          [ether(1)],
+          [perpBasisTradingModule.address]
+        );
+
+        subjectSetToken = nonEnabledSetToken.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        await initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
       });
     });
   });
