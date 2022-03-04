@@ -52,7 +52,7 @@ interface FeeSettings {
 }
 
 // TODO:
-// 1. Add tests for getRedemptionAdjustments
+// 1. Fix getRedemptionAdjustments tests
 // 2. Remove closeTo in moduleRedeemHook test
 
 describe("PerpV2BasisTradingModule", () => {
@@ -1335,6 +1335,193 @@ describe("PerpV2BasisTradingModule", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+      });
+    });
+  });
+
+  describe("#getRedemptionAdjustments", () => {
+    let setToken: SetToken;
+    let collateralQuantity: BigNumber;
+    let subjectSetToken: Address;
+    let subjectSetQuantity: BigNumber;
+    let subjectCaller: Account;
+
+    let maxFundingRate: BigNumber = ZERO;
+    const initializeContracts = async () => {
+      collateralQuantity = usdcUnits(10);
+      setToken = await issueSetsAndDepositToPerp(collateralQuantity);
+    };
+
+    const initializeSubjectVariables = async () => {
+      await perpSetup.clearingHouseConfig.setMaxFundingRate(maxFundingRate);       // In 6 decimals
+
+      subjectSetToken = setToken.address;
+      subjectCaller = mockModule;
+      subjectSetQuantity = ether(1);
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<any> {
+      return await perpBasisTradingModule
+        .connect(subjectCaller.wallet)
+        .callStatic
+        .getRedemptionAdjustments(subjectSetToken, subjectSetQuantity);
+    }
+
+    describe("when long", async () => {
+      let baseToken: Address;
+      
+      // Set up as 2X Long, allow 2% slippage
+      cacheBeforeEach(async () => {
+        baseToken = vETH.address;
+        await perpBasisTradingModule.connect(owner.wallet).trade(
+          setToken.address,
+          vETH.address,
+          ether(1),
+          ether(10.15)
+        );
+      });
+
+      describe("when redeeming a single set", async () => {
+        it("should *not* alter the vBase balance", async () => {
+          const initialBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          await subject();
+          const finalBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+
+          expect(initialBaseBalance).eq(finalBaseBalance);
+        });
+
+        it("should return adjustment arrays of the correct length with value in correct position", async () => {
+          const components = await setToken.getComponents();
+          const expectedAdjustmentsLength = components.length;
+
+          const adjustments = await subject();
+
+          const equityAdjustmentsLength = adjustments[0].length;
+          const debtAdjustmentsLength = adjustments[1].length;
+          const wbtcAdjustment = adjustments[0][0];
+          const usdcAdjustment = adjustments[0][1];
+
+          expect(equityAdjustmentsLength).eq(expectedAdjustmentsLength);
+          expect(debtAdjustmentsLength).eq(debtAdjustmentsLength);
+          expect(wbtcAdjustment).eq(ZERO);
+          expect(usdcAdjustment).lt(ZERO);
+        });
+
+        describe("when performance fee unit is zero", async () => {
+          it("should return the expected USDC adjustment unit", async () => {
+            const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+            const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
+              setToken,
+              subjectSetQuantity,
+              perpBasisTradingModule,
+              perpSetup
+            );
+  
+            const actualAdjustmentUnit = (await subject())[0][1];     // call subject
+  
+            const newExternalPositionUnit = toUSDCDecimals(preciseDiv(usdcTransferOutQuantity, subjectSetQuantity));
+            const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
+  
+            expect(actualAdjustmentUnit).to.be.eq(expectedAdjustmentUnit);
+          });  
+        });
+
+        describe("when performance fee unit is greater than zero", async () => {
+          beforeEach(async () => {
+            maxFundingRate = usdcUnits(0.1);
+            await initializeSubjectVariables();
+
+            // Move oracle price up and wait one day to accrue positive funding
+            await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+            await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+            await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
+              setToken.address,
+              vETH.address,
+              ether(1),
+              ether(10.15)
+            );
+          });
+
+          it.skip("should return the expected USDC adjustment unit", async () => {
+            const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+            const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+            const totalSupply = await setToken.totalSupply();
+            const performanceFeePercentage = (await perpBasisTradingModule.feeStates(subjectSetToken)).performanceFeePercentage;
+            const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+            const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
+              setToken,
+              subjectSetQuantity,
+              perpBasisTradingModule,
+              perpSetup
+            );
+  
+            const actualAdjustmentUnit = (await subject())[0][1];     // call subject
+
+            const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
+            const performanceFeeUnit = toUSDCDecimals(
+              preciseMul(
+                preciseDivCeil(settledFundingBefore.add(netFundingGrowth), totalSupply),
+                performanceFeePercentage
+              )
+            );
+            const newExternalPositionUnit = toUSDCDecimals(
+              preciseDiv(usdcTransferOutQuantity, subjectSetQuantity)
+            ).sub(performanceFeeUnit);
+
+            const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
+  
+            expect(actualAdjustmentUnit).to.be.eq(expectedAdjustmentUnit);
+          });  
+        });
+
+        describe("when the set token doesn't contain the collateral token", async () => {
+          let otherSetToken: SetToken;
+
+          beforeEach(async () => {
+            otherSetToken = await setup.createSetToken(
+              [setup.wbtc.address],
+              [bitcoin(10)],
+              [perpBasisTradingModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+            );
+            await debtIssuanceMock.initialize(otherSetToken.address);
+            await perpBasisTradingModule.updateAllowedSetToken(otherSetToken.address, true);
+            await perpBasisTradingModule.connect(owner.wallet)["initialize(address,(address,uint256,uint256))"](
+              otherSetToken.address, 
+              {
+                feeRecipient: owner.address,
+                maxPerformanceFeePercentage: ether(.2),
+                performanceFeePercentage: ether(.1)
+              }
+            );
+
+            subjectSetToken = otherSetToken.address;
+          });
+
+          it("should return empty arrays", async () => {
+            const components = await otherSetToken.getComponents();
+            const adjustments = await subject();
+
+            const expectedAdjustmentsLength = 2;
+            const expectedAdjustmentValue = ZERO;
+            const expectedAdjustmentsArrayLength = components.length;
+
+            expect(adjustments.length).eq(expectedAdjustmentsLength);
+            expect(adjustments[0].length).eq(expectedAdjustmentsArrayLength);
+            expect(adjustments[1].length).eq(expectedAdjustmentsArrayLength);
+
+            for (const adjustment of adjustments[0]) {
+              expect(adjustment).eq(expectedAdjustmentValue);
+            }
+
+            for (const adjustment of adjustments[1]) {
+              expect(adjustment).eq(expectedAdjustmentValue);
+            }
+          });
+        });
       });
     });
   });
