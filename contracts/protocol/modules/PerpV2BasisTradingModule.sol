@@ -36,29 +36,30 @@ import "hardhat/console.sol";
 
 // TODO
 // 1. Add a settle funding helper function, that updates tracked settled funding can calls ClearingHouse.settleAllFunding()?
+// 2. We have to chose between
+//    a. Duplicating modifiers logic on the overriden function (prefer this)
+//    b. Functions failing with non-sensible message (need to dig further)
 
 /**
  * @title PerpV2BasisTradingModule
  * @author Set Protocol
  *
- * @notice Smart contract that extends functionality offered by PerpV2LeverageModule. It tracks funding that is settled due to actions 
- * on Perpetual protocol and allows tracked funding to be withdrawn by the manager. The manager can also collect performance fees on 
- * the withdrawn funding. 
+ * @notice Smart contract that extends functionality offered by PerpV2LeverageModule. It tracks funding that is settled due to 
+ * actions on Perpetual protocol and allows it to be withdrawn by the manager. The manager can also collect performance fees on 
+ * the withdrawn funding.
  *
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  */
 contract PerpV2BasisTradingModule is PerpV2LeverageModule {
 
-
     /* ============ Structs ============ */
 
     struct FeeState {
         address feeRecipient;                     // Address to accrue fees to
         uint256 maxPerformanceFeePercentage;      // Max performance fee manager commits to using (1% = 1e16, 100% = 1e18)
-        uint256 performanceFeePercentage;         // Percent of funding yield to manager (1% = 1e16, 100% = 1e18)
+        uint256 performanceFeePercentage;         // Performance fees accrued to manager (1% = 1e16, 100% = 1e18)
     }
-
 
     /* ============ Events ============ */
 
@@ -86,7 +87,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      */
     event FundingWithdrawn(
         ISetToken indexed  _setToken, 
-        IERC20 _collateralToken, 
+        IERC20 _collateralToken,
         uint256 _amountWithdrawn, 
         uint256 _managerFee, 
         uint256 _protocolFee
@@ -157,11 +158,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     }
 
     /**
-     * @dev MANAGER ONLY: Allows manager to buy or sell perps to change exposure to the underlying baseToken.
-     * Providing a positive value for `_baseQuantityUnits` buys vToken on UniswapV3 via Perp's ClearingHouse,
-     * Providing a negative value sells the token. `_quoteBoundQuantityUnits` defines a min-receive-like slippage
-     * bound for the amount of vUSDC quote asset the trade will either pay or receive as a result of the action.
-     * If `_trackSettledFunding` is true, pending funding that would be settled during opening a position on Perpetual
+     * @dev MANAGER ONLY: Similar to PerpV2LeverageModule#trade. Allows manager to buy or sell perps to change exposure 
+     * to the underlying baseToken. Any pending funding that would be settled during opening a position on Perpetual
      * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later by the 
      * SetToken manager.
      *
@@ -172,20 +170,18 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      * @param _baseToken                    Address virtual token being traded
      * @param _baseQuantityUnits            Quantity of virtual token to trade in position units
      * @param _quoteBoundQuantityUnits      Max/min of vQuote asset to pay/receive when buying or selling
-     * @param _trackSettledFunding          Updates tracked settled funding if true
      */
     function tradeAndTrackFunding(
         ISetToken _setToken,
         address _baseToken,
         int256 _baseQuantityUnits,
-        uint256 _quoteBoundQuantityUnits,
-        bool _trackSettledFunding
+        uint256 _quoteBoundQuantityUnits
     )
         external
         // nonReentrant     // fix this
     {
         // Track funding before it is settled
-        _updateSettledFunding(_setToken, _trackSettledFunding);
+        _updateSettledFunding(_setToken, true);
 
         // Trade using PerpV2LeverageModule#trade. Verifies caller is manager and Set is valid and initialized.
         trade(
@@ -197,25 +193,41 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
 
     }
 
+    /**
+     * @dev MANAGER ONLY: Withdraws tracked settled funding (in USDC) from the PerpV2 Vault to a default position
+     * on the SetToken. Collects manager and protocol performance fees on the withdrawn amount.
+     * This method is useful when withdrawing funding to be reinvested into the Basis Trading product.
+     *
+     * NOTE: Within PerpV2, `withdraw` settles `owedRealizedPnl` and any pending funding payments
+     * to the Perp vault prior to transfer.
+     *
+     * @param _setToken                 Instance of the SetToken
+     * @param _notionalFunding          Notional amount of funding to withdraw (in USDC decimals)
+     * @param _trackSettledFunding      Updates tracked settled funding, if true      
+     */
     function withdrawFundingAndAccrueFees(
         ISetToken _setToken,
-        uint256 _amount,
+        uint256 _notionalFunding,
         bool _trackSettledFunding
     )
         external
         nonReentrant
-        onlyManagerAndValidSet(_setToken)   
+        onlyManagerAndValidSet(_setToken)
     {
         _updateSettledFunding(_setToken, _trackSettledFunding);
         
-        require(_amount <= settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals), "Withdraw amount too high");
+        require(
+            _notionalFunding <= settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals),
+            "Withdraw amount too high"
+        );
 
         uint256 collateralBalanceBefore = collateralToken.balanceOf(address(_setToken));
 
-        _withdraw(_setToken, _amount);
+        _withdraw(_setToken, _notionalFunding);
 
-        (uint256 managerFee, uint256 protocolFee) = _handleFees(_setToken, _amount);
+        (uint256 managerFee, uint256 protocolFee) = _handleFees(_setToken, _notionalFunding);
         
+        // Update default position unit
         _setToken.calculateAndEditDefaultPosition(
             address(collateralToken),
             _setToken.totalSupply(),
@@ -223,9 +235,11 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         );
 
         // Update settled funding
-        settledFunding[_setToken] = settledFunding[_setToken].sub(_amount.toPreciseUnitsFromDecimals(collateralDecimals));
+        settledFunding[_setToken] = settledFunding[_setToken].sub(
+            _notionalFunding.toPreciseUnitsFromDecimals(collateralDecimals)
+        );
 
-        emit FundingWithdrawn(_setToken, collateralToken, _amount, managerFee, protocolFee);
+        emit FundingWithdrawn(_setToken, collateralToken, _notionalFunding, managerFee, protocolFee);
     }
 
     /**
@@ -463,16 +477,16 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
 
         if (performanceFee > 0) {
             managerFee = _amount.preciseMul(performanceFee);
-            protocolFee = getModuleFee(PROTOCOL_PERFORMANCE_FEE_INDEX, _amount);
-
             _setToken.strictInvokeTransfer(address(collateralToken), feeStates[_setToken].feeRecipient, managerFee);
-            
-            payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFee);
-
-            return (managerFee, protocolFee);
-        } else {
-            return (0, 0);
         }
+
+        protocolFee = getModuleFee(PROTOCOL_PERFORMANCE_FEE_INDEX, _amount);
+
+        if (protocolFee > 0) {
+            payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFee);
+        }
+
+        return (managerFee, protocolFee);
     }
 
     /**
