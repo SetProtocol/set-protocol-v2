@@ -451,7 +451,7 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
-  describe.only("#tradeAndTrackFunding", () => {
+  describe("#tradeAndTrackFunding", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
     let depositQuantity: BigNumber;
@@ -1371,11 +1371,8 @@ describe("PerpV2BasisTradingModule", () => {
     }
 
     describe("when long", async () => {
-      let baseToken: Address;
-      
       // Set up as 2X Long, allow 2% slippage
       cacheBeforeEach(async () => {
-        baseToken = vETH.address;
         await perpBasisTradingModule.connect(owner.wallet).trade(
           setToken.address,
           vETH.address,
@@ -1419,14 +1416,14 @@ describe("PerpV2BasisTradingModule", () => {
               perpBasisTradingModule,
               perpSetup
             );
-  
+
             const actualAdjustmentUnit = (await subject())[0][1];     // call subject
-  
+
             const newExternalPositionUnit = toUSDCDecimals(preciseDiv(usdcTransferOutQuantity, subjectSetQuantity));
             const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
-  
+
             expect(actualAdjustmentUnit).to.be.eq(expectedAdjustmentUnit);
-          });  
+          });
         });
 
         describe("when performance fee unit is greater than zero", async () => {
@@ -1458,7 +1455,7 @@ describe("PerpV2BasisTradingModule", () => {
               perpBasisTradingModule,
               perpSetup
             );
-  
+
             const actualAdjustmentUnit = (await subject())[0][1];     // call subject
 
             const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
@@ -1473,9 +1470,9 @@ describe("PerpV2BasisTradingModule", () => {
             ).sub(performanceFeeUnit);
 
             const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
-  
+
             expect(actualAdjustmentUnit).to.be.eq(expectedAdjustmentUnit);
-          });  
+          });
         });
 
         describe("when the set token doesn't contain the collateral token", async () => {
@@ -1490,7 +1487,7 @@ describe("PerpV2BasisTradingModule", () => {
             await debtIssuanceMock.initialize(otherSetToken.address);
             await perpBasisTradingModule.updateAllowedSetToken(otherSetToken.address, true);
             await perpBasisTradingModule.connect(owner.wallet)["initialize(address,(address,uint256,uint256))"](
-              otherSetToken.address, 
+              otherSetToken.address,
               {
                 feeRecipient: owner.address,
                 maxPerformanceFeePercentage: ether(.2),
