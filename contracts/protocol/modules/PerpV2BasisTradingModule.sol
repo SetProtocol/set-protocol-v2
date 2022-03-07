@@ -101,7 +101,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     /* ============ State Variables ============ */
 
     // Mapping to store fee settings for each SetToken
-    mapping(ISetToken => FeeState) public feeStates;
+    mapping(ISetToken => FeeState) public feeSettings;
 
     // Mapping to store funding that has been settled on Perpetual Protocol due to actions via this module for 
     // given SetToken
@@ -156,7 +156,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         // Verrifies caller is manager. Verifies Set is valid, allowed and in pending state.
         super.initialize(_setToken);
 
-        feeStates[_setToken] = _settings;
+        feeSettings[_setToken] = _settings;
     }
 
     /**
@@ -256,7 +256,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         ISetToken setToken = ISetToken(msg.sender);
         
         // Not charging any fees
-        delete feeStates[setToken];
+        delete feeSettings[setToken];
         delete settledFunding[setToken];
     }
 
@@ -347,12 +347,12 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         external
         onlyManagerAndValidSet(_setToken)
     {
-        require(_newFee < _maxPerformanceFeePercentage(_setToken), "Fee must be less than max");
+        require(_newFee < feeSettings[_setToken].maxPerformanceFeePercentage, "Fee must be less than max");
         
         // todo: call updateSettledFunding here?
         require(settledFunding[_setToken] == 0, "Non-zero settled funding remains");
 
-        feeStates[_setToken].performanceFeePercentage = _newFee;
+        feeSettings[_setToken].performanceFeePercentage = _newFee;
 
         emit PerformanceFeeUpdated(_setToken, _newFee);
     }
@@ -369,7 +369,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     {
         require(_newFeeRecipient != address(0), "Fee Recipient must be non-zero address");
 
-        feeStates[_setToken].feeRecipient = _newFeeRecipient;
+        feeSettings[_setToken].feeRecipient = _newFeeRecipient;
 
         emit FeeRecipientUpdated(_setToken, _newFeeRecipient);
     }
@@ -472,16 +472,16 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         internal
         returns (uint256 managerFee, uint256 protocolFee)
     {
-        uint256 performanceFee = feeStates[_setToken].performanceFeePercentage;
+        uint256 performanceFee = feeSettings[_setToken].performanceFeePercentage;
 
         if (performanceFee > 0) {
-            managerFee = _amount.preciseMul(performanceFee);
-            _setToken.strictInvokeTransfer(address(collateralToken), feeStates[_setToken].feeRecipient, managerFee);
-        }
+            uint256 protocolFeeSplit = controller.getModuleFee(address(this), PROTOCOL_PERFORMANCE_FEE_INDEX);
 
-        protocolFee = getModuleFee(PROTOCOL_PERFORMANCE_FEE_INDEX, _amount);
+            uint256 totalFee = performanceFee.preciseMul(_amount);
+            protocolFee = totalFee.preciseMul(protocolFeeSplit);
+            managerFee = totalFee.sub(protocolFee);
 
-        if (protocolFee > 0) {
+            _setToken.strictInvokeTransfer(address(collateralToken), feeSettings[_setToken].feeRecipient, managerFee);
             payProtocolFeeFromSetToken(_setToken, address(collateralToken), protocolFee);
         }
 
@@ -500,21 +500,12 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     }
 
     /**
-     * @dev Helper function that returns MAX performance fee percentage.
-     *
-     * @param _setToken     Instance of SetToken
-     */
-    function _maxPerformanceFeePercentage(ISetToken _setToken) internal view returns (uint256) {
-        return feeStates[_setToken].maxPerformanceFeePercentage;
-    }
-
-    /**
      * @dev Helper function that returns performance fee percentage.
      *
      * @param _setToken     Instance of SetToken
      */
     function _performanceFeePercentage(ISetToken _setToken) internal view returns (uint256) {
-        return feeStates[_setToken].performanceFeePercentage;
+        return feeSettings[_setToken].performanceFeePercentage;
     }
 
 }

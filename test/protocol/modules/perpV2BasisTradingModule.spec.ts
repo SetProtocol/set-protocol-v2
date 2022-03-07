@@ -308,7 +308,7 @@ describe("PerpV2BasisTradingModule", () => {
 
       it("should set the fee settings", async () => {
         await subject();
-        const feeSettings = await perpBasisTradingModule.feeStates(subjectSetToken);
+        const feeSettings = await perpBasisTradingModule.feeSettings(subjectSetToken);
 
         expect(feeSettings.feeRecipient).to.be.eq(owner.address);
         expect(feeSettings.maxPerformanceFeePercentage).to.be.eq(ether(.2));
@@ -774,7 +774,7 @@ describe("PerpV2BasisTradingModule", () => {
       });
     });
 
-    describe("when manager performance fee is non-zero", async () => {
+    describe("when manager performance fee is non-zero and protocol fee split is zero", async () => {
 
       cacheBeforeEach(async () => {
         performanceFeePercentage = ether(.1); // 10%
@@ -816,7 +816,7 @@ describe("PerpV2BasisTradingModule", () => {
       let protocolFeePercentage: BigNumber;
 
       cacheBeforeEach(async () => {
-        protocolFeePercentage = ether(0.05); // 5%
+        protocolFeePercentage = ether(0.05); // 50%
         await setup.controller.addFee(perpBasisTradingModule.address, ONE, protocolFeePercentage);
 
         performanceFeePercentage = ether(.1); // 10%
@@ -831,10 +831,10 @@ describe("PerpV2BasisTradingModule", () => {
         const usdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
         const totalSupply = await setToken.totalSupply();
         const usdcBalance = preciseMul(usdcDefaultPositionUnit, totalSupply);
-        const managerFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
-        const protocolFees = preciseMul(usdcUnits(0.1), protocolFeePercentage);
+        const totalFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
+        
         const expectedUsdcDefaultPositionUnit = preciseDiv(
-          usdcBalance.add(usdcUnits(0.1)).sub(managerFees).sub(protocolFees),
+          usdcBalance.add(usdcUnits(0.1)).sub(totalFees),
           totalSupply
         );
 
@@ -846,8 +846,9 @@ describe("PerpV2BasisTradingModule", () => {
       });
 
       it("should emit FundingWithdrawn event", async () => {
-        const managerFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
-        const protocolFees = preciseMul(usdcUnits(0.1), protocolFeePercentage);
+        const totalFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
+        const protocolFees = preciseMul(totalFees, protocolFeePercentage);
+        const managerFees = totalFees.sub(protocolFees);
         await expect(subject()).to.emit(perpBasisTradingModule, "FundingWithdrawn").withArgs(
           subjectSetToken,
           usdc.address,
@@ -907,7 +908,7 @@ describe("PerpV2BasisTradingModule", () => {
 
     it("should delete the fee settings", async () => {
       await subject();
-      const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
+      const feeSettings = await perpBasisTradingModule.feeSettings(setToken.address);
 
       expect(feeSettings.feeRecipient).to.eq(ADDRESS_ZERO);
       expect(feeSettings.maxPerformanceFeePercentage).to.eq(ZERO);
@@ -1167,7 +1168,7 @@ describe("PerpV2BasisTradingModule", () => {
         );
         const totalSupplyBeforeRedeem = await setToken.totalSupply();
         const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-        const performanceFeePercentage = (await perpBasisTradingModule.feeStates(subjectSetToken)).performanceFeePercentage;
+        const performanceFeePercentage = (await perpBasisTradingModule.feeSettings(subjectSetToken)).performanceFeePercentage;
 
         await subject();
 
@@ -1447,7 +1448,7 @@ describe("PerpV2BasisTradingModule", () => {
             const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
             const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
             const totalSupply = await setToken.totalSupply();
-            const performanceFeePercentage = (await perpBasisTradingModule.feeStates(subjectSetToken)).performanceFeePercentage;
+            const performanceFeePercentage = (await perpBasisTradingModule.feeSettings(subjectSetToken)).performanceFeePercentage;
             const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
             const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
               setToken,
@@ -1559,7 +1560,7 @@ describe("PerpV2BasisTradingModule", () => {
     it("should change the fee recipient to the new address", async () => {
       await subject();
 
-      const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
+      const feeSettings = await perpBasisTradingModule.feeSettings(setToken.address);
       expect(feeSettings.feeRecipient).to.eq(subjectNewFeeRecipient);
     });
 
@@ -1645,7 +1646,7 @@ describe("PerpV2BasisTradingModule", () => {
     it("should set the new fee", async () => {
       await subject();
 
-      const feeSettings = await perpBasisTradingModule.feeStates(setToken.address);
+      const feeSettings = await perpBasisTradingModule.feeSettings(setToken.address);
       expect(feeSettings.performanceFeePercentage).to.eq(subjectNewFee);
     });
 
