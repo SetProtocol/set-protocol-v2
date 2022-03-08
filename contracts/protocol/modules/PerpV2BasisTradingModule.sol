@@ -39,15 +39,14 @@ import "hardhat/console.sol";
 // 2. We have to chose between
 //    a. Duplicating modifiers logic on the overriden function (prefer this)
 //    b. Functions failing with non-sensible message (need to dig further)
-// 3. Add more comments.
 
 /**
  * @title PerpV2BasisTradingModule
  * @author Set Protocol
  *
  * @notice Smart contract that extends functionality offered by PerpV2LeverageModule. It tracks funding that is settled due to 
- * actions on Perpetual protocol and allows it to be withdrawn by the manager. The manager can also collect performance fees on 
- * the withdrawn funding.
+ * actions on Perpetual protocol and allows it to be withdrawn by the manager. The withdrawn funding can be reinvested in the Set 
+ * to create a yield generating basis trading product. The manager can also collect performance fees on the withdrawn funding.
  *
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
@@ -317,12 +316,18 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, false);
         
         if (settledFunding[_setToken] > 0) {
-            // Calculate performance fees per Set
+            // Calculate performance fee unit
+            // Performance fee unit = (Tracked settled funding * Performance fee) / Set total supply
             uint256 performanceFeeUnit = settledFunding[_setToken]
                 .preciseDiv(_setToken.totalSupply())
                 .preciseMulCeil(_performanceFeePercentage(_setToken))
                 .fromPreciseUnitToDecimals(collateralDecimals);
             
+            // Subtract performance fee unit from calculated external position unit
+            // Issuance module calculates equity amount to be transferred out using,
+            // equity amount = (newExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
+            // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to 
+            // be paid by the redeemer
             newExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());
         }
 
@@ -445,8 +450,6 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      * @param _setToken             Instance of SetToken     
      */
     function _getUpdateSettledFunding(ISetToken _setToken) internal returns (uint256) {
-        // todo: Following call fetches pending funding payment across all markets. Should we change it?
-        
         // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
         // We are flipping its sign here to reflect its settlement value.
@@ -503,7 +506,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      */
     function _validateFeeState(FeeState memory _settings) internal view {
         require(_settings.feeRecipient != address(0), "Fee Recipient must be non-zero address");
-        require(_settings.maxPerformanceFeePercentage < PreciseUnitMath.preciseUnit(), "Max fee must be < 100%");
+        require(_settings.maxPerformanceFeePercentage <= PreciseUnitMath.preciseUnit(), "Max fee must be <= 100%");
         require(_settings.performanceFeePercentage <= _settings.maxPerformanceFeePercentage, "Fee must be <= max");
     }
 
