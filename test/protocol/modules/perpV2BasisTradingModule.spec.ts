@@ -183,6 +183,10 @@ describe("PerpV2BasisTradingModule", () => {
     return setToken;
   }
 
+  function fromPreciseUnitsToDecimals(amount: BigNumber, decimals: number): BigNumber {
+    return amount.div(BigNumber.from(10).pow(18 - decimals)); 
+  }
+
   describe("#constructor", async () => {
     let subjectController: Address;
     let subjectVault: Address;
@@ -736,9 +740,15 @@ describe("PerpV2BasisTradingModule", () => {
       );
     });
 
-    // Hint: might be due to missing modifiers. Do we even need this particular test?
-    describe.skip("when track settled funding is false", async () => {
+    describe("when track settled funding is false", async () => {
       beforeEach(async () => {
+        await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
+          setToken.address,
+          vETH.address,
+          ether(1),
+          ether(10.15)
+        );
+
         subjectTrackSettledFunding = false;
         subjectNotionalFunding = usdcUnits(0.01);
       });
@@ -753,14 +763,42 @@ describe("PerpV2BasisTradingModule", () => {
       });
     });
 
-    describe.skip("when amount is greater than track settled funding", async () => {
+    describe("when amount is greater than track settled funding", async () => {
       beforeEach(async () => {
         const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
-        subjectNotionalFunding = trackedSettledFunding.mul(10);
+        const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(setToken.address);
+
+        subjectNotionalFunding = fromPreciseUnitsToDecimals(trackedSettledFunding.add(pendingFunding.mul(-1)).mul(2), 6);
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Withdraw amount too high");
+      it("should update tracked settled funding", async () => {
+        await subject();
+
+        const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
+        const settledFundingAfterInUsdc = settledFundingAfter.div(BigNumber.from(10).pow(12));
+        expect(settledFundingAfterInUsdc).to.be.eq(ZERO);
+      });
+
+      it("should update default position unit", async () => {
+        const usdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+        const totalSupply = await setToken.totalSupply();
+        const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+        const usdcBalanceBefore = preciseMul(usdcDefaultPositionUnit, totalSupply);
+        const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+  
+        await subject();
+        
+        // Can't rely on owedReazliedPnl because that is settled to collateral and reset to zero.
+        const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
+
+        const withdrawAmountInUsdc = fromPreciseUnitsToDecimals(settledFundingBefore.add(netFundingGrowth), 6);
+        const expectedUsdcDefaultPositionUnit = preciseDiv(
+          usdcBalanceBefore.add(withdrawAmountInUsdc),
+          totalSupply
+        );
+        const newUsdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+  
+        expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit);
       });
     });
 

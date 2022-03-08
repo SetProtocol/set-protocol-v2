@@ -39,6 +39,7 @@ import "hardhat/console.sol";
 // 2. We have to chose between
 //    a. Duplicating modifiers logic on the overriden function (prefer this)
 //    b. Functions failing with non-sensible message (need to dig further)
+// 3. Add more comments.
 
 /**
  * @title PerpV2BasisTradingModule
@@ -216,13 +217,14 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         onlyManagerAndValidSet(_setToken)
     {
         _updateSettledFunding(_setToken, _trackSettledFunding);
-        
-        require(
-            _notionalFunding <= settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals),
-            "Withdraw amount too high"
-        );
 
-        uint256 collateralBalanceBefore = collateralToken.balanceOf(address(_setToken));
+        uint256 settledFundingInCollateralDecimals = settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals);
+
+        if (_notionalFunding > settledFundingInCollateralDecimals) {
+            _notionalFunding = settledFundingInCollateralDecimals;
+        }
+
+        uint256 collateralBalanceBeforeWithdraw = collateralToken.balanceOf(address(_setToken));
 
         _withdraw(_setToken, _notionalFunding);
 
@@ -232,7 +234,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         _setToken.calculateAndEditDefaultPosition(
             address(collateralToken),
             _setToken.totalSupply(),
-            collateralBalanceBefore
+            collateralBalanceBeforeWithdraw
         );
 
         // Update settled funding
@@ -401,14 +403,20 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
             int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
 
             // Calculate performance fee unit
+            // Performance fee unit = (Tracked settled funding * Performance fee) / Set total supply
             uint256 performanceFeeUnit = _getUpdateSettledFunding(_setToken)
                 .preciseDiv(_setToken.totalSupply())
                 .preciseMulCeil(_performanceFeePercentage(_setToken))
                 .fromPreciseUnitToDecimals(collateralDecimals);
 
-            newExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());    
+            // Subtract performance fee unit from calculated external position unit
+            // Issuance module calculates equity amount to be transferred out using,
+            // equity amount = (newExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
+            // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to 
+            // be paid by the redeemer 
+            int256 netNewExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());    
 
-            return _formatAdjustments(_setToken, components, newExternalPositionUnit);
+            return _formatAdjustments(_setToken, components, netNewExternalPositionUnit);
         } else {
             return _formatAdjustments(_setToken, components, 0);
         }
