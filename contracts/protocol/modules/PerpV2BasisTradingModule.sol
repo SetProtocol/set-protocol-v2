@@ -32,11 +32,6 @@ import { PerpV2LeverageModule } from "./PerpV2LeverageModule.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
-import "hardhat/console.sol";
-
-// TODO
-// 1. Add a settle funding helper function, that updates tracked settled funding can calls ClearingHouse.settleAllFunding()?
-
 /**
  * @title PerpV2BasisTradingModule
  * @author Set Protocol
@@ -177,7 +172,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _quoteBoundQuantityUnits
     )
         external
-        // Calling a `nonReentrant` function from another `nonReentrant function is not supported.
+        // Calling a `nonReentrant` function from another `nonReentrant` function is not supported.
         // Hence, can't use `nonReentrant` here because `PerpV2LeverageModule#trade` function has a reentrancy check.
         onlyManagerAndValidSet(_setToken)
     {
@@ -358,8 +353,16 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     {
         require(_newFee < feeSettings[_setToken].maxPerformanceFeePercentage, "Fee must be less than max");
         
-        // todo: call updateSettledFunding here?
-        require(settledFunding[_setToken] == 0, "Non-zero settled funding remains");
+        // We require `settledFunding[_setToken]` to be zero. Hence, we do not call `_updateSettledFunding` here, which
+        // eases the UX of updating performance fees for the manager. Although, manager loses the ability to collect fees
+        // on pending funding that has been accrued on PerpV2 but not tracked on this module.
+        
+        // Assert all settled funding (in USD) has been withdrawn. Comparing USD amount allows us to neglect small 
+        // dust amounts that aren't withdrawable.
+        require(
+            settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals) == 0, 
+            "Non-zero settled funding remains"
+        );
 
         feeSettings[_setToken].performanceFeePercentage = _newFee;
 
