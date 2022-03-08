@@ -184,7 +184,7 @@ describe("PerpV2BasisTradingModule", () => {
   }
 
   function fromPreciseUnitsToDecimals(amount: BigNumber, decimals: number): BigNumber {
-    return amount.div(BigNumber.from(10).pow(18 - decimals)); 
+    return amount.div(BigNumber.from(10).pow(18 - decimals));
   }
 
   describe("#constructor", async () => {
@@ -335,7 +335,7 @@ describe("PerpV2BasisTradingModule", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Max fee must be < 100%");
+          await expect(subject()).to.be.revertedWith("Max fee must be <= 100%");
         });
       });
 
@@ -785,9 +785,9 @@ describe("PerpV2BasisTradingModule", () => {
         const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
         const usdcBalanceBefore = preciseMul(usdcDefaultPositionUnit, totalSupply);
         const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-  
+
         await subject();
-        
+
         // Can't rely on owedReazliedPnl because that is settled to collateral and reset to zero.
         const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
 
@@ -797,7 +797,7 @@ describe("PerpV2BasisTradingModule", () => {
           totalSupply
         );
         const newUsdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-  
+
         expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit);
       });
     });
@@ -870,7 +870,7 @@ describe("PerpV2BasisTradingModule", () => {
         const totalSupply = await setToken.totalSupply();
         const usdcBalance = preciseMul(usdcDefaultPositionUnit, totalSupply);
         const totalFees = preciseMul(usdcUnits(0.1), performanceFeePercentage);
-        
+
         const expectedUsdcDefaultPositionUnit = preciseDiv(
           usdcBalance.add(usdcUnits(0.1)).sub(totalFees),
           totalSupply

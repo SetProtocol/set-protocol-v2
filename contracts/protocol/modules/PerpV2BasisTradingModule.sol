@@ -36,9 +36,6 @@ import "hardhat/console.sol";
 
 // TODO
 // 1. Add a settle funding helper function, that updates tracked settled funding can calls ClearingHouse.settleAllFunding()?
-// 2. We have to chose between
-//    a. Duplicating modifiers logic on the overriden function (prefer this)
-//    b. Functions failing with non-sensible message (need to dig further)
 
 /**
  * @title PerpV2BasisTradingModule
@@ -154,7 +151,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
 
         // Initialize by calling PerpV2LeverageModule#initialize. 
         // Verrifies caller is manager. Verifies Set is valid, allowed and in pending state.
-        super.initialize(_setToken);
+        PerpV2LeverageModule.initialize(_setToken);
 
         feeSettings[_setToken] = _settings;
     }
@@ -180,13 +177,15 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _quoteBoundQuantityUnits
     )
         external
-        // `trade` function has a redundancy check
+        // Calling a `nonReentrant` function from another `nonReentrant function is not supported.
+        // Hence, can't use `nonReentrant` here because `PerpV2LeverageModule#trade` function has a reentrancy check.
+        onlyManagerAndValidSet(_setToken)
     {
         // Track funding before it is settled
         _updateSettledFunding(_setToken, true);
 
-        // Trade using PerpV2LeverageModule#trade. Verifies caller is manager and Set is valid and initialized.
-        trade(
+        // Trade using PerpV2LeverageModule#trade.
+        PerpV2LeverageModule.trade(
             _setToken,
             _baseToken,
             _baseQuantityUnits,
@@ -251,8 +250,10 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      *
      * NOTE: Function will revert if there is greater than a position unit amount of USDC of account value.
      */
-    function removeModule() public override {
-        super.removeModule();
+    function removeModule() public override(PerpV2LeverageModule) {
+        // Call PerpV2LeverageModule#removeModule to delete positions mapping and unregister on other modules.
+        // Verifies Set is valid and initialized.
+        PerpV2LeverageModule.removeModule();
 
         ISetToken setToken = ISetToken(msg.sender);
         
@@ -277,13 +278,14 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _setTokenQuantity
     )
         public
-        override
+        override(PerpV2LeverageModule)
     {
         // Track funding before it is settled
         _updateSettledFunding(_setToken, true);
         
-        // Validates caller is module
-        super.moduleIssueHook(_setToken, _setTokenQuantity);
+        // Call PerpV2LeverageModule#moduleIssueHook to set external position unit.
+        // Validates caller is module.
+        PerpV2LeverageModule.moduleIssueHook(_setToken, _setTokenQuantity);
     }
 
     /**
@@ -304,7 +306,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _setTokenQuantity
     )
         external
-        override
+        override(PerpV2LeverageModule)
         onlyModule(_setToken)
     {
         if (_setToken.totalSupply() == 0) return;
@@ -399,7 +401,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _setTokenQuantity
     )
         external
-        override
+        override(PerpV2LeverageModule)
         returns (int256[] memory, int256[] memory _)
     {
         address[] memory components = _setToken.getComponents();
