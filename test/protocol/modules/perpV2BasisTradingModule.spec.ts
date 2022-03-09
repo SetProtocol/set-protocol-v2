@@ -52,8 +52,7 @@ interface FeeSettings {
 }
 
 // TODO:
-// 1. Fix getRedemptionAdjustments tests
-// 2. Remove closeTo in moduleRedeemHook test
+// 1. Remove closeTo in moduleRedeemHook test
 
 describe("PerpV2BasisTradingModule", () => {
   let owner: Account;
@@ -1447,16 +1446,9 @@ describe("PerpV2BasisTradingModule", () => {
             // Move oracle price up and wait one day to accrue positive funding
             await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
             await increaseTimeAsync(ONE_DAY_IN_SECONDS);
-
-            await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
-              setToken.address,
-              vETH.address,
-              ether(1),
-              ether(10.15)
-            );
           });
 
-          it.skip("should return the expected USDC adjustment unit", async () => {
+          it("should return the expected USDC adjustment unit", async () => {
             const totalSupply = await setToken.totalSupply();
             const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
             const performanceFeePercentage = (await perpBasisTradingModule.feeSettings(subjectSetToken)).performanceFeePercentage;
@@ -1485,7 +1477,6 @@ describe("PerpV2BasisTradingModule", () => {
             ).sub(performanceFeeUnit);
 
             const expectedAdjustmentUnit = newExternalPositionUnit.sub(oldExternalPositionUnit);
-
             expect(actualAdjustmentUnit).to.be.eq(expectedAdjustmentUnit);
           });
         });

@@ -399,7 +399,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
 
             // Calculate performance fee unit
             // Performance fee unit = (Tracked settled funding * Performance fee) / Set total supply
-            uint256 performanceFeeUnit = _getUpdateSettledFunding(_setToken)
+            uint256 performanceFeeUnit = _getUpdatedSettledFunding(_setToken)
                 .preciseDiv(_setToken.totalSupply())
                 .preciseMulCeil(_performanceFeePercentage(_setToken))
                 .fromPreciseUnitToDecimals(collateralDecimals);
@@ -427,7 +427,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      * @param _setToken             Instance of SetToken
      */
     function _updateSettledFunding(ISetToken _setToken) internal {
-        settledFunding[_setToken] = _getUpdateSettledFunding(_setToken);
+        settledFunding[_setToken] = _getUpdatedSettledFunding(_setToken);
     }
 
     /**
@@ -438,7 +438,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      *
      * @param _setToken             Instance of SetToken     
      */
-    function _getUpdateSettledFunding(ISetToken _setToken) internal returns (uint256) {
+    function _getUpdatedSettledFunding(ISetToken _setToken) internal returns (uint256) {
         // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
         // We are flipping its sign here to reflect its settlement value.
