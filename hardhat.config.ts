@@ -31,7 +31,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      allowUnlimitedContractSize: true,
+      allowUnlimitedContractSize: false,
       forking: (process.env.FORK) ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
     },
