@@ -655,7 +655,6 @@ describe("PerpV2BasisTradingModule", () => {
     let subjectSetToken: Address;
     let subjectCaller: Account;
     let subjectNotionalFunding: BigNumber;
-    let subjectTrackSettledFunding: boolean;
 
     const initializeContracts = async () => {
       depositQuantity = usdcUnits(10);
@@ -686,7 +685,6 @@ describe("PerpV2BasisTradingModule", () => {
       subjectSetToken = setToken.address;
       subjectCaller = owner;
       subjectNotionalFunding = usdcUnits(0.1);
-      subjectTrackSettledFunding = true;
     };
 
     cacheBeforeEach(initializeContracts);
@@ -695,8 +693,7 @@ describe("PerpV2BasisTradingModule", () => {
     async function subject(): Promise<any> {
       return await perpBasisTradingModule.connect(subjectCaller.wallet).withdrawFundingAndAccrueFees(
         subjectSetToken,
-        subjectNotionalFunding,
-        subjectTrackSettledFunding
+        subjectNotionalFunding
       );
     }
 
@@ -738,29 +735,6 @@ describe("PerpV2BasisTradingModule", () => {
         ZERO,
         ZERO
       );
-    });
-
-    describe("when track settled funding is false", async () => {
-      beforeEach(async () => {
-        await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
-          setToken.address,
-          vETH.address,
-          ether(1),
-          ether(10.15)
-        );
-
-        subjectTrackSettledFunding = false;
-        subjectNotionalFunding = usdcUnits(0.01);
-      });
-
-      it("should update tracked settled funding", async () => {
-        const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
-
-        await subject();
-
-        const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken);
-        expect(settledFundingAfter).to.be.eq(settledFundingBefore.sub(ether(0.01)));
-      });
     });
 
     describe("when amount is greater than track settled funding", async () => {
@@ -1467,7 +1441,7 @@ describe("PerpV2BasisTradingModule", () => {
 
         describe("when performance fee unit is greater than zero", async () => {
           beforeEach(async () => {
-            maxFundingRate = usdcUnits(0.1);
+            maxFundingRate = usdcUnits(0.1);  // 10%
             await initializeSubjectVariables();
 
             // Move oracle price up and wait one day to accrue positive funding
@@ -1483,11 +1457,13 @@ describe("PerpV2BasisTradingModule", () => {
           });
 
           it.skip("should return the expected USDC adjustment unit", async () => {
-            const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
-            const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
             const totalSupply = await setToken.totalSupply();
+            const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
             const performanceFeePercentage = (await perpBasisTradingModule.feeSettings(subjectSetToken)).performanceFeePercentage;
+
             const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+            const oldExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+
             const usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
               setToken,
               subjectSetQuantity,

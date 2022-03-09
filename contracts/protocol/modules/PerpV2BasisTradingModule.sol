@@ -177,7 +177,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         onlyManagerAndValidSet(_setToken)
     {
         // Track funding before it is settled
-        _updateSettledFunding(_setToken, true);
+        _updateSettledFunding(_setToken);
 
         // Trade using PerpV2LeverageModule#trade.
         PerpV2LeverageModule.trade(
@@ -198,18 +198,16 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      *
      * @param _setToken                 Instance of the SetToken
      * @param _notionalFunding          Notional amount of funding to withdraw (in USDC decimals)
-     * @param _trackSettledFunding      Updates tracked settled funding, if true      
      */
     function withdrawFundingAndAccrueFees(
         ISetToken _setToken,
-        uint256 _notionalFunding,
-        bool _trackSettledFunding
+        uint256 _notionalFunding
     )
         external
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
-        _updateSettledFunding(_setToken, _trackSettledFunding);
+        _updateSettledFunding(_setToken);
 
         uint256 settledFundingInCollateralDecimals = settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals);
 
@@ -276,7 +274,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         override(PerpV2LeverageModule)
     {
         // Track funding before it is settled
-        _updateSettledFunding(_setToken, true);
+        _updateSettledFunding(_setToken);
         
         // Call PerpV2LeverageModule#moduleIssueHook to set external position unit.
         // Validates caller is module.
@@ -308,7 +306,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         if (!_setToken.hasExternalPosition(address(collateralToken))) return;
 
         // Track funding before it is settled
-        _updateSettledFunding(_setToken, true);
+        _updateSettledFunding(_setToken);
 
         int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, false);
         
@@ -440,10 +438,9 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      * pending funding payment that is about to be settled due to subsequent logic in the external function.
      *
      * @param _setToken             Instance of SetToken
-     * @param _trackSettledFunding  Updates tracked settled funding if true
      */
-    function _updateSettledFunding(ISetToken _setToken, bool _trackSettledFunding) internal {
-        if (_trackSettledFunding) { settledFunding[_setToken] = _getUpdateSettledFunding(_setToken); }
+    function _updateSettledFunding(ISetToken _setToken) internal {
+        settledFunding[_setToken] = _getUpdateSettledFunding(_setToken);
     }
 
     /**
