@@ -1,6 +1,6 @@
 {
   "name": "@setprotocol/set-protocol-v2",
-  "version": "0.1.12-basis.0",
+  "version": "0.1.13",
   "description": "",
   "main": "dist",
   "types": "dist/types",
