@@ -95,8 +95,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     // Mapping to store fee settings for each SetToken
     mapping(ISetToken => FeeState) public feeSettings;
 
-    // Mapping to store funding that has been settled on Perpetual Protocol due to actions via this module for 
-    // given SetToken
+    // Mapping to store funding that has been settled on Perpetual Protocol due to actions via this module 
+    // and hasn't been withdrawn for reinvesting yet. Values are stored in precise units (10e18).
     mapping(ISetToken => uint256) public settledFunding;
 
     /* ============ Constructor ============ */
@@ -145,7 +145,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         _validateFeeState(_settings);
 
         // Initialize by calling PerpV2LeverageModule#initialize. 
-        // Verrifies caller is manager. Verifies Set is valid, allowed and in pending state.
+        // Verifies caller is manager. Verifies Set is valid, allowed and in pending state.
         PerpV2LeverageModule.initialize(_setToken);
 
         feeSettings[_setToken] = _settings;
@@ -156,7 +156,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      * to the underlying baseToken. Any pending funding that would be settled during opening a position on Perpetual
      * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later by the 
      * SetToken manager.
-     *
+     * NOTE: Calling a `nonReentrant` function from another `nonReentrant` function is not supported. Hence, we can't
+     * add the `nonReentrant` modifier here because `PerpV2LeverageModule#trade` function has a reentrancy check. 
      * NOTE: This method doesn't update the externalPositionUnit because it is a function of UniswapV3 virtual
      * token market prices and needs to be generated on the fly to be meaningful.
      *
@@ -172,8 +173,6 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _quoteBoundQuantityUnits
     )
         external
-        // Calling a `nonReentrant` function from another `nonReentrant` function is not supported.
-        // Hence, can't use `nonReentrant` here because `PerpV2LeverageModule#trade` function has a reentrancy check.
         onlyManagerAndValidSet(_setToken)
     {
         // Track funding before it is settled
@@ -209,11 +208,9 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     {
         _updateSettledFunding(_setToken);
 
-        uint256 settledFundingInCollateralDecimals = settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals);
+        uint256 settledFunding = settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals);
 
-        if (_notionalFunding > settledFundingInCollateralDecimals) {
-            _notionalFunding = settledFundingInCollateralDecimals;
-        }
+        if (_notionalFunding > settledFunding) { _notionalFunding = settledFunding; }
 
         uint256 collateralBalanceBeforeWithdraw = collateralToken.balanceOf(address(_setToken));
 
@@ -221,17 +218,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
 
         (uint256 managerFee, uint256 protocolFee) = _handleFees(_setToken, _notionalFunding);
         
-        // Update default position unit
-        _setToken.calculateAndEditDefaultPosition(
-            address(collateralToken),
-            _setToken.totalSupply(),
-            collateralBalanceBeforeWithdraw
-        );
-
-        // Update settled funding
-        settledFunding[_setToken] = settledFunding[_setToken].sub(
-            _notionalFunding.toPreciseUnitsFromDecimals(collateralDecimals)
-        );
+        _updateWithdrawFundingState(_setToken, _notionalFunding, collateralBalanceBeforeWithdraw);
 
         emit FundingWithdrawn(_setToken, collateralToken, _notionalFunding, managerFee, protocolFee);
     }
@@ -457,7 +444,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         // We are flipping its sign here to reflect its settlement value.
         int256 pendingFundingToBeSettled =  perpExchange.getAllPendingFundingPayment(address(_setToken)).neg();
         
-        if (pendingFundingToBeSettled > 0) {
+        if (pendingFundingToBeSettled >= 0) {
             return settledFunding[_setToken].add(pendingFundingToBeSettled.toUint256());
         }
 
@@ -499,6 +486,27 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         }
 
         return (managerFee, protocolFee);
+    }
+
+    /**
+     * @dev Updates collateral token default position unit and tracked settled funding. Used in `withdrawFundingAndAcrrueFees()`.
+     *
+     * @param _setToken                         Instance of the SetToken
+     * @param _notionalFunding                  Amount of funding withdrawn (in USDC decimals)
+     * @param _collateralBalanceBeforeWithdraw  Balance of collateral token in the Set before withdrawing more USDC from Perp    
+     */
+    function _updateWithdrawFundingState(ISetToken _setToken, uint256 _notionalFunding, uint256 _collateralBalanceBeforeWithdraw) internal {
+        // Update default position unit to add the withdrawn funding (in USDC)
+        _setToken.calculateAndEditDefaultPosition(
+            address(collateralToken),
+            _setToken.totalSupply(),
+            _collateralBalanceBeforeWithdraw
+        );
+
+        // Subtract withdrawn funding from tracked settled funding
+        settledFunding[_setToken] = settledFunding[_setToken].sub(
+            _notionalFunding.toPreciseUnitsFromDecimals(collateralDecimals)
+        );
     }
 
     /**
