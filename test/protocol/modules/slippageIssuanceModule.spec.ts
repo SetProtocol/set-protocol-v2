@@ -678,7 +678,7 @@ describe("SlippageIssuanceModule", () => {
         it("should call the issuance hook", async () => {
           await subject();
 
-          const setToken = await issuanceHook.retrievedSetToken();
+          const setToken = await issuanceHook.retrievedIssueSetToken();
 
           expect(setToken).to.eq(subjectSetToken);
         });
@@ -902,6 +902,7 @@ describe("SlippageIssuanceModule", () => {
           setToken.address,
           subjectCaller.address,
           subjectTo,
+          ADDRESS_ZERO,
           subjectQuantity,
           feeQuantity,
           ZERO

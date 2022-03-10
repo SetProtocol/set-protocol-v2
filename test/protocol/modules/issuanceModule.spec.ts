@@ -302,10 +302,10 @@ describe("IssuanceModule", () => {
 
         it("should properly call the pre-issue hooks", async () => {
           await subject();
-          const retrievedSetToken = await issuanceHookContract.retrievedSetToken();
+          const retrievedSetToken = await issuanceHookContract.retrievedIssueSetToken();
           const retrievedIssueQuantity = await issuanceHookContract.retrievedIssueQuantity();
-          const retrievedSender = await issuanceHookContract.retrievedSender();
-          const retrievedTo = await issuanceHookContract.retrievedTo();
+          const retrievedSender = await issuanceHookContract.retrievedIssueSender();
+          const retrievedTo = await issuanceHookContract.retrievedIssueTo();
 
           expect(retrievedSetToken).to.eq(subjectSetToken);
           expect(retrievedIssueQuantity).to.eq(subjectIssueQuantity);

@@ -1,14 +1,18 @@
 /*
     Copyright 2020 Set Labs Inc.
+
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+    
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
+
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
@@ -34,6 +38,11 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  *
  * Module that enables issuance and redemption functionality on a SetToken. This is a module that is
  * required to bring the totalSupply of a Set above 0.
+ *
+ * CHANGELOG 12/15/2021:
+ * - update removeModule and redeem to be virtual
+ * - add _hookContract parameter to SetTokenRedeemed
+ * - always set _hookContract to address(0) when emitting SetTokenRedeemed
  */
 contract BasicIssuanceModule is ModuleBase, ReentrancyGuard {
     using Invoke for ISetToken;
@@ -56,6 +65,7 @@ contract BasicIssuanceModule is ModuleBase, ReentrancyGuard {
         address indexed _setToken,
         address indexed _redeemer,
         address indexed _to,
+        address _hookContract,
         uint256 _quantity
     );
 
@@ -132,6 +142,7 @@ contract BasicIssuanceModule is ModuleBase, ReentrancyGuard {
         address _to
     )
         external
+        virtual
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
@@ -159,7 +170,7 @@ contract BasicIssuanceModule is ModuleBase, ReentrancyGuard {
             );
         }
 
-        emit SetTokenRedeemed(address(_setToken), msg.sender, _to, _quantity);
+        emit SetTokenRedeemed(address(_setToken), msg.sender, _to, address(0), _quantity);
     }
 
     /**
@@ -186,7 +197,7 @@ contract BasicIssuanceModule is ModuleBase, ReentrancyGuard {
      * Reverts as this module should not be removable after added. Users should always
      * have a way to redeem their Sets
      */
-    function removeModule() external override {
+    function removeModule() external virtual override {
         revert("The BasicIssuanceModule module cannot be removed");
     }
 

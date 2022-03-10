@@ -325,10 +325,10 @@ describe("DebtIssuanceModuleV2", () => {
             preIssueHook = ADDRESS_ZERO;
           });
 
-          it("should call the issuance hook", async () => {
+          it("should call the pre-issue hook", async () => {
             await subject();
 
-            const setToken = await issuanceHook.retrievedSetToken();
+            const setToken = await issuanceHook.retrievedIssueSetToken();
 
             expect(setToken).to.eq(subjectSetToken);
           });
@@ -449,6 +449,7 @@ describe("DebtIssuanceModuleV2", () => {
             setToken.address,
             subjectCaller.address,
             subjectTo,
+            preIssueHook,
             subjectQuantity,
             feeQuantity,
             ZERO
@@ -565,6 +566,24 @@ describe("DebtIssuanceModuleV2", () => {
             expect(postCallerBalance).to.eq(preCallerBalance.sub(subjectQuantity));
             expect(postManagerBalance).to.eq(preManagerBalance.add(feeQuantity.sub(protocolSplit)));
             expect(postProtocolBalance).to.eq(preProtocolBalance.add(protocolSplit));
+          });
+        });
+
+        describe("when manager issuance hook is defined", async () => {
+          before(async () => {
+            preIssueHook = issuanceHook.address;
+          });
+
+          after(async () => {
+            preIssueHook = ADDRESS_ZERO;
+          });
+
+          it("should call the pre-redeem hook", async () => {
+            await subject();
+
+            const setToken = await issuanceHook.retrievedRedeemSetToken();
+
+            expect(setToken).to.eq(subjectSetToken);
           });
         });
 

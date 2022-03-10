@@ -5,10 +5,12 @@ import {
   AirdropModule,
   AmmModule,
   BasicIssuanceModule,
+  BasicIssuanceModuleV2,
   ClaimModule,
   CompoundLeverageModule,
   CustomOracleNavIssuanceModule,
   DebtIssuanceModule,
+  DebtIssuanceModuleV2,
   GeneralIndexModule,
   GovernanceModule,
   IssuanceModule,
@@ -29,6 +31,7 @@ import { AaveLeverageModule__factory } from "../../typechain/factories/AaveLever
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
+import { BasicIssuanceModuleV2__factory } from "../../typechain/factories/BasicIssuanceModuleV2__factory";
 import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__factory";
 import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
 import { CustomOracleNavIssuanceModule__factory } from "../../typechain/factories/CustomOracleNavIssuanceModule__factory";
@@ -59,6 +62,10 @@ export default class DeployModules {
     return await new BasicIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
+  public async deployBasicIssuanceModuleV2(controller: Address): Promise<BasicIssuanceModuleV2> {
+    return await new BasicIssuanceModuleV2__factory(this._deployerSigner).deploy(controller);
+  }
+
   public async deployIssuanceModule(controller: Address): Promise<IssuanceModule> {
     return await new IssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
@@ -67,7 +74,7 @@ export default class DeployModules {
     return await new DebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModule> {
+  public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModuleV2> {
     return await new DebtIssuanceModuleV2__factory(this._deployerSigner).deploy(controller);
   }
 
