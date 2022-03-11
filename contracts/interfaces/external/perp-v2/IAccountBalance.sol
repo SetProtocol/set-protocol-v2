@@ -21,8 +21,8 @@ pragma experimental ABIEncoderV2;
 
 interface IAccountBalance {
     function getBaseTokens(address trader) external view returns (address[] memory);
-    // function hasOrder(address trader) external view returns (bool);
-    // function getMarginRequirementForLiquidation(address trader) external view returns (int256);
+    function hasOrder(address trader) external view returns (bool);
+    function getMarginRequirementForLiquidation(address trader) external view returns (int256);
     function getTotalDebtValue(address trader) external view returns (uint256);
     function getPnlAndPendingFee(address trader) external view returns (int256,int256,uint256);
     function getBase(address trader, address baseToken) external view returns (int256);

@@ -832,13 +832,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             initialCollateralPositionBalance
         );
 
-        // _setToken.editExternalPosition(
-        //     address(collateralToken),
-        //     address(this),
-        //     _calculateExternalPositionUnit(_setToken),
-        //     ""
-        // );
-
         return collateralNotionalQuantity;
     }
 
@@ -887,13 +880,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
             _setToken.totalSupply(),
             initialCollateralPositionBalance
         );
-
-        // _setToken.editExternalPosition(
-        //     address(collateralToken),
-        //     address(this),
-        //     _calculateExternalPositionUnit(_setToken),
-        //     ""
-        // );
 
         return collateralNotionalQuantity;
     }
@@ -1059,48 +1045,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
         return (baseBalanceUnit > 1) || (baseBalanceUnit < -1);
     }
-
-    /**
-     * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
-     *
-     * @param  _baseToken           Address of virtual token to price
-     * @return price                Mid-point price of virtual token in UniswapV3 AMM market
-     */
-    // function _calculateAMMSpotPrice(address _baseToken) internal view returns (uint256 price) {
-    //     address pool = perpMarketRegistry.getPool(_baseToken);
-    //     (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
-    //     uint256 priceX96 = sqrtPriceX96.formatSqrtPriceX96ToPriceX96();
-    //     return priceX96.formatX96ToX10_18();
-    // }
-
-    /**
-     * @dev Calculates the sum of collateralToken denominated market-prices of assets and debt for the Perp account per
-     * SetToken
-     *
-     * @param _setToken     Instance of SetToken
-     * @return int256       External position unit
-     */
-    // function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
-    //     PerpV2Positions.PositionNotionalInfo[] memory positionInfo = PerpV2Positions.getPositionNotionalInfo(
-    //         _setToken, 
-    //         positions[_setToken], 
-    //         perpAccountBalance
-    //     );
-    //     uint256 positionLength = positionInfo.length;
-    //     int256 totalPositionValue = 0;
-
-    //     for (uint i = 0; i < positionLength; i++ ) {
-    //         int256 spotPrice = _calculateAMMSpotPrice(positionInfo[i].baseToken).toInt256();
-    //         totalPositionValue = totalPositionValue.add(
-    //             positionInfo[i].baseBalance.preciseMul(spotPrice)
-    //         );
-    //     }
-
-    //     int256 externalPositionUnitInPreciseUnits = _calculatePartialAccountValuePositionUnit(_setToken)
-    //         .add(totalPositionValue.preciseDiv(_setToken.totalSupply().toInt256()));
-
-    //     return externalPositionUnitInPreciseUnits.fromPreciseUnitToDecimals(collateralDecimals);
-    // }
 
     /**
      * @dev Returns issuance or redemption adjustments in the format expected by `SlippageIssuanceModule`.
