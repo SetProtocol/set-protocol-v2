@@ -1,4 +1,5 @@
 require("dotenv").config();
+require('hardhat-contract-sizer');
 
 import chalk from "chalk";
 import { HardhatUserConfig } from "hardhat/config";
@@ -67,6 +68,10 @@ const config: HardhatUserConfig = {
     outDir: "typechain",
     target: "ethers-v5",
     externalArtifacts: ["external/**/*.json"],
+  },
+  contractSizer: {
+    // alphaSort: true,
+    runOnCompile: true,
   },
   mocha: mochaConfig,
 
