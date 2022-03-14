@@ -208,9 +208,9 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     {
         _updateSettledFunding(_setToken);
 
-        uint256 settledFunding = settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals);
+        uint256 settledFundingInCollateralDecimals = settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals);
 
-        if (_notionalFunding > settledFunding) { _notionalFunding = settledFunding; }
+        if (_notionalFunding > settledFundingInCollateralDecimals) { _notionalFunding = settledFundingInCollateralDecimals; }
 
         uint256 collateralBalanceBeforeWithdraw = collateralToken.balanceOf(address(_setToken));
 
@@ -438,7 +438,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      *
      * @param _setToken             Instance of SetToken     
      */
-    function _getUpdatedSettledFunding(ISetToken _setToken) internal returns (uint256) {
+    function _getUpdatedSettledFunding(ISetToken _setToken) internal view returns (uint256) {
         // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
         // We are flipping its sign here to reflect its settlement value.
@@ -514,7 +514,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      *
      * @param _settings     FeeState struct containing performance fee settings
      */
-    function _validateFeeState(FeeState memory _settings) internal view {
+    function _validateFeeState(FeeState memory _settings) internal pure {
         require(_settings.feeRecipient != address(0), "Fee Recipient must be non-zero address");
         require(_settings.maxPerformanceFeePercentage <= PreciseUnitMath.preciseUnit(), "Max fee must be <= 100%");
         require(_settings.performanceFeePercentage <= _settings.maxPerformanceFeePercentage, "Fee must be <= max");
