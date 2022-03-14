@@ -40,15 +40,22 @@
     "test:fast:compile": "TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost",
     "transpile": "tsc",
     "transpile-dist": "tsc -p tsconfig.dist.json",
-    "typechain": "npx hardhat typechain"
+    "typechain": "npx hardhat typechain",
+    "semantic-release": "semantic-release"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SetProtocol/set-protocol-v2-contracts.git"
+    "url": "https://github.com/SetProtocol/set-protocol-v2-contracts.git"
   },
   "author": "felix2feng",
   "license": "MIT",
   "homepage": "https://github.com/SetProtocol",
+  "resolutions": {
+    "babel-code-frame/chalk": "4.1.0"
+  },
+  "engines": {
+    "yarn": ">=1.10.1"
+  },
   "devDependencies": {
     "@0x/utils": "^6.4.3",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
@@ -78,6 +85,7 @@
     "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",
     "lodash": "^4.17.4",
+    "semantic-release": "^19.0.2",
     "solc": "^0.6.10",
     "solhint": "^3.1.0",
     "solidity-coverage": "^0.7.17",
