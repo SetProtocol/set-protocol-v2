@@ -7,7 +7,8 @@ default_env: &default_env
       environment:
           NODE_OPTIONS: --max_old_space_size=8192
 
-setup_job:
+commands:
+  setup_job:
     steps:
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
