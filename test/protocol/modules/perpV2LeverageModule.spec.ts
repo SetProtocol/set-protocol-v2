@@ -4,6 +4,7 @@ import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
   PerpV2,
+  PerpV2Positions,
   PerpV2LeverageModule,
   DebtIssuanceMock,
   StandardTokenMock,
@@ -57,6 +58,7 @@ describe("PerpV2LeverageModule", () => {
   let deployer: DeployHelper;
 
   let perpLib: PerpV2;
+  let perpPositionsLib: PerpV2Positions;
   let perpLeverageModule: PerpV2LeverageModule;
   let debtIssuanceMock: DebtIssuanceMock;
   let setup: SystemFixture;
@@ -110,6 +112,7 @@ describe("PerpV2LeverageModule", () => {
 
     maxPerpPositionsPerSet = TWO;
     perpLib = await deployer.libraries.deployPerpV2();
+    perpPositionsLib = await deployer.libraries.deployPerpV2Positions();
     perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
       setup.controller.address,
       perpSetup.vault.address,
@@ -118,6 +121,8 @@ describe("PerpV2LeverageModule", () => {
       maxPerpPositionsPerSet,
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
       perpLib.address,
+      "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+      perpPositionsLib.address,
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
@@ -197,6 +202,8 @@ describe("PerpV2LeverageModule", () => {
         subjectMaxPerpPositionsPerSet,
         "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
         perpLib.address,
+        "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+        perpPositionsLib.address
       );
     }
 

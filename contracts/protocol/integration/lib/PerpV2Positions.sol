@@ -17,7 +17,7 @@
 */
 
 pragma solidity 0.6.10;
-pragma experimental "ABIEncoderV2";
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SignedSafeMath.sol";
 import { IAccountBalance } from "../../../interfaces/external/perp-v2/IAccountBalance.sol";
@@ -25,6 +25,8 @@ import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { UnitConversionUtils } from "../../../lib/UnitConversionUtils.sol";
+
+// Todo: Typechain doesn't create types when parameters are passed by storage. Although saves only 68 bytes.
 
 /**
  * @title PerpV2Positions
@@ -57,7 +59,7 @@ library PerpV2Positions {
      */
     function getNetQuoteBalance(
         ISetToken _setToken, 
-        address[] storage _baseTokens, 
+        address[] memory _baseTokens, 
         IAccountBalance _perpAccountBalance
     ) 
         external 
@@ -85,7 +87,7 @@ library PerpV2Positions {
      */
     function getPositionNotionalInfo(
         ISetToken _setToken, 
-        address[] storage _baseTokens, 
+        address[] memory _baseTokens, 
         IAccountBalance _perpAccountBalance
     ) 
         public 
@@ -126,7 +128,7 @@ library PerpV2Positions {
      */
     function getPositionUnitInfo(
         ISetToken _setToken, 
-        address[] storage _baseTokens, 
+        address[] memory _baseTokens, 
         IAccountBalance _perpAccountBalance
     ) 
         external 

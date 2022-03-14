@@ -72,6 +72,7 @@ export { YearnVaultOracle } from "../../typechain/YearnVaultOracle";
 export { PositionMock } from "../../typechain/PositionMock";
 export { PerpV2 } from "../../typechain/PerpV2";
 export { PerpV2Mock } from "../../typechain/PerpV2Mock";
+export { PerpV2Positions } from "../../typechain/PerpV2Positions";
 export { PerpV2LeverageModule } from "../../typechain/PerpV2LeverageModule";
 export { PerpV2BasisTradingModule } from "../../typechain/PerpV2BasisTradingModule";
 export { PerpV2LeverageModuleViewer } from "../../typechain/PerpV2LeverageModuleViewer";
