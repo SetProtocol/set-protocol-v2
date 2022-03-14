@@ -723,11 +723,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // and variable may refer to the value which will be redeemed.
         int256 accountValueIssued = _calculatePartialAccountValuePositionUnit(_setToken).preciseMul(setTokenQuantityInt);
 
-        PerpV2Positions.PositionNotionalInfo[] memory positionInfo = PerpV2Positions.getPositionNotionalInfo(
-            _setToken, 
-            positions[_setToken], 
-            perpAccountBalance
-        );
+        PerpV2Positions.PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
         uint256 positionLength = positionInfo.length;
         int256 totalSupply = _setToken.totalSupply().toInt256();
 
