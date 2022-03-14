@@ -287,7 +287,7 @@ library PerpV2 {
      * @return uint256      The base position delta resulting from the trade
      * @return uint256      The quote asset position delta resulting from the trade
      */
-    function simulateTrade(IQuoter perpQuoter, ActionInfo memory _actionInfo) public returns (uint256, uint256) {
+    function simulateTrade(IQuoter perpQuoter, ActionInfo memory _actionInfo) external returns (uint256, uint256) {
         IQuoter.SwapParams memory params = IQuoter.SwapParams({
             baseToken: _actionInfo.baseToken,
             isBaseToQuote: !_actionInfo.isBuy,
@@ -315,7 +315,7 @@ library PerpV2 {
      * @return uint256     The base position delta resulting from the trade
      * @return uint256     The quote asset position delta resulting from the trade
      */
-    function executeTrade(IClearingHouse perpClearingHouse, ActionInfo memory _actionInfo) public returns (uint256, uint256) {
+    function executeTrade(IClearingHouse perpClearingHouse, ActionInfo memory _actionInfo) external returns (uint256, uint256) {
 
         // When isBaseToQuote is true, `baseToken` is being sold, when false, bought
         // When isExactInput is true, `amount` is the swap input, when false, the swap output

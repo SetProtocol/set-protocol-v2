@@ -4,6 +4,7 @@ import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
   PerpV2,
+  PerpV2Positions,
   PerpV2LeverageModule,
   DebtIssuanceMock,
   PerpV2LeverageModuleViewer,
@@ -49,6 +50,7 @@ describe("PerpV2LeverageModuleViewer", () => {
   let deployer: DeployHelper;
 
   let perpLib: PerpV2;
+  let perpPositionsLib: PerpV2Positions;
   let perpLeverageModule: PerpV2LeverageModule;
   let perpViewer: PerpV2LeverageModuleViewer;
   let debtIssuanceMock: DebtIssuanceMock;
@@ -109,6 +111,8 @@ describe("PerpV2LeverageModuleViewer", () => {
       BigNumber.from(3),
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
       perpLib.address,
+      "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+      perpPositionsLib.address
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
