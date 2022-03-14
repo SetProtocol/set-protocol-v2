@@ -1,4 +1,4 @@
-version: 2
+version: 2.1
 
 default_env: &default_env
   working_directory: ~/set-protocol-v2
