@@ -3,7 +3,7 @@ version: 2
 default_env: &default_env
   working_directory: ~/set-protocol-v2
   docker:
-    - image: circleci/node:14.19.0
+    - image: circleci/node:14.18
       environment:
           NODE_OPTIONS: --max_old_space_size=8192
 
