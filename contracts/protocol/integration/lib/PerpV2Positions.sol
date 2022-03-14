@@ -26,6 +26,12 @@ import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { UnitConversionUtils } from "../../../lib/UnitConversionUtils.sol";
 
+/**
+ * @title PerpV2Positions
+ * @author Set Protocol
+ *
+ * Collection of PerpV2 getter functions.
+ */
 library PerpV2Positions {
     using SignedSafeMath for int256;
     using SafeCast for uint256;
@@ -51,17 +57,17 @@ library PerpV2Positions {
      */
     function getNetQuoteBalance(
         ISetToken _setToken, 
-        address[] storage baseTokens, 
-        IAccountBalance perpAccountBalance
+        address[] storage _baseTokens, 
+        IAccountBalance _perpAccountBalance
     ) 
         external 
         view 
         returns (int256 netQuoteBalance) 
     {
-        uint256 numBaseTokens = baseTokens.length;
+        uint256 numBaseTokens = _baseTokens.length;
         for (uint256 i = 0; i < numBaseTokens; i++) {
             netQuoteBalance = netQuoteBalance.add(
-                perpAccountBalance.getQuote(address(_setToken), baseTokens[i])
+                _perpAccountBalance.getQuote(address(_setToken), _baseTokens[i])
             );
         }
     }
@@ -79,25 +85,25 @@ library PerpV2Positions {
      */
     function getPositionNotionalInfo(
         ISetToken _setToken, 
-        address[] storage baseTokens, 
-        IAccountBalance perpAccountBalance
+        address[] storage _baseTokens, 
+        IAccountBalance _perpAccountBalance
     ) 
         public 
         view 
         returns (PositionNotionalInfo[] memory) 
     {
-        uint256 numBaseTokens = baseTokens.length;
+        uint256 numBaseTokens = _baseTokens.length;
         PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](numBaseTokens);
 
         for(uint i = 0; i < numBaseTokens; i++){
-            address baseToken = baseTokens[i];
+            address baseToken = _baseTokens[i];
             positionInfo[i] = PositionNotionalInfo({
                 baseToken: baseToken,
-                baseBalance: perpAccountBalance.getBase(
+                baseBalance: _perpAccountBalance.getBase(
                     address(_setToken),
                     baseToken
                 ),
-                quoteBalance: perpAccountBalance.getQuote(
+                quoteBalance: _perpAccountBalance.getQuote(
                     address(_setToken),
                     baseToken
                 )
@@ -120,8 +126,8 @@ library PerpV2Positions {
      */
     function getPositionUnitInfo(
         ISetToken _setToken, 
-        address[] storage baseTokens, 
-        IAccountBalance perpAccountBalance
+        address[] storage _baseTokens, 
+        IAccountBalance _perpAccountBalance
     ) 
         external 
         view 
@@ -130,8 +136,8 @@ library PerpV2Positions {
         int256 totalSupply = _setToken.totalSupply().toInt256();
         PositionNotionalInfo[] memory positionNotionalInfo = getPositionNotionalInfo(
             _setToken,
-            baseTokens,
-            perpAccountBalance
+            _baseTokens,
+            _perpAccountBalance
         );
         
         uint256 positionLength = positionNotionalInfo.length;
