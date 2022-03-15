@@ -3,7 +3,6 @@
   "version": "0.0.0-development",
   "description": "",
   "main": "dist",
-  "types": "dist/types",
   "files": [
     "artifacts",
     "dist",
