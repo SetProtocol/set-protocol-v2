@@ -9,8 +9,18 @@ set -o errexit
 echo "Running prepublishOnly npm hook"
 echo "PUBLISH_HARDHAT = $PUBLISH_HARDHAT"
 
+# Can only use some package.json commands here because npm is the executor in this
+# context (instead of yarn) and they have conflicting policies about how CLI
+# flags work in package.json. npm requires: `command -- --flags`, yarn prohibits it.
 if [[ -v PUBLISH_HARDHAT ]]; then
-  yarn clean && yarn build:npm:hardhat
+  yarn clean
+  yarn compile
+  yarn typechain
+  tsc --project tsconfig.hardhat.json
+  cp -rf typechain dist
 else
-  yarn clean && yarn build:npm:latest
+  yarn clean
+  yarn compile:latest
+  yarn typechain
+  tsc --project tsconfig.dist.json
 fi
