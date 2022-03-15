@@ -15,3 +15,7 @@ echo '{
 }' > .releaserc.json
 
 PUBLISH_HARDHAT=true npx semantic-release --debug
+
+git status
+git commit -a -m 'Update package.json version';
+git push
