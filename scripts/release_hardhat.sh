@@ -10,13 +10,7 @@ set -o errexit
 echo '{
   "branches": [
     { "name": "release_default_do_not_delete" },
-    { "name": "chris/semantic-release-test", "channel": "hardhat", "prerelease": "hardhat"}
-  ],
-  "plugins": [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
-    "@semantic-release/npm",
-    "@semantic-release/git"
+    { "name": "chris/semantic-release-test", "channel": "hardhat", "prerelease": "hh"}
   ]
 }' > .releaserc.json
 
