@@ -15,11 +15,11 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "yarn clean && yarn compile && yarn build:typechain",
+    "build": "yarn clean && yarn compile && yarn build:ts:latest",
     "build:npm:latest": "yarn clean && yarn compile:latest && yarn build:ts:latest",
     "build:npm:hardhat": "yarn clean && yarn compile && yarn build:ts:hardhat",
     "build:ts:latest": "yarn typechain && yarn transpile:dist:latest",
-    "build:ts:hardhat": "yarn typechain && yarn transpile:dist:hardhat",
+    "build:ts:hardhat": "yarn typechain && yarn transpile:dist:hardhat && cp -rf typechain dist",
     "chain": "npx hardhat node",
     "clean": "rm -rf coverage.json .coverage_cache .coverage_contracts cache coverage typechain artifacts dist",
     "compile": "npx hardhat compile",
@@ -33,7 +33,7 @@
     "lint-ts": "eslint -c .eslintrc.js --ext .ts test utils tasks --fix",
     "precommit": "lint-staged",
     "prepare": "yarn build",
-    "prepublishOnly": "yarn clean && yarn build:npm",
+    "prepublishOnly": "./scripts/prepublish_only.sh",
     "test": "npx hardhat test --network localhost",
     "test:fork": "FORK=true npx hardhat test",
     "test:fork:fast": "NO_COMPILE=true TS_NODE_TRANSPILE_ONLY=1 FORK=true npx hardhat test --no-compile",
@@ -48,7 +48,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SetProtocol/set-protocol-v2-contracts.git"
+    "url": "https://github.com/SetProtocol/set-protocol-v2.git"
   },
   "author": "felix2feng",
   "license": "MIT",
