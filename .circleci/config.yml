@@ -115,6 +115,22 @@ jobs:
           command: |
             cat coverage/lcov.info | node_modules/.bin/coveralls
 
+  release_latest:
+    <<: *default_env
+    steps:
+      - setup_job
+      run:
+        name: Publish "latest" release
+        command: yarn publish:latest
+
+  release_hardhat:
+    <<: *default_env
+    steps:
+      - setup_job
+      run:
+        name: Publish "hardhat" release
+        command: yarn publish:hardhat
+
 workflows:
   version: 2
   build-and-test:
@@ -132,11 +148,11 @@ workflows:
       - report_coverage:
           requires:
             - coverage
-      # - release_latest:
-      #     requires:
-      #       - test
-      # _ release_hardhat:
-      #     requires:
-      #       - test
+      - release_latest:
+          requires:
+            - test
+      - release_hardhat:
+          requires:
+            - test
 
 

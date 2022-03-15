@@ -70,13 +70,13 @@ perpSetup = getPerpV2Fixture(...);
 ## Semantic Release
 
 This repository uses [semantic-release][10] to automatically publish in CI on merge to master. To trigger
-a release, use the following commit naming convention *in your squash and merge commit*:
+a release, use the following naming convention in your PR description (or in your squash & merge commit
+description):
 
 + patch release (e.g 1.0.1 -> 1.0.2): `fix(topic): description`
   + example: `fix(perpV2Viewer): return uint256 instead of int256`
 + feature release (e.g 1.1.0 -> 1.2.0): `feat(feature_name): description`
   + example: `feat(PerpV2BasisTrading): Add PerpV2 Basis Trading Module`
-
 
 
 ## Contributing
