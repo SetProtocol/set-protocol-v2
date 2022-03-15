@@ -21,7 +21,7 @@
     "build:ts:hardhat": "yarn typechain && yarn transpile:dist:hardhat && yarn copy:typechain:dist",
     "copy:typechain:dist": "cp -rf typechain dist",
     "chain": "npx hardhat node",
-    "clean": "rm -rf coverage.json .coverage_cache .coverage_contracts cache coverage typechain artifacts dist",
+    "clean": "./scripts/clean.sh",
     "compile": "npx hardhat compile",
     "compile:latest": "SKIP_ABI_GAS_MODS=true npx hardhat compile",
     "coverage": "yarn clean && yarn build && yarn cov:command",
