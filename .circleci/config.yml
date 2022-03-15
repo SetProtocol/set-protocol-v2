@@ -148,10 +148,10 @@ workflows:
       # - report_coverage:
       #     requires:
       #       - coverage
-      - release_latest:
+      - release_latest #:
           # requires:
           #   - test
-      - release_hardhat:
+      - release_hardhat #:
           # requires:
           #   - test
 
