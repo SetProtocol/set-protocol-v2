@@ -119,17 +119,17 @@ jobs:
     <<: *default_env
     steps:
       - setup_job
-      run:
-        name: Publish "latest" release
-        command: yarn publish:latest
+      - run:
+          name: Publish "latest" release
+          command: yarn publish:latest
 
   release_hardhat:
     <<: *default_env
     steps:
       - setup_job
-      run:
-        name: Publish "hardhat" release
-        command: yarn publish:hardhat
+      - run:
+          name: Publish "hardhat" release
+          command: yarn publish:hardhat
 
 workflows:
   version: 2
@@ -149,10 +149,10 @@ workflows:
       #     requires:
       #       - coverage
       - release_latest:
-          requires:
-            - test
+          # requires:
+          #   - test
       - release_hardhat:
-          requires:
-            - test
+          # requires:
+          #   - test
 
 
