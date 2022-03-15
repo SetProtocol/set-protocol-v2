@@ -47,8 +47,6 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
 
-// TODO: Fetch values from PerpV2 contracts rather than calclating them natively.
-
 /**
  * @title PerpV2LeverageModuleV2
  * @author Set Protocol
