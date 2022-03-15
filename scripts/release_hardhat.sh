@@ -14,4 +14,5 @@ echo '{
   ]
 }' > .releaserc.json
 
+yarn clean
 PUBLISH_HARDHAT=true npx semantic-release --debug
