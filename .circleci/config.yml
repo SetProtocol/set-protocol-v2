@@ -148,11 +148,12 @@ workflows:
       # - report_coverage:
       #     requires:
       #       - coverage
-      - release_latest:
-          requires:
-            - checkout_and_compile
+      # Publish hardhat first, latest second so that repo's package version is set correctly on exit
       - release_hardhat:
           requires:
             - checkout_and_compile
+      - release_latest:
+          requires:
+            - release_hardhat
 
 

@@ -10,8 +10,8 @@ set -o errexit
 echo '{
   "branches": [
     { "name": "release_default_do_not_delete" },
-    { "name": "chris/semantic-release", "channel": "hardhat", "prerelease": "hardhat"}
+    { "name": "chris/semantic-release-test", "channel": "hardhat", "prerelease": "hardhat"}
   ]
 }' > .releaserc.json
 
-PUBLISH_HARDHAT=true npx semantic-release
+PUBLISH_HARDHAT=true npx semantic-release --debug

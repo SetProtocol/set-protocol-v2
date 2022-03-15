@@ -6,6 +6,7 @@
 # This build is necessary for Perp fixtures to run correctly at set-v2-strategies
 set -o errexit
 
+echo "Running prepublishOnly npm hook"
 echo "PUBLISH_HARDHAT = $PUBLISH_HARDHAT"
 
 if [[ -v PUBLISH_HARDHAT ]]; then
