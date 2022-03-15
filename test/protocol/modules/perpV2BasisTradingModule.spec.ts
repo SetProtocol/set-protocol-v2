@@ -223,7 +223,7 @@ describe("PerpV2BasisTradingModule", () => {
         subjectMaxPerpPositionsPerSet,
         "contracts/protocol/lib/PositionV2.sol:PositionV2",
         positionLib.address,
-        "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
+        "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
         perpLib.address,
         "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
         perpPositionsLib.address
