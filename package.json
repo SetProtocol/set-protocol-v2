@@ -3,7 +3,6 @@
   "version": "0.1.16",
   "description": "",
   "main": "dist",
-  "types": "dist/types",
   "files": [
     "artifacts",
     "dist",
