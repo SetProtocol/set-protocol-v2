@@ -2,7 +2,7 @@
 
 set -o errexit
 
-# Auto-publishes `latest` from master
+# Auto-publishes `latest` from master, updates package version on github
 echo '{
   "branches": [
     { "name": "master" }
