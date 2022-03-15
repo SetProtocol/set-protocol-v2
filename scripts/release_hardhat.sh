@@ -11,11 +11,13 @@ echo '{
   "branches": [
     { "name": "release_default_do_not_delete" },
     { "name": "chris/semantic-release-test", "channel": "hardhat", "prerelease": "hardhat"}
+  ],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/npm",
+    "@semantic-release/git"
   ]
 }' > .releaserc.json
 
 PUBLISH_HARDHAT=true npx semantic-release --debug
-
-git status
-git commit -a -m 'Update package.json version';
-git push
