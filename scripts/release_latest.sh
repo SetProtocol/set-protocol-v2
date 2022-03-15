@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
-echo "{ branches: ['master'] }" > .releaserc.js
+set -o errexit
 
-npx semantic-release
+echo '{
+  "branches": [
+    { "name": "master" }
+  ]
+}' > .releaserc.json
+
+npx semantic-release --debug --dry-run --ci
