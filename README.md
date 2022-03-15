@@ -67,6 +67,18 @@ perpSetup = getPerpV2Fixture(...);
 [22]: https://www.npmjs.com/package/hardhat
 [23]: https://www.npmjs.com/package/typechain
 
+## Semantic Release
+
+This repository uses [semantic-release][10] to automatically publish in CI on merge to master. To trigger
+a release, use the following naming convention in your PR description (or in your squash & merge commit
+description):
+
++ patch release (e.g 1.0.1 -> 1.0.2): `fix(topic): description`
+  + example: `fix(perpV2Viewer): return uint256 instead of int256`
++ feature release (e.g 1.1.0 -> 1.2.0): `feat(feature_name): description`
+  + example: `feat(PerpV2BasisTrading): Add PerpV2 Basis Trading Module`
+
+
 ## Contributing
 We highly encourage participation from the community to help shape the development of Set. If you are interested in developing on top of Set Protocol or have any questions, please ping us on [Discord](https://discord.gg/ZWY66aR).
 
@@ -116,3 +128,5 @@ If you follow these guidelines when reporting an issue to us, we commit to:
 (including an initial confirmation of your report within 72 hours of submission).
 
 * Grant a monetary reward based on the OWASP risk assessment methodology.
+
+[10]: https://semantic-release.gitbook.io/semantic-release/v/beta/
