@@ -350,24 +350,19 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
         returns (address[] memory, uint256[] memory, uint256[] memory)
     {
         address[] memory components = _setToken.getComponents();
-        uint256 componentsLength = components.length;
-
-        uint256[] memory equityUnits = new uint256[](componentsLength);
-        uint256[] memory debtUnits = new uint256[](componentsLength);
-
-        uint256 totalSupply = _setToken.totalSupply();
+        uint256[] memory equityUnits = new uint256[](components.length);
+        uint256[] memory debtUnits = new uint256[](components.length);
 
         for (uint256 i = 0; i < components.length; i++) {
-            address component = components[i];
-            int256 cumulativeEquity = totalSupply
-                                        .getDefaultPositionUnit(IERC20(component).balanceOf(address(_setToken)))
+            int256 cumulativeEquity = _setToken.totalSupply()
+                                        .getDefaultPositionUnit(IERC20(components[i]).balanceOf(address(_setToken)))
                                         .toInt256();
             int256 cumulativeDebt = 0;
-            address[] memory externalPositions = _setToken.getExternalPositionModules(component);
+            address[] memory externalPositions = _setToken.getExternalPositionModules(components[i]);
 
             if (externalPositions.length > 0) {
                 for (uint256 j = 0; j < externalPositions.length; j++) { 
-                    int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(component, externalPositions[j]);
+                    int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(components[i], externalPositions[j]);
 
                     // If positionUnit <= 0 it will be "added" to debt position
                     if (externalPositionUnit > 0) {

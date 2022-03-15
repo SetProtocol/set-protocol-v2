@@ -27,8 +27,7 @@ import { IQuoter } from "../../interfaces/external/perp-v2/IQuoter.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
 import { IVault } from "../../interfaces/external/perp-v2/IVault.sol";
 import { ModuleBase } from "../lib/ModuleBase.sol";
-import { PerpV2 } from "../integration/lib/PerpV2.sol";
-import { PerpV2LeverageModule } from "./PerpV2LeverageModule.sol";
+import { PerpV2LeverageModuleV2 } from "./PerpV2LeverageModuleV2.sol";
 import { Position } from "../lib/Position.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
@@ -36,14 +35,14 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * @title PerpV2BasisTradingModule
  * @author Set Protocol
  *
- * @notice Smart contract that extends functionality offered by PerpV2LeverageModule. It tracks funding that is settled due to 
+ * @notice Smart contract that extends functionality offered by PerpV2LeverageModuleV2. It tracks funding that is settled due to 
  * actions on Perpetual protocol and allows it to be withdrawn by the manager. The withdrawn funding can be reinvested in the Set 
  * to create a yield generating basis trading product. The manager can also collect performance fees on the withdrawn funding.
  *
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  */
-contract PerpV2BasisTradingModule is PerpV2LeverageModule {
+contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
 
     /* ============ Structs ============ */
 
@@ -119,7 +118,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _maxPerpPositionsPerSet
     )
         public
-        PerpV2LeverageModule(
+        PerpV2LeverageModuleV2(
             _controller,
             _perpVault,
             _perpQuoter,
@@ -144,20 +143,20 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
     {
         _validateFeeState(_settings);
 
-        // Initialize by calling PerpV2LeverageModule#initialize. 
+        // Initialize by calling PerpV2LeverageModuleV2#initialize. 
         // Verifies caller is manager. Verifies Set is valid, allowed and in pending state.
-        PerpV2LeverageModule.initialize(_setToken);
+        PerpV2LeverageModuleV2.initialize(_setToken);
 
         feeSettings[_setToken] = _settings;
     }
 
     /**
-     * @dev MANAGER ONLY: Similar to PerpV2LeverageModule#trade. Allows manager to buy or sell perps to change exposure 
+     * @dev MANAGER ONLY: Similar to PerpV2LeverageModuleV2#trade. Allows manager to buy or sell perps to change exposure 
      * to the underlying baseToken. Any pending funding that would be settled during opening a position on Perpetual
      * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later by the 
      * SetToken manager.
      * NOTE: Calling a `nonReentrant` function from another `nonReentrant` function is not supported. Hence, we can't
-     * add the `nonReentrant` modifier here because `PerpV2LeverageModule#trade` function has a reentrancy check. 
+     * add the `nonReentrant` modifier here because `PerpV2LeverageModuleV2#trade` function has a reentrancy check. 
      * NOTE: This method doesn't update the externalPositionUnit because it is a function of UniswapV3 virtual
      * token market prices and needs to be generated on the fly to be meaningful.
      *
@@ -178,8 +177,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         // Track funding before it is settled
         _updateSettledFunding(_setToken);
 
-        // Trade using PerpV2LeverageModule#trade.
-        PerpV2LeverageModule.trade(
+        // Trade using PerpV2LeverageModuleV2#trade.
+        PerpV2LeverageModuleV2.trade(
             _setToken,
             _baseToken,
             _baseQuantityUnits,
@@ -230,10 +229,10 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
      *
      * NOTE: Function will revert if there is greater than a position unit amount of USDC of account value.
      */
-    function removeModule() public override(PerpV2LeverageModule) {
-        // Call PerpV2LeverageModule#removeModule to delete positions mapping and unregister on other modules.
+    function removeModule() public override(PerpV2LeverageModuleV2) {
+        // Call PerpV2LeverageModuleV2#removeModule to delete positions mapping and unregister on other modules.
         // Verifies Set is valid and initialized.
-        PerpV2LeverageModule.removeModule();
+        PerpV2LeverageModuleV2.removeModule();
 
         ISetToken setToken = ISetToken(msg.sender);
         
@@ -258,14 +257,14 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _setTokenQuantity
     )
         public
-        override(PerpV2LeverageModule)
+        override(PerpV2LeverageModuleV2)
     {
         // Track funding before it is settled
         _updateSettledFunding(_setToken);
         
-        // Call PerpV2LeverageModule#moduleIssueHook to set external position unit.
+        // Call PerpV2LeverageModuleV2#moduleIssueHook to set external position unit.
         // Validates caller is module.
-        PerpV2LeverageModule.moduleIssueHook(_setToken, _setTokenQuantity);
+        PerpV2LeverageModuleV2.moduleIssueHook(_setToken, _setTokenQuantity);
     }
 
     /**
@@ -286,7 +285,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _setTokenQuantity
     )
         external
-        override(PerpV2LeverageModule)
+        override(PerpV2LeverageModuleV2)
         onlyModule(_setToken)
     {
         if (_setToken.totalSupply() == 0) return;
@@ -389,7 +388,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModule {
         uint256 _setTokenQuantity
     )
         external
-        override(PerpV2LeverageModule)
+        override(PerpV2LeverageModuleV2)
         returns (int256[] memory, int256[] memory _)
     {
         address[] memory components = _setToken.getComponents();

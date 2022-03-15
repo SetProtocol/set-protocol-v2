@@ -1,14 +1,18 @@
 /*
     Copyright 2021 Set Labs Inc.
+
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
+
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
@@ -22,7 +26,8 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
-import { PerpV2 } from "../integration/lib/PerpV2.sol";
+import { PerpV2LibraryV2 } from "../integration/lib/PerpV2LibraryV2.sol";
+import { PerpV2Positions } from "../integration/lib/PerpV2Positions.sol";
 import { UniswapV3Math } from "../integration/lib/UniswapV3Math.sol";
 import { IAccountBalance } from "../../interfaces/external/perp-v2/IAccountBalance.sol";
 import { IClearingHouse } from "../../interfaces/external/perp-v2/IClearingHouse.sol";
@@ -36,14 +41,16 @@ import { IController } from "../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHookV2 } from "../../interfaces/IModuleIssuanceHookV2.sol";
 import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
+import { ModuleBaseV2 } from "../lib/ModuleBaseV2.sol";
 import { SetTokenAccessible } from "../lib/SetTokenAccessible.sol";
 import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
 import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
 
+// TODO: Fetch values from PerpV2 contracts rather than calclating them natively.
+
 /**
- * @title PerpV2LeverageModule
+ * @title PerpV2LeverageModuleV2
  * @author Set Protocol
  * @notice Smart contract that enables leveraged trading using the PerpV2 protocol. Each SetToken can only manage a single Perp account
  * represented as a positive equity external position whose value is the net Perp account value denominated in the collateral token
@@ -58,8 +65,8 @@ import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  */
-contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenAccessible, IModuleIssuanceHookV2 {
-    using PerpV2 for ISetToken;
+contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTokenAccessible, IModuleIssuanceHookV2 {
+    using PerpV2LibraryV2 for ISetToken;
     using PreciseUnitMath for int256;
     using SignedSafeMath for int256;
     using UnitConversionUtils for int256;
@@ -70,26 +77,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
     /* ============ Structs ============ */
 
-    struct ActionInfo {
-        ISetToken setToken;
-        address baseToken;              // Virtual token minted by the Perp protocol
-        bool isBuy;                     // When true, `baseToken` is being bought, when false, sold
-        uint256 baseTokenAmount;        // Base token quantity in 10**18 decimals
-        uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound (see `_createActionInfoNotional` for details)
-    }
-
-    struct PositionNotionalInfo {
-        address baseToken;              // Virtual token minted by the Perp protocol
-        int256 baseBalance;             // Base position notional quantity in 10**18 decimals. When negative, position is short
-        int256 quoteBalance;            // vUSDC "debt" notional quantity minted to open position. When positive, position is short
-    }
-
-    struct PositionUnitInfo {
-        address baseToken;              // Virtual token minted by the Perp protocol
-        int256 baseUnit;                // Base position unit. When negative, position is short
-        int256 quoteUnit;               // vUSDC "debt" position unit. When positive, position is short
-    }
-
     // Note: when `pendingFundingPayments` is positive it will be credited to account on settlement,
     // when negative it's a debt owed that will be repaid on settlement. (PerpProtocol.Exchange returns the value
     // with the opposite meaning, e.g positively signed payments are owed by account to system).
@@ -99,7 +86,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         int256 pendingFundingPayments;  // USDC quantity of pending funding payments in 10**18 decimals
         int256 netQuoteBalance;         // USDC quantity of net quote balance for all open positions in Perp account
     }
-
+    
     /* ============ Events ============ */
 
     /**
@@ -206,7 +193,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         uint256 _maxPerpPositionsPerSet
     )
         public
-        ModuleBase(_controller)
+        ModuleBaseV2(_controller)
         SetTokenAccessible(_controller)
     {
         // Use temp variables to initialize immutables
@@ -319,14 +306,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {        
-        ActionInfo memory actionInfo = _createAndValidateActionInfo(
+        PerpV2LibraryV2.ActionInfo memory actionInfo = _createAndValidateActionInfo(
             _setToken,
             _baseToken,
             _baseQuantityUnits,
             _quoteBoundQuantityUnits
         );
 
-        (uint256 deltaBase, uint256 deltaQuote) = _executeTrade(actionInfo);
+        (uint256 deltaBase, uint256 deltaQuote) = PerpV2LibraryV2.executeTrade(perpClearingHouse, actionInfo);
 
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
@@ -593,12 +580,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     {
         address[] memory components = _setToken.getComponents();
 
-        if (positions[_setToken].length > 0) {
-            int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, true, true);
-            return _formatAdjustments(_setToken, components, newExternalPositionUnit);
-        } else {
-            return _formatAdjustments(_setToken, components, 0);
-        }
+        int256 newExternalPositionUnit = positions[_setToken].length > 0
+            ? _executePositionTrades(_setToken, _setTokenQuantity, true, true)
+            : 0;
+        
+        return _formatAdjustments(_setToken, components, newExternalPositionUnit);
     }
 
     /**
@@ -622,12 +608,11 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     {
         address[] memory components = _setToken.getComponents();
 
-        if (positions[_setToken].length > 0) {
-            int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
-            return _formatAdjustments(_setToken, components, newExternalPositionUnit);
-        } else {
-            return _formatAdjustments(_setToken, components, 0);
-        }
+        int256 newExternalPositionUnit = positions[_setToken].length > 0
+            ? _executePositionTrades(_setToken, _setTokenQuantity, false, true)
+            : 0;
+        
+        return _formatAdjustments(_setToken, components, newExternalPositionUnit);
     }
 
     /**
@@ -641,27 +626,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + baseBalance:  baseToken balance as notional quantity (10**18)
      *         + quoteBalance: USDC quote asset balance as notional quantity (10**18)
      */
-    function getPositionNotionalInfo(ISetToken _setToken) public view returns (PositionNotionalInfo[] memory) {
-        address[] memory positionList = positions[_setToken];
-        uint256 positionLength = positionList.length;
-        PositionNotionalInfo[] memory positionInfo = new PositionNotionalInfo[](positionLength);
-
-        for(uint i = 0; i < positionLength; i++){
-            address baseToken = positionList[i];
-            positionInfo[i] = PositionNotionalInfo({
-                baseToken: baseToken,
-                baseBalance: perpAccountBalance.getBase(
-                    address(_setToken),
-                    baseToken
-                ),
-                quoteBalance: perpAccountBalance.getQuote(
-                    address(_setToken),
-                    baseToken
-                )
-            });
-        }
-
-        return positionInfo;
+    function getPositionNotionalInfo(ISetToken _setToken) public view returns (PerpV2Positions.PositionNotionalInfo[] memory) {
+        return PerpV2Positions.getPositionNotionalInfo(_setToken, positions[_setToken], perpAccountBalance);
     }
 
     /**
@@ -675,24 +641,9 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      *         + baseUnit:  baseToken balance as position unit (10**18)
      *         + quoteUnit: USDC quote asset balance as position unit (10**18)
      */
-    function getPositionUnitInfo(ISetToken _setToken) external view returns (PositionUnitInfo[] memory) {
-        int256 totalSupply = _setToken.totalSupply().toInt256();
-        PositionNotionalInfo[] memory positionNotionalInfo = getPositionNotionalInfo(_setToken);
-        uint256 positionLength = positionNotionalInfo.length;
-        PositionUnitInfo[] memory positionUnitInfo = new PositionUnitInfo[](positionLength);
-
-        for(uint i = 0; i < positionLength; i++){
-            PositionNotionalInfo memory currentPosition = positionNotionalInfo[i];
-            positionUnitInfo[i] = PositionUnitInfo({
-                baseToken: currentPosition.baseToken,
-                baseUnit: currentPosition.baseBalance.preciseDiv(totalSupply),
-                quoteUnit: currentPosition.quoteBalance.preciseDiv(totalSupply)
-            });
-        }
-
-        return positionUnitInfo;
+    function getPositionUnitInfo(ISetToken _setToken) external view returns (PerpV2Positions.PositionUnitInfo[] memory) {
+        return PerpV2Positions.getPositionUnitInfo(_setToken, positions[_setToken], perpAccountBalance);
     }
-
 
     /**
      * @dev Gets Perp account info for SetToken. Returns an AccountInfo struct containing account wide
@@ -714,10 +665,10 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
         // We are flipping its sign here to reflect its settlement value.
         accountInfo = AccountInfo({
-            collateralBalance: _getCollateralBalance(_setToken),
+            collateralBalance: perpVault.getBalance(address(_setToken)).toPreciseUnitsFromDecimals(collateralDecimals),
             owedRealizedPnl: owedRealizedPnl,
             pendingFundingPayments: perpExchange.getAllPendingFundingPayment(address(_setToken)).neg(),
-            netQuoteBalance: _getNetQuoteBalance(_setToken)
+            netQuoteBalance: PerpV2Positions.getNetQuoteBalance(_setToken, positions[_setToken], perpAccountBalance)
         });
     }
 
@@ -772,7 +723,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // and variable may refer to the value which will be redeemed.
         int256 accountValueIssued = _calculatePartialAccountValuePositionUnit(_setToken).preciseMul(setTokenQuantityInt);
 
-        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
+        PerpV2Positions.PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
         uint256 positionLength = positionInfo.length;
         int256 totalSupply = _setToken.totalSupply().toInt256();
 
@@ -781,7 +732,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
             // When redeeming, we flip the sign of baseTradeNotionalQuantity because we are reducing the size of the position,
             // e.g selling base when long, buying base when short
-            ActionInfo memory actionInfo = _createActionInfoNotional(
+            PerpV2LibraryV2.ActionInfo memory actionInfo = _createActionInfoNotional(
                 _setToken,
                 positionInfo[i].baseToken,
                 _isIssue ? baseTradeNotionalQuantity : baseTradeNotionalQuantity.neg(),
@@ -790,7 +741,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
             // Execute or simulate trade.
             // `deltaQuote` is always a positive number
-            (, uint256 deltaQuote) = _isSimulation ? _simulateTrade(actionInfo) : _executeTrade(actionInfo);
+            (, uint256 deltaQuote) = _isSimulation ? PerpV2LibraryV2.simulateTrade(perpQuoter, actionInfo) : PerpV2LibraryV2.executeTrade(perpClearingHouse, actionInfo);
 
             // slippage is borne by the issuer
             accountValueIssued = baseTradeNotionalQuantity >= 0 ? accountValueIssued.add(deltaQuote.toInt256()) :
@@ -942,61 +893,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         return collateralNotionalQuantity;
     }
 
-    /**
-     * @dev Formats Perp Protocol openPosition call and executes via SetToken (and PerpV2 lib)
-     *
-     * `isBaseToQuote`, `isExactInput` and `oppositeAmountBound` are configured as below:
-     * | ---------------------------------------------------|---------------------------- |
-     * | Action  | isBuy   | isB2Q  | Exact In / Out        | Opposite Bound Description  |
-     * | ------- |-------- |--------|-----------------------|---------------------------- |
-     * | Buy     |  true   | false  | exact output (false)  | Max quote to pay            |
-     * | Sell    |  false  | true   | exact input (true)    | Min quote to receive        |
-     * |----------------------------------------------------|---------------------------- |
-     *
-     * @param _actionInfo  ActionInfo object
-     * @return uint256     The base position delta resulting from the trade
-     * @return uint256     The quote asset position delta resulting from the trade
-     */
-    function _executeTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
-
-        // When isBaseToQuote is true, `baseToken` is being sold, when false, bought
-        // When isExactInput is true, `amount` is the swap input, when false, the swap output
-        IClearingHouse.OpenPositionParams memory params = IClearingHouse.OpenPositionParams({
-            baseToken: _actionInfo.baseToken,
-            isBaseToQuote: !_actionInfo.isBuy,
-            isExactInput: !_actionInfo.isBuy,
-            amount: _actionInfo.baseTokenAmount,
-            oppositeAmountBound: _actionInfo.oppositeAmountBound,
-            deadline: PreciseUnitMath.maxUint256(),
-            sqrtPriceLimitX96: 0,
-            referralCode: bytes32(0)
-        });
-
-        return _actionInfo.setToken.invokeOpenPosition(perpClearingHouse, params);
-    }
-
-
-    /**
-     * @dev Formats Perp Periphery Quoter.swap call and executes via SetToken (and PerpV2 lib)
-     *
-     * See _executeTrade method comments for details about `isBaseToQuote` and `isExactInput` configuration.
-     *
-     * @param _actionInfo   ActionInfo object
-     * @return uint256      The base position delta resulting from the trade
-     * @return uint256      The quote asset position delta resulting from the trade
-     */
-    function _simulateTrade(ActionInfo memory _actionInfo) internal returns (uint256, uint256) {
-        IQuoter.SwapParams memory params = IQuoter.SwapParams({
-            baseToken: _actionInfo.baseToken,
-            isBaseToQuote: !_actionInfo.isBuy,
-            isExactInput: !_actionInfo.isBuy,
-            amount: _actionInfo.baseTokenAmount,
-            sqrtPriceLimitX96: 0
-        });
-
-        IQuoter.SwapResponse memory swapResponse = _actionInfo.setToken.invokeSwap(perpQuoter, params);
-        return (swapResponse.deltaAvailableBase, swapResponse.deltaAvailableQuote);
-    }
 
     /**
      * @dev Calculates protocol fee on module and pays protocol fee from SetToken
@@ -1023,7 +919,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
-     * @dev Construct the ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to
+     * @dev Construct the PerpV2LibraryV2.ActionInfo struct for trading. This method takes POSITION UNIT amounts and passes to
      *  _createActionInfoNotional to create the struct. If the _baseTokenQuantity is zero then revert. If
      * the _baseTokenQuantity = -(baseBalance/setSupply) then close the position entirely. This method is
      * only called from `trade` - the issue/redeem flow uses createActionInfoNotional directly.
@@ -1033,7 +929,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @param _baseQuantityUnits    Quantity of baseToken to trade in PositionUnits
      * @param _quoteReceiveUnits    Quantity of quote to receive if selling base and pay if buying, in PositionUnits
      *
-     * @return ActionInfo           Instance of constructed ActionInfo struct
+     * @return PerpV2LibraryV2.ActionInfo           Instance of constructed PerpV2LibraryV2.ActionInfo struct
      */
     function _createAndValidateActionInfo(
         ISetToken _setToken,
@@ -1043,7 +939,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     )
         internal
         view
-        returns(ActionInfo memory)
+        returns(PerpV2LibraryV2.ActionInfo memory)
     {
         require(_baseQuantityUnits != 0, "Amount is 0");
         require(perpMarketRegistry.hasPool(_baseToken), "Base token does not exist");
@@ -1066,7 +962,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     }
 
     /**
-     * @dev Construct the ActionInfo struct for trading. This method takes NOTIONAL token amounts and creates
+     * @dev Construct the PerpV2LibraryV2.ActionInfo struct for trading. This method takes NOTIONAL token amounts and creates
      * the struct. If the _baseTokenQuantity is greater than zero then we are buying the baseToken. This method
      * is called during issue and redeem via `_executePositionTrades` and during trade via `_createAndValidateActionInfo`.
      *
@@ -1077,7 +973,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @param _baseTokenQuantity        Notional quantity of baseToken to trade
      * @param _quoteReceiveQuantity     Notional quantity of quote to receive if selling base and pay if buying
      *
-     * @return ActionInfo               Instance of constructed ActionInfo struct
+     * @return PerpV2LibraryV2.ActionInfo               Instance of constructed PerpV2LibraryV2.ActionInfo struct
      */
     function _createActionInfoNotional(
         ISetToken _setToken,
@@ -1087,14 +983,14 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     )
         internal
         pure
-        returns(ActionInfo memory)
+        returns(PerpV2LibraryV2.ActionInfo memory)
     {
         // NOT checking that _baseTokenQuantity != 0 here because for places this is directly called
         // (issue/redeem hooks) we know the position cannot be 0. We check in _createAndValidateActionInfo
         // that quantity is 0 for inputs to trade.
         bool isBuy = _baseTokenQuantity > 0;
 
-        return ActionInfo({
+        return PerpV2LibraryV2.ActionInfo({
             setToken: _setToken,
             baseToken: _baseToken,
             isBuy: isBuy,
@@ -1180,7 +1076,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @return int256       External position unit
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
-        PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
+        PerpV2Positions.PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
         uint256 positionLength = positionInfo.length;
         int256 totalPositionValue = 0;
 
@@ -1197,32 +1093,6 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         return externalPositionUnitInPreciseUnits.fromPreciseUnitToDecimals(collateralDecimals);
     }
 
-    /**
-     * @dev Retrieves collateral balance as an 18 decimal vUSDC quote value
-     *
-     * @param _setToken     Instance of SetToken
-     * @return int256       Collateral balance as an 18 decimal vUSDC quote value
-     */
-    function _getCollateralBalance(ISetToken _setToken) internal view returns (int256) {
-        return perpVault.getBalance(address(_setToken)).toPreciseUnitsFromDecimals(collateralDecimals);
-    }
-
-    /**
-     * @dev Retrieves net quote balance of all open positions
-     *
-     * @param _setToken             Instance of SetToken
-     * @return netQuoteBalance      Net quote balance of all open positions
-     */
-    function _getNetQuoteBalance(ISetToken _setToken) internal view returns (int256 netQuoteBalance) {
-        address[] memory positionList = positions[_setToken];
-        uint256 positionLength = positionList.length;
-
-        for (uint256 i = 0; i < positionLength; i++) {
-            netQuoteBalance = netQuoteBalance.add(
-                perpAccountBalance.getQuote(address(_setToken), positionList[i])
-            );
-        }
-    }
 
     /**
      * @dev Returns issuance or redemption adjustments in the format expected by `SlippageIssuanceModule`.
