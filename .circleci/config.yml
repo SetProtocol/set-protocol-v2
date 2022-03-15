@@ -136,19 +136,20 @@ workflows:
   build-and-test:
     jobs:
       - checkout_and_compile
-      # - test:
-      #     requires:
-      #       - checkout_and_compile
-      # - test_forked_network:
-      #     requires:
-      #       - checkout_and_compile
-      # - coverage:
-      #     requires:
-      #       - checkout_and_compile
-      # - report_coverage:
-      #     requires:
-      #       - coverage
-      # Publish hardhat first, latest second so that repo's package version is set correctly on exit
+      - test:
+          requires:
+            - checkout_and_compile
+      - test_forked_network:
+          requires:
+            - checkout_and_compile
+      - coverage:
+          requires:
+            - checkout_and_compile
+      - report_coverage:
+          requires:
+            - coverage
+
+      # Publish `hardhat` before `latest` second so that repo's package version is set correctly on exit
       - release_hardhat:
           requires:
             - checkout_and_compile
