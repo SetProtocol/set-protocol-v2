@@ -231,6 +231,8 @@ export default class DeployModules {
     perpQuoter: Address,
     perpMarketRegistry: Address,
     maxPerpPositionsPerSet: BigNumber,
+    positionV2LibraryName: string,
+    positionV2LibraryAddress: Address,
     perpV2LibraryName: string,
     perpV2LibraryAddress: Address,
     perpV2PositionsLibraryName: string,
@@ -239,6 +241,7 @@ export default class DeployModules {
     return await new PerpV2LeverageModuleV2__factory(
       // @ts-ignore
       {
+        [positionV2LibraryName]: positionV2LibraryAddress,
         [perpV2LibraryName]: perpV2LibraryAddress,
         [perpV2PositionsLibraryName]: perpV2PositionsLibraryAddress,
       },
@@ -258,6 +261,8 @@ export default class DeployModules {
     perpQuoter: Address,
     perpMarketRegistry: Address,
     maxPerpPositionsPerSet: BigNumber,
+    positionV2LibraryName: string,
+    positionV2LibraryAddress: Address,
     perpV2LibraryName: string,
     perpV2LibraryAddress: Address,
     perpV2PositionsLibraryName: string,
@@ -266,6 +271,7 @@ export default class DeployModules {
     return await new PerpV2BasisTradingModule__factory(
       // @ts-ignore
       {
+        [positionV2LibraryName]: positionV2LibraryAddress,
         [perpV2LibraryName]: perpV2LibraryAddress,
         [perpV2PositionsLibraryName]: perpV2PositionsLibraryAddress,
       },

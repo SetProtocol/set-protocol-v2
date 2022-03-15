@@ -3,6 +3,7 @@ import "module-alias/register";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
+  PositionV2,
   PerpV2LibraryV2,
   PerpV2Positions,
   PerpV2LeverageModuleV2,
@@ -57,6 +58,7 @@ describe("PerpV2LeverageModuleV2", () => {
   let mockModule: Account;
   let deployer: DeployHelper;
 
+  let positionLib: PositionV2;
   let perpLib: PerpV2LibraryV2;
   let perpPositionsLib: PerpV2Positions;
   let perpLeverageModule: PerpV2LeverageModuleV2;
@@ -111,14 +113,20 @@ describe("PerpV2LeverageModuleV2", () => {
     await setup.controller.addModule(debtIssuanceMock.address);
 
     maxPerpPositionsPerSet = TWO;
+
+    // Deploy libraries
+    positionLib = await deployer.libraries.deployPositionV2();
     perpLib = await deployer.libraries.deployPerpV2LibraryV2();
     perpPositionsLib = await deployer.libraries.deployPerpV2Positions();
+
     perpLeverageModule = await deployer.modules.deployPerpV2LeverageModuleV2(
       setup.controller.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
       maxPerpPositionsPerSet,
+      "contracts/protocol/lib/PositionV2.sol:PositionV2",
+      positionLib.address,
       "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
       perpLib.address,
       "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
@@ -200,7 +208,9 @@ describe("PerpV2LeverageModuleV2", () => {
         subjectQuoter,
         subjectMarketRegistry,
         subjectMaxPerpPositionsPerSet,
-        "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
+        "contracts/protocol/lib/PositionV2.sol:PositionV2",
+        positionLib.address,
+        "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
         perpLib.address,
         "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
         perpPositionsLib.address
