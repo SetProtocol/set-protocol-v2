@@ -15,4 +15,6 @@ echo '{
   ]
 }' > .releaserc.json
 
+yarn build:npm:latest
+
 npx semantic-release --debug
