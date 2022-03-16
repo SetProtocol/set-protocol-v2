@@ -6,15 +6,16 @@
 # This build is necessary for Perp fixtures to run correctly at set-v2-strategies
 set -o errexit
 
-echo "Running prepublishOnly npm hook"
-echo "PUBLISH_HARDHAT = $PUBLISH_HARDHAT"
 
 # This hook is skipped when publishing in CI. All building has to be done before
 # semantic-release runs because file changes don't persist in that execution context.
 if [[ -v CI ]]; then
+  echo "Skipping prepublishOnly hook in CI"
   exit 0
 elif [[ -v PUBLISH_HARDHAT ]]; then
+  echo "Running prepublishOnly hook for @hardhat"
   yarn build:npm:hardhat
 else
+  echo "Running prepublishOnly hook for @latest"
   yarn build:npm:latest
 fi

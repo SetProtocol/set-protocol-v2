@@ -10,14 +10,16 @@ set -o errexit
 echo '{
   "branches": [
     { "name": "release_default_do_not_delete" },
-    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "ccccc"}
+    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "ccccccc"}
+  ],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/npm",
+    ["@semantic-release/exec", {
+      "prepareCmd": "yarn build:ts:hardhat",
+    }],
   ]
 }' > .releaserc.json
-
-rm -rf dist
-tsc --project tsconfig.hardhat.json
-cp -rf typechain dist
-
-ls dist/typechain
 
 npx semantic-release --debug
