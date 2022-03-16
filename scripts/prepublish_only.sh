@@ -10,14 +10,7 @@ echo "Running prepublishOnly npm hook"
 echo "PUBLISH_HARDHAT = $PUBLISH_HARDHAT"
 
 if [[ -v PUBLISH_HARDHAT ]]; then
-  # Temporarily overwrite tsconfig.json. tsc command `--project` flag not working for unknown reasons
-  cp tsconfig.json _temp_config
-  cp tsconfig.hardhat.json tsconfig.json
-
   yarn build:npm:hardhat
-
-  # Restore tsconfig to remove git changes
-  cp _temp_config tsconfig.json
 else
   yarn build:npm:latest
 fi
