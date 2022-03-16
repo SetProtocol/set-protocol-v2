@@ -10,8 +10,15 @@ set -o errexit
 echo '{
   "branches": [
     { "name": "release_default_do_not_delete" },
-    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "hahahahaha"}
+    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "hahahhh"}
   ]
 }' > .releaserc.json
+
+# Temporarily overwrite tsconfig.json. tsc command `--project` flag not working for unknown reasons
+cp tsconfig.json _temp_config
+cp tsconfig.hardhat.json tsconfig.json
+
+echo "Modified tsconfig.json"
+cat tsconfig.json
 
 PUBLISH_HARDHAT=true npx semantic-release --debug
