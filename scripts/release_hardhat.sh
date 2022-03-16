@@ -10,8 +10,12 @@ set -o errexit
 echo '{
   "branches": [
     { "name": "release_default_do_not_delete" },
-    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "ccccccccccccc"}
+    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "ccccccccccccccc"}
   ]
 }' > .releaserc.json
+
+# Copy custom config to default config. `tsc` is running somewhere we can't control, this seems to
+# be the only way to get the correct compilation
+cp tsconfig.hardhat.json tsconfig.json
 
 npx semantic-release --debug
