@@ -8,15 +8,22 @@ default_env: &default_env
           NODE_OPTIONS: --max_old_space_size=8192
 
 commands:
-  setup_job:
+  setup_job_default:
     steps:
       - restore_cache:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
 
-jobs:
-  checkout_and_compile:
-    <<: *default_env
-    resource_class: large
+  setup_job_release_latest:
+    steps:
+      - restore_cache:
+          key: compiled-env-latest{{ .Environment.CIRCLE_SHA1 }}
+
+  setup_job_release_hardhat:
+    steps:
+      - restore_cache:
+          key: compiled-env-hardhat{{ .Environment.CIRCLE_SHA1 }}
+
+  checkout_and_install:
     steps:
       - checkout
       - restore_cache:
@@ -31,6 +38,14 @@ jobs:
           key: module-cache-{{ checksum "yarn.lock" }}
           paths:
             - node_modules
+
+
+jobs:
+  checkout_and_build_default:
+    <<: *default_env
+    resource_class: large
+    steps:
+      - checkout_and_install
       - run:
           name: Transpile Contracts
           command: yarn build
@@ -38,11 +53,38 @@ jobs:
           key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - ~/set-protocol-v2
+
+  checkout_and_build_release_latest:
+    <<: *default_env
+    resource_class: large
+    steps:
+      - checkout_and_install
+      - run:
+          name: Transpile Contracts
+          command: yarn build:npm:latest
+      - save_cache:
+          key: compiled-env-latest{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - ~/set-protocol-v2
+
+  checkout_and_build_release_hardhat:
+    <<: *default_env
+    resource_class: large
+    steps:
+      - checkout_and_install
+      - run:
+          name: Transpile Contracts
+          command: yarn build:npm:hardhat
+      - save_cache:
+          key: compiled-env-hardhat{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - ~/set-protocol-v2
+
   test:
     <<: *default_env
     parallelism: 3
     steps:
-      - setup_job
+      - setup_job_default
       - run:
           name: Test RPC
           command: yarn chain
@@ -56,7 +98,7 @@ jobs:
   test_forked_network:
     <<: *default_env
     steps:
-      - setup_job
+      - setup_job_default
       - run:
           name: Hardhat Test
           command: yarn test:fork
@@ -70,7 +112,7 @@ jobs:
     parallelism: 5
     resource_class: medium+
     steps:
-      - setup_job
+      - setup_job_default
       - run:
           name: Create shared coverage outputs folder
           command: mkdir -p /tmp/coverage
@@ -97,7 +139,7 @@ jobs:
   report_coverage:
     <<: *default_env
     steps:
-      - setup_job
+      - setup_job_default
       - attach_workspace:
           at: /tmp/coverage
       - run:
@@ -118,33 +160,35 @@ jobs:
   release_latest:
     <<: *default_env
     steps:
-      - setup_job
+      - setup_job_release_latest
       - run:
           name: Publish "latest" release
-          command: yarn publish:ci:latest
+          command: yarn release:ci:latest
 
   release_hardhat:
     <<: *default_env
     steps:
-      - setup_job
+      - setup_job_release_hardhat
       - run:
           name: Publish "hardhat" release
-          command: yarn publish:ci:hardhat
+          command: yarn release:ci:hardhat
 
 workflows:
   version: 2
   build-and-test:
     jobs:
-      - checkout_and_compile
+      - checkout_and_build_default
+      - checkout_and_build_release_latest
+      - checkout_and_build_release_hardhat
       # - test:
       #     requires:
-      #       - checkout_and_compile
+      #       - checkout_and_build_default
       # - test_forked_network:
       #     requires:
-      #       - checkout_and_compile
+      #       - checkout_and_build_default
       # - coverage:
       #     requires:
-      #       - checkout_and_compile
+      #       - checkout_and_build_default
       # - report_coverage:
       #     requires:
       #       - coverage
@@ -152,9 +196,10 @@ workflows:
       # Publish `hardhat` before `latest` second so that repo's package version is set correctly on exit
       - release_hardhat:
           requires:
-            - checkout_and_compile
+            - checkout_and_build_release_hardhat
       - release_latest:
           requires:
+            - checkout_and_build_release_latest
             - release_hardhat
 
 
