@@ -69,10 +69,9 @@ const config: HardhatUserConfig = {
     target: "ethers-v5",
     externalArtifacts: ["external/**/*.json"],
   },
-  // contractSizer: {
-  //   // alphaSort: true,
-  //   runOnCompile: true,
-  // },
+  contractSizer: {
+    runOnCompile: false,
+  },
   mocha: mochaConfig,
 
   // These are external artifacts we don't compile but would like to improve

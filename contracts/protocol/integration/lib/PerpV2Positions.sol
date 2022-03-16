@@ -27,8 +27,6 @@ import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { UnitConversionUtils } from "../../../lib/UnitConversionUtils.sol";
 
-// Todo: Typechain doesn't create types when parameters are passed by storage. Although saves only 68 bytes.
-
 /**
  * @title PerpV2Positions
  * @author Set Protocol
