@@ -24,6 +24,7 @@ import {
   ManagerIssuanceHookMock,
   ModuleIssuanceHookMock,
   ModuleBaseMock,
+  ModuleBaseV2Mock,
   NAVIssuanceCaller,
   NAVIssuanceHookMock,
   OneInchExchangeMock,
@@ -32,6 +33,7 @@ import {
   YearnVaultMock,
   PerpV2Mock,
   PositionMock,
+  PositionV2Mock,
   PreciseUnitMathMock,
   ResourceIdentifierMock,
   StakingAdapterMock,
@@ -76,6 +78,7 @@ import { InvokeMock__factory } from "../../typechain/factories/InvokeMock__facto
 import { KyberNetworkProxyMock__factory } from "../../typechain/factories/KyberNetworkProxyMock__factory";
 import { ManagerIssuanceHookMock__factory } from "../../typechain/factories/ManagerIssuanceHookMock__factory";
 import { ModuleBaseMock__factory } from "../../typechain/factories/ModuleBaseMock__factory";
+import { ModuleBaseV2Mock__factory } from "../../typechain/factories/ModuleBaseV2Mock__factory";
 import { ModuleIssuanceHookMock__factory } from "../../typechain/factories/ModuleIssuanceHookMock__factory";
 import { NAVIssuanceCaller__factory } from "../../typechain/factories/NAVIssuanceCaller__factory";
 import { NAVIssuanceHookMock__factory } from "../../typechain/factories/NAVIssuanceHookMock__factory";
@@ -85,6 +88,7 @@ import { OracleMock__factory } from "../../typechain/factories/OracleMock__facto
 import { YearnVaultMock__factory } from "../../typechain/factories/YearnVaultMock__factory";
 import { PerpV2Mock__factory } from "../../typechain/factories/PerpV2Mock__factory";
 import { PositionMock__factory } from "../../typechain/factories/PositionMock__factory";
+import { PositionV2Mock__factory } from "../../typechain/factories/PositionV2Mock__factory";
 import { PreciseUnitMathMock__factory } from "../../typechain/factories/PreciseUnitMathMock__factory";
 import { ResourceIdentifierMock__factory } from "../../typechain/factories/ResourceIdentifierMock__factory";
 import { StakingAdapterMock__factory } from "../../typechain/factories/StakingAdapterMock__factory";
@@ -151,6 +155,10 @@ export default class DeployMocks {
     return await new ModuleBaseMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
 
+  public async deployModuleBaseV2Mock(controllerAddress: Address): Promise<ModuleBaseV2Mock> {
+    return await new ModuleBaseV2Mock__factory(this._deployerSigner).deploy(controllerAddress);
+  }
+
   public async deployGodModeMock(controllerAddress: Address): Promise<GodModeMock> {
     return await new GodModeMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
@@ -199,7 +207,6 @@ export default class DeployMocks {
     return await new YearnVaultMock__factory(this._deployerSigner).deploy(pricePerShare);
   }
 
-
   public async deployOracleAdapterMock(
     asset: Address,
     dummyPrice: BigNumber
@@ -209,6 +216,16 @@ export default class DeployMocks {
 
   public async deployPositionMock(): Promise<PositionMock> {
     return await new PositionMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPositionV2Mock(libraryName: string, libraryAddress: Address): Promise<PositionV2Mock> {
+    return await new PositionV2Mock__factory(
+      // @ts-ignore
+      {
+        [libraryName]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
   }
 
   public async deployPreciseUnitMathMock(): Promise<PreciseUnitMathMock> {
