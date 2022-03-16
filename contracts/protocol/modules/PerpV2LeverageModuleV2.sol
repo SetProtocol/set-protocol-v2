@@ -62,6 +62,11 @@ import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
  *
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
+ *
+ * CHANGELOG:
+ * - This contract has the same functionality as `PerpV2LeverageModule` but smaller bytecode size. It extends ModuleBaseV2 (which uses 
+ * linked PositionV2 library) and uses linked PerpV2LibraryV2 and PerpV2Positions library. This separation of logic across linked library 
+ * contracts helps us to significantly decrease the bytecode size of this contract.
  */
 contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTokenAccessible, IModuleIssuanceHookV2 {
     using PerpV2LibraryV2 for ISetToken;
