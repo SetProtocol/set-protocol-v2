@@ -33,6 +33,7 @@
     "lint-ts": "eslint -c .eslintrc.js --ext .ts test utils tasks --fix",
     "precommit": "lint-staged",
     "prepare": "echo 'running prepare' && yarn build",
+    "postversion": "yarn run build:ts:hardhat",
     "prepublishOnly": "./scripts/prepublish_only.sh",
     "publish:local:latest": "npm run publish",
     "publish:local:hardhat": "PUBLISH_HARDHAT=true npm run publish",
