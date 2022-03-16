@@ -121,7 +121,7 @@ jobs:
       - setup_job
       - run:
           name: Publish "latest" release
-          command: yarn publish:latest
+          command: yarn publish:ci:latest
 
   release_hardhat:
     <<: *default_env
@@ -129,7 +129,7 @@ jobs:
       - setup_job
       - run:
           name: Publish "hardhat" release
-          command: yarn publish:hardhat
+          command: yarn publish:ci:hardhat
 
 workflows:
   version: 2

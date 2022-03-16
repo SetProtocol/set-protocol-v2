@@ -9,7 +9,11 @@ set -o errexit
 echo "Running prepublishOnly npm hook"
 echo "PUBLISH_HARDHAT = $PUBLISH_HARDHAT"
 
-if [[ -v PUBLISH_HARDHAT ]]; then
+# This hook is skipped when publishing in CI. All building has to be done before
+# semantic-release runs because file changes don't persist in that execution context.
+if [[ -v CI ]]; then
+  exit 0
+elif [[ -v PUBLISH_HARDHAT ]]; then
   yarn build:npm:hardhat
 else
   yarn build:npm:latest
