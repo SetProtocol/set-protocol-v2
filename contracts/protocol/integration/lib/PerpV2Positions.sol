@@ -20,6 +20,7 @@ pragma solidity 0.6.10;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SignedSafeMath.sol";
+
 import { IAccountBalance } from "../../../interfaces/external/perp-v2/IAccountBalance.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
@@ -55,6 +56,8 @@ library PerpV2Positions {
      * @dev Retrieves net quote balance of all open positions.
      *
      * @param _setToken             Instance of SetToken
+     * @param _baseTokens           PerpV2 market addresses in which SetToken has positions
+     * @param _perpAccountBalance   Instance of PerpV2 AccountBalance
      * @return netQuoteBalance      Net quote balance of all open positions
      */
     function getNetQuoteBalance(
@@ -77,7 +80,9 @@ library PerpV2Positions {
     /**
      * @dev Returns a PositionUnitNotionalInfo array representing all positions open for the SetToken.
      *
-     * @param _setToken         Instance of SetToken
+     * @param _setToken             Instance of SetToken
+     * @param _baseTokens           PerpV2 market addresses in which SetToken has positions
+     * @param _perpAccountBalance   Instance of PerpV2 AccountBalance
      *
      * @return PositionUnitInfo array, in which each element has properties:
      *
@@ -118,7 +123,9 @@ library PerpV2Positions {
     /**
      * @dev Returns a PerpV2Positions.PositionUnitInfo array representing all positions open for the SetToken.
      *
-     * @param _setToken         Instance of SetToken
+     * @param _setToken             Instance of SetToken
+     * @param _baseTokens           PerpV2 market addresses in which SetToken has positions
+     * @param _perpAccountBalance   Instance of PerpV2 AccountBalance
      *
      * @return PerpV2Positions.PositionUnitInfo array, in which each element has properties:
      *

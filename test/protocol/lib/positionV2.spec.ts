@@ -687,6 +687,29 @@ describe("PositionV2", () => {
     });
   });
 
+  describe("#getDefaultTotalNotional", async () => {
+    let subjectSetTokenSupply: BigNumber;
+    let subjectPositionUnit: BigNumber;
+
+    beforeEach(async () => {
+      subjectSetTokenSupply = ether(2);
+      subjectPositionUnit = ether(10);
+    });
+
+    async function subject(): Promise<any> {
+      return positionLibMock.testGetDefaultTotalNotional(
+        subjectSetTokenSupply,
+        subjectPositionUnit
+      );
+    }
+
+    it("should return correct total notional", async () => {
+      const totalNotional = await subject();
+      const expectedTotalNotional = subjectPositionUnit.mul(subjectSetTokenSupply).div(PRECISE_UNIT);
+      expect(totalNotional).to.eq(expectedTotalNotional);
+    });
+  });
+
   describe("#getDefaultPositionUnit", async () => {
     let subjectSetTokenSupply: BigNumber;
     let subjectTotalNotional: BigNumber;

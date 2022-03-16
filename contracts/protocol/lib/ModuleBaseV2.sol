@@ -34,13 +34,13 @@ import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
 /**
- * @title ModuleBase
+ * @title ModuleBaseV2
  * @author Set Protocol
  *
  * Abstract class that houses common Module-related state and functions.
  *
  * CHANGELOG:
- * - 4/21/21: Delegated modifier logic to internal helpers to reduce contract size
+ * - Uses PositionV2 linkable library.
  *
  */
 abstract contract ModuleBaseV2 is IModule {

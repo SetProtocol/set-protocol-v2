@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2022 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -29,13 +29,16 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
 
 
 /**
- * @title Position
+ * @title PositionV2
  * @author Set Protocol
  *
- * Collection of helper functions for handling and updating SetToken Positions
+ * Collection of helper functions for handling and updating SetToken Positions.
  *
  * CHANGELOG:
- *  - Updated editExternalPosition to work when no external position is associated with module
+ * - `Position` library has all internal functions which are inlined to the module contract during compilation.
+ * Inlining functions increases bytecode size of the module contract. This library contains the same functions
+ * as `Position` library but all the functions have public/external access modifier. Thus, making this version 
+ * linkable which helps in reducing bytecode size of the module contract.
  */
 library PositionV2 {
     using SafeCast for uint256;

@@ -27,10 +27,14 @@ import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 /**
- * @title PerpV2
+ * @title PerpV2LibraryV2
  * @author Set Protocol
  *
  * Collection of helper functions for interacting with PerpV2 integrations.
+ *
+ * CHANGELOG:
+ * - Add ActionInfo struct.
+ * - Add `executeTrade` and `simulateTrade` functions.
  */
 library PerpV2LibraryV2 {
 
@@ -283,11 +287,12 @@ library PerpV2LibraryV2 {
      *
      * See _executeTrade method comments for details about `isBaseToQuote` and `isExactInput` configuration.
      *
+     * @param _perpQuoter   Instance of PerpV2 quoter
      * @param _actionInfo   ActionInfo object
      * @return uint256      The base position delta resulting from the trade
      * @return uint256      The quote asset position delta resulting from the trade
      */
-    function simulateTrade(IQuoter perpQuoter, ActionInfo memory _actionInfo) external returns (uint256, uint256) {
+    function simulateTrade(IQuoter _perpQuoter, ActionInfo memory _actionInfo) external returns (uint256, uint256) {
         IQuoter.SwapParams memory params = IQuoter.SwapParams({
             baseToken: _actionInfo.baseToken,
             isBaseToQuote: !_actionInfo.isBuy,
@@ -296,7 +301,7 @@ library PerpV2LibraryV2 {
             sqrtPriceLimitX96: 0
         });
 
-        IQuoter.SwapResponse memory swapResponse = invokeSwap(_actionInfo.setToken, perpQuoter, params);
+        IQuoter.SwapResponse memory swapResponse = invokeSwap(_actionInfo.setToken, _perpQuoter, params);
         return (swapResponse.deltaAvailableBase, swapResponse.deltaAvailableQuote);
     }
 
@@ -311,11 +316,12 @@ library PerpV2LibraryV2 {
      * | Sell    |  false  | true   | exact input (true)    | Min quote to receive        |
      * |----------------------------------------------------|---------------------------- |
      *
-     * @param _actionInfo  PerpV2.ActionInfo object
+     * @param _perpClearingHouse    Instance of PerpV2 ClearingHouse
+     * @param _actionInfo           PerpV2.ActionInfo object
      * @return uint256     The base position delta resulting from the trade
      * @return uint256     The quote asset position delta resulting from the trade
      */
-    function executeTrade(IClearingHouse perpClearingHouse, ActionInfo memory _actionInfo) external returns (uint256, uint256) {
+    function executeTrade(IClearingHouse _perpClearingHouse, ActionInfo memory _actionInfo) external returns (uint256, uint256) {
 
         // When isBaseToQuote is true, `baseToken` is being sold, when false, bought
         // When isExactInput is true, `amount` is the swap input, when false, the swap output
@@ -330,6 +336,6 @@ library PerpV2LibraryV2 {
             referralCode: bytes32(0)
         });
 
-        return invokeOpenPosition(_actionInfo.setToken, perpClearingHouse, params);
+        return invokeOpenPosition(_actionInfo.setToken, _perpClearingHouse, params);
     }
 }
