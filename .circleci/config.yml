@@ -1,13 +1,22 @@
-version: 2
+version: 2.1
+
+default_env: &default_env
+  working_directory: ~/set-protocol-v2
+  docker:
+    - image: circleci/node:14.18
+      environment:
+          NODE_OPTIONS: --max_old_space_size=8192
+
+commands:
+  setup_job:
+    steps:
+      - restore_cache:
+          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
 
 jobs:
   checkout_and_compile:
-    docker:
-      - image: circleci/node:12.16.0
-        environment:
-          NODE_OPTIONS: --max_old_space_size=8192
+    <<: *default_env
     resource_class: large
-    working_directory: ~/set-protocol-v2
     steps:
       - checkout
       - restore_cache:
@@ -30,16 +39,10 @@ jobs:
           paths:
             - ~/set-protocol-v2
   test:
-    docker:
-      - image: circleci/node:12.16.0
-    working_directory: ~/set-protocol-v2
+    <<: *default_env
     parallelism: 3
     steps:
-      - restore_cache:
-          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
-      - run:
-          name: Set Up Environment Variables
-          command: cp .env.default .env
+      - setup_job
       - run:
           name: Test RPC
           command: yarn chain
@@ -51,23 +54,15 @@ jobs:
             yarn test ${TEST_FILES}
 
   test_forked_network:
-    docker:
-      - image: circleci/node:12.16.0
-    working_directory: ~/set-protocol-v2
+    <<: *default_env
     steps:
-      - restore_cache:
-          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
-      - run:
-          name: Set Up Environment Variables
-          command: cp .env.default .env
+      - setup_job
       - run:
           name: Hardhat Test
           command: yarn test:fork
 
   coverage:
-    docker:
-      - image: circleci/node:12.16.0
-    working_directory: ~/set-protocol-v2
+    <<: *default_env
     # When changing the parallelism value, you also
     # need to update the `persist_to_workspace` paths
     # in this job (below) as well as the list of files passed
@@ -75,11 +70,7 @@ jobs:
     parallelism: 5
     resource_class: medium+
     steps:
-      - restore_cache:
-          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
-      - run:
-          name: Set Up Environment Variables
-          command: cp .env.default .env
+      - setup_job
       - run:
           name: Create shared coverage outputs folder
           command: mkdir -p /tmp/coverage
@@ -104,14 +95,11 @@ jobs:
             - cov_4.json
 
   report_coverage:
-    docker:
-      - image: circleci/node:12.16.0
-    working_directory: ~/set-protocol-v2
+    <<: *default_env
     steps:
+      - setup_job
       - attach_workspace:
           at: /tmp/coverage
-      - restore_cache:
-          key: compiled-env-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Combine coverage reports
           command: |
@@ -127,20 +115,46 @@ jobs:
           command: |
             cat coverage/lcov.info | node_modules/.bin/coveralls
 
+  release_latest:
+    <<: *default_env
+    steps:
+      - setup_job
+      - run:
+          name: Publish "latest" release
+          command: yarn publish:latest
+
+  release_hardhat:
+    <<: *default_env
+    steps:
+      - setup_job
+      - run:
+          name: Publish "hardhat" release
+          command: yarn publish:hardhat
+
 workflows:
   version: 2
   build-and-test:
     jobs:
       - checkout_and_compile
-      - test:
+      # - test:
+      #     requires:
+      #       - checkout_and_compile
+      # - test_forked_network:
+      #     requires:
+      #       - checkout_and_compile
+      # - coverage:
+      #     requires:
+      #       - checkout_and_compile
+      # - report_coverage:
+      #     requires:
+      #       - coverage
+
+      # Publish `hardhat` before `latest` second so that repo's package version is set correctly on exit
+      - release_hardhat:
           requires:
             - checkout_and_compile
-      - test_forked_network:
+      - release_latest:
           requires:
-            - checkout_and_compile
-      - coverage:
-          requires:
-            - checkout_and_compile
-      - report_coverage:
-          requires:
-            - coverage
+            - release_hardhat
+
+
