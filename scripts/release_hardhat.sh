@@ -17,9 +17,9 @@ echo '{
     "@semantic-release/release-notes-generator",
     "@semantic-release/npm",
     ["@semantic-release/exec", {
-      "prepareCmd": "yarn build:ts:hardhat",
-    }],
+      "prepareCmd": "yarn build:ts:hardhat"
+    }]
   ]
 }' > .releaserc.json
 
-npx semantic-release --debug
+npx semantic-release --debug --dry-run
