@@ -10,7 +10,7 @@ set -o errexit
 echo '{
   "branches": [
     { "name": "release_default_do_not_delete" },
-    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "hahahaha"}
+    { "name": "chris/test-semantic-release", "channel": "hardhat", "prerelease": "hahahahaha"}
   ]
 }' > .releaserc.json
 

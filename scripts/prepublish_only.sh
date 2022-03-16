@@ -9,18 +9,15 @@ set -o errexit
 echo "Running prepublishOnly npm hook"
 echo "PUBLISH_HARDHAT = $PUBLISH_HARDHAT"
 
-# Can only use some package.json commands here because npm is the executor in this
-# context (instead of yarn) and they have conflicting policies about how CLI
-# flags work in package.json. npm requires: `command -- --flags`, yarn prohibits it.
 if [[ -v PUBLISH_HARDHAT ]]; then
-  yarn clean
-  yarn compile
-  yarn typechain
-  tsc --project tsconfig.hardhat.json
-  cp -rf typechain dist
+  # Temporarily overwrite tsconfig.json. tsc command `--project` flag not working for unknown reasons
+  cp tsconfig.json _temp_config
+  cp tsconfig.hardhat.json tsconfig.json
+
+  yarn build:npm:hardhat
+
+  # Restore tsconfig to remove git changes
+  cp _temp_config tsconfig.json
 else
-  yarn clean
-  yarn compile:latest
-  yarn typechain
-  tsc --project tsconfig.dist.json
+  yarn build:npm:latest
 fi
