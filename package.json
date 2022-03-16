@@ -45,7 +45,7 @@
     "test:fast": "NO_COMPILE=true TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost --no-compile",
     "test:fast:compile": "TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost",
     "transpile": "tsc",
-    "transpile:dist:latest": "tsc --project tsconfig.dist.json",
+    "transpile:dist:latest": "echo 'running transpile:dist:latest' && tsc --project tsconfig.dist.json",
     "transpile:dist:hardhat": "rm -rf dist && tsc --project tsconfig.hardhat.json",
     "typechain": "npx hardhat typechain",
     "semantic-release": "semantic-release"
