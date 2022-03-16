@@ -22,4 +22,4 @@ echo '{
   ]
 }' > .releaserc.json
 
-npx semantic-release --debug --dry-run
+npx semantic-release --debug
