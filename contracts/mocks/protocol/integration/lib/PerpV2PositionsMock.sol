@@ -31,21 +31,12 @@ import { PerpV2Positions } from "../../../../protocol/integration/lib/PerpV2Posi
  * contract can't be tested directly using ethers.js
  */
 contract PerpV2PositionsMock {
-    
-    mapping(ISetToken => address[]) public positions;
-
-
-    /* ============ Setter Functions ============ */
-
-    function addPositions(ISetToken _setToken, address[] memory _baseTokens) external {
-        positions[_setToken] = _baseTokens;
-    }
-
 
     /* ============ External Functions ============ */
 
     function testGetNetQuoteBalance(
-        ISetToken _setToken, 
+        ISetToken _setToken,
+        address[] memory _baseTokens,
         IAccountBalance _perpAccountBalance
     ) 
         external 
@@ -54,13 +45,14 @@ contract PerpV2PositionsMock {
     {
         return PerpV2Positions.getNetQuoteBalance(
             _setToken, 
-            positions[_setToken], 
+            _baseTokens, 
             _perpAccountBalance
         );
     }
 
     function testGetPositionNotionalInfo(
-        ISetToken _setToken, 
+        ISetToken _setToken,
+        address[] memory _baseTokens,
         IAccountBalance _perpAccountBalance
     ) 
         public 
@@ -69,13 +61,14 @@ contract PerpV2PositionsMock {
     {
         return PerpV2Positions.getPositionNotionalInfo(
             _setToken, 
-            positions[_setToken], 
+            _baseTokens, 
             _perpAccountBalance
         );
     }
     
     function testGetPositionUnitInfo(
-        ISetToken _setToken, 
+        ISetToken _setToken,
+        address[] memory _baseTokens,
         IAccountBalance _perpAccountBalance
     ) 
         external 
@@ -84,8 +77,14 @@ contract PerpV2PositionsMock {
     {
         return PerpV2Positions.getPositionUnitInfo(
             _setToken, 
-            positions[_setToken], 
+            _baseTokens, 
             _perpAccountBalance
         );
+    }
+
+    /* ============ Helper Functions ============ */
+
+    function initializeModuleOnSet(ISetToken _setToken) external {
+        _setToken.initializeModule();
     }
 }

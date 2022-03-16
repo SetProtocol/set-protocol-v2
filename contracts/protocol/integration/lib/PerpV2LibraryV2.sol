@@ -21,8 +21,8 @@ pragma experimental ABIEncoderV2;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IClearingHouse } from "../../../interfaces/external/perp-v2/IClearingHouse.sol";
-import { IVault } from "../../../interfaces/external/perp-v2/IVault.sol";
 import { IQuoter } from "../../../interfaces/external/perp-v2/IQuoter.sol";
+import { IVault } from "../../../interfaces/external/perp-v2/IVault.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 

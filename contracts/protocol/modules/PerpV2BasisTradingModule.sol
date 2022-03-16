@@ -393,6 +393,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     {
         address[] memory components = _setToken.getComponents();
 
+        int256 netNewExternalPositionUnit = 0;
         if (positions[_setToken].length > 0) {
             int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
 
@@ -408,12 +409,10 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
             // equity amount = (newExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
             // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to 
             // be paid by the redeemer 
-            int256 netNewExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());    
-
-            return _formatAdjustments(_setToken, components, netNewExternalPositionUnit);
-        } else {
-            return _formatAdjustments(_setToken, components, 0);
+            netNewExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());
         }
+
+        return _formatAdjustments(_setToken, components, netNewExternalPositionUnit);
     }
 
     /* ============ Internal Functions ============ */
