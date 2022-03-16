@@ -18,4 +18,6 @@ rm -rf dist
 tsc --project tsconfig.hardhat.json
 cp -rf typechain dist
 
+ls dist/typechain
+
 npx semantic-release --debug
