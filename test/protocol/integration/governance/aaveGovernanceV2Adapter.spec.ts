@@ -74,7 +74,7 @@ describe("AaveGovernanceAdapter", () => {
     it("should have the correct Aave governance contract address", async () => {
       const deployedAaveGovernanceAdapter = await subject();
 
-      const actualGovernanceAddress = await deployedAaveGovernanceAdapter.aaveProtoGovernance();
+      const actualGovernanceAddress = await deployedAaveGovernanceAdapter.aaveGovernanceV2();
       expect(actualGovernanceAddress).to.eq(subjectAaveGovernance);
     });
   });
