@@ -166,7 +166,7 @@ describe("PerpV2Positions", () => {
 
   describe("#getNetQuoteBalance", () => {
     let setToken: SetToken;
-    
+
     let subjectSetToken: Address;
     let subjectBaseTokens: Address[];
     let subjectPerpAccountBalance: Address;
@@ -197,8 +197,8 @@ describe("PerpV2Positions", () => {
 
     async function subject(): Promise<any> {
       return perpPositionsMock.testGetNetQuoteBalance(
-        subjectSetToken, 
-        subjectBaseTokens, 
+        subjectSetToken,
+        subjectBaseTokens,
         subjectPerpAccountBalance
       );
     }
@@ -207,7 +207,7 @@ describe("PerpV2Positions", () => {
       const vETHQuoteBalance = await perpSetup.accountBalance.getQuote(subjectSetToken, vETH.address);
       const vBTCQuoteBalance = await perpSetup.accountBalance.getQuote(subjectSetToken, vBTC.address);
       const expectedNetQuoteBalance = vETHQuoteBalance.add(vBTCQuoteBalance);
-      
+
       const netQuoteBalance = await subject();
 
       expect(netQuoteBalance).to.be.eq(expectedNetQuoteBalance);
@@ -276,8 +276,8 @@ describe("PerpV2Positions", () => {
 
     async function subject(): Promise<any> {
       return perpPositionsMock.testGetPositionNotionalInfo(
-        subjectSetToken, 
-        subjectBaseTokens, 
+        subjectSetToken,
+        subjectBaseTokens,
         subjectPerpAccountBalance
       );
     }
@@ -349,8 +349,8 @@ describe("PerpV2Positions", () => {
 
     async function subject(): Promise<any> {
       return perpPositionsMock.testGetPositionUnitInfo(
-        subjectSetToken, 
-        subjectBaseTokens, 
+        subjectSetToken,
+        subjectBaseTokens,
         subjectPerpAccountBalance
       );
     }
@@ -374,9 +374,9 @@ describe("PerpV2Positions", () => {
     });
   });
 
-  describe.only("#formatAdjustments", () => {
+  describe("#formatAdjustments", () => {
     let setToken: SetToken;
-    
+
     let subjectSetToken: Address;
     let subjectAdjustmentComponent: Address;
     let subjectCurrentExternalPositionUnit: BigNumber;
@@ -395,13 +395,13 @@ describe("PerpV2Positions", () => {
 
     async function subject(): Promise<any> {
       return perpPositionsMock.testFormatAdjustments(
-        subjectSetToken, 
-        subjectAdjustmentComponent, 
+        subjectSetToken,
+        subjectAdjustmentComponent,
         subjectCurrentExternalPositionUnit,
         subjectNewExternalPositionUnit
       );
     }
-    
+
     it("should return correct equity and debt adjustments", async () => {
       const components = await setToken.getComponents();
       const expectedEquityAdjustments = await Promise.all(
@@ -413,13 +413,13 @@ describe("PerpV2Positions", () => {
         })
       );
       const expectedDebtAdjustments = components.map(() => ZERO);
-      
+
       const [equityAdjustments, debtAdjustments] = await subject();
-      
-      equityAdjustments.map((value: BigNumber, index: number) => 
+
+      equityAdjustments.map((value: BigNumber, index: number) =>
         expect(value).to.be.eq(expectedEquityAdjustments[index])
       );
-      debtAdjustments.map((value: BigNumber, index: number) => 
+      debtAdjustments.map((value: BigNumber, index: number) =>
         expect(value).to.be.eq(expectedDebtAdjustments[index])
       );
     });
