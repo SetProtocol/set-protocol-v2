@@ -391,12 +391,9 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         override(PerpV2LeverageModuleV2)
         returns (int256[] memory, int256[] memory _)
     {
-        address[] memory components = _setToken.getComponents();
 
-        int256 netNewExternalPositionUnit = 0;
+        int256 newExternalPositionUnit = 0;
         if (positions[_setToken].length > 0) {
-            int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
-
             // Calculate performance fee unit
             // Performance fee unit = (Tracked settled funding * Performance fee) / Set total supply
             uint256 performanceFeeUnit = _getUpdatedSettledFunding(_setToken)
@@ -404,15 +401,17 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
                 .preciseMulCeil(_performanceFeePercentage(_setToken))
                 .fromPreciseUnitToDecimals(collateralDecimals);
 
+            int256 partialNewExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
+            
             // Subtract performance fee unit from calculated external position unit
             // Issuance module calculates equity amount to be transferred out using,
-            // equity amount = (newExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
+            // equity amount = (partialNewExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
             // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to 
             // be paid by the redeemer 
-            netNewExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());
+            newExternalPositionUnit = partialNewExternalPositionUnit.sub(performanceFeeUnit.toInt256());
         }
 
-        return _formatAdjustments(_setToken, components, netNewExternalPositionUnit);
+        return _formatAdjustments(_setToken, newExternalPositionUnit);
     }
 
     /* ============ Internal Functions ============ */

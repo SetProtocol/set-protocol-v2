@@ -19,6 +19,8 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { IAccountBalance } from "../../../../interfaces/external/perp-v2/IAccountBalance.sol";
 import { ISetToken } from "../../../../interfaces/ISetToken.sol";
 import { PerpV2Positions } from "../../../../protocol/integration/lib/PerpV2Positions.sol";
@@ -79,6 +81,24 @@ contract PerpV2PositionsMock {
             _setToken, 
             _baseTokens, 
             _perpAccountBalance
+        );
+    }
+
+    function testFormatAdjustments(
+        ISetToken _setToken,
+        address _adjustmentComponent,
+        int256 _currentExternalPositionUnit,
+        int256 _newExternalPositionUnit
+    )
+        external
+        view
+        returns (int256[] memory, int256[] memory)
+    {
+        return PerpV2Positions.formatAdjustments(
+            _setToken,
+            _adjustmentComponent,
+            _currentExternalPositionUnit,
+            _newExternalPositionUnit
         );
     }
 

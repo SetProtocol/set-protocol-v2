@@ -20,9 +20,12 @@ pragma solidity 0.6.10;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SignedSafeMath.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
 import { IAccountBalance } from "../../../interfaces/external/perp-v2/IAccountBalance.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { Position } from "../../../protocol/lib/Position.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { UnitConversionUtils } from "../../../lib/UnitConversionUtils.sol";
@@ -34,9 +37,11 @@ import { UnitConversionUtils } from "../../../lib/UnitConversionUtils.sol";
  * Collection of PerpV2 getter functions.
  */
 library PerpV2Positions {
+    using Position for ISetToken;
     using SignedSafeMath for int256;
     using SafeCast for uint256;
     using PreciseUnitMath for int256;
+    using AddressArrayUtils for address[];
     
     struct PositionNotionalInfo {
         address baseToken;              // Virtual token minted by the Perp protocol
@@ -160,5 +165,44 @@ library PerpV2Positions {
         }
 
         return positionUnitInfo;
+    }
+
+    /**
+     * @dev Returns issuance or redemption adjustments in the format expected by `SlippageIssuanceModule`.
+     * The last recorded externalPositionUnit (current) is subtracted from a dynamically generated
+     * externalPositionUnit (new) and set in an `equityAdjustments` array which is the same length as
+     * the SetToken's components array, at the same index the collateral token occupies in the components
+     * array. All other values are left unset (0). An empty-value components length debtAdjustments
+     * array is also returned.
+     *
+     * @param _setToken                         Instance of the SetToken
+     * @param _adjustComponent                  Address of component token whose position unit is to be adjusted
+     * @param _currentExternalPositionUnit      Current external position unit of `_adjustComponent`
+     * @param _newExternalPositionUnit          New external position unit of `_adjustComponent`
+     * @return int256[]                         Components-length array with equity adjustment value at appropriate index
+     * @return int256[]                         Components-length array of zeroes (debt adjustements)
+     */
+    function formatAdjustments(
+        ISetToken _setToken,
+        address _adjustComponent,
+        int256 _currentExternalPositionUnit,
+        int256 _newExternalPositionUnit
+    )
+        external
+        view
+        returns (int256[] memory, int256[] memory)
+    {
+        address[] memory components = _setToken.getComponents();
+
+        int256[] memory equityAdjustments = new int256[](components.length);
+        int256[] memory debtAdjustments = new int256[](components.length);
+
+        (uint256 index, bool isIn) = components.indexOf(_adjustComponent);
+
+        if (isIn) {
+            equityAdjustments[index] = _newExternalPositionUnit.sub(_currentExternalPositionUnit);
+        }
+
+        return (equityAdjustments, debtAdjustments);
     }
 }

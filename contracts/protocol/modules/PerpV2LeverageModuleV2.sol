@@ -581,13 +581,11 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         override
         returns (int256[] memory, int256[] memory)
     {
-        address[] memory components = _setToken.getComponents();
-
         int256 newExternalPositionUnit = positions[_setToken].length > 0
             ? _executePositionTrades(_setToken, _setTokenQuantity, true, true)
             : 0;
         
-        return _formatAdjustments(_setToken, components, newExternalPositionUnit);
+        return _formatAdjustments(_setToken, newExternalPositionUnit);
     }
 
     /**
@@ -609,13 +607,11 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         override
         returns (int256[] memory, int256[] memory _)
     {
-        address[] memory components = _setToken.getComponents();
-
         int256 newExternalPositionUnit = positions[_setToken].length > 0
             ? _executePositionTrades(_setToken, _setTokenQuantity, false, true)
             : 0;
         
-        return _formatAdjustments(_setToken, components, newExternalPositionUnit);
+        return _formatAdjustments(_setToken, newExternalPositionUnit);
     }
 
     /**
@@ -1108,34 +1104,28 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
      * array is also returned.
      *
      * @param _setToken                         Instance of the SetToken
-     * @param _components                       Array of components held by the SetToken
      * @param _newExternalPositionUnit          Dynamically calculated externalPositionUnit
      * @return int256[]                         Components-length array with equity adjustment value at appropriate index
      * @return int256[]                         Components-length array of zeroes (debt adjustements)
      */
     function _formatAdjustments(
         ISetToken _setToken,
-        address[] memory _components,
         int256 _newExternalPositionUnit
     )
         internal
         view
         returns (int256[] memory, int256[] memory)
     {
-        int256[] memory equityAdjustments = new int256[](_components.length);
-        int256[] memory debtAdjustments = new int256[](_components.length);
+        int256 currentExternalPositionUnit = _setToken.getExternalPositionRealUnit(
+            address(collateralToken),
+            address(this)
+        );
 
-        (uint256 index, bool isIn) = _components.indexOf(address(collateralToken));
-
-        if (isIn) {
-            int256 currentExternalPositionUnit = _setToken.getExternalPositionRealUnit(
-                address(collateralToken),
-                address(this)
-            );
-
-            equityAdjustments[index] = _newExternalPositionUnit.sub(currentExternalPositionUnit);
-        }
-
-        return (equityAdjustments, debtAdjustments);
+        return PerpV2Positions.formatAdjustments(
+            _setToken,
+            address(collateralToken),
+            currentExternalPositionUnit,
+            _newExternalPositionUnit
+        );
     }
 }

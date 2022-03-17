@@ -373,4 +373,55 @@ describe("PerpV2Positions", () => {
       expect(positionInfo[1].quoteUnit).eq(expectedVBTCQuoteUnits);
     });
   });
+
+  describe.only("#formatAdjustments", () => {
+    let setToken: SetToken;
+    
+    let subjectSetToken: Address;
+    let subjectAdjustmentComponent: Address;
+    let subjectCurrentExternalPositionUnit: BigNumber;
+    let subjectNewExternalPositionUnit: BigNumber;
+
+    beforeEach(async () => {
+      // Issue 2 sets
+      let issueQuantity = ether(2);
+      setToken = await issueSetsAndDepositToPerp(usdcUnits(100), true, issueQuantity);
+
+      subjectSetToken = setToken.address;
+      subjectAdjustmentComponent = perpSetup.usdc.address;
+      subjectCurrentExternalPositionUnit = usdcUnits(50);
+      subjectNewExternalPositionUnit = usdcUnits(100);
+    });
+
+    async function subject(): Promise<any> {
+      return perpPositionsMock.testFormatAdjustments(
+        subjectSetToken, 
+        subjectAdjustmentComponent, 
+        subjectCurrentExternalPositionUnit,
+        subjectNewExternalPositionUnit
+      );
+    }
+    
+    it("should return correct equity and debt adjustments", async () => {
+      const components = await setToken.getComponents();
+      const expectedEquityAdjustments = await Promise.all(
+        components.map(async (value,): Promise<BigNumber> => {
+          if (value === subjectAdjustmentComponent) {
+            return subjectNewExternalPositionUnit.sub(subjectCurrentExternalPositionUnit);
+          }
+          return ZERO;
+        })
+      );
+      const expectedDebtAdjustments = components.map(() => ZERO);
+      
+      const [equityAdjustments, debtAdjustments] = await subject();
+      
+      equityAdjustments.map((value: BigNumber, index: number) => 
+        expect(value).to.be.eq(expectedEquityAdjustments[index])
+      );
+      debtAdjustments.map((value: BigNumber, index: number) => 
+        expect(value).to.be.eq(expectedDebtAdjustments[index])
+      );
+    });
+  });
 });
