@@ -63,7 +63,7 @@ library ExplicitERC20 {
 
             // Verify transfer quantity is reflected in balance
             require(
-                newBalance == existingBalance.add(_quantity),
+                newBalance == existingBalance.add(_quantity) || _from == _to,
                 "Invalid post transfer balance"
             );
         }
