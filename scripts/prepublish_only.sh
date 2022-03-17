@@ -9,8 +9,9 @@ set -o errexit
 echo "Running prepublishOnly npm hook"
 echo "PUBLISH_HARDHAT = $PUBLISH_HARDHAT"
 
-# This hook is skipped when publishing in CI. All building has to be done before
-# semantic-release runs because file changes don't persist in that execution context.
+# This hook is skipped when publishing in CI because semantic-release is discarding TS products of
+# npm lifecycle hooks for unknown reasons. In CI we re-write the tsconfig on the fly to generate
+# the correct outputs.
 if [[ -v CI ]]; then
   exit 0
 elif [[ -v PUBLISH_HARDHAT ]]; then
