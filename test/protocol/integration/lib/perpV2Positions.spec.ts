@@ -173,7 +173,7 @@ describe("PerpV2Positions", () => {
 
     beforeEach(async () => {
       // Issue 2 sets
-      let issueQuantity = ether(2);
+      const issueQuantity = ether(2);
       setToken = await issueSetsAndDepositToPerp(usdcUnits(100), true, issueQuantity);
 
       await perpLeverageModule.connect(owner.wallet).trade(
@@ -384,7 +384,7 @@ describe("PerpV2Positions", () => {
 
     beforeEach(async () => {
       // Issue 2 sets
-      let issueQuantity = ether(2);
+      const issueQuantity = ether(2);
       setToken = await issueSetsAndDepositToPerp(usdcUnits(100), true, issueQuantity);
 
       subjectSetToken = setToken.address;
@@ -405,7 +405,7 @@ describe("PerpV2Positions", () => {
     it("should return correct equity and debt adjustments", async () => {
       const components = await setToken.getComponents();
       const expectedEquityAdjustments = await Promise.all(
-        components.map(async (value,): Promise<BigNumber> => {
+        components.map(async (value): Promise<BigNumber> => {
           if (value === subjectAdjustmentComponent) {
             return subjectNewExternalPositionUnit.sub(subjectCurrentExternalPositionUnit);
           }

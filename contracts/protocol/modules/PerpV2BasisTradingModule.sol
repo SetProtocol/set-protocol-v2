@@ -35,8 +35,8 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * @title PerpV2BasisTradingModule
  * @author Set Protocol
  *
- * @notice Smart contract that extends functionality offered by PerpV2LeverageModuleV2. It tracks funding that is settled due to 
- * actions on Perpetual protocol and allows it to be withdrawn by the manager. The withdrawn funding can be reinvested in the Set 
+ * @notice Smart contract that extends functionality offered by PerpV2LeverageModuleV2. It tracks funding that is settled due to
+ * actions on Perpetual protocol and allows it to be withdrawn by the manager. The withdrawn funding can be reinvested in the Set
  * to create a yield generating basis trading product. The manager can also collect performance fees on the withdrawn funding.
  *
  * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
@@ -77,10 +77,10 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
      * @param _protocolFee          Amount of performance fee accrued to protocol (USDC)
      */
     event FundingWithdrawn(
-        ISetToken indexed  _setToken, 
+        ISetToken indexed  _setToken,
         IERC20 _collateralToken,
-        uint256 _amountWithdrawn, 
-        uint256 _managerFee, 
+        uint256 _amountWithdrawn,
+        uint256 _managerFee,
         uint256 _protocolFee
     );
 
@@ -94,7 +94,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     // Mapping to store fee settings for each SetToken
     mapping(ISetToken => FeeState) public feeSettings;
 
-    // Mapping to store funding that has been settled on Perpetual Protocol due to actions via this module 
+    // Mapping to store funding that has been settled on Perpetual Protocol due to actions via this module
     // and hasn't been withdrawn for reinvesting yet. Values are stored in precise units (10e18).
     mapping(ISetToken => uint256) public settledFunding;
 
@@ -130,7 +130,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     /* ============ External Functions ============ */
 
     /**
-     * @dev MANAGER ONLY: Initializes this module to the SetToken and sets fee settings. Either the SetToken needs to 
+     * @dev MANAGER ONLY: Initializes this module to the SetToken and sets fee settings. Either the SetToken needs to
      * be on the allowed list or anySetAllowed needs to be true.
      *
      * @param _setToken             Instance of the SetToken to initialize
@@ -143,7 +143,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     {
         _validateFeeState(_settings);
 
-        // Initialize by calling PerpV2LeverageModuleV2#initialize. 
+        // Initialize by calling PerpV2LeverageModuleV2#initialize.
         // Verifies caller is manager. Verifies Set is valid, allowed and in pending state.
         PerpV2LeverageModuleV2.initialize(_setToken);
 
@@ -151,12 +151,12 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     }
 
     /**
-     * @dev MANAGER ONLY: Similar to PerpV2LeverageModuleV2#trade. Allows manager to buy or sell perps to change exposure 
+     * @dev MANAGER ONLY: Similar to PerpV2LeverageModuleV2#trade. Allows manager to buy or sell perps to change exposure
      * to the underlying baseToken. Any pending funding that would be settled during opening a position on Perpetual
-     * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later by the 
+     * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later by the
      * SetToken manager.
      * NOTE: Calling a `nonReentrant` function from another `nonReentrant` function is not supported. Hence, we can't
-     * add the `nonReentrant` modifier here because `PerpV2LeverageModuleV2#trade` function has a reentrancy check. 
+     * add the `nonReentrant` modifier here because `PerpV2LeverageModuleV2#trade` function has a reentrancy check.
      * NOTE: This method doesn't update the externalPositionUnit because it is a function of UniswapV3 virtual
      * token market prices and needs to be generated on the fly to be meaningful.
      *
@@ -216,7 +216,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         _withdraw(_setToken, _notionalFunding);
 
         (uint256 managerFee, uint256 protocolFee) = _handleFees(_setToken, _notionalFunding);
-        
+
         _updateWithdrawFundingState(_setToken, _notionalFunding, collateralBalanceBeforeWithdraw);
 
         emit FundingWithdrawn(_setToken, collateralToken, _notionalFunding, managerFee, protocolFee);
@@ -235,7 +235,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         PerpV2LeverageModuleV2.removeModule();
 
         ISetToken setToken = ISetToken(msg.sender);
-        
+
         // Not charging any fees
         delete feeSettings[setToken];
         delete settledFunding[setToken];
@@ -261,7 +261,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     {
         // Track funding before it is settled
         _updateSettledFunding(_setToken);
-        
+
         // Call PerpV2LeverageModuleV2#moduleIssueHook to set external position unit.
         // Validates caller is module.
         PerpV2LeverageModuleV2.moduleIssueHook(_setToken, _setTokenQuantity);
@@ -272,8 +272,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
      * positions to make redemption capital withdrawable from PerpV2 vault. Sets the `externalPositionUnit`
      * equal to the realizable value of account in position units (as measured by the trade outcomes for
      * this redemption) net performance fees to be paid by the redeemer for his share of positive funding yield.
-     * Any `owedRealizedPnl` and pending funding payments are socialized in this step so that redeemer 
-     * pays/receives their share of them. Should only be called ONCE during redeem. Any pending funding payment 
+     * Any `owedRealizedPnl` and pending funding payments are socialized in this step so that redeemer
+     * pays/receives their share of them. Should only be called ONCE during redeem. Any pending funding payment
      * that would be settled during trading out of positions on Perpetual protocol is added to (or subtracted from)
      * `settledFunding[_setToken]` and can be withdrawn later by the manager.
      *
@@ -295,7 +295,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         _updateSettledFunding(_setToken);
 
         int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, false);
-        
+
         if (settledFunding[_setToken] > 0) {
             // Calculate performance fee unit
             // Performance fee unit = (Tracked settled funding * Performance fee) / Set total supply
@@ -303,11 +303,11 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
                 .preciseDiv(_setToken.totalSupply())
                 .preciseMulCeil(_performanceFeePercentage(_setToken))
                 .fromPreciseUnitToDecimals(collateralDecimals);
-            
+
             // Subtract performance fee unit from calculated external position unit
             // Issuance module calculates equity amount to be transferred out using,
             // equity amount = (newExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
-            // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to 
+            // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to
             // be paid by the redeemer
             newExternalPositionUnit = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());
         }
@@ -336,15 +336,15 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         onlyManagerAndValidSet(_setToken)
     {
         require(_newFee < feeSettings[_setToken].maxPerformanceFeePercentage, "Fee must be less than max");
-        
+
         // We require `settledFunding[_setToken]` to be zero. Hence, we do not call `_updateSettledFunding` here, which
         // eases the UX of updating performance fees for the manager. Although, manager loses the ability to collect fees
         // on pending funding that has been accrued on PerpV2 but not tracked on this module.
-        
-        // Assert all settled funding (in USD) has been withdrawn. Comparing USD amount allows us to neglect small 
+
+        // Assert all settled funding (in USD) has been withdrawn. Comparing USD amount allows us to neglect small
         // dust amounts that aren't withdrawable.
         require(
-            settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals) == 0, 
+            settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals) == 0,
             "Non-zero settled funding remains"
         );
 
@@ -392,7 +392,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         returns (int256[] memory, int256[] memory _)
     {
 
-        int256 newExternalPositionUnit = 0;
+        int256 newExternalPositionUnitNetFees = 0;
         if (positions[_setToken].length > 0) {
             // Calculate performance fee unit
             // Performance fee unit = (Tracked settled funding * Performance fee) / Set total supply
@@ -401,24 +401,24 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
                 .preciseMulCeil(_performanceFeePercentage(_setToken))
                 .fromPreciseUnitToDecimals(collateralDecimals);
 
-            int256 partialNewExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
-            
+            int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
+
             // Subtract performance fee unit from calculated external position unit
             // Issuance module calculates equity amount to be transferred out using,
-            // equity amount = (partialNewExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
-            // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to 
-            // be paid by the redeemer 
-            newExternalPositionUnit = partialNewExternalPositionUnit.sub(performanceFeeUnit.toInt256());
+            // equity amount = (newExternalPositionUnit - performanceFeeUnit) * _setTokenQuantity
+            // where, `performanceFeeUnit * _setTokenQuantity` is share of the total performance fee to
+            // be paid by the redeemer
+            newExternalPositionUnitNetFees = newExternalPositionUnit.sub(performanceFeeUnit.toInt256());
         }
 
-        return _formatAdjustments(_setToken, newExternalPositionUnit);
+        return _formatAdjustments(_setToken, newExternalPositionUnitNetFees);
     }
 
     /* ============ Internal Functions ============ */
 
     /**
-     * @dev Updates tracked settled funding. Once funding is settled to `owedRealizedPnl` on Perpetual protocol, it is difficult to 
-     * extract out the funding value again on-chain. This function is called in an external function and is used to track and store 
+     * @dev Updates tracked settled funding. Once funding is settled to `owedRealizedPnl` on Perpetual protocol, it is difficult to
+     * extract out the funding value again on-chain. This function is called in an external function and is used to track and store
      * pending funding payment that is about to be settled due to subsequent logic in the external function.
      *
      * @param _setToken             Instance of SetToken
@@ -429,24 +429,24 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
 
     /**
      * @dev Adds pending funding payment to tracked settled funding. Returns updated settled funding value.
-     * 
+     *
      * NOTE: Tracked settled funding value can not be less than zero, hence it is reset to zero if pending funding
      * payment is negative and |pending funding payment| >= |settledFunding[_setToken]|.
      *
-     * @param _setToken             Instance of SetToken     
+     * @param _setToken             Instance of SetToken
      */
     function _getUpdatedSettledFunding(ISetToken _setToken) internal view returns (uint256) {
         // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
         // We are flipping its sign here to reflect its settlement value.
         int256 pendingFundingToBeSettled =  perpExchange.getAllPendingFundingPayment(address(_setToken)).neg();
-        
+
         if (pendingFundingToBeSettled >= 0) {
             return settledFunding[_setToken].add(pendingFundingToBeSettled.toUint256());
         }
 
         if (settledFunding[_setToken] > pendingFundingToBeSettled.abs()) {
-            return settledFunding[_setToken].sub(pendingFundingToBeSettled.abs()); 
+            return settledFunding[_setToken].sub(pendingFundingToBeSettled.abs());
         }
 
         return 0;
@@ -490,7 +490,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
      *
      * @param _setToken                         Instance of the SetToken
      * @param _notionalFunding                  Amount of funding withdrawn (in USDC decimals)
-     * @param _collateralBalanceBeforeWithdraw  Balance of collateral token in the Set before withdrawing more USDC from Perp    
+     * @param _collateralBalanceBeforeWithdraw  Balance of collateral token in the Set before withdrawing more USDC from Perp
      */
     function _updateWithdrawFundingState(ISetToken _setToken, uint256 _notionalFunding, uint256 _collateralBalanceBeforeWithdraw) internal {
         // Update default position unit to add the withdrawn funding (in USDC)

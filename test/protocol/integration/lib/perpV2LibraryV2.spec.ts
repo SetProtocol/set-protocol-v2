@@ -550,7 +550,7 @@ describe("PerpV2LibraryV2", () => {
           isBuy: subjectIsBuy,
           baseTokenAmount: subjectBaseTokenAmount,
           oppositeAmountBound: subjectOppositeAmountBound
-        }, 
+        },
         perpSetup.clearingHouse.address
       );
     }
@@ -575,7 +575,7 @@ describe("PerpV2LibraryV2", () => {
         subjectIsBuy = false;
         subjectOppositeAmountBound = ZERO;
       });
-  
+
       async function subject(): Promise<any> {
         return await perpLibMock.testExecuteTrade(
           {
@@ -584,21 +584,21 @@ describe("PerpV2LibraryV2", () => {
             isBuy: subjectIsBuy,
             baseTokenAmount: subjectBaseTokenAmount,
             oppositeAmountBound: subjectOppositeAmountBound
-          }, 
+          },
           perpSetup.clearingHouse.address
         );
       }
-  
+
       it("should execute a trade", async () => {
         const previousBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken);
-  
+
         await subject();
-  
+
         const currentBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken);
         const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken);
-  
+
         const expectedBaseBalance = previousBaseBalance.sub(subjectBaseTokenAmount);
-  
+
         expect(previousBaseBalance).to.eq(0);
         expect(currentBaseBalance).to.be.eq(expectedBaseBalance);
         expect(currentQuoteBalance).to.be.gt(0);
