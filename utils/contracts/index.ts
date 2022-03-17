@@ -36,7 +36,6 @@ export { CustomOracleNavIssuanceModule } from "../../typechain/CustomOracleNavIs
 export { CustomSetValuerMock } from "../../typechain/CustomSetValuerMock";
 export { DebtIssuanceMock } from "../../typechain/DebtIssuanceMock";
 export { DebtIssuanceModule } from "../../typechain/DebtIssuanceModule";
-export { DebtIssuanceModuleV2 } from "../../typechain/DebtIssuanceModuleV2";
 export { DebtModuleMock } from "../../typechain/DebtModuleMock";
 export { DelegateRegistry } from "../../typechain/DelegateRegistry";
 export { DgMigrationWrapAdapter } from "../../typechain/DgMigrationWrapAdapter";
