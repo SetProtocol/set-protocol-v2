@@ -72,6 +72,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
     perpSetup = getPerpV2Fixture(owner.address);
     await perpSetup.initialize(maker, otherTrader);
 
+    // set funding rate to zero; allows us to avoid calculating small amounts of funding
+    // accrued in our test cases
+    await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
+
     vETH = perpSetup.vETH;
     vBTC = perpSetup.vBTC;
     usdc = perpSetup.usdc;
