@@ -5,7 +5,7 @@ import { Account } from "@utils/test/types";
 import {
   AaveV2,
   AaveLeverageModule,
-  DebtIssuanceModuleV2,
+  IssuanceModule,
   SetToken,
   UniswapV2ExchangeAdapter,
 } from "@utils/contracts";
@@ -68,7 +68,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
 
   let aaveV2Library: AaveV2;
   let aaveLeverageModule: AaveLeverageModule;
-  let debtIssuanceModule: DebtIssuanceModuleV2;
+  let debtIssuanceModule: IssuanceModule;
   let uniswapExchangeAdapter: UniswapV2ExchangeAdapter;
 
   let aWBTC: AaveV2AToken;
@@ -176,7 +176,7 @@ describe("AaveUniswapLeverageDebtIssuance", () => {
       MAX_UINT_256
     );
 
-    debtIssuanceModule = await deployer.modules.deployDebtIssuanceModuleV2(setup.controller.address);
+    debtIssuanceModule = await deployer.modules.deployIssuanceModule(setup.controller.address);
     await setup.controller.addModule(debtIssuanceModule.address);
 
     aaveV2Library = await deployer.libraries.deployAaveV2();
