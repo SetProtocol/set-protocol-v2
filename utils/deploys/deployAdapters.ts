@@ -1,7 +1,6 @@
 import { Signer } from "ethers";
 
 import {
-  AaveGovernanceAdapter,
   AaveGovernanceV2Adapter,
   AaveV2WrapV2Adapter,
   AGIMigrationWrapAdapter,
@@ -36,7 +35,6 @@ import {
 } from "../contracts";
 import { Address, Bytes } from "./../types";
 
-import { AaveGovernanceAdapter__factory } from "../../typechain/factories/AaveGovernanceAdapter__factory";
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
 import { AaveV2WrapV2Adapter__factory } from "../../typechain/factories/AaveV2WrapV2Adapter__factory";
 import { AxieInfinityMigrationWrapAdapter__factory } from "../../typechain/factories/AxieInfinityMigrationWrapAdapter__factory";
@@ -109,10 +107,6 @@ export default class DeployAdapters {
 
   public async deployUniswapV2IndexExchangeAdapter(uniswapV2Router: Address): Promise<UniswapV2IndexExchangeAdapter> {
     return await new UniswapV2IndexExchangeAdapter__factory(this._deployerSigner).deploy(uniswapV2Router);
-  }
-
-  public async deployAaveGovernanceAdapter(aaveProtoGovernance: Address, aaveToken: Address): Promise<AaveGovernanceAdapter> {
-    return await new AaveGovernanceAdapter__factory(this._deployerSigner).deploy(aaveProtoGovernance, aaveToken);
   }
 
   public async deployAaveGovernanceV2Adapter(aaveGovernanceV2: Address, aaveToken: Address): Promise<AaveGovernanceV2Adapter> {

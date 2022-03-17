@@ -58,7 +58,7 @@ describe("AaveGovernanceAdapter", () => {
     });
 
     async function subject(): Promise<any> {
-      return deployer.adapters.deployAaveGovernanceAdapter(
+      return deployer.adapters.deployAaveGovernanceV2Adapter(
         subjectAaveGovernance,
         subjectAaveToken,
       );
