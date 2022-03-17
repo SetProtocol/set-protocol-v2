@@ -62,7 +62,6 @@ export { ModuleBaseV2Mock } from "../../typechain/ModuleBaseV2Mock";
 export { ModuleIssuanceHookMock } from "../../typechain/ModuleIssuanceHookMock";
 export { NAVIssuanceCaller } from "../../typechain/NAVIssuanceCaller";
 export { NAVIssuanceHookMock } from "../../typechain/NAVIssuanceHookMock";
-export { NavIssuanceModule } from "../../typechain/NavIssuanceModule";
 export { OneInchExchangeAdapter } from "../../typechain/OneInchExchangeAdapter";
 export { OneInchExchangeMock } from "../../typechain/OneInchExchangeMock";
 export { OracleAdapterMock } from "../../typechain/OracleAdapterMock";
