@@ -316,7 +316,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
             _quoteBoundQuantityUnits
         );
 
-        (uint256 deltaBase, uint256 deltaQuote) = PerpV2LibraryV2.executeTrade(perpClearingHouse, actionInfo);
+        (uint256 deltaBase, uint256 deltaQuote) = PerpV2LibraryV2.executeTrade(actionInfo, perpClearingHouse);
 
         uint256 protocolFee = _accrueProtocolFee(_setToken, deltaQuote);
 
@@ -744,7 +744,9 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
 
             // Execute or simulate trade.
             // `deltaQuote` is always a positive number
-            (, uint256 deltaQuote) = _isSimulation ? PerpV2LibraryV2.simulateTrade(perpQuoter, actionInfo) : PerpV2LibraryV2.executeTrade(perpClearingHouse, actionInfo);
+            (, uint256 deltaQuote) = _isSimulation 
+                ? PerpV2LibraryV2.simulateTrade(actionInfo, perpQuoter)
+                : PerpV2LibraryV2.executeTrade(actionInfo, perpClearingHouse);
 
             // slippage is borne by the issuer
             accountValueIssued = baseTradeNotionalQuantity >= 0 ? accountValueIssued.add(deltaQuote.toInt256()) :

@@ -128,6 +128,26 @@ contract PerpV2LibraryV2Mock {
         return PerpV2LibraryV2.invokeSwap(_setToken, _quoter, _params);
     }
 
+    function testSimulateTrade(
+        PerpV2LibraryV2.ActionInfo memory _actionInfo,
+        IQuoter _perpQuoter
+    )
+        external
+        returns (uint256, uint256)
+    {
+        return PerpV2LibraryV2.simulateTrade(_actionInfo, _perpQuoter);
+    }
+
+    function testExecuteTrade(
+        PerpV2LibraryV2.ActionInfo memory _actionInfo,
+        IClearingHouse _perpClearingHouse
+    )
+        external
+        returns (uint256, uint256)
+    {
+        return PerpV2LibraryV2.executeTrade(_actionInfo, _perpClearingHouse);   
+    }
+
     /* ============ Helper Functions ============ */
 
     function initializeModuleOnSet(ISetToken _setToken) external {

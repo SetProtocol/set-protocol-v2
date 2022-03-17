@@ -461,10 +461,148 @@ describe("PerpV2LibraryV2", () => {
   });
 
   describe("#simulateTrade", async () => {
+    let subjectSetToken: Address;
+    let subjectBaseToken: Address;
+    let subjectIsBuy: boolean;
+    let subjectBaseTokenAmount: BigNumber;
+    let subjectOppositeAmountBound: BigNumber;
 
+    beforeEach(async () => {
+      await invokeLibMock.testInvokeApprove(setToken.address, perpSetup.usdc.address, perpSetup.vault.address, MAX_UINT_256);
+      await perpLibMock.testInvokeDeposit(setToken.address, perpSetup.vault.address, perpSetup.usdc.address, ether(1));
+
+      subjectSetToken = setToken.address;
+      subjectBaseToken = vETH.address;
+      subjectIsBuy = true;
+      subjectBaseTokenAmount = ether(1);
+      subjectOppositeAmountBound = ZERO;
+    });
+
+    // Need to callStatic this swap to get the return values
+    async function subject(callStatic: boolean): Promise<any> {
+      const actionInfo = {
+        setToken: subjectSetToken,
+        baseToken: subjectBaseToken,
+        isBuy: subjectIsBuy,
+        baseTokenAmount: subjectBaseTokenAmount,
+        oppositeAmountBound: subjectOppositeAmountBound
+      };
+
+      return (callStatic)
+        ? await perpLibMock.callStatic.testSimulateTrade(actionInfo, perpSetup.quoter.address)
+        : await perpLibMock.testSimulateTrade(actionInfo, perpSetup.quoter.address);
+    }
+
+    it("should return the same deltaBase & deltaQuote values as `invokeSwap`", async () => {
+      const {
+        deltaAvailableBase: expectedDeltaAvailableBase,
+        deltaAvailableQuote: expectedDeltaAvailableQuote
+      } = await perpLibMock.callStatic.testInvokeSwap(
+        subjectSetToken,
+        perpSetup.quoter.address,
+        {
+          baseToken: subjectBaseToken,
+          isBaseToQuote: !subjectIsBuy,
+          isExactInput: !subjectIsBuy,
+          amount: subjectBaseTokenAmount,
+          sqrtPriceLimitX96: ZERO
+        }
+      );
+
+      const [quotedDeltaAvailableBase, quotedDeltaAvailableQuote] = await subject(true);
+
+      expect(expectedDeltaAvailableBase).to.eq(quotedDeltaAvailableBase);
+      expect(expectedDeltaAvailableQuote).to.eq(quotedDeltaAvailableQuote);
+    });
+
+    it("should only simulate the trade", async () => {
+      const previousQuoteBalance = await await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken);
+      await subject(false);
+      const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken);
+
+      expect(currentQuoteBalance).to.eq(previousQuoteBalance);
+    });
   });
 
   describe("#executeTrade", async () => {
+    let subjectSetToken: Address;
+    let subjectBaseToken: Address;
+    let subjectIsBuy: boolean;
+    let subjectBaseTokenAmount: BigNumber;
+    let subjectOppositeAmountBound: BigNumber;
 
+    beforeEach(async () => {
+      await invokeLibMock.testInvokeApprove(setToken.address, perpSetup.usdc.address, perpSetup.vault.address, MAX_UINT_256);
+      await perpLibMock.testInvokeDeposit(setToken.address, perpSetup.vault.address, perpSetup.usdc.address, ether(1));
+
+      subjectSetToken = setToken.address;
+      subjectBaseToken = vETH.address;
+      subjectIsBuy = true;
+      subjectBaseTokenAmount = ether(1);
+      subjectOppositeAmountBound = MAX_UINT_256;
+    });
+
+    async function subject(): Promise<any> {
+      return await perpLibMock.testExecuteTrade(
+        {
+          setToken: subjectSetToken,
+          baseToken: subjectBaseToken,
+          isBuy: subjectIsBuy,
+          baseTokenAmount: subjectBaseTokenAmount,
+          oppositeAmountBound: subjectOppositeAmountBound
+        }, 
+        perpSetup.clearingHouse.address
+      );
+    }
+
+    it("should execute a trade", async () => {
+      const previousBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken);
+
+      await subject();
+
+      const currentBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken);
+      const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken);
+
+      const expectedBaseBalance = previousBaseBalance.add(subjectBaseTokenAmount);
+
+      expect(previousBaseBalance).to.eq(0);
+      expect(currentBaseBalance).to.be.eq(expectedBaseBalance);
+      expect(currentQuoteBalance).to.be.lt(0);
+    });
+
+    describe("when isBuy is false", async () => {
+      beforeEach(async () => {
+        subjectIsBuy = false;
+        subjectOppositeAmountBound = ZERO;
+      });
+  
+      async function subject(): Promise<any> {
+        return await perpLibMock.testExecuteTrade(
+          {
+            setToken: subjectSetToken,
+            baseToken: subjectBaseToken,
+            isBuy: subjectIsBuy,
+            baseTokenAmount: subjectBaseTokenAmount,
+            oppositeAmountBound: subjectOppositeAmountBound
+          }, 
+          perpSetup.clearingHouse.address
+        );
+      }
+  
+      it("should execute a trade", async () => {
+        const previousBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken);
+  
+        await subject();
+  
+        const currentBaseBalance = await perpSetup.accountBalance.getBase(setToken.address, subjectBaseToken);
+        const currentQuoteBalance = await perpSetup.accountBalance.getQuote(setToken.address, subjectBaseToken);
+  
+        const expectedBaseBalance = previousBaseBalance.sub(subjectBaseTokenAmount);
+  
+        expect(previousBaseBalance).to.eq(0);
+        expect(currentBaseBalance).to.be.eq(expectedBaseBalance);
+        expect(currentQuoteBalance).to.be.gt(0);
+      });
+    });
   });
 });
