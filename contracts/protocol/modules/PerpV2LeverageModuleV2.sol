@@ -64,8 +64,8 @@ import { UnitConversionUtils } from "../../lib/UnitConversionUtils.sol";
  * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  *
  * CHANGELOG:
- * - This contract has the same functionality as `PerpV2LeverageModule` but smaller bytecode size. It extends ModuleBaseV2 (which uses 
- * linked PositionV2 library) and uses linked PerpV2LibraryV2 and PerpV2Positions library. This separation of logic across linked library 
+ * - This contract has the same functionality as `PerpV2LeverageModule` but smaller bytecode size. It extends ModuleBaseV2 (which uses
+ * linked PositionV2 library) and uses linked PerpV2LibraryV2 and PerpV2Positions library. This separation of logic across linked library
  * contracts helps us to significantly decrease the bytecode size of this contract.
  */
 contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTokenAccessible, IModuleIssuanceHookV2 {
@@ -89,7 +89,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         int256 pendingFundingPayments;  // USDC quantity of pending funding payments in 10**18 decimals
         int256 netQuoteBalance;         // USDC quantity of net quote balance for all open positions in Perp account
     }
-    
+
     /* ============ Events ============ */
 
     /**
@@ -225,6 +225,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         ISetToken _setToken
     )
         public
+        virtual
         onlySetManager(_setToken, msg.sender)
         onlyValidAndPendingSet(_setToken)
         onlyAllowedSet(_setToken)
@@ -261,7 +262,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
      * token market prices and needs to be generated on the fly to be meaningful.
      *
      * In the tables below, basePositionUnit = baseTokenBalance / setTotalSupply.
-     * 
+     *
      * As a user when levering, e.g increasing the magnitude of your position, you'd trade as below
      * | ----------------------------------------------------------------------------------------------- |
      * | Type  |  Action | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits` |
@@ -308,7 +309,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         public
         nonReentrant
         onlyManagerAndValidSet(_setToken)
-    {        
+    {
         PerpV2LibraryV2.ActionInfo memory actionInfo = _createAndValidateActionInfo(
             _setToken,
             _baseToken,
@@ -403,7 +404,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         // `positions[setToken]` mapping stores an array of addresses. The base token addresses are removed from the array when the
         // corresponding base token positions are zeroed out. Since no positions exist when removing the module, the stored array should
         // already be empty, and the mapping can be deleted directly.
-        delete positions[setToken]; 
+        delete positions[setToken];
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
@@ -553,7 +554,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
 
     /**
      * @dev GOVERNANCE ONLY: Update max perpetual positions per SetToken. Only callable by governance.
-     * 
+     *
      * @param _maxPerpPositionsPerSet       New max perpetual positons per set
      */
     function updateMaxPerpPositionsPerSet(uint256 _maxPerpPositionsPerSet) external onlyOwner {
@@ -584,7 +585,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         int256 newExternalPositionUnit = positions[_setToken].length > 0
             ? _executePositionTrades(_setToken, _setTokenQuantity, true, true)
             : 0;
-        
+
         return _formatAdjustments(_setToken, newExternalPositionUnit);
     }
 
@@ -610,7 +611,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         int256 newExternalPositionUnit = positions[_setToken].length > 0
             ? _executePositionTrades(_setToken, _setTokenQuantity, false, true)
             : 0;
-        
+
         return _formatAdjustments(_setToken, newExternalPositionUnit);
     }
 
@@ -740,7 +741,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
 
             // Execute or simulate trade.
             // `deltaQuote` is always a positive number
-            (, uint256 deltaQuote) = _isSimulation 
+            (, uint256 deltaQuote) = _isSimulation
                 ? PerpV2LibraryV2.simulateTrade(actionInfo, perpQuoter)
                 : PerpV2LibraryV2.executeTrade(actionInfo, perpClearingHouse);
 
@@ -949,8 +950,8 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
 
         int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
         int256 basePositionUnit = baseBalance.preciseDiv(totalSupply.toInt256());
-        
-        int256 baseNotional = _baseQuantityUnits == basePositionUnit.neg() 
+
+        int256 baseNotional = _baseQuantityUnits == basePositionUnit.neg()
             ? baseBalance.neg()         // To close position completely
             : _baseQuantityUnits.preciseMul(totalSupply.toInt256());
 
@@ -1031,7 +1032,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
     function _syncPositionList(ISetToken _setToken) internal {
         address[] memory positionList = positions[_setToken];
         uint256 positionLength = positionList.length;
-        
+
         for (uint256 i = 0; i < positionLength; i++) {
             address currPosition = positionList[i];
             if (!_hasBaseBalance(_setToken, currPosition)) {

@@ -130,6 +130,13 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     /* ============ External Functions ============ */
 
     /**
+     * @dev Reverts upon calling. Use `intialize(_setToken, _settings)` instead.
+     */
+    function initialize(ISetToken /*_setToken*/) public override(PerpV2LeverageModuleV2) {
+        revert("Use intialize(_setToken, _settings) instead");
+    }
+
+    /**
      * @dev MANAGER ONLY: Initializes this module to the SetToken and sets fee settings. Either the SetToken needs to
      * be on the allowed list or anySetAllowed needs to be true.
      *
