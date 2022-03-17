@@ -266,6 +266,26 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
+  describe("#initialize (old)", async () => {
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+
+    beforeEach(async () => {
+      subjectSetToken = await getRandomAddress();
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      return perpBasisTradingModule.connect(subjectCaller.wallet)["initialize(address)"](
+        subjectSetToken
+      );
+    }
+
+    it("should revert", async () => {
+      await expect(subject()).to.be.revertedWith("Use intialize(_setToken, _settings) instead");
+    });
+  });
+
   describe("#initialize", async () => {
     let setToken: SetToken;
     let subjectSetToken: Address;
