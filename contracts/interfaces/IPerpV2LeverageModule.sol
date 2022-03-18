@@ -28,7 +28,7 @@ import { IExchange } from "./external/perp-v2/IExchange.sol";
 import { IVault } from "./external/perp-v2/IVault.sol";
 import { IQuoter } from "./external/perp-v2/IQuoter.sol";
 import { IMarketRegistry } from "./external/perp-v2/IMarketRegistry.sol";
-
+import { PerpV2Positions } from "../protocol/integration/lib/PerpV2Positions.sol";
 
 /**
  * @title IPerpV2LeverageModule
@@ -41,18 +41,6 @@ import { IMarketRegistry } from "./external/perp-v2/IMarketRegistry.sol";
 interface IPerpV2LeverageModule {
 
     /* ============ Structs ============ */
-
-    struct PositionNotionalInfo {
-        address baseToken;              // Virtual token minted by the Perp protocol
-        int256 baseBalance;             // Base position notional quantity in 10**18 decimals. When negative, position is short
-        int256 quoteBalance;            // vUSDC "debt" notional quantity minted to open position. When positive, position is short
-    }
-
-    struct PositionUnitInfo {
-        address baseToken;              // Virtual token minted by the Perp protocol
-        int256 baseUnit;                // Base position unit. When negative, position is short
-        int256 quoteUnit;               // vUSDC "debt" position unit. When positive, position is short
-    }
 
     // Note: when `pendingFundingPayments` is positive it will be credited to account on settlement,
     // when negative it's a debt owed that will be repaid on settlement. (PerpProtocol.Exchange returns the value
@@ -252,7 +240,7 @@ interface IPerpV2LeverageModule {
      *         + baseBalance:  baseToken balance as notional quantity (10**18)
      *         + quoteBalance: USDC quote asset balance as notional quantity (10**18)
      */
-    function getPositionNotionalInfo(ISetToken _setToken) external view returns (PositionNotionalInfo[] memory);
+    function getPositionNotionalInfo(ISetToken _setToken) external view returns (PerpV2Positions.PositionNotionalInfo[] memory);
 
     /**
      * @dev Returns a PositionUnitInfo array representing all positions open for the SetToken.
@@ -265,7 +253,7 @@ interface IPerpV2LeverageModule {
      *         + baseUnit:  baseToken balance as position unit (10**18)
      *         + quoteUnit: USDC quote asset balance as position unit (10**18)
      */
-    function getPositionUnitInfo(ISetToken _setToken) external view returns (PositionUnitInfo[] memory);
+    function getPositionUnitInfo(ISetToken _setToken) external view returns (PerpV2Positions.PositionUnitInfo[] memory);
 
     /**
      * @dev Gets Perp account info for SetToken. Returns an AccountInfo struct containing account wide

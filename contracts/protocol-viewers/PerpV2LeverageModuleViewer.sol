@@ -30,6 +30,7 @@ import { IClearingHouseConfig } from "../interfaces/external/perp-v2/IClearingHo
 import { IIndexPrice } from "../interfaces/external/perp-v2/IIndexPrice.sol";
 import { IPerpV2LeverageModule } from "../interfaces/IPerpV2LeverageModule.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
+import { PerpV2Positions } from "../protocol/integration/lib/PerpV2Positions.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
 
 
@@ -175,7 +176,7 @@ contract PerpV2LeverageModuleViewer {
         returns (VAssetDisplayInfo[] memory assetInfo)
     {
         uint256 setTotalSupply = _setToken.totalSupply();
-        IPerpV2LeverageModule.PositionNotionalInfo[] memory positionInfo = perpModule.getPositionNotionalInfo(_setToken);
+        PerpV2Positions.PositionNotionalInfo[] memory positionInfo = perpModule.getPositionNotionalInfo(_setToken);
 
         int256 totalCollateralValue = _calculateTotalCollateralValue(_setToken);
 
@@ -184,7 +185,7 @@ contract PerpV2LeverageModuleViewer {
 
         int256 vQuoteBalance;
         for (uint256 i = 0; i < positionsLength; i++) {
-            IPerpV2LeverageModule.PositionNotionalInfo memory position = positionInfo[i];
+            PerpV2Positions.PositionNotionalInfo memory position = positionInfo[i];
             uint256 indexPrice = IIndexPrice(position.baseToken).getIndexPrice(0);
             assetInfo[i] = VAssetDisplayInfo({
                 symbol: ERC20(position.baseToken).symbol(),
@@ -236,7 +237,7 @@ contract PerpV2LeverageModuleViewer {
      * @return                          Leverage ratio of vAsset relative to current total collateral
      */
     function _calculateCurrentLeverageRatio(
-        IPerpV2LeverageModule.PositionNotionalInfo memory _position,
+        PerpV2Positions.PositionNotionalInfo memory _position,
         uint256 _indexPrice,
         int256 _totalCollateralValue
     )

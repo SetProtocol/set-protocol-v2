@@ -4,8 +4,10 @@ import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
   SlippageIssuanceModule,
-  PerpV2,
-  PerpV2LeverageModule,
+  PerpV2LibraryV2,
+  PositionV2,
+  PerpV2Positions,
+  PerpV2LeverageModuleV2,
   SetToken,
   StandardTokenMock,
 } from "@utils/contracts";
@@ -43,8 +45,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
   let feeRecipient: Account;
   let deployer: DeployHelper;
 
-  let perpLib: PerpV2;
-  let perpLeverageModule: PerpV2LeverageModule;
+  let perpLib: PerpV2LibraryV2;
+  let positionLib: PositionV2;
+  let perpPositionsLib: PerpV2Positions;
+  let perpLeverageModule: PerpV2LeverageModuleV2;
   let slippageIssuanceModule: SlippageIssuanceModule;
   let setup: SystemFixture;
   let perpSetup: PerpV2Fixture;
@@ -91,15 +95,23 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       ether(200_000)
     );
 
-    perpLib = await deployer.libraries.deployPerpV2();
-    perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
+    // Deploy libraries
+    positionLib = await deployer.libraries.deployPositionV2();
+    perpLib = await deployer.libraries.deployPerpV2LibraryV2();
+    perpPositionsLib = await deployer.libraries.deployPerpV2Positions();
+
+    perpLeverageModule = await deployer.modules.deployPerpV2LeverageModuleV2(
       setup.controller.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
       BigNumber.from(3),
-      "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
-      perpLib.address
+      "contracts/protocol/lib/PositionV2.sol:PositionV2",
+      positionLib.address,
+      "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
+      perpLib.address,
+      "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+      perpPositionsLib.address,
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
@@ -1096,7 +1108,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             .sub(feeAdjustedTransferOutUSDC)
             .add(realizedPnlUSDC);
 
-          expect(finalCollateralBalanceUSDC).to.be.closeTo(expectedCollateralBalanceUSDC, 10);
+          expect(finalCollateralBalanceUSDC).to.be.closeTo(expectedCollateralBalanceUSDC, 1);
         });
 
         it("should not update the setToken USDC token balance", async () => {

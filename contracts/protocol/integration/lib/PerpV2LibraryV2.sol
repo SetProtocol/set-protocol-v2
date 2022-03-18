@@ -1,14 +1,18 @@
 /*
-    Copyright 2021 Set Labs Inc.
+    Copyright 2022 Set Labs Inc.
+
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
+
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
@@ -17,17 +21,31 @@ pragma experimental ABIEncoderV2;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IClearingHouse } from "../../../interfaces/external/perp-v2/IClearingHouse.sol";
-import { IVault } from "../../../interfaces/external/perp-v2/IVault.sol";
 import { IQuoter } from "../../../interfaces/external/perp-v2/IQuoter.sol";
+import { IVault } from "../../../interfaces/external/perp-v2/IVault.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 /**
- * @title PerpV2
+ * @title PerpV2LibraryV2
  * @author Set Protocol
  *
  * Collection of helper functions for interacting with PerpV2 integrations.
+ *
+ * CHANGELOG:
+ * - Add ActionInfo struct.
+ * - Add `executeTrade` and `simulateTrade` functions.
  */
-library PerpV2 {
+library PerpV2LibraryV2 {
+
+    struct ActionInfo {
+        ISetToken setToken;
+        address baseToken;              // Virtual token minted by the Perp protocol
+        bool isBuy;                     // When true, `baseToken` is being bought, when false, sold
+        uint256 baseTokenAmount;        // Base token quantity in 10**18 decimals
+        uint256 oppositeAmountBound;    // vUSDC pay or receive quantity bound 
+                                        // (see `PerpV2LeverageModuleV2#_createActionInfoNotional` for details)
+    }
 
     /* ============ External ============ */
 
@@ -194,7 +212,7 @@ library PerpV2 {
         IClearingHouse _clearingHouse,
         IClearingHouse.OpenPositionParams memory _params
     )
-        external
+        public
         returns (uint256 deltaBase, uint256 deltaQuote)
     {
         ( , , bytes memory openPositionCalldata) = getOpenPositionCalldata(
@@ -253,7 +271,7 @@ library PerpV2 {
         IQuoter _quoter,
         IQuoter.SwapParams memory _params
     )
-        external
+        public
         returns (IQuoter.SwapResponse memory)
     {
         ( , , bytes memory swapCalldata) = getSwapCalldata(
@@ -263,5 +281,67 @@ library PerpV2 {
 
         bytes memory returnValue = _setToken.invoke(address(_quoter), 0, swapCalldata);
         return abi.decode(returnValue, (IQuoter.SwapResponse));
+    }
+
+    /**
+     * @dev Formats Perp Periphery Quoter.swap call and executes via SetToken.
+     *
+     * See `executeTrade` method comments for details about `isBaseToQuote` and `isExactInput` configuration.
+     *
+     * @param _perpQuoter   Instance of PerpV2 quoter
+     * @param _actionInfo   ActionInfo object
+     * @return uint256      The base position delta resulting from the trade
+     * @return uint256      The quote asset position delta resulting from the trade
+     */
+    function simulateTrade(ActionInfo memory _actionInfo, IQuoter _perpQuoter) external returns (uint256, uint256) {
+        IQuoter.SwapParams memory params = IQuoter.SwapParams({
+            baseToken: _actionInfo.baseToken,
+            isBaseToQuote: !_actionInfo.isBuy,
+            isExactInput: !_actionInfo.isBuy,
+            amount: _actionInfo.baseTokenAmount,
+            sqrtPriceLimitX96: 0
+        });
+
+        IQuoter.SwapResponse memory swapResponse = invokeSwap(_actionInfo.setToken, _perpQuoter, params);
+        return (swapResponse.deltaAvailableBase, swapResponse.deltaAvailableQuote);
+    }
+
+    /**
+     * @dev Formats Perp Protocol openPosition call and executes via SetToken.
+     *
+     * `isBaseToQuote`, `isExactInput` and `oppositeAmountBound` are configured as below:
+     * | ---------------------------------------------------|---------------------------- |
+     * | Action  | isBuy   | isB2Q  | Exact In / Out        | Opposite Bound Description  |
+     * | ------- |-------- |--------|-----------------------|---------------------------- |
+     * | Buy     |  true   | false  | exact output (false)  | Max quote to pay            |
+     * | Sell    |  false  | true   | exact input (true)    | Min quote to receive        |
+     * |----------------------------------------------------|---------------------------- |
+     *
+     * @param _perpClearingHouse    Instance of PerpV2 ClearingHouse
+     * @param _actionInfo           PerpV2.ActionInfo object
+     * @return uint256     The base position delta resulting from the trade
+     * @return uint256     The quote asset position delta resulting from the trade
+     */
+    function executeTrade(
+        ActionInfo memory _actionInfo, 
+        IClearingHouse _perpClearingHouse
+    ) 
+        external 
+        returns (uint256, uint256) 
+    {
+        // When isBaseToQuote is true, `baseToken` is being sold, when false, bought
+        // When isExactInput is true, `amount` is the swap input, when false, the swap output
+        IClearingHouse.OpenPositionParams memory params = IClearingHouse.OpenPositionParams({
+            baseToken: _actionInfo.baseToken,
+            isBaseToQuote: !_actionInfo.isBuy,
+            isExactInput: !_actionInfo.isBuy,
+            amount: _actionInfo.baseTokenAmount,
+            oppositeAmountBound: _actionInfo.oppositeAmountBound,
+            deadline: PreciseUnitMath.maxUint256(),
+            sqrtPriceLimitX96: 0,
+            referralCode: bytes32(0)
+        });
+
+        return invokeOpenPosition(_actionInfo.setToken, _perpClearingHouse, params);
     }
 }

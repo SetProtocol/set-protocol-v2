@@ -1,4 +1,5 @@
 require("dotenv").config();
+require('hardhat-contract-sizer');
 
 import chalk from "chalk";
 import { HardhatUserConfig } from "hardhat/config";
@@ -31,7 +32,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      allowUnlimitedContractSize: true,
+      allowUnlimitedContractSize: false,
       forking: (process.env.FORK) ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
     },
@@ -68,6 +69,11 @@ const config: HardhatUserConfig = {
     target: "ethers-v5",
     externalArtifacts: ["external/**/*.json"],
   },
+  // @ts-ignore
+  contractSizer: {
+    runOnCompile: false,
+  },
+  
   mocha: mochaConfig,
 
   // These are external artifacts we don't compile but would like to improve

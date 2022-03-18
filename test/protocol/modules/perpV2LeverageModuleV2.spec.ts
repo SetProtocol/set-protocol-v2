@@ -3,8 +3,10 @@ import "module-alias/register";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
-  PerpV2,
-  PerpV2LeverageModule,
+  PositionV2,
+  PerpV2LibraryV2,
+  PerpV2Positions,
+  PerpV2LeverageModuleV2,
   DebtIssuanceMock,
   StandardTokenMock,
   SetToken
@@ -49,15 +51,17 @@ import { BigNumber } from "ethers";
 
 const expect = getWaffleExpect();
 
-describe("PerpV2LeverageModule", () => {
+describe("PerpV2LeverageModuleV2", () => {
   let owner: Account;
   let maker: Account;
   let otherTrader: Account;
   let mockModule: Account;
   let deployer: DeployHelper;
 
-  let perpLib: PerpV2;
-  let perpLeverageModule: PerpV2LeverageModule;
+  let positionLib: PositionV2;
+  let perpLib: PerpV2LibraryV2;
+  let perpPositionsLib: PerpV2Positions;
+  let perpLeverageModule: PerpV2LeverageModuleV2;
   let debtIssuanceMock: DebtIssuanceMock;
   let setup: SystemFixture;
   let perpSetup: PerpV2Fixture;
@@ -109,15 +113,24 @@ describe("PerpV2LeverageModule", () => {
     await setup.controller.addModule(debtIssuanceMock.address);
 
     maxPerpPositionsPerSet = TWO;
-    perpLib = await deployer.libraries.deployPerpV2();
-    perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
+
+    // Deploy libraries
+    positionLib = await deployer.libraries.deployPositionV2();
+    perpLib = await deployer.libraries.deployPerpV2LibraryV2();
+    perpPositionsLib = await deployer.libraries.deployPerpV2Positions();
+
+    perpLeverageModule = await deployer.modules.deployPerpV2LeverageModuleV2(
       setup.controller.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
       maxPerpPositionsPerSet,
-      "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
-      perpLib.address
+      "contracts/protocol/lib/PositionV2.sol:PositionV2",
+      positionLib.address,
+      "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
+      perpLib.address,
+      "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+      perpPositionsLib.address,
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
@@ -132,7 +145,7 @@ describe("PerpV2LeverageModule", () => {
    * HELPERS
    */
 
-  // Creates SetToken, issues sets (default: 1), initializes PerpV2LeverageModule and deposits to Perp
+  // Creates SetToken, issues sets (default: 1), initializes PerpV2LeverageModuleV2 and deposits to Perp
   async function issueSetsAndDepositToPerp(
     depositQuantityUnit: BigNumber,
     isInitialized: boolean = true,
@@ -188,15 +201,19 @@ describe("PerpV2LeverageModule", () => {
       subjectMaxPerpPositionsPerSet = ONE;
     });
 
-    async function subject(): Promise<PerpV2LeverageModule> {
-      return deployer.modules.deployPerpV2LeverageModule(
+    async function subject(): Promise<PerpV2LeverageModuleV2> {
+      return deployer.modules.deployPerpV2LeverageModuleV2(
         subjectController,
         subjectVault,
         subjectQuoter,
         subjectMarketRegistry,
         subjectMaxPerpPositionsPerSet,
-        "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
-        perpLib.address
+        "contracts/protocol/lib/PositionV2.sol:PositionV2",
+        positionLib.address,
+        "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
+        perpLib.address,
+        "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+        perpPositionsLib.address
       );
     }
 
@@ -5453,7 +5470,7 @@ describe("PerpV2LeverageModule", () => {
         await perpLeverageModule.initialize(setToken.address);
       }
       await setup.issuanceModule.initialize(setToken.address, ADDRESS_ZERO);
-      // Add other issuance mock after initializing PerpV2LeverageModule, so register is never called
+      // Add other issuance mock after initializing PerpV2LeverageModuleV2, so register is never called
       await setToken.addModule(otherIssuanceModule.address);
       await otherIssuanceModule.initialize(setToken.address);
     };

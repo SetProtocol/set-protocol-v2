@@ -4,7 +4,9 @@ import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
   PerpV2,
+  PerpV2Positions,
   PerpV2BasisTradingModule,
+  PositionV2,
   DebtIssuanceMock,
   StandardTokenMock,
   SetToken
@@ -61,7 +63,9 @@ describe("PerpV2BasisTradingModule", () => {
   let mockModule: Account;
   let deployer: DeployHelper;
 
+  let positionLib: PositionV2;
   let perpLib: PerpV2;
+  let perpPositionsLib: PerpV2Positions;
   let perpBasisTradingModule: PerpV2BasisTradingModule;
   let debtIssuanceMock: DebtIssuanceMock;
   let setup: SystemFixture;
@@ -113,15 +117,24 @@ describe("PerpV2BasisTradingModule", () => {
     await setup.controller.addModule(debtIssuanceMock.address);
 
     maxPerpPositionsPerSet = TWO;
-    perpLib = await deployer.libraries.deployPerpV2();
+
+    // Deploy libraries
+    positionLib = await deployer.libraries.deployPositionV2();
+    perpLib = await deployer.libraries.deployPerpV2LibraryV2();
+    perpPositionsLib = await deployer.libraries.deployPerpV2Positions();
+
     perpBasisTradingModule = await deployer.modules.deployPerpV2BasisTradingModule(
       setup.controller.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
       maxPerpPositionsPerSet,
-      "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
+      "contracts/protocol/lib/PositionV2.sol:PositionV2",
+      positionLib.address,
+      "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
       perpLib.address,
+      "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+      perpPositionsLib.address
     );
     await setup.controller.addModule(perpBasisTradingModule.address);
 
@@ -208,8 +221,12 @@ describe("PerpV2BasisTradingModule", () => {
         subjectQuoter,
         subjectMarketRegistry,
         subjectMaxPerpPositionsPerSet,
-        "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
+        "contracts/protocol/lib/PositionV2.sol:PositionV2",
+        positionLib.address,
+        "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
         perpLib.address,
+        "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+        perpPositionsLib.address
       );
     }
 
@@ -246,6 +263,26 @@ describe("PerpV2BasisTradingModule", () => {
       const maxPerpPositionsPerSet = await perpBasisTradingModule.maxPerpPositionsPerSet();
 
       expect(maxPerpPositionsPerSet).to.eq(ONE);
+    });
+  });
+
+  describe("#initialize (old)", async () => {
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+
+    beforeEach(async () => {
+      subjectSetToken = await getRandomAddress();
+      subjectCaller = owner;
+    });
+
+    async function subject(): Promise<any> {
+      return perpBasisTradingModule.connect(subjectCaller.wallet)["initialize(address)"](
+        subjectSetToken
+      );
+    }
+
+    it("should revert", async () => {
+      await expect(subject()).to.be.revertedWith("Use intialize(_setToken, _settings) instead");
     });
   });
 

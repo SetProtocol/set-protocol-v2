@@ -1,6 +1,6 @@
 {
   "name": "@setprotocol/set-protocol-v2",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "",
   "main": "dist",
   "types": "dist/types",
@@ -73,6 +73,7 @@
     "eslint-plugin-no-null": "^1.0.2",
     "ethereum-waffle": "^3.4.0",
     "hardhat": "^2.6.4",
+    "hardhat-contract-sizer": "^2.5.0",
     "husky": "^4.2.5",
     "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",

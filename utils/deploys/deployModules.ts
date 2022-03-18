@@ -14,6 +14,7 @@ import {
   IssuanceModule,
   NavIssuanceModule,
   PerpV2LeverageModule,
+  PerpV2LeverageModuleV2,
   PerpV2BasisTradingModule,
   SingleIndexModule,
   SlippageIssuanceModule,
@@ -40,6 +41,7 @@ import { GovernanceModule__factory } from "../../typechain/factories/GovernanceM
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
 import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
 import { PerpV2LeverageModule__factory } from "../../typechain/factories/PerpV2LeverageModule__factory";
+import { PerpV2LeverageModuleV2__factory } from "../../typechain/factories/PerpV2LeverageModuleV2__factory";
 import { PerpV2BasisTradingModule__factory } from "../../typechain/factories/PerpV2BasisTradingModule__factory";
 import { SingleIndexModule__factory } from "../../typechain/factories/SingleIndexModule__factory";
 import { StakingModule__factory } from "../../typechain/factories/StakingModule__factory";
@@ -205,13 +207,43 @@ export default class DeployModules {
     perpQuoter: Address,
     perpMarketRegistry: Address,
     maxPerpPositionsPerSet: BigNumber,
-    libraryName: string,
-    libraryAddress: Address
+    perpV2LibraryName: string,
+    perpV2LibraryAddress: Address
   ): Promise<PerpV2LeverageModule> {
     return await new PerpV2LeverageModule__factory(
       // @ts-ignore
       {
-        [libraryName]: libraryAddress,
+        [perpV2LibraryName]: perpV2LibraryAddress,
+      },
+      this._deployerSigner
+    ).deploy(
+      controller,
+      perpVault,
+      perpQuoter,
+      perpMarketRegistry,
+      maxPerpPositionsPerSet
+    );
+  }
+
+  public async deployPerpV2LeverageModuleV2(
+    controller: Address,
+    perpVault: Address,
+    perpQuoter: Address,
+    perpMarketRegistry: Address,
+    maxPerpPositionsPerSet: BigNumber,
+    positionV2LibraryName: string,
+    positionV2LibraryAddress: Address,
+    perpV2LibraryName: string,
+    perpV2LibraryAddress: Address,
+    perpV2PositionsLibraryName: string,
+    perpV2PositionsLibraryAddress: Address
+  ): Promise<PerpV2LeverageModuleV2> {
+    return await new PerpV2LeverageModuleV2__factory(
+      // @ts-ignore
+      {
+        [positionV2LibraryName]: positionV2LibraryAddress,
+        [perpV2LibraryName]: perpV2LibraryAddress,
+        [perpV2PositionsLibraryName]: perpV2PositionsLibraryAddress,
       },
       this._deployerSigner
     ).deploy(
@@ -229,13 +261,19 @@ export default class DeployModules {
     perpQuoter: Address,
     perpMarketRegistry: Address,
     maxPerpPositionsPerSet: BigNumber,
-    libraryName: string,
-    libraryAddress: Address
+    positionV2LibraryName: string,
+    positionV2LibraryAddress: Address,
+    perpV2LibraryName: string,
+    perpV2LibraryAddress: Address,
+    perpV2PositionsLibraryName: string,
+    perpV2PositionsLibraryAddress: Address
   ): Promise<PerpV2BasisTradingModule> {
     return await new PerpV2BasisTradingModule__factory(
       // @ts-ignore
       {
-        [libraryName]: libraryAddress,
+        [positionV2LibraryName]: positionV2LibraryAddress,
+        [perpV2LibraryName]: perpV2LibraryAddress,
+        [perpV2PositionsLibraryName]: perpV2PositionsLibraryAddress,
       },
       this._deployerSigner
     ).deploy(

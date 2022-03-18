@@ -108,7 +108,7 @@ describe("PerpV2LeverageModuleViewer", () => {
       perpSetup.marketRegistry.address,
       BigNumber.from(3),
       "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
-      perpLib.address,
+      perpLib.address
     );
     await setup.controller.addModule(perpLeverageModule.address);
 
