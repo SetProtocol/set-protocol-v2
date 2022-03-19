@@ -35,4 +35,6 @@ interface IAccountBalance {
     function getExchange() external view returns (address);
     function getOrderBook() external view returns (address);
     function getVault() external view returns (address);
+    function getTakerPositionSize(address trader, address baseToken) external view returns (int256);
+    function getTakerOpenNotional(address trader, address baseToken) external view returns (int256);
 }
