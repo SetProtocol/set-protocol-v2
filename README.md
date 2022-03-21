@@ -13,7 +13,9 @@ cp .env.default .env
 yarn
 ```
 
-**Note**: Use a version of node `>= 14`, `<= v17.3`.
+**Note**: Use a version of node `>= 14`, `<= 16`[11].
+
+[11] Node versions `>16` requires [setting](https://stackoverflow.com/a/69699772) `export NODE_OPTIONS=--openssl-legacy-provider`.
 
 ## Contracts
 [Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Hardhat](https://hardhat.org/) as a development environment for compiling, testing, and deploying our contracts.
