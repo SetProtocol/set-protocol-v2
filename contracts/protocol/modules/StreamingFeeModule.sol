@@ -155,7 +155,7 @@ contract StreamingFeeModule is ModuleBase, ReentrancyGuard {
         onlySetManager(_setToken, msg.sender)
         onlyValidAndInitializedSet(_setToken)
     {
-        require(_newFee < _maxStreamingFeePercentage(_setToken), "Fee must be less than max");
+        require(_newFee <= _maxStreamingFeePercentage(_setToken), "Fee must <= max");
         accrueFee(_setToken);
 
         feeStates[_setToken].streamingFeePercentage = _newFee;
