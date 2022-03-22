@@ -13,7 +13,7 @@ cp .env.default .env
 yarn
 ```
 
-**Note**: Use a version of node `>= 14`, `<= 16`[11].
+**Note**: Use a version of node `>= 14`, `<= 16` [11].
 
 [11] Node versions `>16` requires [setting](https://stackoverflow.com/a/69699772) `export NODE_OPTIONS=--openssl-legacy-provider`.
 

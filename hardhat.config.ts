@@ -1,3 +1,5 @@
+// import {tenderly} from "hardhat";
+
 require("dotenv").config();
 require('hardhat-contract-sizer');
 
@@ -9,6 +11,32 @@ import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "solidity-coverage";
 import "./tasks";
+
+
+import { ContractFactory } from "ethers";
+
+import "@tenderly/hardhat-tenderly";
+
+
+const deployFunc = ContractFactory.prototype.deploy;
+
+ContractFactory.prototype.deploy = async function (...args) {
+  console.log("in monkeypatched deploy");
+  const contract = await deployFunc.apply(this, args),
+    contractAddress = contract.address;
+
+  let contractFactoryName = this.constructor.name;
+  contractFactoryName = contractFactoryName.substring(0, contractFactoryName.indexOf("__factory"));
+
+  console.log(`address: ${contractAddress} contract: ${contractFactoryName}`);
+
+  // await tenderly.push({
+  //   name: contractFactoryName,
+  //   address: contract.address
+  // });
+
+  return contract;
+};
 
 const forkingConfig = {
   url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
@@ -62,6 +90,14 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8555", // Coverage launches its own ganache-cli client
       timeout: 200000,
     },
+    tenderly: {
+      url: "https://rpc.tenderly.co/fork/20865ba2-ff44-4e8c-8d22-5e626a7b8d36",
+      timeout: 200000,
+      // todo: these are necessary for some reason, otherwise hardhat throws an error
+      gas: 12000000,
+      blockGasLimit: 12000000
+
+    }
   },
   // @ts-ignore
   typechain: {
