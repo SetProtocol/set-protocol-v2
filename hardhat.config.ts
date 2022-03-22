@@ -35,6 +35,8 @@ const config: HardhatUserConfig = {
       allowUnlimitedContractSize: false,
       forking: (process.env.FORK) ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
+      gas: 12000000,
+      blockGasLimit: 12000000
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -73,7 +75,7 @@ const config: HardhatUserConfig = {
   contractSizer: {
     runOnCompile: false,
   },
-  
+
   mocha: mochaConfig,
 
   // These are external artifacts we don't compile but would like to improve
