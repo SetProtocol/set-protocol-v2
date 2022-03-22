@@ -164,7 +164,7 @@ describe("StakingModule", () => {
         );
       });
 
-      it("should transfer the staked tokens to the staking contract", async () => {
+      it("should revert when the there is an open external position", async () => {
         await expect(subject()).to.be.revertedWith("Open positions must be closed");
       });
     });
@@ -333,7 +333,7 @@ describe("StakingModule", () => {
         subjectComponentPositionUnits = ether(1.1);
       });
 
-      it("should emit the correct ComponentStaked event", async () => {
+      it("should revert when trying to stake more tokens than available in Default state", async () => {
         await expect(subject()).to.be.revertedWith("Not enough component to stake");
       });
     });
@@ -578,7 +578,7 @@ describe("StakingModule", () => {
         subjectComponentPositionUnits = ether(.6);
       });
 
-      it("should emit the correct ComponentStaked event", async () => {
+      it("should revert when trying to unstake more tokens than staked", async () => {
         await expect(subject()).to.be.revertedWith("Not enough component tokens staked");
       });
     });
