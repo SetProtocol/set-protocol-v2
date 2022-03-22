@@ -35,38 +35,6 @@ import { PriceOracleProxy__factory } from "../../typechain/factories/PriceOracle
 import { Unitroller__factory } from "../../typechain/factories/Unitroller__factory";
 import { WETH9__factory } from "../../typechain/factories/WETH9__factory";
 import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/WhitePaperInterestRateModel__factory";
-import { LendingPoolAddressesProvider__factory } from "../../typechain/factories/LendingPoolAddressesProvider__factory";
-
-import {
-  AavePropositionPower,
-  AaveProtoGovernance,
-  AaveTokenV2Mintable,
-  AssetVotingWeightProvider,
-  CoreLibrary,
-  DefaultReserveInterestRateStrategy,
-  GovernanceParamsProvider,
-  LendingPool,
-  LendingPoolAddressesProvider,
-  LendingPoolConfigurator,
-  LendingPoolCore,
-  LendingRateOracle,
-  LendToAaveMigrator
-} from "../contracts/aave";
-
-import { AaveTokenV2Mintable__factory } from "../../typechain/factories/AaveTokenV2Mintable__factory";
-import { AavePropositionPower__factory } from "../../typechain/factories/AavePropositionPower__factory";
-import { AaveProtoGovernance__factory } from "../../typechain/factories/AaveProtoGovernance__factory";
-import { AssetVotingWeightProvider__factory } from "../../typechain/factories/AssetVotingWeightProvider__factory";
-import { LendingPoolCore__factory, LendingPoolCoreLibraryAddresses } from "../../typechain/factories/LendingPoolCore__factory";
-import { CoreLibrary__factory } from "../../typechain/factories/CoreLibrary__factory";
-import { GovernanceParamsProvider__factory } from "../../typechain/factories/GovernanceParamsProvider__factory";
-import { LendingPool__factory } from "../../typechain/factories/LendingPool__factory";
-import { DefaultReserveInterestRateStrategy__factory } from "../../typechain/factories/DefaultReserveInterestRateStrategy__factory";
-import { LendingPoolConfigurator__factory } from "../../typechain/factories/LendingPoolConfigurator__factory";
-import { LendingRateOracle__factory } from "../../typechain/factories/LendingRateOracle__factory";
-import { LendingPoolDataProvider__factory } from "../../typechain/factories/LendingPoolDataProvider__factory";
-import { LendingPoolDataProvider } from "../../typechain/LendingPoolDataProvider";
-import { LendToAaveMigrator__factory } from "../../typechain/factories/LendToAaveMigrator__factory";
 
 import {
   CurveDeposit,
@@ -136,17 +104,6 @@ import { DMMRouter02__factory } from "../../typechain/factories/DMMRouter02__fac
 import { DMMPool__factory } from "../../typechain/factories/DMMPool__factory";
 import { KyberNetworkTokenV2__factory } from "../../typechain/factories/KyberNetworkTokenV2__factory";
 
-
-import {
-  TokenSwap
-} from "../contracts/index";
-import { TokenSwap__factory } from "../../typechain/factories/TokenSwap__factory";
-
-import {
-  SingularityNetToken
-} from "../contracts/index";
-import { SingularityNetToken__factory } from "../../typechain/factories/SingularityNetToken__factory";
-
 import {
   SwapRouter,
   UniswapV3Factory,
@@ -177,6 +134,7 @@ import {
   AaveV2LendingRateOracle,
   AaveV2Oracle,
   AaveV2PriceOracle,
+  AaveTokenV2Mintable,
   Executor,
   GovernanceStrategy,
   GenericLogic,
@@ -200,8 +158,10 @@ import { AaveV2LendingRateOracle__factory } from "../../typechain/factories/Aave
 import { AaveV2Oracle__factory } from "../../typechain/factories/AaveV2Oracle__factory";
 import { AaveV2PriceOracle__factory } from "../../typechain/factories/AaveV2PriceOracle__factory";
 import { AaveGovernanceV2__factory } from "../../typechain/factories/AaveGovernanceV2__factory";
+import { AaveTokenV2Mintable__factory } from "../../typechain/factories/AaveTokenV2Mintable__factory";
 import { Executor__factory } from "../../typechain/factories/Executor__factory";
 import { GovernanceStrategy__factory } from "../../typechain/factories/GovernanceStrategy__factory";
+
 
 import {
   PerpV2MarketRegistry,
@@ -232,10 +192,6 @@ import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/Pe
 import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
 import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
 import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
-
-import { DGLight, DgToken } from "../contracts/dg";
-import { DgToken__factory } from "../../typechain/factories/DgToken__factory";
-import { DGLight__factory } from "../../typechain/factories/DGLight__factory";
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -361,116 +317,6 @@ export default class DeployExternalContracts {
   // WETH
   public async deployWETH(): Promise<WETH9> {
     return await new WETH9__factory(this._deployerSigner).deploy();
-  }
-
-  // AAVE
-  public async deployAaveProtoGovernance(govParamsProvider: Address): Promise<AaveProtoGovernance> {
-    return await new AaveProtoGovernance__factory(this._deployerSigner).deploy(govParamsProvider);
-  }
-
-  public async deployGovernanceParamsProvider(
-    propositionPowerThreshold: BigNumber,
-    propositionPower: Address,
-    assetVotingWeightProvider: Address
-  ): Promise<GovernanceParamsProvider> {
-    return await new GovernanceParamsProvider__factory(this._deployerSigner).deploy(
-      propositionPowerThreshold,
-      propositionPower,
-      assetVotingWeightProvider
-    );
-  }
-
-  public async deployAavePropositionPower(
-    name: string,
-    symbol: string,
-    decimals: BigNumberish,
-    council: Address[],
-    cap: BigNumber,
-  ): Promise<AavePropositionPower> {
-    return await new AavePropositionPower__factory(this._deployerSigner).deploy(
-      name,
-      symbol,
-      decimals,
-      council,
-      cap
-    );
-  }
-
-  public async deployAssetVotingWeightProvider(
-    assets: Address[],
-    weights: BigNumber[],
-  ): Promise<AssetVotingWeightProvider> {
-    return await new AssetVotingWeightProvider__factory(this._deployerSigner).deploy(
-      assets,
-      weights
-    );
-  }
-
-  public async deployLendingPoolAddressesProvider(): Promise<LendingPoolAddressesProvider> {
-    return await new LendingPoolAddressesProvider__factory(this._deployerSigner).deploy();
-  }
-
-  public async deployCoreLibrary(): Promise<CoreLibrary> {
-    return await new CoreLibrary__factory(this._deployerSigner).deploy();
-  }
-
-  public async deployLendingPoolCore(coreLibraryAddress: Address): Promise<LendingPoolCore> {
-    const lendingPoolCoreLibraryAddresses: LendingPoolCoreLibraryAddresses = {
-      __CoreLibrary___________________________: coreLibraryAddress,
-    };
-    return await new LendingPoolCore__factory(lendingPoolCoreLibraryAddresses, this._deployerSigner).deploy();
-  }
-
-  public async deployLendingPool(): Promise<LendingPool> {
-    return await new LendingPool__factory(this._deployerSigner).deploy();
-  }
-
-  public async deployLendingPoolConfigurator(): Promise<LendingPoolConfigurator> {
-    return await new LendingPoolConfigurator__factory(this._deployerSigner).deploy();
-  }
-
-  public async deployDefaultReserveInterestRateStrategy(
-    _reserve: Address,
-    _AddressProvider: Address,
-    _baseVariableBorrowRate: BigNumberish = ether(1),
-    _variableRateSlope1: BigNumberish = ether(1),
-    _variableRateSlope2: BigNumberish = ether(1),
-    _stableRateSlope1: BigNumberish = ether(1),
-    _stableRateSlope2: BigNumberish = ether(1),
-  ): Promise<DefaultReserveInterestRateStrategy> {
-    return await new DefaultReserveInterestRateStrategy__factory(this._deployerSigner).deploy(
-      _reserve,
-      _AddressProvider,
-      _baseVariableBorrowRate,
-      _variableRateSlope1,
-      _variableRateSlope2,
-      _stableRateSlope1,
-      _stableRateSlope2,
-    );
-  }
-
-  public async deployLendingRateOracle(): Promise<LendingRateOracle> {
-    return await new LendingRateOracle__factory(this._deployerSigner).deploy();
-  }
-
-  public async deployLendingPoolDataProvider(): Promise<LendingPoolDataProvider> {
-    return await new LendingPoolDataProvider__factory(this._deployerSigner).deploy();
-  }
-
-  public async deployLendToAaveMigrator(
-    _aaveToken: Address,
-    _lendToken: Address,
-    _aaveLendRatio: BigNumber,
-  ): Promise<LendToAaveMigrator> {
-    return await new LendToAaveMigrator__factory(this._deployerSigner).deploy(
-      _aaveToken,
-      _lendToken,
-      _aaveLendRatio
-    );
-  }
-
-  public async getLendToAaveMigrator(lendToAaveMigratorAddress: Address): Promise<LendToAaveMigrator> {
-    return await new LendToAaveMigrator__factory(this._deployerSigner).attach(lendToAaveMigratorAddress);
   }
 
   // AAVE V2
@@ -777,16 +623,6 @@ export default class DeployExternalContracts {
     return await new DMMPool__factory(this._deployerSigner).deploy();
   }
 
-  // AXIE-INFINITY
-  public async deployTokenSwap(oldToken: Address, newToken: Address): Promise<TokenSwap> {
-    return await new TokenSwap__factory(this._deployerSigner).deploy(oldToken, newToken);
-  }
-
-  // Singularity Net
-  public async deploySingularityNetToken(): Promise<SingularityNetToken> {
-    return await new SingularityNetToken__factory(this._deployerSigner).deploy();
-  }
-
   // Uniswap V3
   public async deployUniswapV3Factory(): Promise<UniswapV3Factory> {
     return await new UniswapV3Factory__factory(this._deployerSigner).deploy();
@@ -810,15 +646,6 @@ export default class DeployExternalContracts {
 
   public async getUniswapV3PoolInstance(pool: Address): Promise<UniswapV3Pool> {
     return await new UniswapV3Pool__factory(this._deployerSigner).attach(pool);
-  }
-
-  // Decentral Games
-  public async deployDGLight(dgToken: Address): Promise<DGLight> {
-    return await new DGLight__factory(this._deployerSigner).deploy(dgToken);
-  }
-
-  public async deployDgToken(): Promise<DgToken> {
-    return await new DgToken__factory(this._deployerSigner).deploy();
   }
 
   // PerpV2

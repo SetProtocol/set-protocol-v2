@@ -15,7 +15,7 @@
     "moduleResolution": "node",
     "paths": {
         "@utils/*": ["utils/*"],
-        "@typechain/*": ["typechain/*"],
+        "@typechain/*": ["typechain/*"]
     }
   },
   "include": [
