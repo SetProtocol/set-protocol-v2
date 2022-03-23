@@ -26,6 +26,7 @@ export { ComptrollerMock } from "../../typechain/ComptrollerMock";
 export { ContractCallerMock } from "../../typechain/ContractCallerMock";
 export { Controller } from "../../typechain/Controller";
 export { CurveStakingAdapter } from "../../typechain/CurveStakingAdapter";
+export { CurveStEthExchangeAdapter } from "../../typechain/CurveStEthExchangeAdapter";
 export { CustomOracleNavIssuanceModule } from "../../typechain/CustomOracleNavIssuanceModule";
 export { CustomSetValuerMock } from "../../typechain/CustomSetValuerMock";
 export { DebtIssuanceMock } from "../../typechain/DebtIssuanceMock";
