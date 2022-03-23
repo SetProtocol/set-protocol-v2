@@ -18,7 +18,9 @@ import {
 
 import { SystemFixture } from "@utils/fixtures";
 import { CurveStEthExchangeAdapter } from "@utils/contracts";
-import { CurveEthStEthStableswap } from "@utils/contracts/curve";
+import { CurveEthStEthExchange } from "@utils/contracts/curve";
+
+import { StandardTokenMock } from "@typechain/StandardTokenMock";
 
 const expect = getWaffleExpect();
 
@@ -26,31 +28,32 @@ describe("CurveStEthExchangeAdapter", () => {
   let owner: Account;
   let mockSetToken: Account;
   let mockPoolToken: Account;
+  let stEth: StandardTokenMock;
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
-  let curveEthStEthStableSwap: CurveEthStEthStableswap;
-  let curveStEthExchangeAdapter: CurveStEthExchangeAdapter;
+  let exchange: CurveEthStEthExchange;
+  let adapter: CurveStEthExchangeAdapter;
 
   before(async () => {
     [owner, mockSetToken, mockPoolToken] = await getAccounts();
 
-    const steth = "";
+    stEth = await deployer.mocks.deployTokenMock(owner.address);
 
     deployer = new DeployHelper(owner.wallet);
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    curveEthStEthStableSwap = await deployer.external.deployCurveEthStEthStableswap(
+    exchange = await deployer.external.deployCurveEthStEthExchange(
       owner.address,
-      [ETH_ADDRESS, steth],
+      [ETH_ADDRESS, stEth.address],
       mockPoolToken.address,
     );
 
-    curveStEthExchangeAdapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
+    adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       setup.weth.address,
-      steth,
-      curveEthStEthStableSwap.address,
+      stEth.address,
+      exchange.address,
     );
   });
 
@@ -59,17 +62,17 @@ describe("CurveStEthExchangeAdapter", () => {
   describe("#constructor", async () => {
     let subjectWeth: Address;
     let subjectSteth: Address;
-    let exchange: Address;
+    let subjectExchangeAddress: Address;
 
     beforeEach(async () => {
-      exchange = curveEthStEthStableSwap.address;
+      subjectExchangeAddress = exchange.address;
     });
 
     async function subject(): Promise<CurveStEthExchangeAdapter> {
       return await deployer.adapters.deployCurveStEthExchangeAdapter(
         subjectWeth,
         subjectSteth,
-        exchange,
+        subjectExchangeAddress,
       );
     }
     it("should have the correct weth address", async () => {
@@ -84,13 +87,13 @@ describe("CurveStEthExchangeAdapter", () => {
 
   describe("#getSpender", async () => {
     async function subject(): Promise<any> {
-      return await curveStEthExchangeAdapter.getSpender();
+      return await adapter.getSpender();
     }
 
     it("should return the correct spender address", async () => {
       const spender = await subject();
 
-      expect(spender).to.eq(curveStEthExchangeAdapter.address);
+      expect(spender).to.eq(adapter.address);
     });
   });
 
@@ -117,7 +120,7 @@ describe("CurveStEthExchangeAdapter", () => {
     });
 
     async function subject(): Promise<any> {
-      return await curveStEthExchangeAdapter.getTradeCalldata(
+      return await adapter.getTradeCalldata(
         subjectSourceToken,
         subjectDestinationToken,
         subjectMockSetToken,
