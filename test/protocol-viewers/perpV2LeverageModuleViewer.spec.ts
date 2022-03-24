@@ -3,8 +3,10 @@ import "module-alias/register";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
-  PerpV2,
-  PerpV2LeverageModule,
+  PositionV2,
+  PerpV2LibraryV2,
+  PerpV2Positions,
+  PerpV2LeverageModuleV2,
   DebtIssuanceMock,
   PerpV2LeverageModuleViewer,
   StandardTokenMock,
@@ -48,8 +50,10 @@ describe("PerpV2LeverageModuleViewer", () => {
   let mockModule: Account;
   let deployer: DeployHelper;
 
-  let perpLib: PerpV2;
-  let perpLeverageModule: PerpV2LeverageModule;
+  let positionLib: PositionV2;
+  let perpLib: PerpV2LibraryV2;
+  let perpPositionsLib: PerpV2Positions;
+  let perpLeverageModule: PerpV2LeverageModuleV2;
   let perpViewer: PerpV2LeverageModuleViewer;
   let debtIssuanceMock: DebtIssuanceMock;
   let setup: SystemFixture;
@@ -100,15 +104,23 @@ describe("PerpV2LeverageModuleViewer", () => {
     debtIssuanceMock = await deployer.mocks.deployDebtIssuanceMock();
     await setup.controller.addModule(debtIssuanceMock.address);
 
-    perpLib = await deployer.libraries.deployPerpV2();
-    perpLeverageModule = await deployer.modules.deployPerpV2LeverageModule(
+    // Deploy libraries
+    positionLib = await deployer.libraries.deployPositionV2();
+    perpLib = await deployer.libraries.deployPerpV2LibraryV2();
+    perpPositionsLib = await deployer.libraries.deployPerpV2Positions();
+
+    perpLeverageModule = await deployer.modules.deployPerpV2LeverageModuleV2(
       setup.controller.address,
       perpSetup.vault.address,
       perpSetup.quoter.address,
       perpSetup.marketRegistry.address,
       BigNumber.from(3),
-      "contracts/protocol/integration/lib/PerpV2.sol:PerpV2",
-      perpLib.address
+      "contracts/protocol/lib/PositionV2.sol:PositionV2",
+      positionLib.address,
+      "contracts/protocol/integration/lib/PerpV2LibraryV2.sol:PerpV2LibraryV2",
+      perpLib.address,
+      "contracts/protocol/integration/lib/PerpV2Positions.sol:PerpV2Positions",
+      perpPositionsLib.address,
     );
     await setup.controller.addModule(perpLeverageModule.address);
 

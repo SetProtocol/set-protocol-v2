@@ -14,7 +14,7 @@ import {
   StandardTokenMock,
   StreamingFeeModule,
   WETH9,
-  NavIssuanceModule
+  CustomOracleNavIssuanceModule
 } from "../contracts";
 import DeployHelper from "../deploys";
 import {
@@ -46,7 +46,7 @@ export class SystemFixture {
 
   public issuanceModule: BasicIssuanceModule;
   public streamingFeeModule: StreamingFeeModule;
-  public navIssuanceModule: NavIssuanceModule;
+  public navIssuanceModule: CustomOracleNavIssuanceModule;
 
   public weth: WETH9;
   public usdc: StandardTokenMock;
@@ -99,7 +99,7 @@ export class SystemFixture {
     this.integrationRegistry = await this._deployer.core.deployIntegrationRegistry(this.controller.address);
     this.setValuer = await this._deployer.core.deploySetValuer(this.controller.address);
     this.streamingFeeModule = await this._deployer.modules.deployStreamingFeeModule(this.controller.address);
-    this.navIssuanceModule = await this._deployer.modules.deployNavIssuanceModule(this.controller.address, this.weth.address);
+    this.navIssuanceModule = await this._deployer.modules.deployCustomOracleNavIssuanceModule(this.controller.address, this.weth.address);
 
     await this.controller.initialize(
       [this.factory.address], // Factories

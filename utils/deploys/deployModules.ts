@@ -9,11 +9,10 @@ import {
   CompoundLeverageModule,
   CustomOracleNavIssuanceModule,
   DebtIssuanceModule,
+  DebtIssuanceModuleV2,
   GeneralIndexModule,
   GovernanceModule,
   IssuanceModule,
-  NavIssuanceModule,
-  PerpV2LeverageModule,
   PerpV2LeverageModuleV2,
   PerpV2BasisTradingModule,
   SingleIndexModule,
@@ -39,8 +38,6 @@ import { SlippageIssuanceModule__factory } from "../../typechain/factories/Slipp
 import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIndexModule__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
-import { NavIssuanceModule__factory } from "../../typechain/factories/NavIssuanceModule__factory";
-import { PerpV2LeverageModule__factory } from "../../typechain/factories/PerpV2LeverageModule__factory";
 import { PerpV2LeverageModuleV2__factory } from "../../typechain/factories/PerpV2LeverageModuleV2__factory";
 import { PerpV2BasisTradingModule__factory } from "../../typechain/factories/PerpV2BasisTradingModule__factory";
 import { SingleIndexModule__factory } from "../../typechain/factories/SingleIndexModule__factory";
@@ -69,7 +66,7 @@ export default class DeployModules {
     return await new DebtIssuanceModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModule> {
+  public async deployDebtIssuanceModuleV2(controller: Address): Promise<DebtIssuanceModuleV2> {
     return await new DebtIssuanceModuleV2__factory(this._deployerSigner).deploy(controller);
   }
 
@@ -97,10 +94,6 @@ export default class DeployModules {
     return await new AirdropModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async deployNavIssuanceModule(controller: Address, weth: Address): Promise<NavIssuanceModule> {
-    return await new NavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
-  }
-
   public async deployTradeModule(controller: Address): Promise<TradeModule> {
     return await new TradeModule__factory(this._deployerSigner).deploy(controller);
   }
@@ -119,10 +112,6 @@ export default class DeployModules {
 
   public async deployCustomOracleNavIssuanceModule(controller: Address, weth: Address): Promise<CustomOracleNavIssuanceModule> {
     return await new CustomOracleNavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
-  }
-
-  public async getNavIssuanceModule(navIssuanceModule: Address): Promise<NavIssuanceModule> {
-    return await new NavIssuanceModule__factory(this._deployerSigner).attach(navIssuanceModule);
   }
 
   public async deploySingleIndexModule(
@@ -199,30 +188,6 @@ export default class DeployModules {
 
   public async deployWrapModuleV2(controller: Address, weth: Address): Promise<WrapModuleV2> {
     return await new WrapModuleV2__factory(this._deployerSigner).deploy(controller, weth);
-  }
-
-  public async deployPerpV2LeverageModule(
-    controller: Address,
-    perpVault: Address,
-    perpQuoter: Address,
-    perpMarketRegistry: Address,
-    maxPerpPositionsPerSet: BigNumber,
-    perpV2LibraryName: string,
-    perpV2LibraryAddress: Address
-  ): Promise<PerpV2LeverageModule> {
-    return await new PerpV2LeverageModule__factory(
-      // @ts-ignore
-      {
-        [perpV2LibraryName]: perpV2LibraryAddress,
-      },
-      this._deployerSigner
-    ).deploy(
-      controller,
-      perpVault,
-      perpQuoter,
-      perpMarketRegistry,
-      maxPerpPositionsPerSet
-    );
   }
 
   public async deployPerpV2LeverageModuleV2(
