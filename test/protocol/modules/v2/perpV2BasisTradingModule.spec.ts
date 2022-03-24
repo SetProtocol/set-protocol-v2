@@ -937,6 +937,81 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
+  describe("#deosit", async () => {
+    describe("when entire withdrawn funding via #withdrawFundingAndAccrueFees is deposited back", async () => {
+      let setToken: SetToken;
+      const isInitialized: boolean = true;
+      let depositQuantity: BigNumber;
+      const performanceFeePercentage: BigNumber = ZERO;
+      const skipMockModuleInitialization: boolean = false;
+
+      let subjectCaller: Account;
+      let subjectSetToken: Address;
+      let subjectDepositQuantityUnits: BigNumber;
+
+      const initializeContracts = async () => {
+        depositQuantity = usdcUnits(10);
+        // Issue 1 set
+        setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized,
+          ether(1),
+          skipMockModuleInitialization,
+          {
+            feeRecipient: owner.address,
+            maxPerformanceFeePercentage: ether(.2),
+            performanceFeePercentage
+          }
+        );
+        if (isInitialized) {
+          await perpBasisTradingModule.connect(owner.wallet).trade(
+            setToken.address,
+            vETH.address,
+            ether(1),
+            ether(10.15)
+          );
+          // Move index price up and wait one day to accrue positive funding
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11.5));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        }
+      };
+
+      beforeEach(async () => {
+        await initializeContracts();
+        console.log("here");
+        await perpBasisTradingModule.connect(owner.wallet).withdrawFundingAndAccrueFees(
+          setToken.address,
+          usdcUnits(0.1)
+        );
+
+        subjectCaller = owner;
+        subjectSetToken = setToken.address;
+        subjectDepositQuantityUnits = usdcUnits(0.1);     // Performance fee = 0%; Total supply = 1e18
+      });
+
+      async function subject(): Promise<any> {
+        return await perpBasisTradingModule
+          .connect(subjectCaller.wallet)
+          .deposit(subjectSetToken, subjectDepositQuantityUnits);
+      }
+
+      it("should create a deposit", async () => {
+        const {
+          collateralBalance: initialCollateralBalance
+        } = await perpBasisTradingModule.getAccountInfo(subjectSetToken);
+
+        await subject();
+
+        const {
+          collateralBalance: finalCollateralBalance
+        } = await perpBasisTradingModule.getAccountInfo(subjectSetToken);
+
+        const totalSupply = await setToken.totalSupply();
+        const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+          .add(preciseMul(subjectDepositQuantityUnits, totalSupply));
+        expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+      });
+    });
+  });
+
   describe("#removeModule", async () => {
     let setToken: SetToken;
     let subjectModule: Address;

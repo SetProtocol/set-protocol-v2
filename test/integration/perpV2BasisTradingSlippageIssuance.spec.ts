@@ -231,11 +231,6 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
     };
   }
 
-  async function logData(setToken: SetToken) {
-    const pendingFundingPayment = await perpSetup.exchange.getAllPendingFundingPayment(setToken.address);
-    console.log('pendingFundingPayment', pendingFundingPayment.toString())
-  }
-
   describe("#issuance", async () => {
     let setToken: SetToken;
     let issueFee: BigNumber;
