@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2022 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -20,18 +20,16 @@ pragma experimental "ABIEncoderV2";
 
 import { ISetToken } from "./ISetToken.sol";
 
-interface IStreamingFeeModule {
-    struct FeeState {
-        address feeRecipient;
-        uint256 maxStreamingFeePercentage;
-        uint256 streamingFeePercentage;
-        uint256 lastStreamingFeeTimestamp;
-    }
+interface ITradeModule {
+    function initialize(ISetToken _setToken) external;
 
-    function feeStates(ISetToken _setToken) external view returns (FeeState memory);
-    function getFee(ISetToken _setToken) external view returns (uint256);
-    function accrueFee(ISetToken _setToken) external;
-    function updateStreamingFee(ISetToken _setToken, uint256 _newFee) external;
-    function updateFeeRecipient(ISetToken _setToken, address _newFeeRecipient) external;
-    function initialize(ISetToken _setToken, FeeState memory _settings) external;
+    function trade(
+        ISetToken _setToken,
+        string memory _exchangeName,
+        address _sendToken,
+        uint256 _sendQuantity,
+        address _receiveToken,
+        uint256 _minReceiveQuantity,
+        bytes memory _data
+    ) external;
 }

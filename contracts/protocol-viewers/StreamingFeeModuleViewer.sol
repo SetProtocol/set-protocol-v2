@@ -49,7 +49,7 @@ contract StreamingFeeModuleViewer {
         StreamingFeeInfo[] memory feeInfo = new StreamingFeeInfo[](_setTokens.length);
 
         for (uint256 i = 0; i < _setTokens.length; i++) {
-            StreamingFeeModule.FeeState memory feeState = _streamingFeeModule.feeStates(_setTokens[i]);
+            IStreamingFeeModule.FeeState memory feeState = _streamingFeeModule.feeStates(_setTokens[i]);
             uint256 unaccruedFees = _streamingFeeModule.getFee(_setTokens[i]);
 
             feeInfo[i] = StreamingFeeInfo({
