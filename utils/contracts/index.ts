@@ -89,6 +89,7 @@ export { StakingRewards } from "../../typechain/StakingRewards";
 export { StandardTokenMock } from "../../typechain/StandardTokenMock";
 export { StandardTokenWithRoundingErrorMock } from "../../typechain/StandardTokenWithRoundingErrorMock";
 export { StandardTokenWithFeeMock } from "../../typechain/StandardTokenWithFeeMock";
+export { StringArrayUtilsMock } from "../../typechain/StringArrayUtilsMock";
 export { StreamingFeeModule } from "../../typechain/StreamingFeeModule";
 export { SynthetixExchangeAdapter } from "../../typechain/SynthetixExchangeAdapter";
 export { SynthetixExchangerMock } from "../../typechain/SynthetixExchangerMock";
