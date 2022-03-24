@@ -30,7 +30,7 @@ import {
   getSystemFixture,
 } from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
-import { ERC20__factory } from "../../../typechain/factories/ERC20__factory";
+import { ERC20__factory } from "@typechain/factories/ERC20__factory";
 
 const expect = getWaffleExpect();
 
