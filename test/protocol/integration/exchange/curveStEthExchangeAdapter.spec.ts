@@ -1,11 +1,10 @@
 import "module-alias/register";
 
-import { BigNumber } from "ethers";
-import { solidityPack } from "ethers/lib/utils";
+import { BigNumber, ContractTransaction } from "ethers";
 
-import { Address, Bytes } from "@utils/types";
+import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { ETH_ADDRESS } from "@utils/constants";
+import { EMPTY_BYTES, ETH_ADDRESS, MAX_UINT_256 } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
 import {
@@ -13,7 +12,6 @@ import {
   getAccounts,
   getSystemFixture,
   getWaffleExpect,
-  getRandomAddress,
 } from "@utils/test/index";
 
 import { SystemFixture } from "@utils/fixtures";
@@ -38,11 +36,11 @@ describe("CurveStEthExchangeAdapter", () => {
   before(async () => {
     [owner, mockSetToken, mockPoolToken] = await getAccounts();
 
-    stEth = await deployer.mocks.deployTokenMock(owner.address);
-
     deployer = new DeployHelper(owner.wallet);
     setup = getSystemFixture(owner.address);
     await setup.initialize();
+
+    stEth = await deployer.mocks.deployTokenMock(owner.address);
 
     exchange = await deployer.external.deployCurveEthStEthExchange(
       owner.address,
@@ -55,6 +53,9 @@ describe("CurveStEthExchangeAdapter", () => {
       stEth.address,
       exchange.address,
     );
+
+    await stEth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
+    await setup.weth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -65,6 +66,8 @@ describe("CurveStEthExchangeAdapter", () => {
     let subjectExchangeAddress: Address;
 
     beforeEach(async () => {
+      subjectWeth = setup.weth.address;
+      subjectSteth = stEth.address;
       subjectExchangeAddress = exchange.address;
     });
 
@@ -103,80 +106,130 @@ describe("CurveStEthExchangeAdapter", () => {
     let subjectDestinationToken: Address;
     let subjectSourceQuantity: BigNumber;
     let subjectMinDestinationQuantity: BigNumber;
-    let subjectPath: Bytes;
 
-    beforeEach(async () => {
-      subjectSourceToken = setup.wbtc.address;
-      subjectSourceQuantity = BigNumber.from(100000000);
-      subjectDestinationToken = setup.weth.address;
-      subjectMinDestinationQuantity = ether(25);
-
-      subjectMockSetToken = mockSetToken.address;
-
-      subjectPath = solidityPack(
-        ["address", "uint24", "address"],
-        [subjectSourceToken, BigNumber.from(3000), subjectDestinationToken],
-      );
-    });
-
-    async function subject(): Promise<any> {
+    async function subject(): Promise<string> {
       return await adapter.getTradeCalldata(
         subjectSourceToken,
         subjectDestinationToken,
         subjectMockSetToken,
         subjectSourceQuantity,
         subjectMinDestinationQuantity,
-        subjectPath,
+        EMPTY_BYTES,
       );
     }
 
-    it("should return the correct trade calldata", async () => {
-    //   const calldata = await subject();
-    //   const callTimestamp = await getLastBlockTimestamp();
-
-      //   const expectedCallData = uniswapV3Fixture.swapRouter.interface.encodeFunctionData("exactInput", [{
-      //     path: subjectPath,
-      //     recipient: mockSetToken.address,
-      //     deadline: callTimestamp,
-      //     amountIn: subjectSourceQuantity,
-      //     amountOutMinimum: subjectMinDestinationQuantity,
-      //   }]);
-
-      //   expect(JSON.stringify(calldata)).to.eq(JSON.stringify([uniswapV3Fixture.swapRouter.address, ZERO, expectedCallData]));
-    });
-
-    context("when source token does not match path", async () => {
+    context("when buying stETH with weth", async () => {
       beforeEach(async () => {
-        subjectSourceToken = await getRandomAddress();
+        subjectSourceToken = setup.weth.address;
+        subjectSourceQuantity = BigNumber.from(100000000);
+        subjectDestinationToken = stEth.address;
+        subjectMinDestinationQuantity = ether(25);
+
+        subjectMockSetToken = mockSetToken.address;
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith(
-          "UniswapV3ExchangeAdapter: source token path mismatch",
-        );
+      it("should return the correct trade calldata", async () => {
+        const calldata = await subject();
+
+        const expectedCallData = adapter.interface.encodeFunctionData("buyStEth", [
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
+          subjectMockSetToken,
+        ]);
+
+        expect(calldata).to.eq(expectedCallData);
       });
     });
 
-    context("when destination token does not match path", async () => {
+    context("when buying weth with stETH", async () => {
       beforeEach(async () => {
-        subjectDestinationToken = await getRandomAddress();
+        subjectSourceToken = stEth.address;
+        subjectSourceQuantity = BigNumber.from(100000000);
+        subjectDestinationToken = setup.weth.address;
+        subjectMinDestinationQuantity = ether(25);
+
+        subjectMockSetToken = mockSetToken.address;
       });
 
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith(
-          "UniswapV3ExchangeAdapter: destination token path mismatch",
-        );
+      it("should return the correct trade calldata", async () => {
+        const calldata = await subject();
+
+        const expectedCallData = adapter.interface.encodeFunctionData("sellStEth", [
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
+          subjectMockSetToken,
+        ]);
+
+        expect(calldata).to.eq(expectedCallData);
       });
     });
   });
 
   describe("#buyStEth", async () => {
-    beforeEach(async () => {});
-    it("should buy stEth", async () => {});
+    let subjectDestinationToken: Address;
+    let subjectSourceQuantity: BigNumber;
+    let subjectMinDestinationQuantity: BigNumber;
+
+    beforeEach(async () => {
+      subjectSourceQuantity = BigNumber.from(100000000);
+      subjectMinDestinationQuantity = ether(25);
+      subjectDestinationToken = mockSetToken.address;
+    });
+
+    async function subject(): Promise<ContractTransaction> {
+      return await adapter.connect(owner.wallet).buyStEth(
+        subjectSourceQuantity,
+        subjectMinDestinationQuantity,
+        subjectDestinationToken
+      );
+    }
+
+    it("should buy stEth", async () => {
+      const previousStEthBalance = await stEth.balanceOf(subjectDestinationToken);
+      const previousWethBalance = await setup.weth.balanceOf(owner.address);
+      expect(previousStEthBalance).to.eq(0);
+      expect(previousWethBalance).to.eq(ether(5000));
+
+      await subject();
+
+      const afterStEthBalance = stEth.balanceOf(subjectDestinationToken);
+      const afterWethBalance = setup.weth.balanceOf(owner.address);
+      expect(afterStEthBalance).to.eq(subjectMinDestinationQuantity);
+      expect(afterWethBalance).to.eq(0);
+    });
   });
 
   describe("#sellStEth", async () => {
-    beforeEach(async () => {});
-    it("should sellStEth", async () => {});
+    let subjectDestinationToken: Address;
+    let subjectSourceQuantity: BigNumber;
+    let subjectMinDestinationQuantity: BigNumber;
+
+    beforeEach(async () => {
+      subjectSourceQuantity = BigNumber.from(100000000);
+      subjectMinDestinationQuantity = ether(25);
+      subjectDestinationToken = mockSetToken.address;
+    });
+
+    async function subject(): Promise<ContractTransaction> {
+      return await adapter.connect(owner.wallet).sellStEth(
+        subjectSourceQuantity,
+        subjectMinDestinationQuantity,
+        subjectDestinationToken
+      );
+    }
+
+    it("should sell stEth", async () => {
+      const previousStEthBalance = await stEth.balanceOf(owner.address);
+      const previousWethBalance = await setup.weth.balanceOf(subjectDestinationToken);
+      expect(previousStEthBalance).to.eq(ether(1000000000));
+      expect(previousWethBalance).to.eq(0);
+
+      await subject();
+
+      const afterStEthBalance = stEth.balanceOf(owner.address);
+      const afterWethBalance = setup.weth.balanceOf(subjectDestinationToken);
+      expect(afterStEthBalance).to.eq(0);
+      expect(afterWethBalance).to.eq(subjectMinDestinationQuantity);
+    });
   });
 });

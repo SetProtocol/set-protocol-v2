@@ -96,7 +96,7 @@ contract CurveStEthExchangeAdapter {
     )
         external
     {
-        //transfer weth
+        // transfer weth
         weth.transferFrom(msg.sender, address(this), _sourceQuantity);
 
         // unwrap weth
