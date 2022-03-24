@@ -24,10 +24,10 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
-import { IController } from "../../interfaces/IController.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 
 /**

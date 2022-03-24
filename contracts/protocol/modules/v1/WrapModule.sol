@@ -1,5 +1,5 @@
 /*
-    Copyright 2021 Set Labs Inc.
+    Copyright 2020 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -24,27 +24,27 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import { IController } from "../../interfaces/IController.sol";
-import { IIntegrationRegistry } from "../../interfaces/IIntegrationRegistry.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IWETH } from "../../interfaces/external/IWETH.sol";
-import { IWrapV2Adapter } from "../../interfaces/IWrapV2Adapter.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
-import { Position } from "../lib/Position.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { IIntegrationRegistry } from "../../../interfaces/IIntegrationRegistry.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { IWETH } from "../../../interfaces/external/IWETH.sol";
+import { IWrapAdapter } from "../../../interfaces/IWrapAdapter.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { Position } from "../../lib/Position.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 /**
- * @title WrapModuleV2
+ * @title WrapModule
  * @author Set Protocol
  *
- * Module that enables the wrapping of ERC20 and Ether positions via third party protocols. The WrapModuleV2
- * works in conjunction with WrapV2Adapters, in which the wrapAdapterID / integrationNames are stored on the
+ * Module that enables the wrapping of ERC20 and Ether positions via third party protocols. The WrapModule
+ * works in conjunction with WrapAdapters, in which the wrapAdapterID / integrationNames are stored on the
  * integration registry.
  *
  * Some examples of wrap actions include wrapping, DAI to cDAI (Compound) or Dai to aDai (AAVE).
  */
-contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
+contract WrapModule is ModuleBase, ReentrancyGuard {
     using SafeCast for int256;
     using PreciseUnitMath for uint256;
     using Position for uint256;
@@ -90,7 +90,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
     }
 
     /* ============ External Functions ============ */
-    
+
     /**
      * MANAGER-ONLY: Instructs the SetToken to wrap an underlying asset into a wrappedToken via a specified adapter.
      *
@@ -99,16 +99,14 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken         Address of the desired wrapped token
      * @param _underlyingUnits      Quantity of underlying units in Position units
      * @param _integrationName      Name of wrap module integration (mapping on integration registry)
-     * @param _wrapData             Arbitrary bytes to pass into the WrapV2Adapter
      */
     function wrap(
         ISetToken _setToken,
         address _underlyingToken,
         address _wrappedToken,
         uint256 _underlyingUnits,
-        string calldata _integrationName,
-        bytes memory _wrapData
-    ) 
+        string calldata _integrationName
+    )
         external
         nonReentrant
         onlyManagerAndValidSet(_setToken)
@@ -122,7 +120,6 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
             _underlyingToken,
             _wrappedToken,
             _underlyingUnits,
-            _wrapData,
             false // does not use Ether
         );
 
@@ -145,15 +142,13 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken         Address of the desired wrapped token
      * @param _underlyingUnits      Quantity of underlying units in Position units
      * @param _integrationName      Name of wrap module integration (mapping on integration registry)
-     * @param _wrapData             Arbitrary bytes to pass into the WrapV2Adapter
      */
     function wrapWithEther(
         ISetToken _setToken,
         address _wrappedToken,
         uint256 _underlyingUnits,
-        string calldata _integrationName,
-        bytes memory _wrapData
-    ) 
+        string calldata _integrationName
+    )
         external
         nonReentrant
         onlyManagerAndValidSet(_setToken)
@@ -167,7 +162,6 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
             address(weth),
             _wrappedToken,
             _underlyingUnits,
-            _wrapData,
             true // uses Ether
         );
 
@@ -189,15 +183,13 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken         Address of the component to be unwrapped
      * @param _wrappedUnits         Quantity of wrapped tokens in Position units
      * @param _integrationName      ID of wrap module integration (mapping on integration registry)
-     * @param _unwrapData           Arbitrary bytes to pass into the WrapV2Adapter
      */
     function unwrap(
         ISetToken _setToken,
         address _underlyingToken,
         address _wrappedToken,
         uint256 _wrappedUnits,
-        string calldata _integrationName,
-        bytes memory _unwrapData
+        string calldata _integrationName
     )
         external
         nonReentrant
@@ -212,7 +204,6 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
             _underlyingToken,
             _wrappedToken,
             _wrappedUnits,
-            _unwrapData,
             false // uses Ether
         );
 
@@ -234,14 +225,12 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      * @param _wrappedToken             Address of the component to be unwrapped
      * @param _wrappedUnits             Quantity of wrapped tokens in Position units
      * @param _integrationName          ID of wrap module integration (mapping on integration registry)
-     * @param _unwrapData           Arbitrary bytes to pass into the WrapV2Adapter
      */
     function unwrapWithEther(
         ISetToken _setToken,
         address _wrappedToken,
         uint256 _wrappedUnits,
-        string calldata _integrationName,
-        bytes memory _unwrapData
+        string calldata _integrationName
     )
         external
         nonReentrant
@@ -256,7 +245,6 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
             address(weth),
             _wrappedToken,
             _wrappedUnits,
-            _unwrapData,
             true // uses Ether
         );
 
@@ -302,7 +290,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         ISetToken _setToken,
         address _transactPosition,
         uint256 _transactPositionUnits
-    ) 
+    )
         internal
         view
     {
@@ -315,9 +303,9 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * The WrapModule calculates the total notional underlying to wrap, approves the underlying to the 3rd party 
+     * The WrapModule calculates the total notional underlying to wrap, approves the underlying to the 3rd party
      * integration contract, then invokes the SetToken to call wrap by passing its calldata along. When raw ETH
-     * is being used (_usesEther = true) WETH position must first be unwrapped and underlyingAddress sent to 
+     * is being used (_usesEther = true) WETH position must first be unwrapped and underlyingAddress sent to
      * adapter must be external protocol's ETH representative address.
      *
      * Returns notional amount of underlying tokens and wrapped tokens that were wrapped.
@@ -328,9 +316,8 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         address _underlyingToken,
         address _wrappedToken,
         uint256 _underlyingUnits,
-        bytes memory _wrapData,
         bool _usesEther
-    ) 
+    )
         internal
         returns (uint256, uint256)
     {
@@ -343,13 +330,15 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         ) = _snapshotTargetAssetsBalance(_setToken, _underlyingToken, _wrappedToken);
 
         uint256 notionalUnderlying = _setToken.totalSupply().getDefaultTotalNotional(_underlyingUnits);
-        IWrapV2Adapter wrapAdapter = IWrapV2Adapter(getAndValidateAdapter(_integrationName));
+        IWrapAdapter wrapAdapter = IWrapAdapter(getAndValidateAdapter(_integrationName));
 
         // Execute any pre-wrap actions depending on if using raw ETH or not
         if (_usesEther) {
             _setToken.invokeUnwrapWETH(address(weth), notionalUnderlying);
         } else {
-            _setToken.invokeApprove(_underlyingToken, wrapAdapter.getSpenderAddress(_underlyingToken, _wrappedToken), notionalUnderlying);
+            address spender = wrapAdapter.getSpenderAddress(_underlyingToken, _wrappedToken);
+
+            _setToken.invokeApprove(_underlyingToken, spender, notionalUnderlying);
         }
 
         // Get function call data and invoke on SetToken
@@ -358,8 +347,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
             wrapAdapter,
             _usesEther ? wrapAdapter.ETH_TOKEN_ADDRESS() : _underlyingToken,
             _wrappedToken,
-            notionalUnderlying,
-            _wrapData
+            notionalUnderlying
         );
 
         // Snapshot post wrap balances
@@ -391,7 +379,6 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         address _underlyingToken,
         address _wrappedToken,
         uint256 _wrappedTokenUnits,
-        bytes memory _unwrapData,
         bool _usesEther
     )
         internal
@@ -405,10 +392,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         ) = _snapshotTargetAssetsBalance(_setToken, _underlyingToken, _wrappedToken);
 
         uint256 notionalWrappedToken = _setToken.totalSupply().getDefaultTotalNotional(_wrappedTokenUnits);
-        IWrapV2Adapter wrapAdapter = IWrapV2Adapter(getAndValidateAdapter(_integrationName));
-
-        // Approve wrapped token for spending in case protocols require approvals to transfer wrapped tokens
-        _setToken.invokeApprove(_wrappedToken, wrapAdapter.getSpenderAddress(_underlyingToken, _wrappedToken), notionalWrappedToken);
+        IWrapAdapter wrapAdapter = IWrapAdapter(getAndValidateAdapter(_integrationName));
 
         // Get function call data and invoke on SetToken
         _createUnwrapDataAndInvoke(
@@ -416,8 +400,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
             wrapAdapter,
             _usesEther ? wrapAdapter.ETH_TOKEN_ADDRESS() : _underlyingToken,
             _wrappedToken,
-            notionalWrappedToken,
-            _unwrapData
+            notionalWrappedToken
         );
 
         if (_usesEther) {
@@ -443,11 +426,10 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      */
     function _createWrapDataAndInvoke(
         ISetToken _setToken,
-        IWrapV2Adapter _wrapAdapter,
+        IWrapAdapter _wrapAdapter,
         address _underlyingToken,
         address _wrappedToken,
-        uint256 _notionalUnderlying,
-        bytes memory _wrapData
+        uint256 _notionalUnderlying
     ) internal {
         (
             address callTarget,
@@ -456,9 +438,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         ) = _wrapAdapter.getWrapCallData(
             _underlyingToken,
             _wrappedToken,
-            _notionalUnderlying,
-            address(_setToken),
-            _wrapData
+            _notionalUnderlying
         );
 
         _setToken.invoke(callTarget, callValue, callByteData);
@@ -469,11 +449,10 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
      */
     function _createUnwrapDataAndInvoke(
         ISetToken _setToken,
-        IWrapV2Adapter _wrapAdapter,
+        IWrapAdapter _wrapAdapter,
         address _underlyingToken,
         address _wrappedToken,
-        uint256 _notionalUnderlying,
-        bytes memory _unwrapData
+        uint256 _notionalUnderlying
     ) internal {
         (
             address callTarget,
@@ -482,9 +461,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
         ) = _wrapAdapter.getUnwrapCallData(
             _underlyingToken,
             _wrappedToken,
-            _notionalUnderlying,
-            address(_setToken),
-            _unwrapData
+            _notionalUnderlying
         );
 
         _setToken.invoke(callTarget, callValue, callByteData);
@@ -522,7 +499,7 @@ contract WrapModuleV2 is ModuleBase, ReentrancyGuard {
 
         return (
             underlyingTokenBalance,
-            wrapTokenBalance            
+            wrapTokenBalance
         );
     }
 }

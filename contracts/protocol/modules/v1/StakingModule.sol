@@ -24,14 +24,14 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IStakingAdapter } from "../../interfaces/IStakingAdapter.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
-import { Position } from "../lib/Position.sol";
+import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { IStakingAdapter } from "../../../interfaces/IStakingAdapter.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { Position } from "../../lib/Position.sol";
 
 
 /**
@@ -179,7 +179,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     /**
      * MODULE ONLY: On issuance, replicates all staking positions for a given component by staking the component transferred into
      * the SetToken by an issuer. The amount staked should only be the notional amount required to replicate a _setTokenQuantity
-     * amount of a position. No updates to positions should take place. 
+     * amount of a position. No updates to positions should take place.
      *
      * @param _setToken                 Address of SetToken contract
      * @param _component                Address of token being staked
@@ -205,7 +205,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     /**
      * MODULE ONLY: On redemption, unwind all staking positions for a given asset by unstaking the given component. The amount
      * unstaked should only be the notional amount required to unwind a _setTokenQuantity amount of a position. No updates to
-     * positions should take place. 
+     * positions should take place.
      *
      * @param _setToken                 Address of SetToken contract
      * @param _component                Address of token being staked
@@ -266,7 +266,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
     function hasStakingPosition(ISetToken _setToken, IERC20 _component, address _stakeContract) public view returns(bool) {
         return getStakingContracts(_setToken, _component).contains(_stakeContract);
     }
-    
+
     function getStakingContracts(ISetToken _setToken, IERC20 _component) public view returns(address[] memory) {
         return stakingPositions[_setToken][_component].stakingContracts;
     }
@@ -391,7 +391,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
 
         uint256 newDefaultTokenUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256().sub(_componentPositionUnits);
         _setToken.editDefaultPosition(address(_component), newDefaultTokenUnit);
-        
+
         int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this))
             .add(_componentPositionUnits.toInt256());
         _setToken.editExternalPosition(address(_component), address(this), newExternalTokenUnit, "");
@@ -417,7 +417,7 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
         uint256 _componentPositionUnits
     )
         internal
-    {   
+    {
         uint256 remainingPositionUnits = getStakingPositionUnit(_setToken, _component, _stakeContract).sub(_componentPositionUnits);
 
         if (remainingPositionUnits > 0) {
@@ -428,12 +428,12 @@ contract StakingModule is ModuleBase, IModuleIssuanceHook {
         }
 
         uint256 newTokenUnit = _setToken.getDefaultPositionRealUnit(address(_component)).toUint256().add(_componentPositionUnits);
-        
+
         _setToken.editDefaultPosition(address(_component), newTokenUnit);
-        
+
         int256 newExternalTokenUnit = _setToken.getExternalPositionRealUnit(address(_component), address(this))
             .sub(_componentPositionUnits.toInt256());
-        
+
         _setToken.editExternalPosition(address(_component), address(this), newExternalTokenUnit, "");
     }
 }

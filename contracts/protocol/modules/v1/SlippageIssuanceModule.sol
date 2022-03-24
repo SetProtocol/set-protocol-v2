@@ -20,9 +20,9 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { DebtIssuanceModule } from "./DebtIssuanceModule.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { IModuleIssuanceHookV2 } from "../../interfaces/IModuleIssuanceHookV2.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { IModuleIssuanceHookV2 } from "../../../interfaces/IModuleIssuanceHookV2.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
 
 /**
  * @title SlippageIssuanceModule
@@ -43,7 +43,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
     /* ============ External Functions ============ */
 
     /**
-     * Deposits components to the SetToken, replicates any external module component positions and mints 
+     * Deposits components to the SetToken, replicates any external module component positions and mints
      * the SetToken. If the token has a debt position all collateral will be transferred in first then debt
      * will be returned to the minting address. If specified, a fee will be charged on issuance. Issuer can
      * also pass in a max amount of tokens they are willing to pay for each component. They are NOT required
@@ -85,7 +85,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
             uint256 managerFee,
             uint256 protocolFee
         ) = calculateTotalFees(_setToken, _setQuantity, isIssue);
-        
+
         // Scoping logic to avoid stack too deep errors
         {
             (
@@ -142,7 +142,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         address _to
     )
         external
-        virtual        
+        virtual
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
@@ -348,7 +348,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         bool _isIssue
     )
         internal
-        returns (int256[] memory, int256[] memory) 
+        returns (int256[] memory, int256[] memory)
     {
         uint256 componentsLength = _setToken.getComponents().length;
         int256[] memory cumulativeEquityAdjustments = new int256[](componentsLength);
@@ -418,7 +418,7 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
         pure
     {
         require(_setQuantity > 0, "SetToken quantity must be > 0");
-        
+
         uint256 componentsLength = _components.length;
         require(componentsLength == _componentLimits.length, "Array length mismatch");
         if (componentsLength > 0) {

@@ -26,17 +26,17 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { ISetValuer } from "../../interfaces/ISetValuer.sol";
-import { INAVIssuanceHook } from "../../interfaces/INAVIssuanceHook.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IWETH } from "../../interfaces/external/IWETH.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
-import { Position } from "../lib/Position.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
-import { ResourceIdentifier } from "../lib/ResourceIdentifier.sol";
+import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { ISetValuer } from "../../../interfaces/ISetValuer.sol";
+import { INAVIssuanceHook } from "../../../interfaces/INAVIssuanceHook.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { IWETH } from "../../../interfaces/external/IWETH.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { Position } from "../../lib/Position.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
+import { ResourceIdentifier } from "../../lib/ResourceIdentifier.sol";
 
 /**
  * @title CustomOracleNavIssuanceModule

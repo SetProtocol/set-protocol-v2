@@ -25,15 +25,15 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IWETH } from "../../interfaces/external/IWETH.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
-import { Position } from "../lib/Position.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
-import { Uint256ArrayUtils } from "../../lib/Uint256ArrayUtils.sol";
+import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { IWETH } from "../../../interfaces/external/IWETH.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { Position } from "../../lib/Position.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
+import { Uint256ArrayUtils } from "../../../lib/Uint256ArrayUtils.sol";
 
 
 /**
@@ -169,7 +169,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
     )
         external
         onlyManagerAndValidSet(index)
-    {   
+    {
         // Don't use validate arrays because empty arrays are valid
         require(_newComponents.length == _newComponentsTargetUnits.length, "Array length mismatch");
 
@@ -329,7 +329,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * MANAGER ONLY: Toggle ability for passed addresses to trade from current state 
+     * MANAGER ONLY: Toggle ability for passed addresses to trade from current state
      *
      * @param _traders           Array trader addresses to toggle status
      * @param _statuses          Booleans indicating if matching trader can trade
@@ -393,7 +393,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
      */
     function getTargetUnits(address[] calldata _components) external view returns(uint256[] memory) {
         uint256 currentPositionMultiplier = index.positionMultiplier().toUint256();
-        
+
         uint256[] memory targetUnits = new uint256[](_components.length);
         for (uint256 i = 0; i < _components.length; i++) {
             targetUnits[i] = _normalizeTargetUnit(_components[i], currentPositionMultiplier);
@@ -483,7 +483,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
         virtual
     {
         uint256 wethBalance = weth.balanceOf(address(index));
-        
+
         (
             address exchangeAddress,
             bytes memory tradeCallData
@@ -561,7 +561,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
             BALANCER_POOL_LIMIT
         );
 
-        return (exchangeAddress, tradeCallData);       
+        return (exchangeAddress, tradeCallData);
     }
 
     /**
@@ -579,7 +579,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
         returns(address, bytes memory)
     {
         address exchangeAddress = _exchange == uint256(ExchangeId.Uniswap) ? uniswapRouter : sushiswapRouter;
-        
+
         string memory functionSignature;
         address[] memory path = new address[](2);
         uint256 limit;
@@ -592,7 +592,7 @@ contract SingleIndexModule is ModuleBase, ReentrancyGuard {
         }
         path[0] = _sellComponent;
         path[1] = _buyComponent;
-        
+
         bytes memory tradeCallData = abi.encodeWithSignature(
             functionSignature,
             _amount,

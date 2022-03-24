@@ -19,17 +19,17 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { IController } from "../../interfaces/IController.sol";
+import { IController } from "../../../interfaces/IController.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IMarketRegistry } from "../../interfaces/external/perp-v2/IMarketRegistry.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { IQuoter } from "../../interfaces/external/perp-v2/IQuoter.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IVault } from "../../interfaces/external/perp-v2/IVault.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
+import { IMarketRegistry } from "../../../interfaces/external/perp-v2/IMarketRegistry.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { IQuoter } from "../../../interfaces/external/perp-v2/IQuoter.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { IVault } from "../../../interfaces/external/perp-v2/IVault.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
 import { PerpV2LeverageModuleV2 } from "./PerpV2LeverageModuleV2.sol";
-import { Position } from "../lib/Position.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { Position } from "../../lib/Position.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 /**
  * @title PerpV2BasisTradingModule

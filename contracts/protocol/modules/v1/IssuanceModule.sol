@@ -20,7 +20,7 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { DebtIssuanceModuleV2 } from "./DebtIssuanceModuleV2.sol";
-import { IController } from "../../interfaces/IController.sol";
+import { IController } from "../../../interfaces/IController.sol";
 
 /**
  * @title IssuanceModule
@@ -28,7 +28,7 @@ import { IController } from "../../interfaces/IController.sol";
  *
  * The IssuanceModule is a module that enables users to issue and redeem SetTokens that contain default and all
  * external positions, including debt positions. The manager can define arbitrary issuance logic in the manager
- * hook, as well as specify issue and redeem fees. The manager can remove the module. 
+ * hook, as well as specify issue and redeem fees. The manager can remove the module.
  */
 contract IssuanceModule is DebtIssuanceModuleV2 {
 

@@ -21,11 +21,11 @@ pragma experimental "ABIEncoderV2";
 
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import { IController } from "../../interfaces/IController.sol";
-import { IGovernanceAdapter } from "../../interfaces/IGovernanceAdapter.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { IGovernanceAdapter } from "../../../interfaces/IGovernanceAdapter.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
 
 
 /**
@@ -33,7 +33,7 @@ import { ModuleBase } from "../lib/ModuleBase.sol";
  * @author Set Protocol
  *
  * A smart contract module that enables participating in governance of component tokens held in the SetToken.
- * Examples of intended protocols include Compound, Uniswap, and Maker governance. 
+ * Examples of intended protocols include Compound, Uniswap, and Maker governance.
  */
 contract GovernanceModule is ModuleBase, ReentrancyGuard {
     using Invoke for ISetToken;

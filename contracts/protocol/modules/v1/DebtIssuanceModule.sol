@@ -25,15 +25,15 @@ import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { IManagerIssuanceHook } from "../../interfaces/IManagerIssuanceHook.sol";
-import { IModuleIssuanceHook } from "../../interfaces/IModuleIssuanceHook.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
-import { Position } from "../lib/Position.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { IManagerIssuanceHook } from "../../../interfaces/IManagerIssuanceHook.sol";
+import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { Position } from "../../lib/Position.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 
 /**
@@ -98,7 +98,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     /* ============ External Functions ============ */
 
     /**
-     * Deposits components to the SetToken, replicates any external module component positions and mints 
+     * Deposits components to the SetToken, replicates any external module component positions and mints
      * the SetToken. If the token has a debt position all collateral will be transferred in first then debt
      * will be returned to the minting address. If specified, a fee will be charged on issuance.
      *
@@ -167,7 +167,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         address _to
     )
         external
-        virtual        
+        virtual
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
@@ -365,7 +365,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
         IssuanceSettings memory setIssuanceSettings = issuanceSettings[_setToken];
         uint256 protocolFeeSplit = controller.getModuleFee(address(this), ISSUANCE_MODULE_PROTOCOL_FEE_SPLIT_INDEX);
         uint256 totalFeeRate = _isIssue ? setIssuanceSettings.managerIssueFee : setIssuanceSettings.managerRedeemFee;
-        
+
         uint256 totalFee = totalFeeRate.preciseMul(_quantity);
         protocolFee = totalFee.preciseMul(protocolFeeSplit);
         managerFee = totalFee.sub(protocolFee);
@@ -512,7 +512,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
             address[] memory externalPositions = _setToken.getExternalPositionModules(component);
 
             if (externalPositions.length > 0) {
-                for (uint256 j = 0; j < externalPositions.length; j++) { 
+                for (uint256 j = 0; j < externalPositions.length; j++) {
                     int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(component, externalPositions[j]);
 
                     // If positionUnit <= 0 it will be "added" to debt position
@@ -613,7 +613,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
     /**
      * If any manager fees mints Sets to the defined feeRecipient. If protocol fee is enabled mints Sets to protocol
-     * feeRecipient. 
+     * feeRecipient.
      */
     function _resolveFees(ISetToken _setToken, uint256 managerFee, uint256 protocolFee) internal {
         if (managerFee > 0) {
@@ -647,7 +647,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
 
         return address(0);
     }
-    
+
     /**
      * Calls all modules that have registered with the DebtIssuanceModule that have a moduleIssueHook.
      */
@@ -669,7 +669,7 @@ contract DebtIssuanceModule is ModuleBase, ReentrancyGuard {
     }
 
     /**
-     * For each component's external module positions, calculate the total notional quantity, and 
+     * For each component's external module positions, calculate the total notional quantity, and
      * call the module's issue hook or redeem hook.
      * Note: It is possible that these hooks can cause the states of other modules to change.
      * It can be problematic if the hook called an external function that called back into a module, resulting in state inconsistencies.
