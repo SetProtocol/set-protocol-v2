@@ -16,14 +16,17 @@ import {
   toUSDCDecimals,
   calculateUSDCTransferIn,
   calculateUSDCTransferOut,
-  leverUp
+  leverUp,
+  getNetFundingGrowth,
+  calculateUSDCTransferOutPreciseUnits,
 } from "@utils/common";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
   usdc as usdcUnits,
   preciseDiv,
-  preciseMul
+  preciseMul,
+  preciseDivCeil
 } from "@utils/index";
 import {
   cacheBeforeEach,
@@ -31,10 +34,11 @@ import {
   getWaffleExpect,
   getSystemFixture,
   getPerpV2Fixture,
+  increaseTimeAsync
 } from "@utils/test/index";
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "ethers";
-import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES, ONE_DAY_IN_SECONDS } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
@@ -74,7 +78,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
 
     // set funding rate to zero; allows us to avoid calculating small amounts of funding
     // accrued in our test cases
-    await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
+    // await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
 
     vETH = perpSetup.vETH;
     vBTC = perpSetup.vBTC;
@@ -227,6 +231,11 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
     };
   }
 
+  async function logData(setToken: SetToken) {
+    const pendingFundingPayment = await perpSetup.exchange.getAllPendingFundingPayment(setToken.address);
+    console.log('pendingFundingPayment', pendingFundingPayment.toString())
+  }
+
   describe("#issuance", async () => {
     let setToken: SetToken;
     let issueFee: BigNumber;
@@ -263,7 +272,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         {
           feeRecipient: owner.address,
           performanceFeePercentage: ether(.0),
-          maxPerformanceFeePercentage: ether(.0)
+          maxPerformanceFeePercentage: ether(.2)
         }
       );
 
@@ -798,7 +807,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         {
           feeRecipient: owner.address,
           performanceFeePercentage: ether(.0),
-          maxPerformanceFeePercentage: ether(.0)
+          maxPerformanceFeePercentage: ether(.2)
         }
       );
 
@@ -894,6 +903,86 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         const finalUSDCBalance = await usdc.balanceOf(subjectSetToken);
 
         expect(initialUSDCBalance).eq(finalUSDCBalance);
+      });
+
+      describe("when pending funding payment is positive", async () => {
+
+        beforeEach(async () => {
+          // Move oracle price down and wait one day
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        });
+
+        it("verify testing condiitons", async () => {
+          const accountInfo = await perpBasisTradingModule.getAccountInfo(setToken.address);
+          expect(accountInfo.pendingFundingPayments).to.be.gt(ZERO);
+        });
+
+
+        it("should not update the USDC defaultPositionUnit", async () => {
+          const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+          await subject();
+          const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+
+          expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
+        });
+
+        it("should have updated the USDC externalPositionUnit", async () => {
+          const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
+            setToken,
+            subjectQuantity,
+            perpBasisTradingModule,
+            perpSetup
+          );
+
+          const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+          const totalSupplyBeforeRedeem = await setToken.totalSupply();
+          const performanceFeePercentage = (await perpBasisTradingModule.feeSettings(subjectSetToken)).performanceFeePercentage;
+          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+
+          await subject();
+
+          const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
+          const performanceFeeUnit = toUSDCDecimals(
+            preciseMul(
+              preciseDivCeil(settledFundingBefore.add(netFundingGrowth), totalSupplyBeforeRedeem),
+              performanceFeePercentage
+            )
+          );
+
+          const expectedExternalPositionUnit = toUSDCDecimals(
+            preciseDiv(usdcTransferOutQuantity, subjectQuantity)
+          ).sub(performanceFeeUnit);
+
+          const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+
+          expect(initialExternalPositionUnit).not.eq(finalExternalPositionUnit);
+          expect(finalExternalPositionUnit).closeTo(expectedExternalPositionUnit, 30);
+        });
+
+        it("should have the expected virtual token balance", async () => {
+          const totalSupply = await setToken.totalSupply();
+
+          const initialBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          await subject();
+          const finalBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+
+          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
+          const expectedBaseBalance = initialBaseBalance.sub(baseTokenBoughtNotional);
+
+          expect(finalBaseBalance).eq(expectedBaseBalance);
+        });
+
+        it("should not have updated the setToken USDC token balance", async () => {
+          const initialUSDCBalance = await usdc.balanceOf(subjectSetToken);
+          await subject();
+          const finalUSDCBalance = await usdc.balanceOf(subjectSetToken);
+
+          expect(initialUSDCBalance).eq(finalUSDCBalance);
+        });
+
       });
 
       describe("withdrawal", () => {
@@ -1197,7 +1286,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
             {
               feeRecipient: owner.address,
               performanceFeePercentage: ether(.0),
-              maxPerformanceFeePercentage: ether(.0)
+              maxPerformanceFeePercentage: ether(.2)
             }
           );
 
