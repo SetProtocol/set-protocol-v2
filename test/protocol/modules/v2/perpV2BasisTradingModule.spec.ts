@@ -1795,6 +1795,49 @@ describe("PerpV2BasisTradingModule", () => {
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Non-zero settled funding remains");
       });
+
+      describe("settled funding is zeroed by withdrawing (dust tracked settled funding remains)", async () => {
+        beforeEach(async () => {
+          // Set funding to zero, so no more funding increases
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
+
+          const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
+          const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(setToken.address);
+          // Set funding notional to high amount; so that withdrawFundingAndAccrueFees withdraws the entire tracked settled funding
+          const fundingNotional = fromPreciseUnitsToDecimals(trackedSettledFunding.add(pendingFunding.mul(-1)).mul(2), 6);
+
+          await perpBasisTradingModule.withdrawFundingAndAccrueFees(
+            setToken.address,
+            fundingNotional
+          );
+        });
+
+        afterEach(async () => {
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(usdcUnits(0.1));       // 10% in 6 decimals
+        });
+
+        it("verify test conditions", async () => {
+          const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
+          const oneWeiUsdcInPreciseUnits = BigNumber.from(10).pow(12);  // 1 * 10^12
+          expect(trackedSettledFunding).to.be.gte(ZERO);
+          // dust funding remains, but any settled funding below 10^12 wei is too less to be converted to 1 wei of USDC
+          expect(trackedSettledFunding).to.be.lt(oneWeiUsdcInPreciseUnits);
+        });
+
+        it("should set the new fee", async () => {
+          await subject();
+
+          const feeSettings = await perpBasisTradingModule.feeSettings(setToken.address);
+          expect(feeSettings.performanceFeePercentage).to.eq(subjectNewFee);
+        });
+
+        it("should emit the correct PerformanceFeeUpdated event", async () => {
+          await expect(subject()).to.emit(perpBasisTradingModule, "PerformanceFeeUpdated").withArgs(
+            subjectSetToken,
+            subjectNewFee
+          );
+        });
+      });
     });
 
     describe("when new fee exceeds max performance fee", async () => {
