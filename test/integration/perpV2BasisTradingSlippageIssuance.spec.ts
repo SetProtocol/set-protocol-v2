@@ -478,6 +478,22 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
           expect(expectedEquityFlows[0]).to.be.closeTo(equityFlows[0], 50);
           expect(expectedDebtFlows[0]).to.eq(debtFlows[0]);
         });
+
+        it("should transfer in the expected amount of USDC from the user and mint the expected amount of Set", async () => {
+          const [, equityFlows, debtFlows] = await slippageIssuanceModule.callStatic.getRequiredComponentIssuanceUnitsOffChain(
+            subjectSetToken,
+            subjectQuantity
+          );
+          const setBalanceBefore = await setToken.balanceOf(subjectTo);
+          const usdcBalanceBefore = await perpSetup.usdc.balanceOf(subjectTo);
+          await subject();
+          const setBalanceAfter = await setToken.balanceOf(subjectTo);
+          const usdcBalanceAfter = await perpSetup.usdc.balanceOf(subjectTo);
+
+          expect(subjectQuantity).to.be.eq(setBalanceAfter.sub(setBalanceBefore));
+          expect(equityFlows[0]).to.be.closeTo(usdcBalanceBefore.sub(usdcBalanceAfter), 50);
+          expect(debtFlows[0]).to.eq(ZERO);
+        });
       });
 
       describe("when minting multiple sets", () => {
@@ -1133,6 +1149,26 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         expect(expectedEquityFlows[0]).to.be.closeTo(equityFlows[0], 50);
         expect(expectedDebtFlows[0]).to.eq(debtFlows[0]);
       });
+
+      it("should return the expected amount to the redeemer", async () => {
+        const [, equityFlows, debtFlows] = await slippageIssuanceModule
+          .callStatic
+          .getRequiredComponentRedemptionUnitsOffChain(
+            subjectSetToken,
+            subjectQuantity
+          );
+
+        const setBalanceBefore = await setToken.balanceOf(subjectTo);
+        const usdcBalanceBefore = await perpSetup.usdc.balanceOf(subjectTo);
+        await subject();
+        const setBalanceAfter = await setToken.balanceOf(subjectTo);
+        const usdcBalanceAfter = await perpSetup.usdc.balanceOf(subjectTo);
+
+        expect(subjectQuantity).to.be.eq(setBalanceBefore.sub(setBalanceAfter));
+        expect(equityFlows[0]).to.be.closeTo(usdcBalanceAfter.sub(usdcBalanceBefore), 50);
+        expect(debtFlows[0]).to.eq(ZERO);
+      });
+
 
       // This is slightly off ... over a tenth of a penny.
       it.skip("should not incur a premium", async () => {
