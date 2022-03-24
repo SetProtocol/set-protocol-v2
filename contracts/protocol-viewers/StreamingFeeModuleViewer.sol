@@ -21,7 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 import { ISetToken } from "../interfaces/ISetToken.sol";
 import { IStreamingFeeModule } from "../interfaces/IStreamingFeeModule.sol";
-import { StreamingFeeModule } from "../protocol/modules/StreamingFeeModule.sol";
+import { StreamingFeeModule } from "../protocol/modules/v1/StreamingFeeModule.sol";
 
 
 /**

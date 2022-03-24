@@ -23,11 +23,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 import { DebtIssuanceModule } from "./DebtIssuanceModule.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { IssuanceValidationUtils } from "../lib/IssuanceValidationUtils.sol";
-import { Position } from "../lib/Position.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { IssuanceValidationUtils } from "../../lib/IssuanceValidationUtils.sol";
+import { Position } from "../../lib/Position.sol";
 
 /**
  * @title DebtIssuanceModuleV2
@@ -37,14 +37,14 @@ import { Position } from "../lib/Position.sol";
  * external positions, including debt positions. Module hooks are added to allow for syncing of positions, and component
  * level hooks are added to ensure positions are replicated correctly. The manager can define arbitrary issuance logic
  * in the manager hook, as well as specify issue and redeem fees.
- * 
- * NOTE: 
+ *
+ * NOTE:
  * DebtIssuanceModule contract confirms increase/decrease in balance of component held by the SetToken after every transfer in/out
- * for each component during issuance/redemption. This contract replaces those strict checks with slightly looser checks which 
+ * for each component during issuance/redemption. This contract replaces those strict checks with slightly looser checks which
  * ensure that the SetToken remains collateralized after every transfer in/out for each component during issuance/redemption.
  * This module should be used to issue/redeem SetToken whose one or more components return a balance value with +/-1 wei error.
  * For example, this module can be used to issue/redeem SetTokens which has one or more aTokens as its components.
- * The new checks do NOT apply to any transfers that are part of an external position. A token that has rounding issues may lead to 
+ * The new checks do NOT apply to any transfers that are part of an external position. A token that has rounding issues may lead to
  * reverts if it is included as an external position unless explicitly allowed in a module hook.
  *
  * The getRequiredComponentIssuanceUnits function on this module assumes that Default token balances will be synced on every issuance
@@ -52,20 +52,20 @@ import { Position } from "../lib/Position.sol";
  */
 contract DebtIssuanceModuleV2 is DebtIssuanceModule {
     using Position for uint256;
-    
+
     /* ============ Constructor ============ */
-    
+
     constructor(IController _controller) public DebtIssuanceModule(_controller) {}
 
     /* ============ External Functions ============ */
 
     /**
-     * Deposits components to the SetToken, replicates any external module component positions and mints 
+     * Deposits components to the SetToken, replicates any external module component positions and mints
      * the SetToken. If the token has a debt position all collateral will be transferred in first then debt
      * will be returned to the minting address. If specified, a fee will be charged on issuance.
-     *     
+     *
      * NOTE: Overrides DebtIssuanceModule#issue external function and adds undercollateralization checks in place of the
-     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceValidationUtils library and they 
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceValidationUtils library and they
      * revert upon undercollateralization of the SetToken post component transfer.
      *
      * @param _setToken         Instance of the SetToken to issue
@@ -88,7 +88,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
 
         _callModulePreIssueHooks(_setToken, _quantity);
 
-        
+
         uint256 initialSetSupply = _setToken.totalSupply();
 
         (
@@ -98,7 +98,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
         ) = calculateTotalFees(_setToken, _quantity, true);
 
         // Prevent stack too deep
-        {       
+        {
             (
                 address[] memory components,
                 uint256[] memory equityUnits,
@@ -111,7 +111,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
             _resolveDebtPositions(_setToken, quantityWithFees, true, components, debtUnits, initialSetSupply, finalSetSupply);
             _resolveFees(_setToken, managerFee, protocolFee);
         }
-        
+
         _setToken.mint(_to, _quantity);
 
         emit SetTokenIssued(
@@ -132,7 +132,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
      * will be returned to the minting address. If specified, a fee will be charged on redeem.
      *
      * NOTE: Overrides DebtIssuanceModule#redeem internal function and adds undercollateralization checks in place of the
-     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceValidationUtils library 
+     * previous default strict balances checks. The undercollateralization checks are implemented in IssuanceValidationUtils library
      * and they revert upon undercollateralization of the SetToken post component transfer.
      *
      * @param _setToken         Instance of the SetToken to redeem
@@ -145,7 +145,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
         address _to
     )
         external
-        override        
+        override
         nonReentrant
         onlyValidAndInitializedSet(_setToken)
     {
@@ -241,7 +241,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
     }
 
     /* ============ Internal Functions ============ */
-    
+
     /**
      * Resolve equity positions associated with SetToken. On issuance, the total equity position for an asset (including default and external
      * positions) is transferred in. Then any external position hooks are called to transfer the external positions to their necessary place.
@@ -310,7 +310,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
             if (componentQuantity > 0) {
                 if (_isIssue) {
                     _executeExternalPositionHooks(_setToken, _quantity, IERC20(component), true, false);
-                    
+
                     // Call Invoke#invokeTransfer instead of Invoke#strictInvokeTransfer
                     _setToken.invokeTransfer(component, msg.sender, componentQuantity);
 
@@ -366,7 +366,7 @@ contract DebtIssuanceModuleV2 is DebtIssuanceModule {
             address[] memory externalPositions = _setToken.getExternalPositionModules(component);
 
             if (externalPositions.length > 0) {
-                for (uint256 j = 0; j < externalPositions.length; j++) { 
+                for (uint256 j = 0; j < externalPositions.length; j++) {
                     int256 externalPositionUnit = _setToken.getExternalPositionRealUnit(component, externalPositions[j]);
 
                     // If positionUnit <= 0 it will be "added" to debt position

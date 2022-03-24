@@ -24,13 +24,13 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { SafeCast } from "@openzeppelin/contracts/utils/SafeCast.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import { AddressArrayUtils } from "../../lib/AddressArrayUtils.sol";
-import { IController } from "../../interfaces/IController.sol";
-import { ISetToken } from "../../interfaces/ISetToken.sol";
-import { Invoke } from "../lib/Invoke.sol";
-import { ModuleBase } from "../lib/ModuleBase.sol";
-import { Position } from "../lib/Position.sol";
-import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
+import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
+import { IController } from "../../../interfaces/IController.sol";
+import { ISetToken } from "../../../interfaces/ISetToken.sol";
+import { Invoke } from "../../lib/Invoke.sol";
+import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { Position } from "../../lib/Position.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 
 /**
@@ -51,7 +51,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
     using Position for ISetToken;
 
     /* ============ Structs ============ */
-    
+
     struct AirdropSettings {
         address[] airdrops;                     // Array of tokens manager is allowing to be absorbed
         address feeRecipient;                   // Address airdrop fees are sent to
@@ -150,7 +150,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
      * SET MANAGER ONLY. Removes tokens from list to be absorbed.
      *
      * @param _setToken                 Address of SetToken
-     * @param _airdrop                  Component to remove from airdrop list 
+     * @param _airdrop                  Component to remove from airdrop list
      */
     function removeAirdrop(ISetToken _setToken, IERC20 _airdrop) external onlyManagerAndValidSet(_setToken) {
         require(isAirdropToken(_setToken, _airdrop), "Token not added.");
@@ -307,7 +307,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
         if (amountAirdropped > 0) {
             (uint256 managerTake, uint256 protocolTake, uint256 totalFees) = _handleFees(_setToken, _token, amountAirdropped);
-            
+
             uint256 newUnit = _getPostAirdropUnit(_setToken, preFeeTokenBalance, totalFees);
 
             _setToken.editDefaultPosition(address(_token), newUnit);
@@ -338,12 +338,12 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
         if (airdropFee > 0) {
             totalFees = _amountAirdropped.preciseMul(airdropFee);
-            
+
             protocolTake = getModuleFee(AIRDROP_MODULE_PROTOCOL_FEE_INDEX, totalFees);
             netManagerTake = totalFees.sub(protocolTake);
 
             _setToken.strictInvokeTransfer(address(_component), airdropSettings[_setToken].feeRecipient, netManagerTake);
-            
+
             payProtocolFeeFromSetToken(_setToken, address(_component), protocolTake);
 
             return (netManagerTake, protocolTake, totalFees);
@@ -354,7 +354,7 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
     /**
      * Retrieve new unit, which is the current balance less fees paid divided by total supply
-     */ 
+     */
     function _getPostAirdropUnit(
         ISetToken _setToken,
         uint256 _totalComponentBalance,
@@ -370,8 +370,8 @@ contract AirdropModule is ModuleBase, ReentrancyGuard {
 
     /**
      * If absorption is confined to the manager, manager must be caller
-     */ 
+     */
     function _isValidCaller(ISetToken _setToken) internal view returns(bool) {
-        return airdropSettings[_setToken].anyoneAbsorb || isSetManager(_setToken, msg.sender);       
+        return airdropSettings[_setToken].anyoneAbsorb || isSetManager(_setToken, msg.sender);
     }
 }
