@@ -108,7 +108,6 @@ export { UniswapV2Factory } from "../../typechain/UniswapV2Factory";
 export { AMMSplitter } from "../../typechain/AMMSplitter";
 export { UniswapV2Pair } from "../../typechain/UniswapV2Pair";
 export { UniswapV2Router02 } from "../../typechain/UniswapV2Router02";
-export { UniswapYieldHook } from "../../typechain/UniswapYieldHook";
 export { UniswapV3ExchangeAdapter } from "../../typechain/UniswapV3ExchangeAdapter";
 export { UniswapV3MathMock } from "../../typechain/UniswapV3MathMock";
 export { UnitConversionUtilsMock } from "../../typechain/UnitConversionUtilsMock";

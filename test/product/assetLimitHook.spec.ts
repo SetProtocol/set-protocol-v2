@@ -9,7 +9,6 @@ import {
   AssetLimitHook,
   CustomOracleNavIssuanceModule,
   SetToken,
-  UniswapYieldHook,
   CustomSetValuerMock
 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
@@ -116,8 +115,8 @@ describe("AssetLimitHook", () => {
       subjectLimits = [ether(400), usdc(100000)];
     });
 
-    async function subject(): Promise<UniswapYieldHook> {
-      return await deployer.product.deployUniswapYieldHook(subjectAssets, subjectLimits);
+    async function subject(): Promise<AssetLimitHook> {
+      return await deployer.product.deployAssetLimitHook(subjectAssets, subjectLimits);
     }
 
     it("should set the correct limits", async () => {
