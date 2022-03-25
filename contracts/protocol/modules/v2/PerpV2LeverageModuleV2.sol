@@ -374,6 +374,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
       uint256 _collateralQuantityUnits
     )
       public
+      virtual
       nonReentrant
       onlyManagerAndValidSet(_setToken)
     {

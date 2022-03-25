@@ -179,7 +179,6 @@ export async function calculateUSDCTransferOutPreciseUnits(
 
 export async function calculateExternalPositionUnit(
   setToken: SetToken,
-  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
 ): Promise<BigNumber> {
   const totalPositionValue = await fixture.clearingHouse.getAccountValue(setToken.address);

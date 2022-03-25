@@ -1260,7 +1260,6 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpLeverageModule,
               perpSetup
             );
 
@@ -1344,7 +1343,6 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpLeverageModule,
               perpSetup
             );
 
@@ -1439,7 +1437,6 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpLeverageModule,
               perpSetup
             );
 
@@ -1636,6 +1633,17 @@ describe("PerpV2LeverageModuleV2", () => {
             .sub(preciseMul(subjectWithdrawQuantity, totalSupply));
 
           expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+        });
+
+
+        it("should set the expected position unit", async () => {
+          await subject();
+          const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+          const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+            subjectSetToken,
+            perpSetup
+          );
+          expect(externalPositionUnit).eq(expectedExternalPositionUnit);
         });
 
         it("should increase the leverage ratio", async () => {

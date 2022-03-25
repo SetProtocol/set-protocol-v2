@@ -160,8 +160,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     /**
      * @dev MANAGER ONLY: Similar to PerpV2LeverageModuleV2#trade. Allows manager to buy or sell perps to change exposure
      * to the underlying baseToken. Any pending funding that would be settled during opening a position on Perpetual
-     * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later by the
-     * SetToken manager.
+     * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later using
+     * `withdrawFundingAndAccrueFees` by the SetToken manager.
      * NOTE: Calling a `nonReentrant` function from another `nonReentrant` function is not supported. Hence, we can't
      * add the `nonReentrant` modifier here because `PerpV2LeverageModuleV2#trade` function has a reentrancy check.
      * NOTE: This method doesn't update the externalPositionUnit because it is a function of UniswapV3 virtual
@@ -191,6 +191,37 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
             _baseQuantityUnits,
             _quoteBoundQuantityUnits
         );
+    }
+
+    /**
+     * @dev MANAGER ONLY: Withdraws collateral token from the PerpV2 Vault to a default position on the SetToken.
+     * This method is useful when adjusting the overall composition of a Set which has a Perp account external
+     * position as one of several components. Any pending funding that would be settled during withdrawl on Perpetual
+     * protocol is added to (or subtracted from) `settledFunding[_setToken]` and can be withdrawn later using
+     * `withdrawFundingAndAccrueFees` by the SetToken manager.
+     *
+     * NOTE: Within PerpV2, `withdraw` settles `owedRealizedPnl` and any pending funding payments to the Perp vault
+     * prior to transfer.
+     *
+     * @param  _setToken                    Instance of the SetToken
+     * @param  _collateralQuantityUnits     Quantity of collateral to withdraw in position units
+     */
+    function withdraw(
+      ISetToken _setToken,
+      uint256 _collateralQuantityUnits
+    )
+      public
+      override
+      nonReentrant
+      onlyManagerAndValidSet(_setToken)
+    {
+        require(_collateralQuantityUnits > 0, "Withdraw amount is 0");
+
+        _updateSettledFunding(_setToken);
+
+        uint256 notionalWithdrawnQuantity = _withdrawAndUpdatePositions(_setToken, _collateralQuantityUnits);
+
+        emit CollateralWithdrawn(_setToken, collateralToken, notionalWithdrawnQuantity);
     }
 
     /**
