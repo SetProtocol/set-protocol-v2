@@ -907,6 +907,16 @@ describe("PerpV2BasisTradingModule", () => {
       });
     });
 
+    describe("when notional funding is zero", async () => {
+      beforeEach(() => {
+        subjectNotionalFunding = ZERO;
+      });
+
+      it("it should return early and not emit FundingWithdrawn event", async () => {
+        await expect(subject()).to.not.emit(perpBasisTradingModule, "FundingWithdrawn");
+      });
+    });
+
     describe("when SetToken is not valid", async () => {
       beforeEach(async () => {
         const nonEnabledSetToken = await setup.createNonControllerEnabledSetToken(
