@@ -271,7 +271,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * token market prices and needs to be generated on the fly to be meaningful.
      *
      * In the tables below, basePositionUnit = baseTokenBalance / setTotalSupply.
-     * 
+     *
      * As a user when levering, e.g increasing the magnitude of your position, you'd trade as below
      * | ----------------------------------------------------------------------------------------------- |
      * | Type  |  Action | Goal                      | `quoteBoundQuantity`        | `baseQuantityUnits` |
@@ -318,7 +318,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         public
         nonReentrant
         onlyManagerAndValidSet(_setToken)
-    {        
+    {
         ActionInfo memory actionInfo = _createAndValidateActionInfo(
             _setToken,
             _baseToken,
@@ -413,7 +413,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
         // `positions[setToken]` mapping stores an array of addresses. The base token addresses are removed from the array when the
         // corresponding base token positions are zeroed out. Since no positions exist when removing the module, the stored array should
         // already be empty, and the mapping can be deleted directly.
-        delete positions[setToken]; 
+        delete positions[setToken];
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
@@ -563,8 +563,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
     /**
      * @dev GOVERNANCE ONLY: Update max perpetual positions per SetToken. Only callable by governance.
-     * 
-     * @param _maxPerpPositionsPerSet       New max perpetual positons per set
+     *
+     * @param _maxPerpPositionsPerSet       New max perpetual positions per set
      */
     function updateMaxPerpPositionsPerSet(uint256 _maxPerpPositionsPerSet) external onlyOwner {
         maxPerpPositionsPerSet = _maxPerpPositionsPerSet;
@@ -1052,8 +1052,8 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
 
         int256 baseBalance = perpAccountBalance.getBase(address(_setToken), _baseToken);
         int256 basePositionUnit = baseBalance.preciseDiv(totalSupply.toInt256());
-        
-        int256 baseNotional = _baseQuantityUnits == basePositionUnit.neg() 
+
+        int256 baseNotional = _baseQuantityUnits == basePositionUnit.neg()
             ? baseBalance.neg()         // To close position completely
             : _baseQuantityUnits.preciseMul(totalSupply.toInt256());
 
@@ -1134,7 +1134,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
     function _syncPositionList(ISetToken _setToken) internal {
         address[] memory positionList = positions[_setToken];
         uint256 positionLength = positionList.length;
-        
+
         for (uint256 i = 0; i < positionLength; i++) {
             address currPosition = positionList[i];
             if (!_hasBaseBalance(_setToken, currPosition)) {
@@ -1236,7 +1236,7 @@ contract PerpV2LeverageModule is ModuleBase, ReentrancyGuard, Ownable, SetTokenA
      * @param _components                       Array of components held by the SetToken
      * @param _newExternalPositionUnit          Dynamically calculated externalPositionUnit
      * @return int256[]                         Components-length array with equity adjustment value at appropriate index
-     * @return int256[]                         Components-length array of zeroes (debt adjustements)
+     * @return int256[]                         Components-length array of zeroes (debt adjustments)
      */
     function _formatAdjustments(
         ISetToken _setToken,

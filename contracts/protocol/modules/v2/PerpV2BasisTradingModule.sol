@@ -130,10 +130,10 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     /* ============ External Functions ============ */
 
     /**
-     * @dev Reverts upon calling. Use `intialize(_setToken, _settings)` instead.
+     * @dev Reverts upon calling. Use `initialize(_setToken, _settings)` instead.
      */
     function initialize(ISetToken /*_setToken*/) public override(PerpV2LeverageModuleV2) {
-        revert("Use intialize(_setToken, _settings) instead");
+        revert("Use initialize(_setToken, _settings) instead");
     }
 
     /**
@@ -232,7 +232,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     /**
      * @dev SETTOKEN ONLY: Removes this module from the SetToken, via call by the SetToken. Deletes
      * position mappings and fee states associated with SetToken. Resets settled funding to zero.
-     * Fees are not accrued in case reason for removing module is related to fee accrual.
+     * Fees are not accrued in case the reason for removing the module is related to fee accrual.
      *
      * NOTE: Function will revert if there is greater than a position unit amount of USDC of account value.
      */
@@ -463,7 +463,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     }
 
     /**
-     * @dev Calculates manager and protocol fees on withdranwn funding amount and transfers them to
+     * @dev Calculates manager and protocol fees on withdrawn funding amount and transfers them to
      * their respective recipients (in USDC).
      *
      * @param _setToken     Instance of SetToken

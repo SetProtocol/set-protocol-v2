@@ -555,7 +555,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
     /**
      * @dev GOVERNANCE ONLY: Update max perpetual positions per SetToken. Only callable by governance.
      *
-     * @param _maxPerpPositionsPerSet       New max perpetual positons per set
+     * @param _maxPerpPositionsPerSet       New max perpetual positions per set
      */
     function updateMaxPerpPositionsPerSet(uint256 _maxPerpPositionsPerSet) external onlyOwner {
         maxPerpPositionsPerSet = _maxPerpPositionsPerSet;
@@ -1107,7 +1107,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
      * @param _setToken                         Instance of the SetToken
      * @param _newExternalPositionUnit          Dynamically calculated externalPositionUnit
      * @return int256[]                         Components-length array with equity adjustment value at appropriate index
-     * @return int256[]                         Components-length array of zeroes (debt adjustements)
+     * @return int256[]                         Components-length array of zeroes (debt adjustments)
      */
     function _formatAdjustments(
         ISetToken _setToken,
