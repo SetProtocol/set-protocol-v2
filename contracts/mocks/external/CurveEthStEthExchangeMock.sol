@@ -58,11 +58,11 @@ contract CurveEthStEthExchangeMock is ReentrancyGuard {
         require(_i != _j);
         require(_dx == _min_dy);
         if (_i == 0 && _j == 1) {
-        // Send eth receive stETH
+        // The caller has sent eth receive stETH
         require(_dx == msg.value);
         IERC20(coins[1]).safeTransfer(msg.sender, _dx);
         } else if (_j == 0 && _i == 1) {
-        // Send stETH to receive ETH
+        // The caller has sent stETH to receive ETH
         IERC20(coins[1]).safeTransferFrom(msg.sender, address(this), _dx);
         Address.sendValue(msg.sender, _dx);
         } else {
