@@ -212,6 +212,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
+        if (_notionalFunding == 0) return;
+
         uint256 newSettledFunding = _updateSettledFunding(_setToken);
 
         uint256 settledFundingInCollateralDecimals = newSettledFunding.fromPreciseUnitToDecimals(collateralDecimals);
