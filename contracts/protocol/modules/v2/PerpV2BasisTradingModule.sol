@@ -212,9 +212,9 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         nonReentrant
         onlyManagerAndValidSet(_setToken)
     {
-        _updateSettledFunding(_setToken);
+        uint256 newSettledFunding = _updateSettledFunding(_setToken);
 
-        uint256 settledFundingInCollateralDecimals = settledFunding[_setToken].fromPreciseUnitToDecimals(collateralDecimals);
+        uint256 settledFundingInCollateralDecimals = newSettledFunding.fromPreciseUnitToDecimals(collateralDecimals);
 
         if (_notionalFunding > settledFundingInCollateralDecimals) { _notionalFunding = settledFundingInCollateralDecimals; }
 
@@ -299,14 +299,14 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         if (!_setToken.hasExternalPosition(address(collateralToken))) return;
 
         // Track funding before it is settled
-        _updateSettledFunding(_setToken);
+        uint256 newSettledFunding = _updateSettledFunding(_setToken);
 
         int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, false);
 
-        if (settledFunding[_setToken] > 0) {
+        if (newSettledFunding > 0) {
             // Calculate performance fee unit
             // Performance fee unit = (Tracked settled funding * Performance fee) / Set total supply
-            uint256 performanceFeeUnit = settledFunding[_setToken]
+            uint256 performanceFeeUnit = newSettledFunding
                 .preciseDiv(_setToken.totalSupply())
                 .preciseMulCeil(_performanceFeePercentage(_setToken))
                 .fromPreciseUnitToDecimals(collateralDecimals);
@@ -429,9 +429,12 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
      * pending funding payment that is about to be settled due to subsequent logic in the external function.
      *
      * @param _setToken             Instance of SetToken
+     * @return uint256              Returns the updated settled funding value
      */
-    function _updateSettledFunding(ISetToken _setToken) internal {
-        settledFunding[_setToken] = _getUpdatedSettledFunding(_setToken);
+    function _updateSettledFunding(ISetToken _setToken) internal returns (uint256) {
+        uint256 newSettledFunding = _getUpdatedSettledFunding(_setToken);
+        settledFunding[_setToken] = newSettledFunding;
+        return newSettledFunding;
     }
 
     /**
