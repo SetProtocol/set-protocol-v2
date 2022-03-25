@@ -2,7 +2,6 @@
 export { CurveDeposit } from "../../typechain/CurveDeposit";
 export { CurvePoolERC20 } from "../../typechain/CurvePoolERC20";
 export { CRVToken } from "../../typechain/CRVToken";
-export { CurveEthStEthExchange } from "../../typechain/CurveEthStEthExchange";
 export { GaugeController } from "../../typechain/GaugeController";
 export { LiquidityGauge } from "../../typechain/LiquidityGauge";
 export { LiquidityGaugeReward } from "../../typechain/LiquidityGaugeReward";

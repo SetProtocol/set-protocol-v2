@@ -38,7 +38,6 @@ import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/
 
 import {
   CurveDeposit,
-  CurveEthStEthExchange,
   CurvePoolERC20,
   CRVToken,
   GaugeController,
@@ -51,7 +50,6 @@ import {
 import { CurvePoolERC20__factory } from "../../typechain/factories/CurvePoolERC20__factory";
 import { Stableswap__factory } from "../../typechain/factories/Stableswap__factory";
 import { CurveDeposit__factory } from "../../typechain/factories/CurveDeposit__factory";
-import { CurveEthStEthExchange__factory } from "../../typechain/factories/CurveEthStEthExchange__factory";
 import { CRVToken__factory } from "../../typechain/factories/CRVToken__factory";
 import { GaugeController__factory } from "../../typechain/factories/GaugeController__factory";
 import { LiquidityGaugeReward__factory } from "../../typechain/factories/LiquidityGaugeReward__factory";
@@ -505,24 +503,6 @@ export default class DeployExternalContracts {
       _pool_token,
       _aCoefficient,
       _fee
-    );
-  }
-
-  public async deployCurveEthStEthExchange(
-    _owner: string,
-    _coins: [string, string],
-    _pool_token: string,
-    _A: BigNumberish = 1,
-    _fee: BigNumberish = 0,
-    _adminFee: BigNumberish = 0
-  ): Promise<CurveEthStEthExchange> {
-    return await new CurveEthStEthExchange__factory(this._deployerSigner).deploy(
-      _owner,
-      _coins,
-      _pool_token,
-      _A,
-      _fee,
-      _adminFee
     );
   }
 

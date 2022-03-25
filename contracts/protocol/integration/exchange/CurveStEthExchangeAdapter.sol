@@ -32,9 +32,9 @@ contract CurveStEthExchangeAdapter {
 
     /* ========= State Variables ========= */
 
-    IWETH immutable weth;
-    IERC20 immutable stETH;
-    ICurveStEthExchange immutable exchange;
+    IWETH immutable public weth;
+    IERC20 immutable public stETH;
+    ICurveStEthExchange immutable public exchange;
 
     /* ========= Constructor ========== */
 
@@ -103,7 +103,7 @@ contract CurveStEthExchangeAdapter {
         weth.withdraw(_sourceQuantity);
 
         // buy stETH
-        uint256 amountOut = exchange.exchange{value: _sourceQuantity}(
+        uint256 amountOut = exchange.exchange{value: _sourceQuantity} (
             0,
             1,
             _sourceQuantity,

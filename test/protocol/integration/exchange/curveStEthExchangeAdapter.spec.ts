@@ -15,8 +15,7 @@ import {
 } from "@utils/test/index";
 
 import { SystemFixture } from "@utils/fixtures";
-import { CurveStEthExchangeAdapter } from "@utils/contracts";
-import { CurveEthStEthExchange } from "@utils/contracts/curve";
+import { CurveStEthExchangeAdapter, CurveEthStEthExchangeMock } from "@utils/contracts";
 
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 
@@ -24,29 +23,26 @@ const expect = getWaffleExpect();
 
 describe("CurveStEthExchangeAdapter", () => {
   let owner: Account;
+  let whale: Account;
   let mockSetToken: Account;
-  let mockPoolToken: Account;
   let stEth: StandardTokenMock;
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
-  let exchange: CurveEthStEthExchange;
+  let exchange: CurveEthStEthExchangeMock;
   let adapter: CurveStEthExchangeAdapter;
 
   before(async () => {
-    [owner, mockSetToken, mockPoolToken] = await getAccounts();
+    [owner, whale, mockSetToken] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
     stEth = await deployer.mocks.deployTokenMock(owner.address);
+    await stEth.connect(whale.wallet).mint(whale.address, ether(100));
 
-    exchange = await deployer.external.deployCurveEthStEthExchange(
-      owner.address,
-      [ETH_ADDRESS, stEth.address],
-      mockPoolToken.address,
-    );
+    exchange = await deployer.mocks.deployCurveEthStEthExchangeMock([ETH_ADDRESS, stEth.address]);
 
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       setup.weth.address,
@@ -56,6 +52,11 @@ describe("CurveStEthExchangeAdapter", () => {
 
     await stEth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
     await setup.weth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
+
+    await stEth.connect(whale.wallet).approve(exchange.address, MAX_UINT_256);
+    await exchange
+      .connect(whale.wallet)
+      .add_liquidity([ether(100), ether(100)], ether(1), { value: ether(100) });
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -80,12 +81,18 @@ describe("CurveStEthExchangeAdapter", () => {
     }
     it("should have the correct weth address", async () => {
       const adapter = await subject();
-      console.log(adapter);
+      expect(await adapter.weth()).to.eq(subjectWeth);
     });
 
-    it("should have the correct steth address", async () => {});
+    it("should have the correct steth address", async () => {
+      const adapter = await subject();
+      expect(await adapter.stETH()).to.eq(subjectSteth);
+    });
 
-    it("should have the correct exchange address", async () => {});
+    it("should have the correct exchange address", async () => {
+      const adapter = await subject();
+      expect(await adapter.exchange()).to.eq(subjectExchangeAddress);
+    });
   });
 
   describe("#getSpender", async () => {
@@ -171,17 +178,15 @@ describe("CurveStEthExchangeAdapter", () => {
     let subjectMinDestinationQuantity: BigNumber;
 
     beforeEach(async () => {
-      subjectSourceQuantity = BigNumber.from(100000000);
+      subjectSourceQuantity = ether(25);
       subjectMinDestinationQuantity = ether(25);
       subjectDestinationToken = mockSetToken.address;
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return await adapter.connect(owner.wallet).buyStEth(
-        subjectSourceQuantity,
-        subjectMinDestinationQuantity,
-        subjectDestinationToken
-      );
+      return await adapter
+        .connect(owner.wallet)
+        .buyStEth(subjectSourceQuantity, subjectMinDestinationQuantity, subjectDestinationToken);
     }
 
     it("should buy stEth", async () => {
@@ -192,10 +197,10 @@ describe("CurveStEthExchangeAdapter", () => {
 
       await subject();
 
-      const afterStEthBalance = stEth.balanceOf(subjectDestinationToken);
-      const afterWethBalance = setup.weth.balanceOf(owner.address);
+      const afterStEthBalance = await stEth.balanceOf(subjectDestinationToken);
+      const afterWethBalance = await setup.weth.balanceOf(owner.address);
       expect(afterStEthBalance).to.eq(subjectMinDestinationQuantity);
-      expect(afterWethBalance).to.eq(0);
+      expect(afterWethBalance).to.eq(previousWethBalance.sub(subjectSourceQuantity));
     });
   });
 
@@ -205,17 +210,15 @@ describe("CurveStEthExchangeAdapter", () => {
     let subjectMinDestinationQuantity: BigNumber;
 
     beforeEach(async () => {
-      subjectSourceQuantity = BigNumber.from(100000000);
+      subjectSourceQuantity = ether(25);
       subjectMinDestinationQuantity = ether(25);
       subjectDestinationToken = mockSetToken.address;
     });
 
     async function subject(): Promise<ContractTransaction> {
-      return await adapter.connect(owner.wallet).sellStEth(
-        subjectSourceQuantity,
-        subjectMinDestinationQuantity,
-        subjectDestinationToken
-      );
+      return await adapter
+        .connect(owner.wallet)
+        .sellStEth(subjectSourceQuantity, subjectMinDestinationQuantity, subjectDestinationToken);
     }
 
     it("should sell stEth", async () => {
@@ -226,9 +229,9 @@ describe("CurveStEthExchangeAdapter", () => {
 
       await subject();
 
-      const afterStEthBalance = stEth.balanceOf(owner.address);
-      const afterWethBalance = setup.weth.balanceOf(subjectDestinationToken);
-      expect(afterStEthBalance).to.eq(0);
+      const afterStEthBalance = await stEth.balanceOf(owner.address);
+      const afterWethBalance = await setup.weth.balanceOf(subjectDestinationToken);
+      expect(afterStEthBalance).to.eq(previousStEthBalance.sub(subjectSourceQuantity));
       expect(afterWethBalance).to.eq(subjectMinDestinationQuantity);
     });
   });
