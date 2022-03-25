@@ -773,6 +773,16 @@ describe("PerpV2BasisTradingModule", () => {
       );
     });
 
+    describe("when notional funding is zero", async () => {
+      beforeEach(() => {
+        subjectNotionalFunding = ZERO;
+      });
+
+      it("it should return early and not emit FundingWithdrawn event", async () => {
+        await expect(subject()).to.not.emit(perpBasisTradingModule, "FundingWithdrawn");
+      });
+    });
+
     describe("when amount is greater than track settled funding", async () => {
       beforeEach(async () => {
         const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
@@ -904,16 +914,6 @@ describe("PerpV2BasisTradingModule", () => {
           managerFees,
           protocolFees
         );
-      });
-    });
-
-    describe("when notional funding is zero", async () => {
-      beforeEach(() => {
-        subjectNotionalFunding = ZERO;
-      });
-
-      it("it should return early and not emit FundingWithdrawn event", async () => {
-        await expect(subject()).to.not.emit(perpBasisTradingModule, "FundingWithdrawn");
       });
     });
 
