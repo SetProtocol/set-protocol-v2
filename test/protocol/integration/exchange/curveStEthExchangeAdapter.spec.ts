@@ -47,7 +47,7 @@ describe("CurveStEthExchangeAdapter", () => {
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       setup.weth.address,
       stEth.address,
-      exchange.address,
+      exchange.address
     );
 
     await stEth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
@@ -173,9 +173,9 @@ describe("CurveStEthExchangeAdapter", () => {
   });
 
   describe("#buyStEth", async () => {
-    let subjectDestinationToken: Address;
     let subjectSourceQuantity: BigNumber;
     let subjectMinDestinationQuantity: BigNumber;
+    let subjectDestinationToken: Address;
 
     beforeEach(async () => {
       subjectSourceQuantity = ether(25);
@@ -205,9 +205,9 @@ describe("CurveStEthExchangeAdapter", () => {
   });
 
   describe("#sellStEth", async () => {
-    let subjectDestinationToken: Address;
     let subjectSourceQuantity: BigNumber;
     let subjectMinDestinationQuantity: BigNumber;
+    let subjectDestinationToken: Address;
 
     beforeEach(async () => {
       subjectSourceQuantity = ether(25);

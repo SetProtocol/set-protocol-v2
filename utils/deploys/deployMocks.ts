@@ -468,4 +468,8 @@ export default class DeployMocks {
   public async getForkedZeroExExchange(): Promise<ZeroExMock> {
     return await ZeroExMock__factory.connect(dependencies.ZERO_EX_EXCHANGE[1], this._deployerSigner);
   }
+
+  public async getForkedCurveEthStEthExchange(): Promise<CurveEthStEthExchangeMock> {
+    return await CurveEthStEthExchangeMock__factory.connect(dependencies.CURVE_ETH_STETH_EXCHANGE[1], this._deployerSigner);
+  }
 }
