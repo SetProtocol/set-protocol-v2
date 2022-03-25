@@ -282,7 +282,7 @@ describe("PerpV2BasisTradingModule", () => {
     }
 
     it("should revert", async () => {
-      await expect(subject()).to.be.revertedWith("Use intialize(_setToken, _settings) instead");
+      await expect(subject()).to.be.revertedWith("Use initialize(_setToken, _settings) instead");
     });
   });
 
