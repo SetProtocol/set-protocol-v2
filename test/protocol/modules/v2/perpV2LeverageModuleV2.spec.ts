@@ -1255,7 +1255,6 @@ describe("PerpV2LeverageModuleV2", () => {
             expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
           });
 
-
           it("should set the expected position unit", async () => {
             await subject();
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
@@ -1267,7 +1266,7 @@ describe("PerpV2LeverageModuleV2", () => {
 
             // Deposit notional amount = specified position unit * totalSupply = 1 * 2 = $2
             // We've put on a position that hasn't had any real pnl, so we expect set ~= $2 net fees & slippage
-            // externalPositionUnit = 1_979_877
+            // externalPositionUnit = 1_979_717
             expect(externalPositionUnit).eq(expectedExternalPositionUnit);
           });
 

@@ -60,8 +60,8 @@ import { UnitConversionUtils } from "../../../lib/UnitConversionUtils.sol";
  * Any pending funding costs or PnL is carried by the current token holders. To be used safely this module MUST issue using the
  * SlippageIssuanceModule or else issue and redeem transaction could be sandwich attacked.
  *
- * NOTE: The external position unit is only updated on an as-needed basis during issuance/redemption. It does not reflect the current
- * value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
+ * NOTE: The external position unit is only updated on an as-needed basis during issuance, redemption, deposit and withdraw. It does not
+ * reflect the current value of the Set's perpetual position. The current value can be calculated from getPositionNotionalInfo.
  *
  * CHANGELOG:
  * - This contract has the same functionality as `PerpV2LeverageModule` but smaller bytecode size. It extends ModuleBaseV2 (which uses
@@ -1058,43 +1058,20 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
     }
 
     /**
-     * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
-     *
-     * @param  _baseToken           Address of virtual token to price
-     * @return price                Mid-point price of virtual token in UniswapV3 AMM market
-     */
-    function _calculateAMMSpotPrice(address _baseToken) internal view returns (uint256 price) {
-        address pool = perpMarketRegistry.getPool(_baseToken);
-        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
-        uint256 priceX96 = sqrtPriceX96.formatSqrtPriceX96ToPriceX96();
-        return priceX96.formatX96ToX10_18();
-    }
-
-    /**
-     * @dev Calculates the sum of collateralToken denominated market-prices of assets and debt for the Perp account per
-     * SetToken
+     * @dev Returns PerpV2 acccount value PER SetToken denominated in collateralToken. This value is approximately
+     * equal to the amount of collateralToken returned per SetToken upon redemption. Approximate value works because
+     * as noted above, the external position unit is only updated on an as-needed basis during issuance, redemption,
+     * deposit and withdraw. It does not reflect the current value of the Set's perpetual position. The current value
+     * can be calculated from getPositionNotionalInfo.
      *
      * @param _setToken     Instance of SetToken
      * @return int256       External position unit
      */
     function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
-        PerpV2Positions.PositionNotionalInfo[] memory positionInfo = getPositionNotionalInfo(_setToken);
-        uint256 positionLength = positionInfo.length;
-        int256 totalPositionValue = 0;
-
-        for (uint i = 0; i < positionLength; i++ ) {
-            int256 spotPrice = _calculateAMMSpotPrice(positionInfo[i].baseToken).toInt256();
-            totalPositionValue = totalPositionValue.add(
-                positionInfo[i].baseBalance.preciseMul(spotPrice)
-            );
-        }
-
-        int256 externalPositionUnitInPreciseUnits = _calculatePartialAccountValuePositionUnit(_setToken)
-            .add(totalPositionValue.preciseDiv(_setToken.totalSupply().toInt256()));
-
-        return externalPositionUnitInPreciseUnits.fromPreciseUnitToDecimals(collateralDecimals);
+        return perpClearingHouse.getAccountValue(address(_setToken))
+            .preciseDiv(_setToken.totalSupply().toInt256())
+            .fromPreciseUnitToDecimals(collateralDecimals);
     }
-
 
     /**
      * @dev Returns issuance or redemption adjustments in the format expected by `SlippageIssuanceModule`.

@@ -182,28 +182,8 @@ export async function calculateExternalPositionUnit(
   module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
 ): Promise<BigNumber> {
-  let totalPositionValue = BigNumber.from(0);
-  const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
-
-  for (const positionInfo of allPositionInfo) {
-    const spotPrice = await fixture.getSpotPrice(positionInfo.baseToken);
-    totalPositionValue = totalPositionValue.add(preciseMul(positionInfo.baseBalance, spotPrice));
-  }
-
-  const {
-    collateralBalance,
-    pendingFundingPayments,
-    owedRealizedPnl,
-    netQuoteBalance,
-  } = await module.getAccountInfo(setToken.address);
-
-  const numerator = totalPositionValue
-    .add(collateralBalance)
-    .add(netQuoteBalance)
-    .add(pendingFundingPayments)
-    .add(owedRealizedPnl);
-
-  return toUSDCDecimals(preciseDiv(numerator, await setToken.totalSupply()));
+  const totalPositionValue = await fixture.clearingHouse.getAccountValue(setToken.address);
+  return toUSDCDecimals(preciseDiv(totalPositionValue, await setToken.totalSupply()));
 }
 
 // On every interaction with perpV2, it settles funding for a trader into owed realized pnl
