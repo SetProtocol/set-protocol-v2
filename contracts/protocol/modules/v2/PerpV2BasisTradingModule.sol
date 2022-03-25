@@ -496,7 +496,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     }
 
     /**
-     * @dev Updates collateral token default position unit and tracked settled funding. Used in `withdrawFundingAndAcrrueFees()`.
+     * @dev Updates collateral token default position unit and tracked settled funding. Used in `withdrawFundingAndAccrueFees()`
      *
      * @param _setToken                         Instance of the SetToken
      * @param _notionalFunding                  Amount of funding withdrawn (in USDC decimals)
