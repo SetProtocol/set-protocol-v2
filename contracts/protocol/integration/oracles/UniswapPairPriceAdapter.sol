@@ -117,7 +117,7 @@ contract UniswapPairPriceAdapter is Ownable {
      * @param _assetOne         Address of first asset in pair
      * @param _assetTwo         Address of second asset in pair
      */
-    function getPrice(address _assetOne, address _assetTwo) external view returns (bool, uint256) {
+    function getPoolPrice(address _assetOne, address _assetTwo) external view returns (bool, uint256) {
         require(controller.isSystemContract(msg.sender), "Must be system contract");
 
         bool isAllowedUniswapPoolOne = uniswapPoolsToSettings[_assetOne].isValid;
@@ -146,6 +146,14 @@ contract UniswapPairPriceAdapter is Ownable {
         }
 
         return (true, assetOnePriceToMaster.preciseDiv(assetTwoPriceToMaster));
+    }
+
+    function getPrice(address _assetOne, address _assetTwo) external view returns (bool, uint256) {
+        try this.getPoolPrice(_assetOne, _assetTwo) returns (bool found, uint256 price) {
+            if (found) {
+                return (true, price);
+            }
+        } catch {}    
     }
 
     function addPool(address _poolAddress) external onlyOwner {
