@@ -50,12 +50,13 @@ library StringArrayUtils {
         internal
     {
         (uint256 index, bool isIn) = indexOf(A, a);
-        if (!isIn) {
-            revert("String not in array.");
-        } else {
-            uint256 lastIndex = A.length - 1; // If the array would be empty, the previous line would throw, so no underflow here
-            if (index != lastIndex) { A[index] = A[lastIndex]; }
+
+        if (isIn) { // string a is in the array A, so array A is not empty, and A.length >= 1
+            uint256 lastIndex = A.length - 1; 
+            A[index] = A[lastIndex]; // to save gas, we not check: index != lastIndex
             A.pop();
+        } else {
+            revert("String not in array.");
         }
     }
 }
