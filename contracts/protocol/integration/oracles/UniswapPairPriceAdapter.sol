@@ -60,27 +60,21 @@ contract UniswapPairPriceAdapter is Ownable {
     // Uniswap allowed pools
     address[] public allowedUniswapPools;
 
-    // Address of Uniswap factory
-    address public uniswapFactory;
-
     /* ============ Constructor ============ */
 
     /**
      * Set state variables
      *
      * @param _controller         Instance of controller contract
-     * @param _uniswapFactory     Address of Uniswap factory
      * @param _uniswapPools       Array of allowed Uniswap pools
      */
     constructor(
         IController _controller,
-        address _uniswapFactory,
         IUniswapV2Pair[] memory _uniswapPools
     )
         public
     {
         controller = _controller;
-        uniswapFactory = _uniswapFactory;
 
         // Add each of initial addresses to state
         for (uint256 i = 0; i < _uniswapPools.length; i++) {
@@ -200,10 +194,7 @@ contract UniswapPairPriceAdapter is Ownable {
         uint256 tokenTwoPriceToMaster = _priceOracle.getPrice(poolInfo.tokenTwo, _masterQuoteAsset);
 
         // Get reserve amounts
-        (
-            uint256 tokenOneReserves,
-            uint256 tokenTwoReserves
-        ) = UniswapV2Library.getReserves(uniswapFactory, poolInfo.tokenOne, poolInfo.tokenTwo);
+        (uint256 tokenOneReserves, uint256 tokenTwoReserves, ) = IUniswapV2Pair(_poolAddress).getReserves();
 
         uint256 normalizedTokenOneBaseUnit = tokenOneReserves.preciseDiv(poolInfo.tokenOneBaseUnit);
         uint256 normalizedTokenBaseTwoUnits = tokenTwoReserves.preciseDiv(poolInfo.tokenTwoBaseUnit);
