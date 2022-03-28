@@ -28,7 +28,7 @@ import { SignedSafeMath } from "@openzeppelin/contracts/math/SignedSafeMath.sol"
 import { IAccountBalance } from "../interfaces/external/perp-v2/IAccountBalance.sol";
 import { IClearingHouseConfig } from "../interfaces/external/perp-v2/IClearingHouseConfig.sol";
 import { IIndexPrice } from "../interfaces/external/perp-v2/IIndexPrice.sol";
-import { IPerpV2LeverageModule } from "../interfaces/IPerpV2LeverageModule.sol";
+import { IPerpV2LeverageModuleV2 } from "../interfaces/IPerpV2LeverageModuleV2.sol";
 import { ISetToken } from "../interfaces/ISetToken.sol";
 import { PerpV2Positions } from "../protocol/integration/lib/PerpV2Positions.sol";
 import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
@@ -39,7 +39,7 @@ import { PreciseUnitMath } from "../lib/PreciseUnitMath.sol";
  * @author Set Protocol
  *
  * PerpV2LeverageModuleViewer enables queries of information regarding open PerpV2 positions
- * specifically for leverage ratios and issuance maximums. 
+ * specifically for leverage ratios and issuance maximums.
  */
 contract PerpV2LeverageModuleViewer {
     using SafeCast for int256;
@@ -61,7 +61,7 @@ contract PerpV2LeverageModuleViewer {
 
     /* ============ State Variables ============ */
 
-    IPerpV2LeverageModule public immutable perpModule;              // PerpV2LeverageModule instance
+    IPerpV2LeverageModuleV2 public immutable perpModule;              // PerpV2LeverageModule instance
     IAccountBalance public immutable perpAccountBalance;            // Perp's Account Balance contract
     IClearingHouseConfig public immutable perpClearingHouseConfig;  // PerpV2's ClearingHouseConfig contract
     ERC20 public immutable vQuoteToken;                             // Virtual Quote asset for PerpV2 (vUSDC)
@@ -78,7 +78,7 @@ contract PerpV2LeverageModuleViewer {
      * @param _vQuoteToken                  Address of virtual Quote asset for PerpV2 (vUSDC)
      */
     constructor(
-        IPerpV2LeverageModule _perpModule,
+        IPerpV2LeverageModuleV2 _perpModule,
         IAccountBalance _perpAccountBalance,
         IClearingHouseConfig _perpClearingHouseConfig,
         ERC20 _vQuoteToken
@@ -103,7 +103,7 @@ contract PerpV2LeverageModuleViewer {
      * We want to find the point where freeCollateral = 0 after all trades have been executed.
      * freeCollateral = 0 => totalDebt = min(totalCollateral, accountValue) / initialMarginRatio
      * and, availableDebt = totalDebt - currentDebt
-     * 
+     *
      * Now, accountValue = totalCollateral + unrealizedPnl
      * if unrealizedPnl >=0:
      *     min(totalCollateral, accountValue) = totalCollateral
@@ -113,7 +113,7 @@ contract PerpV2LeverageModuleViewer {
      *     availableDebt = ((totalCollateral + unrealizedPnl) / imRatio) - currentDebt
      *
      * We also know that any slippage gets accrued to unrealizedPnl BEFORE any new collateral is being deposited so
-     * we need to account for our expected slippage accrual impact on accountValue by subtracting our expected amount 
+     * we need to account for our expected slippage accrual impact on accountValue by subtracting our expected amount
      * of slippage divided by the imRatio from the availableDebt. We can then divide the availableDebtWithSlippage by
      * the absolute value of our current position and multiply by our totalSupply to get the max issue amount.
      *
@@ -162,7 +162,7 @@ contract PerpV2LeverageModuleViewer {
     /**
      * @dev Returns relevant data for displaying current positions. Identifying info for each position plus current
      * size, index price, and leverage of each vAsset with an open position is returned. The sum quantity of vUSDC
-     * is returned along with identifying info in last index of array. 
+     * is returned along with identifying info in last index of array.
      *
      * @param _setToken             Instance of SetToken
      *
@@ -217,7 +217,7 @@ contract PerpV2LeverageModuleViewer {
      * @return                  Total collateral value attributed to SetToken
      */
     function _calculateTotalCollateralValue(ISetToken _setToken) internal view returns (int256) {
-        IPerpV2LeverageModule.AccountInfo memory accountInfo = perpModule.getAccountInfo(_setToken);
+        IPerpV2LeverageModuleV2.AccountInfo memory accountInfo = perpModule.getAccountInfo(_setToken);
 
         return accountInfo.collateralBalance
             .add(accountInfo.owedRealizedPnl)
