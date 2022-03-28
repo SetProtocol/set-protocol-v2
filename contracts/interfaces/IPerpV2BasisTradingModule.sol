@@ -20,17 +20,8 @@ pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { ISetToken } from "./ISetToken.sol";
-import { IDebtIssuanceModule } from "./IDebtIssuanceModule.sol";
-import { IAccountBalance } from "./external/perp-v2/IAccountBalance.sol";
-import { IClearingHouse } from "./external/perp-v2/IClearingHouse.sol";
-import { IExchange } from "./external/perp-v2/IExchange.sol";
-import { IVault } from "./external/perp-v2/IVault.sol";
-import { IQuoter } from "./external/perp-v2/IQuoter.sol";
-import { IMarketRegistry } from "./external/perp-v2/IMarketRegistry.sol";
-import { PerpV2Positions } from "../protocol/integration/lib/PerpV2Positions.sol";
-
 import { IPerpV2LeverageModuleV2 } from "./IPerpV2LeverageModuleV2.sol";
+import { ISetToken } from "./ISetToken.sol";
 
 /**
  * @title IPerpV2BasisTradingModule
