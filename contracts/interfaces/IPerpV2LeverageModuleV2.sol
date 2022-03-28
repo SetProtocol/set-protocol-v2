@@ -1,5 +1,5 @@
 /*
-    Copyright 2021 Set Labs Inc.
+    Copyright 2022 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -31,14 +31,14 @@ import { IMarketRegistry } from "./external/perp-v2/IMarketRegistry.sol";
 import { PerpV2Positions } from "../protocol/integration/lib/PerpV2Positions.sol";
 
 /**
- * @title IPerpV2LeverageModule
+ * @title IPerpV2LeverageModuleV2
  * @author Set Protocol
  *
- * Interface for the PerpV2LeverageModule. Only specifies Manager permissioned functions, events
- * and getters. PerpV2LeverageModule also inherits from ModuleBase and SetTokenAccessible which support
+ * Interface for the PerpV2LeverageModuleV2. Only specifies Manager permissioned functions, events
+ * and getters. PerpV2LeverageModuleV2 also inherits from ModuleBase and SetTokenAccessible which support
  * additional methods.
  */
-interface IPerpV2LeverageModule {
+interface IPerpV2LeverageModuleV2 {
 
     /* ============ Structs ============ */
 
@@ -121,7 +121,7 @@ interface IPerpV2LeverageModule {
 
     // Decimals of collateral token. We set this in the constructor for later reading
     function collateralDecimals() external view returns(uint8);
-    
+
     /* ============ External Functions ============ */
 
     /**
@@ -269,12 +269,4 @@ interface IPerpV2LeverageModule {
      *         + net quote balance (10**18)
      */
     function getAccountInfo(ISetToken _setToken) external view returns (AccountInfo memory accountInfo);
-
-    /**
-     * @dev Gets the mid-point price of a virtual asset from UniswapV3 markets maintained by Perp Protocol
-     *
-     * @param  _baseToken           Address of virtual token to price
-     * @return price                Mid-point price of virtual token in UniswapV3 AMM market
-     */
-    function getAMMSpotPrice(address _baseToken) external view returns (uint256 price);
 }
