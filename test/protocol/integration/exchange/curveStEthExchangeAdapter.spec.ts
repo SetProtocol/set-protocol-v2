@@ -47,7 +47,7 @@ describe("CurveStEthExchangeAdapter", () => {
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       setup.weth.address,
       stEth.address,
-      exchange.address
+      exchange.address,
     );
 
     await stEth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
@@ -124,6 +124,36 @@ describe("CurveStEthExchangeAdapter", () => {
         EMPTY_BYTES,
       );
     }
+
+    context("when buying stETH with eth", async () => {
+      beforeEach(async () => {
+        subjectSourceToken = ETH_ADDRESS;
+        subjectSourceQuantity = BigNumber.from(100000000);
+        subjectDestinationToken = stEth.address;
+        subjectMinDestinationQuantity = ether(25);
+
+        subjectMockSetToken = mockSetToken.address;
+      });
+
+      it("should revert", async () => {
+        expect(await subject()).to.be.revertedWith("Must swap between weth and stETH");
+      });
+    });
+
+    context("when buying eth with stETH", async () => {
+      beforeEach(async () => {
+        subjectSourceToken = stEth.address;
+        subjectSourceQuantity = BigNumber.from(100000000);
+        subjectDestinationToken = ETH_ADDRESS;
+        subjectMinDestinationQuantity = ether(25);
+
+        subjectMockSetToken = mockSetToken.address;
+      });
+
+      it("should revert", async () => {
+        expect(await subject()).to.be.revertedWith("Must swap between weth and stETH");
+      });
+    });
 
     context("when buying stETH with weth", async () => {
       beforeEach(async () => {
