@@ -32,12 +32,19 @@ contract CurveStEthExchangeAdapter {
 
     /* ========= State Variables ========= */
 
-    IWETH immutable public weth;
-    IERC20 immutable public stETH;
-    ICurveStEthExchange immutable public exchange;
+    IWETH immutable public weth;                        // Address of WETH token
+    IERC20 immutable public stETH;                      // Address of stETH token
+    ICurveStEthExchange immutable public exchange;      // Address of Curve Eth/StEth Stableswap pool
 
     /* ========= Constructor ========== */
 
+    /**
+     * Set state variables
+     *
+     * @param _weth         Address of WETH token
+     * @param _stETH        Address of stETH token
+     * @param _exchange     Address of Curve Eth/StEth Stableswap pool
+     */
     constructor(
         IWETH _weth,
         IERC20 _stETH,
@@ -54,6 +61,15 @@ contract CurveStEthExchangeAdapter {
 
     /* ======== External Functions ======== */
 
+    /**
+     * Calculate Curve trade encoded calldata. To be invoked on the SetToken.
+     *
+     * @param _sourceToken                  Either WETH or stETH. The input token.
+     * @param _destinationToken             Either WETH or stETH. The output token.
+     * @param _destinationAddress           The address where the proceeds of the output is sent to.
+     * @param _sourceQuantity               Amount of input token.
+     * @param _minDestinationQuantity       The minimum amount of output token to be received.
+     */
     function getTradeCalldata(
         address _sourceToken,
         address _destinationToken,
@@ -85,10 +101,22 @@ contract CurveStEthExchangeAdapter {
         }
     }
 
+    /**
+     * Returns the address to approve source tokens to for trading. In this case, the address of this contract.
+     *
+     * @return address             Address of the contract to approve tokens to.
+     */
     function getSpender() external view returns (address) {
         return address(this);
     }
 
+    /**
+     * Buys stEth using WETH
+     *
+     * @param _sourceQuantity               The amount of WETH as input.
+     * @param _minDestinationQuantity       The minimum amounnt of stETH to receive.
+     * @param _destinationAddress           The address to send the trade proceeds to.
+     */
     function buyStEth(
         uint256 _sourceQuantity,
         uint256 _minDestinationQuantity,
@@ -114,6 +142,13 @@ contract CurveStEthExchangeAdapter {
         stETH.transfer(_destinationAddress, amountOut);
     }
 
+    /**
+     * Sells stETH for WETH
+     * 
+     * @param _sourceQuantity               The amount of stETH as input.
+     * @param _minDestinationQuantity       The minimum amount of WETH to receive.
+     * @param _destinationAddress           The address to send the trade proceeds to.
+     */
     function sellStEth(
         uint256 _sourceQuantity,
         uint256 _minDestinationQuantity,
