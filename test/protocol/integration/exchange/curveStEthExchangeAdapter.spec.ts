@@ -136,7 +136,7 @@ describe("CurveStEthExchangeAdapter", () => {
       });
 
       it("should revert", async () => {
-        expect(await subject()).to.be.revertedWith("Must swap between weth and stETH");
+        await expect(subject()).to.be.revertedWith("Must swap between weth and stETH");
       });
     });
 
@@ -151,7 +151,7 @@ describe("CurveStEthExchangeAdapter", () => {
       });
 
       it("should revert", async () => {
-        expect(await subject()).to.be.revertedWith("Must swap between weth and stETH");
+        await expect(subject()).to.be.revertedWith("Must swap between weth and stETH");
       });
     });
 
