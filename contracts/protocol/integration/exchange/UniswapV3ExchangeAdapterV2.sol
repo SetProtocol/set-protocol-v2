@@ -70,7 +70,7 @@ contract UniswapV3ExchangeAdapterV2 {
      * @param  _destinationAddress       Address that assets should be transferred to
      * @param  _sourceQuantity           Fixed/Max amount of source token to sell
      * @param  _destinationQuantity      Min/Fixed amount of destination token to buy
-     * @param  _data                     Arbitrary bytes containing trade path and bool to determine function string.
+     * @param  _data                     Bytes containing trade path and bool to determine function string.
      *                                   Equals the output of the generateDataParam function
      *
      * @return address                   Target contract address
@@ -91,32 +91,37 @@ contract UniswapV3ExchangeAdapterV2 {
     {
 
         address sourceFromPath = _data.toAddress(0);
-        require(_sourceToken == sourceFromPath, "UniswapV3ExchangeAdapter: source token path mismatch");
+        require(_sourceToken == sourceFromPath, "UniswapV3ExchangeAdapterV2: source token path mismatch");
 
         address destinationFromPath = _data.toAddress(23);      // 20 bytes (sourceFromPath) + 3 bytes (fees)
-        require(_destinationToken == destinationFromPath, "UniswapV3ExchangeAdapter: destination token path mismatch");
+        require(_destinationToken == destinationFromPath, "UniswapV3ExchangeAdapterV2: destination token path mismatch");
 
         bool fixInput = _toBool(_data, _data.length - 1);        // `fixInput` bool is stored at last byte
 
         bytes memory pathData = _data.slice(0, _data.length - 1);
 
-        ISwapRouter.ExactInputParams memory params = fixInput
-            ? ISwapRouter.ExactInputParams(
-                pathData,
-                _destinationAddress,
-                block.timestamp,
-                _sourceQuantity,
-                _destinationQuantity
+        bytes memory callData = fixInput
+            ? abi.encodeWithSignature(
+                EXACT_INPUT,
+                ISwapRouter.ExactInputParams(
+                    pathData,
+                    _destinationAddress,
+                    block.timestamp,
+                    _sourceQuantity,
+                    _destinationQuantity
+                )
             )
-            : ISwapRouter.ExactOutputParams(
-                pathData,
-                _destinationAddress,
-                block.timestamp,
-                _destinationQuantity,       // swapped vs exactInputParams
-                _sourceQuantity
+            : abi.encodeWithSignature(
+                EXACT_OUTPUT,
+                ISwapRouter.ExactOutputParams(
+                    pathData,
+                    _destinationAddress,
+                    block.timestamp,
+                    _destinationQuantity,       // swapped vs exactInputParams
+                    _sourceQuantity
+                )
             );
 
-        bytes memory callData = abi.encodeWithSignature(EXACT_INPUT, params);
         return (swapRouter, 0, callData);
     }
 
@@ -135,8 +140,15 @@ contract UniswapV3ExchangeAdapterV2 {
      *
      * @param _path array of addresses to use as the path for the trade
      * @param _fees array of uint24 representing the pool fee to use for each hop
+     * @param _fixIn Boolean indicating if input amount is fixed
+     *
+     * @return bytes  Bytes containing trade path and bool to determine function string.
      */
-    function generateDataParam(address[] calldata _path, uint24[] calldata _fees, bool _fixIn) external pure returns (bytes memory) {
+    function generateDataParam(
+        address[] calldata _path,
+        uint24[] calldata _fees,
+        bool _fixIn
+    ) external pure returns (bytes memory) {
         bytes memory data = "";
         for (uint256 i = 0; i < _path.length - 1; i++) {
             data = abi.encodePacked(data, _path[i], _fees[i]);
