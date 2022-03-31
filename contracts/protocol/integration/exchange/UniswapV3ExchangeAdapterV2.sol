@@ -26,7 +26,7 @@ import { ISwapRouter } from "../../../interfaces/external/ISwapRouter.sol";
  * @title UniswapV3ExchangeAdapterV2
  * @author Set Protocol
  *
- * Exchange adapter for Uniswap V3 SwapRouter that encodes trade data.
+ * Exchange adapter for Uniswap V3 SwapRouter that encodes trade data. Supports multi-hop trades.
  *
  * CHANGE LOG:
  * - Generalized ability to choose whether to swap an exact amount of source token for a min amount of
@@ -64,6 +64,7 @@ contract UniswapV3ExchangeAdapterV2 {
      * @param  _destinationQuantity      Min/Fixed amount of destination token to buy
      * @param  _data                     Bytes containing trade path and bool to determine function string.
      *                                   Equals the output of the generateDataParam function
+     *                                   NOTE: Path for `exactOutput` swaps are reversed
      *
      * @return address                   Target contract address
      * @return uint256                   Call value
@@ -81,19 +82,28 @@ contract UniswapV3ExchangeAdapterV2 {
         view
         returns (address, uint256, bytes memory)
     {
-        // 20 bytes (_sourceToken address) + 3 bytes (UniV3 fees tier)
-        // + 20 bytes (_destinationToken address) + 1 byte (bool to determine fixed input/output)
-        require(_data.length == 44, "Invalid data");
+        // `_data.length` should be atleast 44. For a single hop trade, `_data.length` is 44.
+        // 20 source/destination token address + 3 fees + 20 source/destination tokne address + 1 fixInput bool.
+        require(_data.length >= 44, "Invalid data");
 
-        address sourceFromPath = _data.toAddress(0);
+        bool fixInput = toBool(_data, _data.length - 1);        // `fixInput` bool is stored at last byte
+
+        address sourceFromPath;
+        address destinationFromPath;
+
+        if (fixInput) {
+            sourceFromPath = _data.toAddress(0);
+            destinationFromPath = _data.toAddress(_data.length - 21);
+        } else {
+            // Path for exactOutput swaps are reversed
+            sourceFromPath = _data.toAddress(_data.length - 21);
+            destinationFromPath = _data.toAddress(0);
+        }
+
         require(_sourceToken == sourceFromPath, "Source token path mismatch");
-
-        address destinationFromPath = _data.toAddress(23);      // 20 bytes (sourceFromPath) + 3 bytes (fees)
         require(_destinationToken == destinationFromPath, "Destination token path mismatch");
 
         bytes memory pathData = _data.slice(0, _data.length - 1);       // Extract path data from `_data`
-
-        bool fixInput = _toBool(_data, _data.length - 1);        // `fixInput` bool is stored at last byte
 
         bytes memory callData = fixInput
             ? abi.encodeWithSelector(
@@ -159,10 +169,9 @@ contract UniswapV3ExchangeAdapterV2 {
     /**
      * Helper function to decode bytes to boolean. Similar to functions found in BytesLib.
      */
-    function _toBool(bytes memory _bytes, uint256 _start) internal pure returns (bool) {
-        // Don't need these checks, because we have assured `_bytes` is of length 44 in the calling function
-        // require(_start + 1 >= _start, "toBool_overflow");
-        // require(_bytes.length >= _start + 1, "toBool_outOfBounds");
+    function toBool(bytes memory _bytes, uint256 _start) public pure returns (bool) {
+        require(_start + 1 >= _start, "toBool_overflow");
+        require(_bytes.length >= _start + 1, "toBool_outOfBounds");
         uint8 tempUint;
 
         assembly {
