@@ -36,14 +36,6 @@ contract UniswapV3ExchangeAdapterV2 {
 
     using BytesLib for bytes;
 
-    /* ============= Constants ================= */
-
-    // signature of SwapRouter#exactInput
-    string internal constant EXACT_INPUT = "exactInput((bytes,address,uint256,uint256,uint256))";
-
-    // signature of SwapRouter#exactOutput
-    string internal constant EXACT_OUTPUT = "exactOutput((bytes,address,uint256,uint256,uint256))";
-
     /* ============ State Variables ============ */
 
     // Address of Uniswap V3 SwapRouter contract
@@ -89,20 +81,23 @@ contract UniswapV3ExchangeAdapterV2 {
         view
         returns (address, uint256, bytes memory)
     {
+        // 20 bytes (_sourceToken address) + 3 bytes (UniV3 fees tier)
+        // + 20 bytes (_destinationToken address) + 1 byte (bool to determine fixed input/output)
+        require(_data.length == 44, "Invalid data");
 
         address sourceFromPath = _data.toAddress(0);
-        require(_sourceToken == sourceFromPath, "UniswapV3ExchangeAdapterV2: source token path mismatch");
+        require(_sourceToken == sourceFromPath, "Source token path mismatch");
 
         address destinationFromPath = _data.toAddress(23);      // 20 bytes (sourceFromPath) + 3 bytes (fees)
-        require(_destinationToken == destinationFromPath, "UniswapV3ExchangeAdapterV2: destination token path mismatch");
+        require(_destinationToken == destinationFromPath, "Destination token path mismatch");
+
+        bytes memory pathData = _data.slice(0, _data.length - 1);       // Extract path data from `_data`
 
         bool fixInput = _toBool(_data, _data.length - 1);        // `fixInput` bool is stored at last byte
 
-        bytes memory pathData = _data.slice(0, _data.length - 1);
-
         bytes memory callData = fixInput
-            ? abi.encodeWithSignature(
-                EXACT_INPUT,
+            ? abi.encodeWithSelector(
+                ISwapRouter.exactInput.selector,
                 ISwapRouter.ExactInputParams(
                     pathData,
                     _destinationAddress,
@@ -111,8 +106,8 @@ contract UniswapV3ExchangeAdapterV2 {
                     _destinationQuantity
                 )
             )
-            : abi.encodeWithSignature(
-                EXACT_OUTPUT,
+            : abi.encodeWithSelector(
+                ISwapRouter.exactOutput.selector,
                 ISwapRouter.ExactOutputParams(
                     pathData,
                     _destinationAddress,
@@ -158,22 +153,23 @@ contract UniswapV3ExchangeAdapterV2 {
         data = abi.encodePacked(data, _path[_path.length - 1]);
 
         // Encode fixIn
-        return abi.encode(data, _fixIn);
+        return abi.encodePacked(data, _fixIn);
     }
 
     /**
      * Helper function to decode bytes to boolean. Similar to functions found in BytesLib.
      */
     function _toBool(bytes memory _bytes, uint256 _start) internal pure returns (bool) {
-        require(_start + 1 >= _start, "toBool_overflow");
-        require(_bytes.length >= _start + 1, "toBool_outOfBounds");
+        // Don't need these checks, because we have assured `_bytes` is of length 44 in the calling function
+        // require(_start + 1 >= _start, "toBool_overflow");
+        // require(_bytes.length >= _start + 1, "toBool_outOfBounds");
         uint8 tempUint;
 
         assembly {
             tempUint := mload(add(add(_bytes, 0x1), _start))
         }
 
-        require(tempUint <= 1, "Invalid data");     // Should be either 0 or 1
+        require(tempUint <= 1, "Invalid bool data");     // Should be either 0 or 1
 
         return (tempUint == 0) ? false : true;
     }
