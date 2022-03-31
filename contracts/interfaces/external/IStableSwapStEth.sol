@@ -25,5 +25,5 @@ interface IStableSwapStEth {
         uint256 min_dy
     ) external payable returns (uint256);
 
-    function coins(int128) external view returns (address);
+    function coins(uint256) external view returns (address);
 }

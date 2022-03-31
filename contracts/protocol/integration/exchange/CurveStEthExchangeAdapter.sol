@@ -72,8 +72,8 @@ contract CurveStEthExchangeAdapter {
         stETH = _stETH;
         stableswap = _stableswap;
 
-        require(_stableswap.coins(ETH_INDEX) == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, "Stableswap pool has invalid ETH_INDEX");
-        require(_stableswap.coins(STETH_INDEX) == address(_stETH), "Stableswap pool has invalid STETH_INDEX");
+        require(_stableswap.coins(0) == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, "Stableswap pool has invalid ETH_INDEX");
+        require(_stableswap.coins(1) == address(_stETH), "Stableswap pool has invalid STETH_INDEX");
 
         _stETH.approve(address(_stableswap), PreciseUnitMath.maxUint256());
     }

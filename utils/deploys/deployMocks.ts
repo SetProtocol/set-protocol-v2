@@ -179,7 +179,7 @@ export default class DeployMocks {
     return await new GovernanceAdapterMock__factory(this._deployerSigner).deploy(initialProposalId);
   }
 
-  public async deployCurveEthStEthExchangeMock(coins: Address[]): Promise<CurveStEthStableswapMock> {
+  public async deployCurveStEthStableswapMock(coins: Address[]): Promise<CurveStEthStableswapMock> {
     return await new CurveStEthStableswapMock__factory(this._deployerSigner).deploy(coins);
   }
 
@@ -467,12 +467,5 @@ export default class DeployMocks {
 
   public async getForkedZeroExExchange(): Promise<ZeroExMock> {
     return await ZeroExMock__factory.connect(dependencies.ZERO_EX_EXCHANGE[1], this._deployerSigner);
-  }
-
-  public async getForkedCurveEthStEthExchange(): Promise<CurveStEthStableswapMock> {
-    return await CurveStEthStableswapMock__factory.connect(
-      dependencies.CURVE_ETH_STETH_EXCHANGE[1],
-      this._deployerSigner
-    );
   }
 }

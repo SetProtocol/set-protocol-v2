@@ -35,7 +35,6 @@ contract CurveStEthStableswapMock is ReentrancyGuard {
     address[] tokens;
 
     constructor(address[] memory _tokens) public {
-        require(_tokens[0] == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
         require(_tokens[1] != address(0));
         tokens = _tokens;
     }
@@ -76,7 +75,7 @@ contract CurveStEthStableswapMock is ReentrancyGuard {
      *
      * @return address          Address of the token at index
      */
-    function coins(int128 _index) external view returns (address) {
-        return tokens[uint256(_index)];
+    function coins(uint256 _index) external view returns (address) {
+        return tokens[_index];
     }
 }

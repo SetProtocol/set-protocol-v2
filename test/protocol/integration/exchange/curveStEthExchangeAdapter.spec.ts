@@ -42,7 +42,7 @@ describe("CurveStEthExchangeAdapter", () => {
     stEth = await deployer.mocks.deployTokenMock(owner.address);
     await stEth.connect(whale.wallet).mint(whale.address, ether(100));
 
-    stableswap = await deployer.mocks.deployCurveEthStEthExchangeMock([ETH_ADDRESS, stEth.address]);
+    stableswap = await deployer.mocks.deployCurveStEthStableswapMock([ETH_ADDRESS, stEth.address]);
 
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       setup.weth.address,
@@ -94,6 +94,32 @@ describe("CurveStEthExchangeAdapter", () => {
       expect(await adapter.stableswap()).to.eq(subjectExchangeAddress);
     });
 
+    it("should have approved the stableswap pool to spend stETH for correct amount", async () => {
+      const adapter = await subject();
+      expect(await stEth.allowance(adapter.address, stableswap.address)).to.eq(MAX_UINT_256);
+    });
+
+    context("when stableswap pool does not support ETH in index 0", async () => {
+      beforeEach(async () => {
+        const mock = await deployer.mocks.deployCurveStEthStableswapMock([stEth.address, stEth.address]);
+        subjectExchangeAddress = mock.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Stableswap pool has invalid ETH_INDEX");
+      });
+    });
+
+    context("when stableswap pool does not support stETH in index 1", async () => {
+      beforeEach(async () => {
+        const mock = await deployer.mocks.deployCurveStEthStableswapMock([ETH_ADDRESS, ETH_ADDRESS]);
+        subjectExchangeAddress = mock.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Stableswap pool has invalid STETH_INDEX");
+      });
+    });
   });
 
   describe("#getSpender", async () => {
@@ -175,7 +201,9 @@ describe("CurveStEthExchangeAdapter", () => {
           subjectMockSetToken,
         ]);
 
-        expect(calldata).to.eq(expectedCallData);
+        expect(calldata[0]).to.eq(adapter.address);
+        expect(calldata[1]).to.eq(0);
+        expect(calldata[2]).to.eq(expectedCallData);
       });
     });
 
@@ -198,7 +226,9 @@ describe("CurveStEthExchangeAdapter", () => {
           subjectMockSetToken,
         ]);
 
-        expect(calldata).to.eq(expectedCallData);
+        expect(calldata[0]).to.eq(adapter.address);
+        expect(calldata[1]).to.eq(0);
+        expect(calldata[2]).to.eq(expectedCallData);
       });
     });
   });

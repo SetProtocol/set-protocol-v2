@@ -46,6 +46,7 @@ const getForkedDependencyAddresses = (): any => {
       dependencies.WETH_WHALE,
       dependencies.WBTC_WHALE,
       dependencies.USDC_WHALE,
+      dependencies.STETH_WHALE,
     ],
 
     tokens: [
@@ -53,6 +54,7 @@ const getForkedDependencyAddresses = (): any => {
       dependencies.WETH[1],
       dependencies.WBTC[1],
       dependencies.USDC[1],
+      dependencies.STETH[1],
     ],
   };
 };
@@ -63,7 +65,7 @@ export const getForkedTokens = (): ForkedTokens => {
 
   // (eslint is confused by typescript enum keyword)
   // eslint-disable-next-line no-unused-vars
-  const enum ids { DAI, WETH, WBTC, USDC }
+  const enum ids { DAI, WETH, WBTC, USDC, STETH }
   const { whales, tokens } = getForkedDependencyAddresses();
 
   const forkedTokens = {
@@ -71,6 +73,7 @@ export const getForkedTokens = (): ForkedTokens => {
     weth: IERC20__factory.connect(tokens[ids.WETH], provider.getSigner(whales[ids.WETH])),
     wbtc: IERC20__factory.connect(tokens[ids.WBTC], provider.getSigner(whales[ids.WBTC])),
     usdc: IERC20__factory.connect(tokens[ids.USDC], provider.getSigner(whales[ids.USDC])),
+    steth: IERC20__factory.connect(tokens[ids.STETH], provider.getSigner(whales[ids.STETH])),
   };
 
   return forkedTokens;

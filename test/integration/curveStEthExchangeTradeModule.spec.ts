@@ -1,44 +1,57 @@
 import "module-alias/register";
 
-import { BigNumber, ContractTransaction } from "ethers";
+import { BigNumber } from "ethers";
 
 import { Address } from "@utils/types";
-import { Account } from "@utils/test/types";
-import { MAX_UINT_256 } from "@utils/constants";
+import { Account, ForkedTokens } from "@utils/test/types";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
 import {
   addSnapshotBeforeRestoreAfterEach,
   getAccounts,
+  getCurveFixture,
   getForkedTokens,
   getSystemFixture,
   getWaffleExpect,
-  initializeForkedTokens
+  initializeForkedTokens,
 } from "@utils/test/index";
 
-import { SystemFixture } from "@utils/fixtures";
-import { CurveStEthExchangeAdapter, CurveStEthStableswapMock } from "@utils/contracts";
+import { CurveFixture, SystemFixture } from "@utils/fixtures";
+import {
+  CurveStEthExchangeAdapter,
+  CurveStEthStableswapMock,
+  TradeModule,
+  SetToken,
+  WETH9,
+} from "@utils/contracts";
 
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 import dependencies from "@utils/deploys/dependencies";
+import { IERC20 } from "@typechain/IERC20";
+import { EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
 describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]", () => {
   let owner: Account;
-  let whale: Account;
-  let mockSetToken: Account;
-  let weth: StandardTokenMock;
-  let stEth: StandardTokenMock;
-  let deployer: DeployHelper;
-  let setup: SystemFixture;
+  let manager: Account;
 
-  let stableswap: CurveStEthStableswapMock;
+  let deployer: DeployHelper;
+
   let adapter: CurveStEthExchangeAdapter;
+  let adapterName: string;
+
+  let setup: SystemFixture;
+  let curveSetup: CurveFixture;
+  let stableswap: CurveStEthStableswapMock;
+  let tradeModule: TradeModule;
+  let tokens: ForkedTokens;
+
+  let weth: WETH9;
+  let stEth: StandardTokenMock;
 
   before(async () => {
-    [owner, whale, mockSetToken] = await getAccounts();
-
+    [owner, manager] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
     await initializeForkedTokens(deployer);
@@ -46,95 +59,178 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    weth = await deployer.mocks.getTokenMock(dependencies.WETH[1]);
+    weth = setup.weth;
     stEth = await deployer.mocks.getTokenMock(dependencies.STETH[1]);
-    stableswap = await deployer.mocks.getForkedCurveEthStEthExchange();
+
+    curveSetup = getCurveFixture(owner.address);
+    stableswap = await curveSetup.getForkedCurveStEthStableswapPool();
 
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       weth.address,
       stEth.address,
-      stableswap.address
+      stableswap.address,
+    );
+    adapterName = "CurveStEthExchangeAdapter";
+
+    tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);
+    await setup.controller.addModule(tradeModule.address);
+
+    await setup.integrationRegistry.addIntegration(
+      tradeModule.address,
+      adapterName,
+      adapter.address,
     );
 
-    await stEth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
-    await weth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
+    await initializeForkedTokens(deployer);
 
-    const tokens = getForkedTokens();
-    // Fund the whale with WETH from whale
-    await tokens.weth.transfer(whale.address, ether(500));
-    await weth.connect(whale.wallet).approve(adapter.address, MAX_UINT_256);
+    tokens = getForkedTokens();
   });
 
   addSnapshotBeforeRestoreAfterEach();
 
-  describe("#buyStEth", async () => {
-    let subjectSourceQuantity: BigNumber;
-    let subjectMinDestinationQuantity: BigNumber;
-    let subjectDestinationToken: Address;
+  describe("#trade", async () => {
+    let sourceToken: IERC20;
+    let destinationToken: IERC20;
+    let setToken: SetToken;
+    let issueQuantity: BigNumber;
 
-    beforeEach(async () => {
-      subjectSourceQuantity = ether(25);
-      subjectMinDestinationQuantity = ether(25);
-      subjectDestinationToken = mockSetToken.address;
+    async function initialize() {
+      // Create Set token
+      setToken = await setup.createSetToken(
+        [sourceToken.address, destinationToken.address],
+        [ether(1), ether(1)],
+        [setup.issuanceModule.address, tradeModule.address],
+        manager.address,
+      );
 
-      await weth.connect(whale.wallet).transfer(owner.address, ether(25));
-    });
+      await sourceToken.approve(stableswap.address, MAX_UINT_256);
+      await destinationToken.approve(stableswap.address, MAX_UINT_256);
 
-    async function subject(): Promise<ContractTransaction> {
-      return await adapter
-        .connect(owner.wallet)
-        .buyStEth(subjectSourceQuantity, subjectMinDestinationQuantity, subjectDestinationToken);
+      tradeModule = tradeModule.connect(manager.wallet);
+      await tradeModule.initialize(setToken.address);
+
+      await sourceToken.transfer(manager.address, ether(1));
+      await destinationToken.transfer(manager.address, ether(1));
+
+      // Approve tokens to Controller and call issue
+      await sourceToken.connect(manager.wallet).approve(setup.issuanceModule.address, MAX_UINT_256);
+      await destinationToken
+        .connect(manager.wallet)
+        .approve(setup.issuanceModule.address, MAX_UINT_256);
+
+      // Deploy mock issuance hook and initialize issuance module
+      setup.issuanceModule = setup.issuanceModule.connect(manager.wallet);
+      const mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
+      await setup.issuanceModule.initialize(setToken.address, mockPreIssuanceHook.address);
+
+      issueQuantity = ether(1);
+      await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
     }
 
-    it("should buy stEth", async () => {
-      const previousStEthBalance = await stEth.balanceOf(subjectDestinationToken);
-      const previousWethBalance = await weth.balanceOf(owner.address);
-      expect(previousStEthBalance).to.eq(0);
-      expect(previousWethBalance).to.eq(ether(25));
+    context("when trading stETH for WETH on CurveStEthExchangeAdapter", async () => {
+      let subjectDestinationToken: Address;
+      let subjectSourceToken: Address;
+      let subjectSourceQuantity: BigNumber;
+      let subjectAdapterName: string;
+      let subjectSetToken: Address;
+      let subjectMinDestinationQuantity: BigNumber;
+      let subjectData: string;
+      let subjectCaller: Account;
 
-      await subject();
+      beforeEach(async () => {
+        sourceToken = tokens.steth;
+        destinationToken = tokens.weth;
 
-      const afterStEthBalance = await stEth.balanceOf(subjectDestinationToken);
-      const afterWethBalance = await weth.balanceOf(owner.address);
-      expect(afterStEthBalance).to.be.gte(subjectMinDestinationQuantity.add(previousStEthBalance));
-      expect(afterWethBalance).to.eq(previousWethBalance.sub(subjectSourceQuantity));
+        await initialize();
+
+        subjectDestinationToken = destinationToken.address;
+        subjectSourceToken = sourceToken.address;
+        subjectSourceQuantity = ether(1);
+        subjectAdapterName = adapterName;
+        subjectSetToken = setToken.address;
+        subjectMinDestinationQuantity = ether(1);
+        const tradeCalldata = await adapter.getTradeCalldata(
+          subjectSourceToken,
+          subjectDestinationToken,
+          subjectSetToken,
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
+          EMPTY_BYTES,
+        );
+        subjectData = tradeCalldata[2];
+        subjectCaller = manager;
+      });
+
+      async function subject(): Promise<any> {
+        return tradeModule
+          .connect(subjectCaller.wallet)
+          .trade(
+            subjectSetToken,
+            subjectAdapterName,
+            subjectSourceToken,
+            subjectSourceQuantity,
+            subjectDestinationToken,
+            subjectMinDestinationQuantity,
+            subjectData,
+          );
+      }
+
+      it("should trade all stETH for WETH", async () => {
+        await expect(subject()).to.be.reverted;
+      });
     });
-  });
 
-  describe("#sellStEth", async () => {
-    let subjectSourceQuantity: BigNumber;
-    let subjectMinDestinationQuantity: BigNumber;
-    let subjectDestinationToken: Address;
+    context("when trading WETH for stETH on CurveStEthExchangeAdapter", async () => {
+      let subjectDestinationToken: Address;
+      let subjectSourceToken: Address;
+      let subjectSourceQuantity: BigNumber;
+      let subjectAdapterName: string;
+      let subjectSetToken: Address;
+      let subjectMinDestinationQuantity: BigNumber;
+      let subjectData: string;
+      let subjectCaller: Account;
 
-    beforeEach(async () => {
-      subjectSourceQuantity = ether(25);
-      subjectMinDestinationQuantity = ether(24);
-      subjectDestinationToken = mockSetToken.address;
+      beforeEach(async () => {
+        sourceToken = tokens.weth;
+        destinationToken = tokens.steth;
 
-      // Whale to purchase stETH
-      await adapter.connect(whale.wallet).buyStEth(ether(100), ether(100), whale.address);
-      // Whale to transfer stETH to owner
-      await stEth.connect(whale.wallet).transfer(owner.address, ether(100));
-    });
+        await initialize();
 
-    async function subject(): Promise<ContractTransaction> {
-      return await adapter
-        .connect(owner.wallet)
-        .sellStEth(subjectSourceQuantity, subjectMinDestinationQuantity, subjectDestinationToken);
-    }
+        subjectDestinationToken = destinationToken.address;
+        subjectSourceToken = sourceToken.address;
+        subjectSourceQuantity = ether(1);
+        subjectAdapterName = adapterName;
+        subjectSetToken = setToken.address;
+        subjectMinDestinationQuantity = ether(1);
+        const tradeCalldata = await adapter.getTradeCalldata(
+          subjectSourceToken,
+          subjectDestinationToken,
+          subjectSetToken,
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
+          EMPTY_BYTES,
+        );
+        subjectData = tradeCalldata[2];
+        subjectCaller = manager;
+      });
 
-    it("should sell stEth", async () => {
-      const previousStEthBalance = await stEth.balanceOf(owner.address);
-      const previousWethBalance = await weth.balanceOf(subjectDestinationToken);
-      expect(previousStEthBalance).to.be.closeTo(ether(100), 1);
-      expect(previousWethBalance).to.eq(0);
+      async function subject(): Promise<any> {
+        return tradeModule
+          .connect(subjectCaller.wallet)
+          .trade(
+            subjectSetToken,
+            subjectAdapterName,
+            subjectSourceToken,
+            subjectSourceQuantity,
+            subjectDestinationToken,
+            subjectMinDestinationQuantity,
+            subjectData,
+          );
+      }
 
-      await subject();
-
-      const afterStEthBalance = await stEth.balanceOf(owner.address);
-      const afterWethBalance = await weth.balanceOf(subjectDestinationToken);
-      expect(afterStEthBalance).to.be.closeTo(previousStEthBalance.sub(subjectSourceQuantity), 1);
-      expect(afterWethBalance).to.gte(subjectMinDestinationQuantity.add(previousWethBalance));
+      it("should trade all WETH for STETH", async () => {
+        await subject();
+      });
     });
   });
 });

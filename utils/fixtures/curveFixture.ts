@@ -5,6 +5,7 @@ import { Signer } from "ethers";
 import { CurvePoolERC20 } from "../../typechain/CurvePoolERC20";
 import { Stableswap } from "../../typechain/Stableswap";
 import { CurveDeposit } from "../../typechain/CurveDeposit";
+import { CurveStEthStableswapMock } from "../../typechain/CurveStEthStableswapMock";
 import { CRVToken } from "../../typechain/CRVToken";
 import { GaugeController } from "../../typechain/GaugeController";
 import { Minter } from "../../typechain/Minter";
@@ -96,5 +97,9 @@ export class CurveFixture {
     await this.gaugeController["add_gauge(address,int128,uint256)"](gauge.address, 0, ether(1));
 
     return gauge;
+  }
+
+  public async getForkedCurveStEthStableswapPool(): Promise<CurveStEthStableswapMock> {
+    return await this._deployer.external.getCurveStEthStableswapMock();
   }
 }
