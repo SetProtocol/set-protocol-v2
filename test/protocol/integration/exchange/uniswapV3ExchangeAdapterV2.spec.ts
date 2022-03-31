@@ -4,7 +4,7 @@ import { solidityPack } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { MAX_INT_256, MAX_UINT_256, ZERO } from "@utils/constants";
+import { MAX_UINT_256, ZERO } from "@utils/constants";
 import { UniswapV3ExchangeAdapterV2 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
@@ -236,7 +236,11 @@ describe("UniswapV3ExchangeAdapterV2", () => {
     });
 
     async function subject(): Promise<string> {
-      return await uniswapV3ExchangeAdapter.generateDataParam([subjectToken1, subjectToken2, subjectToken3], [subjectFee1, subjectFee2], subjectFixIn);
+      return await uniswapV3ExchangeAdapter.generateDataParam(
+        [subjectToken1, subjectToken2, subjectToken3],
+        [subjectFee1, subjectFee2],
+        subjectFixIn
+      );
     }
 
     it("should create the correct path data", async () => {
@@ -268,7 +272,7 @@ describe("UniswapV3ExchangeAdapterV2", () => {
     });
   });
 
-  describe.only("#toBool", async () => {
+  describe("#toBool", async () => {
     let bool: boolean;
     let randomAddress: Address;
 

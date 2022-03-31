@@ -162,7 +162,7 @@ describe("TradeModule", () => {
     uniswapAdapterV2Name = "UNISWAPV2";
     zeroExApiAdapterName = "ZERO_EX";
     uniswapV3AdapterName = "UNISWAPV3";
-    uniswapV3AdapterV2Name = "UNISWAPV3_V2"
+    uniswapV3AdapterV2Name = "UNISWAPV3_V2";
 
     tradeModule = await deployer.modules.deployTradeModule(setup.controller.address);
     await setup.controller.addModule(tradeModule.address);
@@ -1832,7 +1832,7 @@ describe("TradeModule", () => {
         });
       });
 
-      context.only("when trading a Default component on Uniswap V3 using UniswapV3ExchangeAdapterV2", async () => {
+      context("when trading a Default component on Uniswap V3 using UniswapV3ExchangeAdapterV2", async () => {
         let fixIn: boolean = true;
 
         cacheBeforeEach(async () => {
