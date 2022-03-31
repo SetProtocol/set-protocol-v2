@@ -15,100 +15,70 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import { IWETH } from "../../../interfaces/external/IWETH.sol";
-import { ICurveStEthExchange } from "../../../interfaces/external/ICurveStEthExchange.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
+
+import { IStableSwapStEth } from "../../../interfaces/external/IStableSwapStEth.sol";
+import { IWETH } from "../../../interfaces/external/IWETH.sol";
+import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
 /**
  * @title CurveStEthExchangeAdapter
- * @author Set Protocol
+ * @author FlattestWhite & ncitron
  *
  * Exchange adapter for the specialized Curve stETH <-> ETH
  * exchange contracts. Implements helper functionality for
  * wrapping and unwrapping WETH since the curve exchange uses
  * raw ETH.
+ *
+ * This contract is intended to be used by trade modules to rebalance
+ * SetTokens that hold stETH as part of its components.
  */
 contract CurveStEthExchangeAdapter {
 
+    using SafeMath for uint256;
+    using PreciseUnitMath for uint256;
+
     /* ========= State Variables ========= */
 
-    IWETH immutable public weth;                        // Address of WETH token
-    IERC20 immutable public stETH;                      // Address of stETH token
-    ICurveStEthExchange immutable public exchange;      // Address of Curve Eth/StEth Stableswap pool
+    // Address of WETH token.
+    IWETH immutable public weth;                        
+    // Address of stETH token.
+    IERC20 immutable public stETH;                      
+    // Address of Curve Eth/StEth stableswap pool.
+    IStableSwapStEth immutable public stableswap;
+    // Index for ETH for Curve stableswap pool.
+    int128 internal constant ETH_INDEX = 0;            
+    // Index for stETH for Curve stableswap pool.
+    int128 internal constant STETH_INDEX = 1;          
 
     /* ========= Constructor ========== */
 
     /**
      * Set state variables
      *
-     * @param _weth         Address of WETH token
-     * @param _stETH        Address of stETH token
-     * @param _exchange     Address of Curve Eth/StEth Stableswap pool
+     * @param _weth             Address of WETH token
+     * @param _stETH            Address of stETH token
+     * @param _stableswap       Address of Curve Eth/StEth Stableswap pool
      */
     constructor(
         IWETH _weth,
         IERC20 _stETH,
-        ICurveStEthExchange _exchange
+        IStableSwapStEth _stableswap
     )
         public
     {
         weth = _weth;
         stETH = _stETH;
-        exchange = _exchange;
+        stableswap = _stableswap;
 
-        _stETH.approve(address(_exchange), uint256(-1));
+        require(_stableswap.coins(ETH_INDEX) == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, "Stableswap pool has invalid ETH_INDEX");
+        require(_stableswap.coins(STETH_INDEX) == address(_stETH), "Stableswap pool has invalid STETH_INDEX");
+
+        _stETH.approve(address(_stableswap), PreciseUnitMath.maxUint256());
     }
 
     /* ======== External Functions ======== */
-
-    /**
-     * Calculate Curve trade encoded calldata. To be invoked on the SetToken.
-     *
-     * @param _sourceToken                  Either WETH or stETH. The input token.
-     * @param _destinationToken             Either WETH or stETH. The output token.
-     * @param _destinationAddress           The address where the proceeds of the output is sent to.
-     * @param _sourceQuantity               Amount of input token.
-     * @param _minDestinationQuantity       The minimum amount of output token to be received.
-     */
-    function getTradeCalldata(
-        address _sourceToken,
-        address _destinationToken,
-        address _destinationAddress,
-        uint256 _sourceQuantity,
-        uint256 _minDestinationQuantity,
-        bytes memory /* data */
-    )
-        external
-        view
-        returns (bytes memory)
-    {
-        if (_sourceToken == address(weth) && _destinationToken == address(stETH)) {
-            return abi.encodeWithSignature(
-                "buyStEth(uint256,uint256,address)",
-                _sourceQuantity,
-                _minDestinationQuantity,
-                _destinationAddress
-            );
-        } else if (_sourceToken == address(stETH) && _destinationToken == address(weth)) {
-            return abi.encodeWithSignature(
-                "sellStEth(uint256,uint256,address)",
-                _sourceQuantity,
-                _minDestinationQuantity,
-                _destinationAddress
-            );
-        } else {
-            revert("Must swap between weth and stETH");
-        }
-    }
-
-    /**
-     * Returns the address to approve source tokens to for trading. In this case, the address of this contract.
-     *
-     * @return address             Address of the contract to approve tokens to.
-     */
-    function getSpender() external view returns (address) {
-        return address(this);
-    }
 
     /**
      * Buys stEth using WETH
@@ -131,9 +101,9 @@ contract CurveStEthExchangeAdapter {
         weth.withdraw(_sourceQuantity);
 
         // buy stETH
-        uint256 amountOut = exchange.exchange{value: _sourceQuantity} (
-            0,
-            1,
+        uint256 amountOut = stableswap.exchange{value: _sourceQuantity} (
+            ETH_INDEX,
+            STETH_INDEX,
             _sourceQuantity,
             _minDestinationQuantity
         );
@@ -160,7 +130,7 @@ contract CurveStEthExchangeAdapter {
         stETH.transferFrom(msg.sender, address(this), _sourceQuantity);
 
         // sell stETH
-        uint256 amountOut = exchange.exchange(1, 0, _sourceQuantity, _minDestinationQuantity);
+        uint256 amountOut = stableswap.exchange(STETH_INDEX, ETH_INDEX, _sourceQuantity, _minDestinationQuantity);
 
         // wrap eth
         weth.deposit{value: amountOut}();
@@ -169,5 +139,67 @@ contract CurveStEthExchangeAdapter {
         weth.transfer(_destinationAddress, amountOut);
     }
 
+    /* ============ External Getter Functions ============ */ 
+
+    /**
+     * Calculate Curve trade encoded calldata. To be invoked on the SetToken.
+     *
+     * @param _sourceToken                  Either WETH or stETH. The input token.
+     * @param _destinationToken             Either WETH or stETH. The output token.
+     * @param _destinationAddress           The address where the proceeds of the output is sent to.
+     * @param _sourceQuantity               Amount of input token.
+     * @param _minDestinationQuantity       The minimum amount of output token to be received.
+     *
+     * @return address                      Target contract address
+     * @return uint256                      Call value
+     * @return bytes                        Trade calldata
+     */
+    function getTradeCalldata(
+        address _sourceToken,
+        address _destinationToken,
+        address _destinationAddress,
+        uint256 _sourceQuantity,
+        uint256 _minDestinationQuantity,
+        bytes memory /* data */
+    )
+        external
+        view
+        returns (address, uint256, bytes memory)
+    {
+        if (_sourceToken == address(weth) && _destinationToken == address(stETH)) {
+            bytes memory callData = abi.encodeWithSignature(
+                "buyStEth(uint256,uint256,address)",
+                _sourceQuantity,
+                _minDestinationQuantity,
+                _destinationAddress
+            );
+            return (address(this), 0, callData);
+        } else if (_sourceToken == address(stETH) && _destinationToken == address(weth)) {
+            bytes memory callData = abi.encodeWithSignature(
+                "sellStEth(uint256,uint256,address)",
+                _sourceQuantity,
+                _minDestinationQuantity,
+                _destinationAddress
+            );
+            return (address(this), 0, callData);
+        } else {
+            revert("Must swap between weth and stETH");
+        }
+    }
+
+    /**
+     * Returns the address to approve source tokens to for trading. In this case, the address of this contract.
+     *
+     * @return address             Address of the contract to approve tokens to.
+     */
+    function getSpender() external view returns (address) {
+        return address(this);
+    }
+
+    /**
+     * This function is invoked when:
+     * 1. WETH is withdrawn for ETH.
+     * 2. ETH is received from Curve stableswap pool on exchange call.
+     */
     receive() external payable {}
 }

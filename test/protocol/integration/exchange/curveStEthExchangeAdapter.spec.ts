@@ -15,7 +15,7 @@ import {
 } from "@utils/test/index";
 
 import { SystemFixture } from "@utils/fixtures";
-import { CurveStEthExchangeAdapter, CurveEthStEthExchangeMock } from "@utils/contracts";
+import { CurveStEthExchangeAdapter, CurveStEthStableswapMock } from "@utils/contracts";
 
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 
@@ -29,7 +29,7 @@ describe("CurveStEthExchangeAdapter", () => {
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
-  let exchange: CurveEthStEthExchangeMock;
+  let stableswap: CurveStEthStableswapMock;
   let adapter: CurveStEthExchangeAdapter;
 
   before(async () => {
@@ -42,19 +42,19 @@ describe("CurveStEthExchangeAdapter", () => {
     stEth = await deployer.mocks.deployTokenMock(owner.address);
     await stEth.connect(whale.wallet).mint(whale.address, ether(100));
 
-    exchange = await deployer.mocks.deployCurveEthStEthExchangeMock([ETH_ADDRESS, stEth.address]);
+    stableswap = await deployer.mocks.deployCurveEthStEthExchangeMock([ETH_ADDRESS, stEth.address]);
 
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       setup.weth.address,
       stEth.address,
-      exchange.address,
+      stableswap.address,
     );
 
     await stEth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
     await setup.weth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);
 
-    await stEth.connect(whale.wallet).approve(exchange.address, MAX_UINT_256);
-    await exchange
+    await stEth.connect(whale.wallet).approve(stableswap.address, MAX_UINT_256);
+    await stableswap
       .connect(whale.wallet)
       .add_liquidity([ether(100), ether(100)], ether(1), { value: ether(100) });
   });
@@ -69,7 +69,7 @@ describe("CurveStEthExchangeAdapter", () => {
     beforeEach(async () => {
       subjectWeth = setup.weth.address;
       subjectSteth = stEth.address;
-      subjectExchangeAddress = exchange.address;
+      subjectExchangeAddress = stableswap.address;
     });
 
     async function subject(): Promise<CurveStEthExchangeAdapter> {
@@ -91,8 +91,9 @@ describe("CurveStEthExchangeAdapter", () => {
 
     it("should have the correct exchange address", async () => {
       const adapter = await subject();
-      expect(await adapter.exchange()).to.eq(subjectExchangeAddress);
+      expect(await adapter.stableswap()).to.eq(subjectExchangeAddress);
     });
+
   });
 
   describe("#getSpender", async () => {
@@ -114,7 +115,7 @@ describe("CurveStEthExchangeAdapter", () => {
     let subjectSourceQuantity: BigNumber;
     let subjectMinDestinationQuantity: BigNumber;
 
-    async function subject(): Promise<string> {
+    async function subject(): Promise<[string, BigNumber, string]> {
       return await adapter.getTradeCalldata(
         subjectSourceToken,
         subjectDestinationToken,

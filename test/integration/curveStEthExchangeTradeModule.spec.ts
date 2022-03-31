@@ -17,14 +17,14 @@ import {
 } from "@utils/test/index";
 
 import { SystemFixture } from "@utils/fixtures";
-import { CurveStEthExchangeAdapter, CurveEthStEthExchangeMock } from "@utils/contracts";
+import { CurveStEthExchangeAdapter, CurveStEthStableswapMock } from "@utils/contracts";
 
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 import dependencies from "@utils/deploys/dependencies";
 
 const expect = getWaffleExpect();
 
-describe("CurveStEthExchangeAdapter [ @forked-mainnet ]", () => {
+describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]", () => {
   let owner: Account;
   let whale: Account;
   let mockSetToken: Account;
@@ -33,7 +33,7 @@ describe("CurveStEthExchangeAdapter [ @forked-mainnet ]", () => {
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
-  let exchange: CurveEthStEthExchangeMock;
+  let stableswap: CurveStEthStableswapMock;
   let adapter: CurveStEthExchangeAdapter;
 
   before(async () => {
@@ -48,12 +48,12 @@ describe("CurveStEthExchangeAdapter [ @forked-mainnet ]", () => {
 
     weth = await deployer.mocks.getTokenMock(dependencies.WETH[1]);
     stEth = await deployer.mocks.getTokenMock(dependencies.STETH[1]);
-    exchange = await deployer.mocks.getForkedCurveEthStEthExchange();
+    stableswap = await deployer.mocks.getForkedCurveEthStEthExchange();
 
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       weth.address,
       stEth.address,
-      exchange.address
+      stableswap.address
     );
 
     await stEth.connect(owner.wallet).approve(adapter.address, MAX_UINT_256);

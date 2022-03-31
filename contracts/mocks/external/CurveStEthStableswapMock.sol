@@ -18,31 +18,31 @@
 
 pragma solidity 0.6.10;
 
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 // Minimal Curve Eth/StEth Stableswap Pool
-contract CurveEthStEthExchangeMock is ReentrancyGuard {
+contract CurveStEthStableswapMock is ReentrancyGuard {
 
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using SafeMath for int128;
     using Address for address;
 
-    address[] coins;
+    address[] tokens;
 
-    constructor(address[] memory _coins) public {
-        require(_coins[0] == address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE));
-        require(_coins[1] != address(0));
-        coins = _coins;
+    constructor(address[] memory _tokens) public {
+        require(_tokens[0] == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+        require(_tokens[1] != address(0));
+        tokens = _tokens;
     }
 
     function add_liquidity(uint256[] memory _amounts, uint256 _min_mint_amount) payable external nonReentrant returns (uint256) {
         require(_amounts[0] == msg.value, "Eth sent should equal amount");
-        IERC20(coins[1]).safeTransferFrom(msg.sender, address(this), _amounts[1]);
+        IERC20(tokens[1]).safeTransferFrom(msg.sender, address(this), _amounts[1]);
         return _min_mint_amount;
     }
 
@@ -60,14 +60,23 @@ contract CurveEthStEthExchangeMock is ReentrancyGuard {
         if (_i == 0 && _j == 1) {
         // The caller has sent eth receive stETH
         require(_dx == msg.value);
-        IERC20(coins[1]).safeTransfer(msg.sender, _dx);
+        IERC20(tokens[1]).safeTransfer(msg.sender, _dx);
         } else if (_j == 0 && _i == 1) {
         // The caller has sent stETH to receive ETH
-        IERC20(coins[1]).safeTransferFrom(msg.sender, address(this), _dx);
+        IERC20(tokens[1]).safeTransferFrom(msg.sender, address(this), _dx);
         Address.sendValue(msg.sender, _dx);
         } else {
             revert("Invalid index values");
         }
         return _dx;
+    }
+
+    /**
+     * @param _index            Index to look up address for.
+     *
+     * @return address          Address of the token at index
+     */
+    function coins(int128 _index) external view returns (address) {
+        return tokens[uint256(_index)];
     }
 }

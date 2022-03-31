@@ -11,7 +11,7 @@ import {
   ContractCallerMock,
   CompoundMock,
   ComptrollerMock,
-  CurveEthStEthExchangeMock,
+  CurveStEthStableswapMock,
   CustomSetValuerMock,
   DebtIssuanceMock,
   DebtModuleMock,
@@ -70,7 +70,7 @@ import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapte
 import { CompoundMock__factory } from "../../typechain/factories/CompoundMock__factory";
 import { ComptrollerMock__factory } from "../../typechain/factories/ComptrollerMock__factory";
 import { ContractCallerMock__factory } from "../../typechain/factories/ContractCallerMock__factory";
-import { CurveEthStEthExchangeMock__factory } from "../../typechain/factories/CurveEthStEthExchangeMock__factory";
+import { CurveStEthStableswapMock__factory } from "../../typechain/factories/CurveStEthStableswapMock__factory";
 import { CustomSetValuerMock__factory } from "../../typechain/factories/CustomSetValuerMock__factory";
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
@@ -179,8 +179,8 @@ export default class DeployMocks {
     return await new GovernanceAdapterMock__factory(this._deployerSigner).deploy(initialProposalId);
   }
 
-  public async deployCurveEthStEthExchangeMock(coins: Address[]): Promise<CurveEthStEthExchangeMock> {
-    return await new CurveEthStEthExchangeMock__factory(this._deployerSigner).deploy(coins);
+  public async deployCurveEthStEthExchangeMock(coins: Address[]): Promise<CurveStEthStableswapMock> {
+    return await new CurveStEthStableswapMock__factory(this._deployerSigner).deploy(coins);
   }
 
   public async deployOneInchExchangeMock(
@@ -469,7 +469,10 @@ export default class DeployMocks {
     return await ZeroExMock__factory.connect(dependencies.ZERO_EX_EXCHANGE[1], this._deployerSigner);
   }
 
-  public async getForkedCurveEthStEthExchange(): Promise<CurveEthStEthExchangeMock> {
-    return await CurveEthStEthExchangeMock__factory.connect(dependencies.CURVE_ETH_STETH_EXCHANGE[1], this._deployerSigner);
+  public async getForkedCurveEthStEthExchange(): Promise<CurveStEthStableswapMock> {
+    return await CurveStEthStableswapMock__factory.connect(
+      dependencies.CURVE_ETH_STETH_EXCHANGE[1],
+      this._deployerSigner
+    );
   }
 }
