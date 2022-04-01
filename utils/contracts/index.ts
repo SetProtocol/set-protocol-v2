@@ -110,6 +110,7 @@ export { AMMSplitter } from "../../typechain/AMMSplitter";
 export { UniswapV2Pair } from "../../typechain/UniswapV2Pair";
 export { UniswapV2Router02 } from "../../typechain/UniswapV2Router02";
 export { UniswapV3ExchangeAdapter } from "../../typechain/UniswapV3ExchangeAdapter";
+export { UniswapV3ExchangeAdapterV2 } from "../../typechain/UniswapV3ExchangeAdapterV2";
 export { UniswapV3MathMock } from "../../typechain/UniswapV3MathMock";
 export { UnitConversionUtilsMock } from "../../typechain/UnitConversionUtilsMock";
 export { WETH9 } from "../../typechain/WETH9";
