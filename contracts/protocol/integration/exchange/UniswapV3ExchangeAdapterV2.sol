@@ -82,8 +82,9 @@ contract UniswapV3ExchangeAdapterV2 {
         view
         returns (address, uint256, bytes memory)
     {
-        // `_data.length` should be atleast 44. For a single hop trade, `_data.length` is 44.
-        // 20 source/destination token address + 3 fees + 20 source/destination tokne address + 1 fixInput bool.
+        // For a single hop trade, `_data.length` is 44. 20 source/destination token address + 3 fees +
+        // 20 source/destination token address + 1 fixInput bool.
+        // For multi-hop trades, `_data.length` is greater than 44.
         require(_data.length >= 44, "Invalid data");
 
         bool fixInput = toBool(_data, _data.length - 1);        // `fixInput` bool is stored at last byte
@@ -141,7 +142,8 @@ contract UniswapV3ExchangeAdapterV2 {
 
     /**
      * Returns the appropriate _data argument for getTradeCalldata. Equal to the encodePacked path with the
-     * fee of each hop between it, e.g [token1, fee1, token2, fee2, token3]. Note: _fees.length == _path.length - 1
+     * fee of each hop between it and fixInput bool at the very end., e.g [token1, fee1, token2, fee2, token3, fixIn].
+     * Note: _fees.length == _path.length - 1
      *
      * @param _path array of addresses to use as the path for the trade
      * @param _fees array of uint24 representing the pool fee to use for each hop
@@ -168,6 +170,7 @@ contract UniswapV3ExchangeAdapterV2 {
 
     /**
      * Helper function to decode bytes to boolean. Similar to functions found in BytesLib.
+     * Note: Access modifier is set to public to enable complete testing.
      */
     function toBool(bytes memory _bytes, uint256 _start) public pure returns (bool) {
         require(_start + 1 >= _start, "toBool_overflow");
