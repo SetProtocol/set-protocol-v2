@@ -5,7 +5,7 @@ import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
 import { RgtMigrationWrapAdapter } from "@utils/contracts";
-import { PegExchanger } from "@utils/contracts/fei";
+import { TribePegExchangerMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   ether,
@@ -21,7 +21,7 @@ const expect = getWaffleExpect();
 describe("RgtMigrationWrapAdapter", () => {
   let owner: Account;
   let deployer: DeployHelper;
-  let pegExchanger: PegExchanger;
+  let pegExchanger: TribePegExchangerMock;
   let rgtMigrationWrapAdapter: RgtMigrationWrapAdapter;
 
   before(async () => {
