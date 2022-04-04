@@ -48,7 +48,6 @@ contract TribePegExchangerMock {
     function exchange(uint256 amount) public {
         uint256 tribeOut = amount * exchangeRate / scalar;
         IERC20(rgt).safeTransferFrom(msg.sender, address(this), amount);
-        console.log(IERC20(tribe).balanceOf(address(this)));
         IERC20(tribe).safeTransfer(msg.sender, tribeOut);
         emit Exchange(msg.sender, amount, tribeOut);
     }
