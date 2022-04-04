@@ -8,16 +8,23 @@ import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
 import {
   addSnapshotBeforeRestoreAfterEach,
+  getAaveV2Fixture,
   getAccounts,
   getCurveFixture,
   getForkedTokens,
+  getRandomAccount,
   getSystemFixture,
   getWaffleExpect,
   initializeForkedTokens,
 } from "@utils/test/index";
 
-import { CurveFixture, SystemFixture } from "@utils/fixtures";
+// import {
+// AaveV2AToken,
+// AaveV2VariableDebtToken,
+// } from "@utils/contracts/aaveV2";
+import { AaveV2Fixture, CurveFixture, SystemFixture } from "@utils/fixtures";
 import {
+  AaveLeverageModule,
   CurveStEthExchangeAdapter,
   CurveStEthStableswapMock,
   TradeModule,
@@ -28,10 +35,17 @@ import {
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 import dependencies from "@utils/deploys/dependencies";
 import { IERC20 } from "@typechain/IERC20";
-import { EMPTY_BYTES, MAX_UINT_256 } from "@utils/constants";
+import { EMPTY_BYTES, MAX_UINT_256, ZERO } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
+/**
+ * Tests the icETH rebalance flow.
+ *
+ * The icETH product is a composite product composed of:
+ * 1. stETH
+ * 2. WETH
+ */
 describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]", () => {
   let owner: Account;
   let manager: Account;
@@ -42,13 +56,18 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
   let adapterName: string;
 
   let setup: SystemFixture;
+  let aaveSetup: AaveV2Fixture;
   let curveSetup: CurveFixture;
   let stableswap: CurveStEthStableswapMock;
   let tradeModule: TradeModule;
+  let aaveLeverageModule: AaveLeverageModule;
   let tokens: ForkedTokens;
 
   let weth: WETH9;
   let stEth: StandardTokenMock;
+  // let aWETH: AaveV2AToken;
+  // let astEth: AaveV2AToken;
+  // let variableDebtWETH: AaveV2VariableDebtToken;
 
   before(async () => {
     [owner, manager] = await getAccounts();
@@ -59,10 +78,14 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
+    curveSetup = getCurveFixture(owner.address);
+
+    aaveSetup = getAaveV2Fixture(owner.address);
+    await aaveSetup.initialize(setup.weth.address, setup.dai.address);
+
     weth = setup.weth;
     stEth = await deployer.mocks.getTokenMock(dependencies.STETH[1]);
 
-    curveSetup = getCurveFixture(owner.address);
     stableswap = await curveSetup.getForkedCurveStEthStableswapPool();
 
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
@@ -84,6 +107,52 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
     await initializeForkedTokens(deployer);
 
     tokens = getForkedTokens();
+
+    // Setup AAVE lending pools
+    // Create a stETH reserve
+    const reserveTokens = await aaveSetup.createAndEnableReserve(
+      stEth.address, "stETH", BigNumber.from(18),
+      BigNumber.from(8000),   // base LTV: 80%
+      BigNumber.from(8250),   // liquidation threshold: 82.5%
+      BigNumber.from(10500),  // liquidation bonus: 105.00%
+      BigNumber.from(1000),   // reserve factor: 10%
+      true,                   // enable borrowing on reserve
+      true                    // enable stable debts
+    );
+
+    astEth = reserveTokens.aToken;
+
+    // Create liquidity
+    const ape = await getRandomAccount();   // The wallet which aped in first and added initial liquidity
+    await setup.weth.transfer(ape.address, ether(50));
+    await setup.weth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(50));
+    await aaveSetup.lendingPool.connect(ape.wallet).deposit(
+      setup.weth.address,
+      ether(50),
+      ape.address,
+      ZERO
+    );
+
+    await tokens.steth.transfer(ape.address, ether(50000));
+    await tokens.steth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(50000));
+    await aaveSetup.lendingPool.connect(ape.wallet).deposit(
+      stEth.address,
+      ether(50),
+      ape.address,
+      ZERO
+    );
+
+    aWETH = aaveSetup.wethReserveTokens.aToken;
+    variableDebtWETH = aaveSetup.wethReserveTokens.variableDebtToken;
+
+    const aaveV2Library = await deployer.libraries.deployAaveV2();
+    aaveLeverageModule = await deployer.modules.deployAaveLeverageModule(
+      setup.controller.address,
+      aaveSetup.lendingPoolAddressesProvider.address,
+      "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
+      aaveV2Library.address,
+    );
+    await setup.controller.addModule(aaveLeverageModule.address);
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -97,34 +166,36 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
     async function initialize() {
       // Create Set token
       setToken = await setup.createSetToken(
-        [sourceToken.address, destinationToken.address],
-        [ether(1), ether(1)],
-        [setup.issuanceModule.address, tradeModule.address],
+        [stEth.address],
+        [ether(1)],
+        [setup.issuanceModule.address, tradeModule.address, aaveLeverageModule.address],
         manager.address,
       );
 
-      await sourceToken.approve(stableswap.address, MAX_UINT_256);
-      await destinationToken.approve(stableswap.address, MAX_UINT_256);
+      await stEth.connect(owner.wallet).approve(stableswap.address, MAX_UINT_256);
+      await weth.connect(owner.wallet).approve(stableswap.address, MAX_UINT_256);
 
       tradeModule = tradeModule.connect(manager.wallet);
       await tradeModule.initialize(setToken.address);
 
-      await sourceToken.transfer(manager.address, ether(1));
-      await destinationToken.transfer(manager.address, ether(1));
+      await tokens.steth.transfer(owner.address, ether(10));
+      await tokens.weth.transfer(owner.address, ether(10));
+
+      // Transfer some untracked steth to set token to overcollaterize the position
+      await tokens.steth.transfer(setToken.address, ether(0.1));
 
       // Approve tokens to Controller and call issue
-      await sourceToken.connect(manager.wallet).approve(setup.issuanceModule.address, MAX_UINT_256);
-      await destinationToken
-        .connect(manager.wallet)
+      await stEth.connect(owner.wallet).approve(setup.issuanceModule.address, MAX_UINT_256);
+      await weth
+        .connect(owner.wallet)
         .approve(setup.issuanceModule.address, MAX_UINT_256);
 
       // Deploy mock issuance hook and initialize issuance module
-      setup.issuanceModule = setup.issuanceModule.connect(manager.wallet);
       const mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
-      await setup.issuanceModule.initialize(setToken.address, mockPreIssuanceHook.address);
+      await setup.issuanceModule.connect(manager.wallet).initialize(setToken.address, mockPreIssuanceHook.address);
 
       issueQuantity = ether(1);
-      await setup.issuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      await setup.issuanceModule.connect(owner.wallet).issue(setToken.address, issueQuantity, owner.address);
     }
 
     context("when trading stETH for WETH on CurveStEthExchangeAdapter", async () => {
@@ -143,8 +214,8 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
 
         await initialize();
 
-        subjectDestinationToken = destinationToken.address;
         subjectSourceToken = sourceToken.address;
+        subjectDestinationToken = destinationToken.address;
         subjectSourceQuantity = ether(1);
         subjectAdapterName = adapterName;
         subjectSetToken = setToken.address;
