@@ -110,7 +110,7 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
 
     // Setup AAVE lending pools
     // Create a stETH reserve
-    const reserveTokens = await aaveSetup.createAndEnableReserve(
+    await aaveSetup.createAndEnableReserve(
       stEth.address, "stETH", BigNumber.from(18),
       BigNumber.from(8000),   // base LTV: 80%
       BigNumber.from(8250),   // liquidation threshold: 82.5%
@@ -120,7 +120,7 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
       true                    // enable stable debts
     );
 
-    astEth = reserveTokens.aToken;
+    // astEth = reserveTokens.aToken;
 
     // Create liquidity
     const ape = await getRandomAccount();   // The wallet which aped in first and added initial liquidity
@@ -142,8 +142,8 @@ describe("CurveStEthExchangeAdapter TradeModule integration [ @forked-mainnet ]"
       ZERO
     );
 
-    aWETH = aaveSetup.wethReserveTokens.aToken;
-    variableDebtWETH = aaveSetup.wethReserveTokens.variableDebtToken;
+    // aWETH = aaveSetup.wethReserveTokens.aToken;
+    // variableDebtWETH = aaveSetup.wethReserveTokens.variableDebtToken;
 
     const aaveV2Library = await deployer.libraries.deployAaveV2();
     aaveLeverageModule = await deployer.modules.deployAaveLeverageModule(
