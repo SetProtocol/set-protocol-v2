@@ -47,9 +47,7 @@ contract DebtModuleMock is ModuleBase {
     mapping(address=>int256) public equityIssuanceAdjustment;
     mapping(address=>int256) public debtIssuanceAdjustment;
 
-    constructor(IController _controller, address _module) public ModuleBase(_controller) {
-        module = _module;
-    }
+    constructor(IController _controller) public ModuleBase(_controller) {}
 
     function addDebt(ISetToken _setToken, address _token, uint256 _amount) external {
         _setToken.editExternalPosition(_token, address(this), _amount.toInt256().mul(-1), "");
@@ -131,8 +129,9 @@ contract DebtModuleMock is ModuleBase {
         return (equityAdjustments, debtAdjustments);
     }
 
-    function initialize(ISetToken _setToken) external {
+    function initialize(ISetToken _setToken, address _module) external {
         _setToken.initializeModule();
+        module = _module;
         IDebtIssuanceModule(module).registerToIssuanceModule(_setToken);
     }
 

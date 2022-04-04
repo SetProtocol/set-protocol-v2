@@ -2,10 +2,15 @@ import "module-alias/register";
 
 import { BigNumber } from "ethers";
 
-import { Address, NAVIssuanceSettings } from "@utils/types";
+import { Address, CustomOracleNAVIssuanceSettings } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO, ADDRESS_ZERO } from "@utils/constants";
-import { AssetLimitHook, NavIssuanceModule, SetToken, UniswapYieldHook } from "@utils/contracts";
+import {
+  AssetLimitHook,
+  CustomOracleNavIssuanceModule,
+  SetToken,
+  CustomSetValuerMock
+} from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   bitcoin,
@@ -30,8 +35,9 @@ describe("AssetLimitHook", () => {
   let deployer: DeployHelper;
 
   let setup: SystemFixture;
-  let navIssuanceModule: NavIssuanceModule;
+  let navIssuanceModule: CustomOracleNavIssuanceModule;
   let setToken: SetToken;
+  let setValuer: CustomSetValuerMock;
 
   let hook: AssetLimitHook;
 
@@ -50,7 +56,10 @@ describe("AssetLimitHook", () => {
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    navIssuanceModule = await deployer.modules.deployNavIssuanceModule(setup.controller.address, setup.weth.address);
+    navIssuanceModule = await deployer.modules.deployCustomOracleNavIssuanceModule(
+      setup.controller.address,
+      setup.weth.address
+    );
     await setup.controller.addModule(navIssuanceModule.address);
 
     setToken = await setup.createSetToken(
@@ -64,9 +73,12 @@ describe("AssetLimitHook", () => {
       [setRedeemLimit, usdcIssueLimit, ethIssueLimit],
     );
 
+    setValuer = await deployer.mocks.deployCustomSetValuerMock();
+
     const navIssuanceSettings = {
       managerIssuanceHook: hook.address,
       managerRedemptionHook: hook.address,
+      setValuer: setValuer.address,
       reserveAssets: [setup.usdc.address, setup.weth.address],
       feeRecipient: feeRecipient.address,
       managerFees: [ether(0.001), ether(0.002)],
@@ -74,7 +86,7 @@ describe("AssetLimitHook", () => {
       premiumPercentage: ether(0.01),
       maxPremiumPercentage: ether(0.1),
       minSetTokenSupply: ether(100),
-    } as NAVIssuanceSettings;
+    } as CustomOracleNAVIssuanceSettings;
 
     await navIssuanceModule.initialize(
       setToken.address,
@@ -103,8 +115,8 @@ describe("AssetLimitHook", () => {
       subjectLimits = [ether(400), usdc(100000)];
     });
 
-    async function subject(): Promise<UniswapYieldHook> {
-      return await deployer.product.deployUniswapYieldHook(subjectAssets, subjectLimits);
+    async function subject(): Promise<AssetLimitHook> {
+      return await deployer.product.deployAssetLimitHook(subjectAssets, subjectLimits);
     }
 
     it("should set the correct limits", async () => {

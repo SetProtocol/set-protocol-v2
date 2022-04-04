@@ -9,7 +9,7 @@ import {
 } from "../index";
 
 import { TWO, ZERO, ONE_DAY_IN_SECONDS } from "../constants";
-import { PerpV2LeverageModule, SetToken } from "../contracts";
+import { PerpV2BasisTradingModule, PerpV2LeverageModuleV2, SetToken } from "../contracts";
 import { PerpV2Fixture } from "../fixtures";
 
 
@@ -21,7 +21,7 @@ export function toUSDCDecimals(quantity: BigNumber): BigNumber {
 // Allocates all deposited collateral to a levered position. Returns new baseToken position unit
 export async function leverUp(
   setToken: SetToken,
-  module: PerpV2LeverageModule,
+  module: PerpV2LeverageModuleV2,
   fixture: PerpV2Fixture,
   owner: Account,
   baseToken: Address,
@@ -65,7 +65,7 @@ export async function leverUp(
 export async function calculateUSDCTransferIn(
   setToken: SetToken,
   setQuantity: BigNumber,
-  module: PerpV2LeverageModule,
+  module: PerpV2LeverageModuleV2,
   fixture: PerpV2Fixture,
 ) {
   return toUSDCDecimals(await calculateUSDCTransferInPreciseUnits(setToken, setQuantity, module, fixture));
@@ -75,7 +75,7 @@ export async function calculateUSDCTransferIn(
 export async function calculateUSDCTransferInPreciseUnits(
   setToken: SetToken,
   setQuantity: BigNumber,
-  module: PerpV2LeverageModule,
+  module: PerpV2LeverageModuleV2,
   fixture: PerpV2Fixture,
   includeFunding: boolean = true
 ) {
@@ -124,7 +124,7 @@ export async function calculateUSDCTransferInPreciseUnits(
 export async function calculateUSDCTransferOut(
   setToken: SetToken,
   setQuantity: BigNumber,
-  module: PerpV2LeverageModule,
+  module: PerpV2LeverageModuleV2,
   fixture: PerpV2Fixture,
 ) {
   return toUSDCDecimals(await calculateUSDCTransferOutPreciseUnits(setToken, setQuantity, module, fixture));
@@ -134,7 +134,7 @@ export async function calculateUSDCTransferOut(
 export async function calculateUSDCTransferOutPreciseUnits(
   setToken: SetToken,
   setQuantity: BigNumber,
-  module: PerpV2LeverageModule,
+  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
   includeFunding: boolean = true
 ) {
@@ -179,7 +179,7 @@ export async function calculateUSDCTransferOutPreciseUnits(
 
 export async function calculateExternalPositionUnit(
   setToken: SetToken,
-  module: PerpV2LeverageModule,
+  module: PerpV2LeverageModuleV2,
   fixture: PerpV2Fixture,
 ): Promise<BigNumber> {
   let totalPositionValue = BigNumber.from(0);
@@ -211,6 +211,23 @@ export async function calculateExternalPositionUnit(
 export async function getUSDCDeltaDueToFundingGrowth(
   setToken: SetToken,
   setQuantity: BigNumber,
+  baseToken: Address,
+  baseBalance: BigNumber,
+  fixture: PerpV2Fixture
+): Promise<BigNumber> {
+
+  const netFundingGrowth = await getNetFundingGrowth(baseToken, baseBalance, fixture);
+
+  const totalSupply = await setToken.totalSupply();
+  const usdcAmountDelta = preciseMul(
+    preciseDiv(netFundingGrowth, totalSupply),   // totalExtraAccruedFunding Unit
+    setQuantity
+  );
+
+  return usdcAmountDelta;
+}
+
+export async function getNetFundingGrowth(
   baseToken: Address,
   baseBalance: BigNumber,
   fixture: PerpV2Fixture
@@ -250,11 +267,60 @@ export async function getUSDCDeltaDueToFundingGrowth(
       : fundingGrowth;
   }
 
-  const totalSupply = await setToken.totalSupply();
-  const usdcAmountDelta = preciseMul(
-    preciseDiv(netFundingGrowth, totalSupply),   // totalExtraAccruedFunding Unit
-    setQuantity
-  );
+  return netFundingGrowth;
+}
 
-  return usdcAmountDelta;
+export async function calculateLeverageRatios(
+  setToken: Address,
+  perpModule: PerpV2LeverageModuleV2,
+  fixture: PerpV2Fixture,
+): Promise<[Address[], BigNumber[]]> {
+  const accountInfo = await perpModule.getAccountInfo(setToken);
+  const notionalPositionInfo = await perpModule.getPositionNotionalInfo(setToken);
+
+  const totalCollateralValue = accountInfo.collateralBalance
+    .add(accountInfo.owedRealizedPnl)
+    .add(accountInfo.pendingFundingPayments);
+
+  const vTokens: Address[] = [];
+  const leverageRatios: BigNumber[] = [];
+  for (const positionInfo of notionalPositionInfo) {
+    const vTokenInstance = await fixture.getVTokenInstance(positionInfo.baseToken);
+    const tokenPrice = await vTokenInstance.getIndexPrice(ZERO);
+    const positionValue = preciseMul(tokenPrice, positionInfo.baseBalance);
+    const accountValue = positionValue.add(totalCollateralValue).add(positionInfo.quoteBalance);
+
+    vTokens.push(vTokenInstance.address);
+    leverageRatios.push(preciseDiv(positionValue, accountValue));
+  }
+
+  return [vTokens, leverageRatios];
+}
+
+export async function calculateMaxIssueQuantity(
+  setToken: SetToken,
+  slippage: BigNumber,
+  perpModule: PerpV2LeverageModuleV2,
+  fixture: PerpV2Fixture,
+): Promise<BigNumber> {
+  const totalSupply = await setToken.totalSupply();
+  const imRatio = await fixture.clearingHouseConfig.getImRatio();
+  const accountInfo = await perpModule.getAccountInfo(setToken.address);
+
+  const [, unrealizedPnl ] = await fixture.accountBalance.getPnlAndPendingFee(setToken.address);
+  const totalDebtValue = await fixture.accountBalance.getTotalDebtValue(setToken.address);
+
+  const totalCollateralValue = accountInfo.collateralBalance.add(accountInfo.owedRealizedPnl).add(accountInfo.pendingFundingPayments);
+
+  let availableDebt;
+  if (unrealizedPnl.gte(ZERO)) {
+    availableDebt = totalCollateralValue.mul(10 ** 6).div(imRatio).sub(totalDebtValue);
+  } else {
+    availableDebt = totalCollateralValue.add(unrealizedPnl).mul(10 ** 6).div(imRatio).sub(totalDebtValue);
+  }
+
+  const availableDebtWithSlippage = availableDebt.sub(preciseMul(availableDebt, slippage).mul(10 ** 6).div(imRatio));
+  const totalAbsPositionValue = await fixture.accountBalance.getTotalAbsPositionValue(setToken.address);
+
+  return preciseMul(preciseDiv(availableDebtWithSlippage, totalAbsPositionValue), totalSupply);
 }

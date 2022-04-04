@@ -24,6 +24,7 @@ import {
   ManagerIssuanceHookMock,
   ModuleIssuanceHookMock,
   ModuleBaseMock,
+  ModuleBaseV2Mock,
   NAVIssuanceCaller,
   NAVIssuanceHookMock,
   OneInchExchangeMock,
@@ -31,7 +32,10 @@ import {
   OracleMock,
   YearnVaultMock,
   PerpV2Mock,
+  PerpV2LibraryV2Mock,
+  PerpV2PositionsMock,
   PositionMock,
+  PositionV2Mock,
   PreciseUnitMathMock,
   ResourceIdentifierMock,
   StakingAdapterMock,
@@ -39,6 +43,7 @@ import {
   StandardTokenWithRoundingErrorMock,
   StandardTokenWithFeeMock,
   TradeAdapterMock,
+  StringArrayUtilsMock,
   SynthMock,
   SynthetixExchangerMock,
   TribePegExchangerMock,
@@ -77,6 +82,7 @@ import { InvokeMock__factory } from "../../typechain/factories/InvokeMock__facto
 import { KyberNetworkProxyMock__factory } from "../../typechain/factories/KyberNetworkProxyMock__factory";
 import { ManagerIssuanceHookMock__factory } from "../../typechain/factories/ManagerIssuanceHookMock__factory";
 import { ModuleBaseMock__factory } from "../../typechain/factories/ModuleBaseMock__factory";
+import { ModuleBaseV2Mock__factory } from "../../typechain/factories/ModuleBaseV2Mock__factory";
 import { ModuleIssuanceHookMock__factory } from "../../typechain/factories/ModuleIssuanceHookMock__factory";
 import { NAVIssuanceCaller__factory } from "../../typechain/factories/NAVIssuanceCaller__factory";
 import { NAVIssuanceHookMock__factory } from "../../typechain/factories/NAVIssuanceHookMock__factory";
@@ -85,7 +91,10 @@ import { OracleAdapterMock__factory } from "../../typechain/factories/OracleAdap
 import { OracleMock__factory } from "../../typechain/factories/OracleMock__factory";
 import { YearnVaultMock__factory } from "../../typechain/factories/YearnVaultMock__factory";
 import { PerpV2Mock__factory } from "../../typechain/factories/PerpV2Mock__factory";
+import { PerpV2LibraryV2Mock__factory } from "../../typechain/factories/PerpV2LibraryV2Mock__factory";
+import { PerpV2PositionsMock__factory } from "../../typechain/factories/PerpV2PositionsMock__factory";
 import { PositionMock__factory } from "../../typechain/factories/PositionMock__factory";
+import { PositionV2Mock__factory } from "../../typechain/factories/PositionV2Mock__factory";
 import { PreciseUnitMathMock__factory } from "../../typechain/factories/PreciseUnitMathMock__factory";
 import { ResourceIdentifierMock__factory } from "../../typechain/factories/ResourceIdentifierMock__factory";
 import { StakingAdapterMock__factory } from "../../typechain/factories/StakingAdapterMock__factory";
@@ -98,6 +107,7 @@ import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint25
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
 import { WrapV2AdapterMock__factory } from "../../typechain/factories/WrapV2AdapterMock__factory";
 import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
+import { StringArrayUtilsMock__factory  } from "../../typechain/factories/StringArrayUtilsMock__factory";
 import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory";
 import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
 import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrategyMock__factory";
@@ -153,12 +163,16 @@ export default class DeployMocks {
     return await new ModuleBaseMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
 
+  public async deployModuleBaseV2Mock(controllerAddress: Address): Promise<ModuleBaseV2Mock> {
+    return await new ModuleBaseV2Mock__factory(this._deployerSigner).deploy(controllerAddress);
+  }
+
   public async deployGodModeMock(controllerAddress: Address): Promise<GodModeMock> {
     return await new GodModeMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
 
-  public async deployDebtModuleMock(controllerAddress: Address, moduleAddress: Address): Promise<DebtModuleMock> {
-    return await new DebtModuleMock__factory(this._deployerSigner).deploy(controllerAddress, moduleAddress);
+  public async deployDebtModuleMock(controllerAddress: Address): Promise<DebtModuleMock> {
+    return await new DebtModuleMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
 
   public async deployGovernanceAdapterMock(initialProposalId: BigNumberish): Promise<GovernanceAdapterMock> {
@@ -201,7 +215,6 @@ export default class DeployMocks {
     return await new YearnVaultMock__factory(this._deployerSigner).deploy(pricePerShare);
   }
 
-
   public async deployOracleAdapterMock(
     asset: Address,
     dummyPrice: BigNumber
@@ -211,6 +224,16 @@ export default class DeployMocks {
 
   public async deployPositionMock(): Promise<PositionMock> {
     return await new PositionMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployPositionV2Mock(libraryName: string, libraryAddress: Address): Promise<PositionV2Mock> {
+    return await new PositionV2Mock__factory(
+      // @ts-ignore
+      {
+        [libraryName]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
   }
 
   public async deployPreciseUnitMathMock(): Promise<PreciseUnitMathMock> {
@@ -293,6 +316,29 @@ export default class DeployMocks {
 
   public async deployPerpV2Mock(libraryName: string, libraryAddress: Address): Promise<PerpV2Mock> {
     return await new PerpV2Mock__factory(
+      // @ts-ignore
+      {
+        [libraryName]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
+  }
+
+  public async deployPerpV2LibraryV2Mock(libraryName: string, libraryAddress: Address): Promise<PerpV2LibraryV2Mock> {
+    return await new PerpV2LibraryV2Mock__factory(
+      // @ts-ignore
+      {
+        [libraryName]: libraryAddress,
+      },
+      this._deployerSigner
+    ).deploy();
+  }
+
+  public async deployPerpV2PositionsMock(
+    libraryName: string,
+    libraryAddress: Address
+  ): Promise<PerpV2PositionsMock> {
+    return await new PerpV2PositionsMock__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
@@ -405,6 +451,10 @@ export default class DeployMocks {
 
   public async deployTribePegExchangerMock(rgt: Address, tribe: Address): Promise<TribePegExchangerMock> {
     return await new TribePegExchangerMock__factory(this._deployerSigner).deploy(rgt, tribe);
+  }
+
+  public async deployStringArrayUtilsMock(): Promise<StringArrayUtilsMock> {
+    return await new StringArrayUtilsMock__factory(this._deployerSigner).deploy();
   }
 
   /** ***********************************

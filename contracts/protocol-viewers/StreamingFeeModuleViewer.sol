@@ -21,7 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 import { ISetToken } from "../interfaces/ISetToken.sol";
 import { IStreamingFeeModule } from "../interfaces/IStreamingFeeModule.sol";
-import { StreamingFeeModule } from "../protocol/modules/StreamingFeeModule.sol";
+import { StreamingFeeModule } from "../protocol/modules/v1/StreamingFeeModule.sol";
 
 
 /**
@@ -49,7 +49,7 @@ contract StreamingFeeModuleViewer {
         StreamingFeeInfo[] memory feeInfo = new StreamingFeeInfo[](_setTokens.length);
 
         for (uint256 i = 0; i < _setTokens.length; i++) {
-            StreamingFeeModule.FeeState memory feeState = _streamingFeeModule.feeStates(_setTokens[i]);
+            IStreamingFeeModule.FeeState memory feeState = _streamingFeeModule.feeStates(_setTokens[i]);
             uint256 unaccruedFees = _streamingFeeModule.getFee(_setTokens[i]);
 
             feeInfo[i] = StreamingFeeInfo({

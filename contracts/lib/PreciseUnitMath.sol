@@ -144,14 +144,16 @@ library PreciseUnitMath {
      */
     function preciseDivCeil(int256 a, int256 b) internal pure returns (int256) {
         require(b != 0, "Cant divide by 0");
+        
+        a = a.mul(PRECISE_UNIT_INT);
+        int256 c = a.div(b);
 
-        if (a == 0 ) {
-            return 0;
-        } else if ((a > 0 && b > 0) || (a < 0 && b < 0)) {
-            return a.mul(PRECISE_UNIT_INT).sub(1).div(b).add(1);
-        } else {
-            return a.mul(PRECISE_UNIT_INT).add(1).div(b).sub(1);
+        if (a % b != 0) {
+            // a ^ b == 0 case is covered by the previous if statement, hence it won't resolve to --c
+            (a ^ b > 0) ? ++c : --c;
         }
+
+        return c;
     }
 
     /**
@@ -221,5 +223,13 @@ library PreciseUnitMath {
      */
     function abs(int256 a) internal pure returns (uint) {
         return a >= 0 ? a.toUint256() : a.mul(-1).toUint256();
+    }
+
+    /**
+     * Returns the negation of a
+     */
+    function neg(int256 a) internal pure returns (int256) {
+        require(a > MIN_INT_256, "Inversion overflow");
+        return -a;
     }
 }

@@ -93,4 +93,8 @@ contract PreciseUnitMathMock {
     function abs(int256 a) external pure returns (uint256) {
         return a.abs();
     }
+
+    function neg(int256 a) external pure returns (int256) {
+        return a.neg();
+    }
 }
