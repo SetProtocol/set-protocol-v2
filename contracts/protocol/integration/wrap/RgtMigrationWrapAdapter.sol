@@ -21,7 +21,7 @@ pragma experimental "ABIEncoderV2";
 
 /**
   * @title RgtMigrationWrapAdater
-  * @author Set Protocol
+  * @author FlattestWhite
   *
   * Wrap adapter for one time token migration that returns data for wrapping RGT into TRIBE. 
   * Note: RGT can not be unwrapped into TRIBE, because migration can not be reversed.
