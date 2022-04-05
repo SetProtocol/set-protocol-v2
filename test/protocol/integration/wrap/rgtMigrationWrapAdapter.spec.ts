@@ -55,9 +55,9 @@ describe("RgtMigrationWrapAdapter", () => {
       const deployRgtMigrationWrapAdapter = await subject();
 
       const pegExchanger = await deployRgtMigrationWrapAdapter.pegExchanger();
-      const expectedKncLegacyToken = subjectPegExchanger;
+      const expectedPegExchanger = subjectPegExchanger;
 
-      expect(pegExchanger).to.eq(expectedKncLegacyToken);
+      expect(pegExchanger).to.eq(expectedPegExchanger);
     });
   });
 
