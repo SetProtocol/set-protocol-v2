@@ -46,6 +46,7 @@ import {
   StringArrayUtilsMock,
   SynthMock,
   SynthetixExchangerMock,
+  TribePegExchangerMock,
   Uint256ArrayUtilsMock,
   WrapAdapterMock,
   WrapV2AdapterMock,
@@ -100,6 +101,7 @@ import { StakingAdapterMock__factory } from "../../typechain/factories/StakingAd
 import { StandardTokenMock__factory } from "../../typechain/factories/StandardTokenMock__factory";
 import { StandardTokenWithRoundingErrorMock__factory } from "../../typechain/factories/StandardTokenWithRoundingErrorMock__factory";
 import { StandardTokenWithFeeMock__factory } from "../../typechain/factories/StandardTokenWithFeeMock__factory";
+import { TribePegExchangerMock__factory } from "../../typechain/factories/TribePegExchangerMock__factory";
 import { TradeAdapterMock__factory } from "../../typechain/factories/TradeAdapterMock__factory";
 import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint256ArrayUtilsMock__factory";
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
@@ -445,6 +447,10 @@ export default class DeployMocks {
 
   public async deployChainlinkAggregatorMock(decimals: number): Promise<ChainlinkAggregatorMock> {
     return await new ChainlinkAggregatorMock__factory(this._deployerSigner).deploy(decimals);
+  }
+
+  public async deployTribePegExchangerMock(rgt: Address, tribe: Address): Promise<TribePegExchangerMock> {
+    return await new TribePegExchangerMock__factory(this._deployerSigner).deploy(rgt, tribe);
   }
 
   public async deployStringArrayUtilsMock(): Promise<StringArrayUtilsMock> {
