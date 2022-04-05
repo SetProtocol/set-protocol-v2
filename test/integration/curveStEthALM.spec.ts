@@ -225,7 +225,6 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
       );
 
     // Mint astETH
-    console.log("depositing stETH");
     await aaveSetup
       .lendingPool
       .connect(owner.wallet)
