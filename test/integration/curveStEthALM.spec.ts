@@ -135,13 +135,11 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
       ZERO
     );
 
-
-    aWETH = aaveSetup.wethReserveTokens.aToken;
     variableDebtWETH = aaveSetup.wethReserveTokens.variableDebtToken;
 
     // Alias astETH to dai in Aave Setup (stETH passed in as dai's position in aaveSetup.initialize);
     astETH = aaveSetup.daiReserveTokens.aToken;
-    variableDebtAsteth = aaveSetup.daiReserveTokens.variableDebtToken;
+
 
     // Deploy AaveLeverageModule
     const aaveV2Library = await deployer.libraries.deployAaveV2();
