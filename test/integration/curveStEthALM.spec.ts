@@ -499,7 +499,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
       });
 
       it("should transfer the correct components to the Stableswap", async () => {
-        // We're swapping ETH for stETH
+        // We're swapping stETH for ETH
         const oldDestinationTokenBalance = await steth.balanceOf(stableswap.address);
 
         await subject();
