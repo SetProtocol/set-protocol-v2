@@ -1,5 +1,6 @@
 import { BigNumberish, BigNumber, Signer } from "ethers";
 import { ether } from "../common";
+import dependencies from "./dependencies";
 
 import {
   CompoundPriceOracleMock,
@@ -39,6 +40,7 @@ import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/
 import {
   CurveDeposit,
   CurvePoolERC20,
+  CurveStEthStableswapMock,
   CRVToken,
   GaugeController,
   LiquidityGauge,
@@ -48,6 +50,7 @@ import {
 } from "../contracts/curve";
 
 import { CurvePoolERC20__factory } from "../../typechain/factories/CurvePoolERC20__factory";
+import { CurveStEthStableswapMock__factory } from "../../typechain/factories/CurveStEthStableswapMock__factory";
 import { Stableswap__factory } from "../../typechain/factories/Stableswap__factory";
 import { CurveDeposit__factory } from "../../typechain/factories/CurveDeposit__factory";
 import { CRVToken__factory } from "../../typechain/factories/CRVToken__factory";
@@ -192,6 +195,7 @@ import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/Pe
 import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
 import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
 import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
+
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -488,6 +492,13 @@ export default class DeployExternalContracts {
     _supply: BigNumberish
   ): Promise<CurvePoolERC20> {
     return await new CurvePoolERC20__factory(this._deployerSigner).deploy(_name, _symbol, _decimals, _supply);
+  }
+
+  public async getCurveStEthStableswapMock(): Promise<CurveStEthStableswapMock> {
+    return await CurveStEthStableswapMock__factory.connect(
+      dependencies.CURVE_ETH_STETH_EXCHANGE[1],
+      this._deployerSigner
+    );
   }
 
   public async deployStableswap(

@@ -6,6 +6,7 @@ import {
   BalancerV1IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveStakingAdapter,
+  CurveStEthExchangeAdapter,
   KyberExchangeAdapter,
   KyberV3IndexExchangeAdapter,
   OneInchExchangeAdapter,
@@ -34,6 +35,7 @@ import { AaveV2WrapV2Adapter__factory } from "../../typechain/factories/AaveV2Wr
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
+import { CurveStEthExchangeAdapter__factory } from "../../typechain/factories/CurveStEthExchangeAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
 import { KyberV3IndexExchangeAdapter__factory } from "../../typechain/factories/KyberV3IndexExchangeAdapter__factory";
 import { OneInchExchangeAdapter__factory } from "../../typechain/factories/OneInchExchangeAdapter__factory";
@@ -186,5 +188,9 @@ export default class DeployAdapters {
 
   public async deployAaveV2WrapV2Adapter(lendingPool: Address): Promise<AaveV2WrapV2Adapter> {
     return await new AaveV2WrapV2Adapter__factory(this._deployerSigner).deploy(lendingPool);
+  }
+
+  public async deployCurveStEthExchangeAdapter(weth: Address, steth: Address, exchange: Address): Promise<CurveStEthExchangeAdapter> {
+    return await new CurveStEthExchangeAdapter__factory(this._deployerSigner).deploy(weth, steth, exchange);
   }
 }
