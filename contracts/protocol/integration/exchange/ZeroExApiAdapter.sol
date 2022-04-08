@@ -28,28 +28,24 @@ pragma experimental "ABIEncoderV2";
 
 contract ZeroExApiAdapter {
 
-    struct BatchFillData {
-        address inputToken;
-        address outputToken;
-        uint256 sellAmount;
-        WrappedBatchCall[] calls;
+    struct RfqOrder {
+        address makerToken;
+        address takerToken;
+        uint128 makerAmount;
+        uint128 takerAmount;
+        address maker;
+        address taker;
+        address txOrigin;
+        bytes32 pool;
+        uint64 expiry;
+        uint256 salt;
     }
 
-    struct WrappedBatchCall {
-        bytes4 selector;
-        uint256 sellAmount;
-        bytes data;
-    }
-
-    struct MultiHopFillData {
-        address[] tokens;
-        uint256 sellAmount;
-        WrappedMultiHopCall[] calls;
-    }
-
-    struct WrappedMultiHopCall {
-        bytes4 selector;
-        bytes data;
+    struct Signature {
+        uint8 signatureType;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     /* ============ State Variables ============ */
@@ -149,23 +145,31 @@ contract ZeroExApiAdapter {
                 require(path.length > 1, "Uniswap token path too short");
                 inputToken = path[0];
                 outputToken = path[path.length - 1];
-            } else if (selector == 0xafc6728e) {
-                // batchFill()
-                BatchFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                    abi.decode(_data[4:], (BatchFillData, uint256));
-                inputToken = fillData.inputToken;
-                outputToken = fillData.outputToken;
-                inputTokenAmount = fillData.sellAmount;
-            } else if (selector == 0x21c184b6) {
-                // multiHopFill()
-                MultiHopFillData memory fillData;
-                (fillData, minOutputTokenAmount) =
-                    abi.decode(_data[4:], (MultiHopFillData, uint256));
-                require(fillData.tokens.length > 1, "Multihop token path too short");
-                inputToken = fillData.tokens[0];
-                outputToken = fillData.tokens[fillData.tokens.length - 1];
-                inputTokenAmount = fillData.sellAmount;
+            } else if (selector == 0xaa77476c) {
+                // fillRfqOrder()
+                RfqOrder memory order;
+                uint128 takerTokenFillAmount;
+                (order, , takerTokenFillAmount) =
+                    abi.decode(_data[4:], (RfqOrder, Signature, uint128));
+                inputTokenAmount = uint256(takerTokenFillAmount);
+                inputToken = order.takerToken;
+                outputToken = order.makerToken;
+                minOutputTokenAmount = getRfqOrderMakerFillAmount(order, inputTokenAmount);
+            } else if (selector == 0x75103cb9) {
+                // batchFillRfqOrders()
+                RfqOrder[] memory orders;
+                uint128[] memory takerTokenFillAmounts;
+                bool revertIfIncomplete;
+                (orders, , takerTokenFillAmounts, revertIfIncomplete) =
+                    abi.decode(_data[4:], (RfqOrder[], uint256, uint128[], bool));
+                require(orders.length > 0, "Empty RFQ orders");
+                require(revertIfIncomplete, "batchFillRfqOrder must be all or nothing");
+                inputToken = orders[0].takerToken;
+                outputToken = orders[0].makerToken;
+                for (uint256 i = 0; i < orders.length; ++i) {
+                    inputTokenAmount += uint256(takerTokenFillAmounts[i]);
+                    minOutputTokenAmount += getRfqOrderMakerFillAmount(orders[i], takerTokenFillAmounts[i]);
+                }
             } else if (selector == 0x6af479b2) {
                 // sellTokenForTokenToUniswapV3()
                 bytes memory encodedPath;
@@ -206,6 +210,17 @@ contract ZeroExApiAdapter {
             0,
             _data
         );
+    }
+
+    function getRfqOrderMakerFillAmount(RfqOrder memory order, uint256 takerTokenFillAmount)
+        private
+        pure
+        returns (uint256 makerTokenFillAmount)
+    {
+        if (order.takerAmount == 0 || order.makerAmount == 0 || takerTokenFillAmount == 0) {
+            return 0;
+        }
+        return uint256(order.makerAmount * takerTokenFillAmount / order.takerAmount);
     }
 
     // Decode input and output tokens from an arbitrary length encoded Uniswap V3 path

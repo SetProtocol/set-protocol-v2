@@ -73,7 +73,7 @@ const config: HardhatUserConfig = {
   contractSizer: {
     runOnCompile: false,
   },
-  
+
   mocha: mochaConfig,
 
   // These are external artifacts we don't compile but would like to improve
