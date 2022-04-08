@@ -116,7 +116,7 @@ describe("ZeroExApiAdapter", () => {
 
   addSnapshotBeforeRestoreAfterEach();
 
-  describe.only("getTradeCalldata", () => {
+  describe("getTradeCalldata", () => {
     it("rejects unsupported function", async () => {
       const data = zeroExMock.interface.encodeFunctionData("transformERC20", [
         sourceToken,
