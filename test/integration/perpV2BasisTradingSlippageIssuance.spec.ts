@@ -14,7 +14,6 @@ import {
 import { PerpV2BaseToken } from "@utils/contracts/perpV2";
 import {
   toUSDCDecimals,
-  calculateUSDCTransferIn,
   calculateUSDCTransferOut,
   leverUp,
   getNetFundingGrowth,
@@ -131,33 +130,6 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
     );
   });
 
-  // Helper to calculate how leveraged the Perp account gets as it mints tokens on margin
-  async function calculateFlashLeverage(setToken: Address, setQuantity: BigNumber): Promise<BigNumber> {
-    const spotPrice = await perpSetup.getSpotPrice(vETH.address);
-    const { collateralBalance } = await perpBasisTradingModule.getAccountInfo(setToken);
-    const positionNotionalInfo = (await perpBasisTradingModule.getPositionNotionalInfo(setToken))[0];
-    const positionUnitInfo = (await perpBasisTradingModule.getPositionUnitInfo(setToken))[0];
-
-    const currentAssetValue = preciseMul(positionNotionalInfo.baseBalance, spotPrice);
-    const currentDebtValue = positionNotionalInfo.quoteBalance;
-
-    const flashAssetQuantityNotional = preciseMul(positionUnitInfo.baseUnit, setQuantity);
-    const flashAssetValue = preciseMul(flashAssetQuantityNotional, spotPrice);
-    const flashDebtValue =
-      (await perpSetup.getSwapQuote(vETH.address, flashAssetQuantityNotional, true)).deltaQuote;
-
-    const totalAssetValueBeforeRepayment = currentAssetValue.add(flashAssetValue);
-    const totalDebtValueBeforeRepayment = currentDebtValue.sub(flashDebtValue);
-
-    return preciseDiv(
-      totalAssetValueBeforeRepayment,
-
-      totalAssetValueBeforeRepayment
-        .add(totalDebtValueBeforeRepayment)
-        .add(collateralBalance)
-    );
-  }
-
   async function calculateTotalSlippage(setToken: SetToken, setQuantity: BigNumber): Promise<BigNumber> {
     let totalExpectedSlippage = BigNumber.from(0);
     const allPositionInfo = await perpBasisTradingModule.getPositionNotionalInfo(setToken.address);
@@ -231,554 +203,19 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
     };
   }
 
-  describe("#issuance", async () => {
-    let setToken: SetToken;
-    let issueFee: BigNumber;
-    let usdcDefaultPositionUnit: BigNumber;
-
-    let subjectSetToken: Address;
-    let subjectQuantity: BigNumber;
-    let subjectCheckedComponents: Address[];
-    let subjectMaxTokenAmountsIn: BigNumber[];
-    let subjectTo: Address;
-    let subjectCaller: Account;
-    let issueQuantity: BigNumber;
-
-    const initializeContracts = async function () {
-      usdcDefaultPositionUnit = usdcUnits(10);
-      setToken = await setup.createSetToken(
-        [usdc.address],
-        [usdcDefaultPositionUnit],
-        [perpBasisTradingModule.address, slippageIssuanceModule.address]
-      );
-      issueFee = ether(0.005);
-      await slippageIssuanceModule.initialize(
-        setToken.address,
-        ether(0.02),
-        issueFee,
-        ether(0.005),
-        feeRecipient.address,
-        ADDRESS_ZERO
-      );
-      // Add SetToken to allow list
-      await perpBasisTradingModule.updateAllowedSetToken(setToken.address, true);
-      await perpBasisTradingModule["initialize(address,(address,uint256,uint256))"](
-        setToken.address,
-        {
-          feeRecipient: owner.address,
-          performanceFeePercentage: ether(.0),
-          maxPerformanceFeePercentage: ether(.2)
-        }
-      );
-
-      // Approve tokens to issuance module and call issue
-      await usdc.approve(slippageIssuanceModule.address, usdcUnits(1000));
-    };
-
-    async function subject(): Promise<ContractTransaction> {
-      return slippageIssuanceModule.connect(subjectCaller.wallet).issueWithSlippage(
-        subjectSetToken,
-        subjectQuantity,
-        subjectCheckedComponents,
-        subjectMaxTokenAmountsIn,
-        subjectTo,
-      );
-    }
-
-    context("when there is a default usdc position with 0 supply", async () => {
-      cacheBeforeEach(initializeContracts);
-      beforeEach(() => {
-        subjectSetToken = setToken.address;
-        subjectQuantity = ether(1);
-        subjectCheckedComponents = [];
-        subjectMaxTokenAmountsIn = [];
-        subjectTo = owner.address;
-        subjectCaller = owner;
-      });
-
-      it("should not update the collateral position on the SetToken", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        const currentPositions = await setToken.getPositions();
-        const newFirstPosition = (await setToken.getPositions())[0];
-
-        expect(initialPositions.length).to.eq(1);
-        expect(currentPositions.length).to.eq(1);
-        expect(newFirstPosition.component).to.eq(usdc.address);
-        expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(usdcDefaultPositionUnit);
-        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-      });
-
-      it("should not have an external usdc position", async () => {
-        const initialPositions = await setToken.getPositions();
-
-        await subject();
-
-        const currentPositions = await setToken.getPositions();
-
-        expect(initialPositions.length).to.eq(1);
-        expect(currentPositions.length).to.eq(1);
-      });
-
-      it("should have the correct token balances", async () => {
-        const preMinterUSDCBalance = await usdc.balanceOf(subjectCaller.address);
-        const preSetUSDCBalance = await usdc.balanceOf(subjectSetToken);
-
-        await subject();
-
-        const mintQuantity = preciseMul(subjectQuantity, ether(1).add(issueFee));
-        const usdcFlows = preciseMul(mintQuantity, usdcDefaultPositionUnit);
-
-        const postMinterUSDCBalance = await usdc.balanceOf(subjectCaller.address);
-        const postSetUSDCBalance = await usdc.balanceOf(subjectSetToken);
-
-        expect(postMinterUSDCBalance).to.eq(preMinterUSDCBalance.sub(usdcFlows));
-        expect(postSetUSDCBalance).to.eq(preSetUSDCBalance.add(usdcFlows));
-      });
-    });
-
-    context("when there is only an external USDC position and totalSupply is 1", async () => {
-      let baseToken: Address;
-      let depositQuantityUnit: BigNumber;
-      let usdcTransferInQuantity: BigNumber;
-
-      cacheBeforeEach(initializeContracts);
-
-      beforeEach(async () => {
-        // Issue 1 SetToken
-        issueQuantity = ether(1);
-        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
-
-        depositQuantityUnit = usdcDefaultPositionUnit;
-        await perpBasisTradingModule.deposit(setToken.address, depositQuantityUnit);
-
-        // Lever up
-        baseToken = vETH.address;
-        await leverUp(
-          setToken,
-          perpBasisTradingModule,
-          perpSetup,
-          owner,
-          baseToken,
-          2,
-          ether(.02),
-          true
-        );
-
-        subjectSetToken = setToken.address;
-        subjectCheckedComponents = [];
-        subjectMaxTokenAmountsIn = [];
-        subjectTo = owner.address;
-        subjectCaller = owner;
-      });
-
-      describe("starting test assumptions", async () => {
-        it("should be correct", async () => {
-          const defaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
-            usdc.address,
-            perpBasisTradingModule.address
-          );
-
-          expect(defaultPositionUnit).eq(ZERO);
-          expect(externalPositionUnit).eq(depositQuantityUnit);
-        });
-      });
-
-      describe("when minting a single set", () => {
-        beforeEach(async () => {
-          subjectQuantity = ether(1);
-
-          usdcTransferInQuantity = await calculateUSDCTransferIn(
-            setToken,
-            subjectQuantity,
-            perpBasisTradingModule,
-            perpSetup
-          );
-        });
-
-        it("should not update the USDC defaultPositionUnit", async () => {
-          const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
-          await subject();
-          const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);;
-
-          expect(finalDefaultPositionUnit).to.eq(initialDefaultPositionUnit);
-        });
-
-        it("should have set the expected USDC externalPositionUnit", async () => {
-          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-
-          await subject();
-
-          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
-            usdc.address,
-            perpBasisTradingModule.address
-          );
-
-          // externalPositionUnit = 10_008_105;
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
-        });
-
-        it("have the expected virtual token balance", async () => {
-          const totalSupply = await setToken.totalSupply();
-
-          const initialBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
-          await subject();
-          const finalBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
-
-          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
-          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
-          const expectedBaseBalance = initialBaseBalance.add(baseTokenBoughtNotional);
-
-          expect(finalBaseBalance).eq(expectedBaseBalance);
-        });
-
-        it("should deposit the expected amount into the Perp vault", async () => {
-          const initialCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-          await subject();
-          const finalCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, usdcTransferInQuantity);
-
-          // usdcTransferIn        = 10_008_105
-          // feeAdjustedTransferIn = 10_058_145
-          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
-          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
-        });
-
-        it("should get required component issuance units correctly", async () => {
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
-
-          const [components, equityFlows, debtFlows] = await slippageIssuanceModule.callStatic.getRequiredComponentIssuanceUnitsOffChain(
-            subjectSetToken,
-            subjectQuantity
-          );
-
-          const expectedComponents = await setToken.getComponents();
-          const expectedEquityFlows = [feeAdjustedTransferIn];
-          const expectedDebtFlows = [ZERO];
-
-          expect(expectedComponents[0]).to.eq(components[0]);
-          expect(expectedEquityFlows[0]).to.be.closeTo(equityFlows[0], 50);
-          expect(expectedDebtFlows[0]).to.eq(debtFlows[0]);
-        });
-
-        it("should transfer in the expected amount of USDC from the user and mint the expected amount of Set", async () => {
-          const [, equityFlows, debtFlows] = await slippageIssuanceModule.callStatic.getRequiredComponentIssuanceUnitsOffChain(
-            subjectSetToken,
-            subjectQuantity
-          );
-          const setBalanceBefore = await setToken.balanceOf(subjectTo);
-          const usdcBalanceBefore = await perpSetup.usdc.balanceOf(subjectTo);
-          await subject();
-          const setBalanceAfter = await setToken.balanceOf(subjectTo);
-          const usdcBalanceAfter = await perpSetup.usdc.balanceOf(subjectTo);
-
-          expect(subjectQuantity).to.be.eq(setBalanceAfter.sub(setBalanceBefore));
-          expect(equityFlows[0]).to.be.closeTo(usdcBalanceBefore.sub(usdcBalanceAfter), 50);
-          expect(debtFlows[0]).to.eq(ZERO);
-        });
-      });
-
-      describe("when minting multiple sets", () => {
-        beforeEach(async () => {
-          subjectQuantity = ether(2);
-
-          usdcTransferInQuantity = await calculateUSDCTransferIn(
-            setToken,
-            subjectQuantity,
-            perpBasisTradingModule,
-            perpSetup
-          );
-        });
-
-        it("should have set the expected USDC externalPositionUnit", async () => {
-          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-
-          await subject();
-
-          const externalPositionUnit = await setToken.getExternalPositionRealUnit(
-            usdc.address,
-            perpBasisTradingModule.address
-          );
-
-          // externalPositionUnit = 10_008_105;
-          expect(externalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
-        });
-
-        it("have the expected virtual token balance", async () => {
-          const totalSupply = await setToken.totalSupply();
-
-          const initialBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
-          await subject();
-          const finalBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
-
-          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
-          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
-          const expectedBaseBalance = initialBaseBalance.add(baseTokenBoughtNotional);
-
-          expect(finalBaseBalance).eq(expectedBaseBalance);
-        });
-
-        it("should deposit the expected amount into the Perp vault", async () => {
-          const initialCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-          await subject();
-          const finalCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
-
-          // usdcTransferIn        = 20_024_302
-          // feeAdjustedTransferIn = 20_124_423
-          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
-          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
-        });
-
-        it("should deposit the expected amount into the Perp vault", async () => {
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
-
-          const initialCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-          await subject();
-          const finalCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-
-          // usdcTransferIn        = 20_024_302
-          // feeAdjustedTransferIn = 20_124_423
-          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
-          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
-        });
-
-        // This is slightly off ... over a tenth of a penny.
-        it.skip("should not incur a premium", async () => {
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          // Model says premium should be calculated as (usdcTransferIn / amountMinted)
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
-          const feeAdjustedExternalPositionUnit = preciseDiv(feeAdjustedTransferIn, issueQuantityWithFees);
-
-          // Slippage will be paid by the issuer, but get reflected as debt in the quote balance.
-          const totalSlippageAndFees = await calculateTotalSlippage(setToken, subjectQuantity);
-          const totalSlippagePositionUnit = preciseDiv(totalSlippageAndFees, subjectQuantity);
-
-          const feeAndSlippageAdjustedExternalPositionUnit = feeAdjustedExternalPositionUnit
-            .sub(toUSDCDecimals(totalSlippagePositionUnit));
-
-          await subject();
-
-          // Calculate value of set
-          const accountInfo = await perpBasisTradingModule.getAccountInfo(subjectSetToken);
-          const spotPrice = await perpSetup.getSpotPrice(baseToken);
-          const baseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
-          const notionalBaseValue = preciseMul(baseBalance, spotPrice);
-
-          const totalSetValue = notionalBaseValue
-            .add(accountInfo.netQuoteBalance)
-            .add(accountInfo.collateralBalance)
-            .add(accountInfo.owedRealizedPnl);
-
-          const valuePerSet = preciseDiv(totalSetValue, await setToken.totalSupply());
-          const valuePerSetUSDC = toUSDCDecimals(valuePerSet);
-
-          // feeAdjustedExternalPositionUnit            = 10012150
-          // feeAndSlippageAdjustedExternalPositionUnit =  9801960
-          // valuePerSet                                =  9818624
-          expect(valuePerSetUSDC).eq(feeAndSlippageAdjustedExternalPositionUnit);
-        });
-      });
-
-      describe("when flash-issuing at high margin (success)", async () => {
-        // Starting point is 2X leverage, with 10 USDC collateral, 20 USDC vETH, totalSupply = 1
-        // Minting 3 sets raises interim leverage ratio to > 80 USDC Asset / 10 USDC collateral
-        // We know from spec scenario testing that the effective limit is ~ 9.1X
-        beforeEach(async () => {
-          subjectQuantity = ether(3);
-        });
-
-        // Calculated leverage = 8_702_210_816_139_153_672
-        it("~8.7X succeeds", async () => {
-          const flashLeverage = await calculateFlashLeverage(subjectSetToken, subjectQuantity);
-          await subject();
-
-          expect(flashLeverage).to.be.gt(ether(8));
-          expect(flashLeverage).to.be.lt(ether(9));
-        });
-      });
-
-      describe("when flash-issuing at high margin (failure)", async () => {
-        beforeEach(async () => {
-          subjectQuantity = ether(3.5);
-        });
-
-        // Calculated leverage = 9_911_554_370_685_102_958
-        it("~9.9X fails", async () => {
-          const flashLeverage = await calculateFlashLeverage(subjectSetToken, subjectQuantity);
-
-          await expect(subject()).to.be.revertedWith("CH_NEFCI");
-
-          expect(flashLeverage).to.be.gt(ether(9));
-          expect(flashLeverage).to.be.lt(ether(10));
-        });
-      });
-
-      describe("when issuing after a liquidation", async () => {
-        beforeEach(async () => {
-          subjectQuantity = ether(1);
-
-          // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
-          await leverUp(
-            setToken,
-            perpBasisTradingModule,
-            perpSetup,
-            owner,
-            baseToken,
-            6,
-            ether(.02),
-            true
-          );
-
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(8.0));
-
-          await perpSetup
-            .clearingHouse
-            .connect(otherTrader.wallet)
-            .liquidate(subjectSetToken, baseToken);
-        });
-
-        it("should issue and transfer in the expected amount", async () => {
-          const initialTotalSupply = await setToken.totalSupply();
-          const initialCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-
-          await subject();
-
-          // We need to calculate this after the subject() fires because it will revert if the positionList
-          // isn't updated correctly...
-          const usdcTransferInQuantity = await calculateUSDCTransferIn(
-            setToken,
-            subjectQuantity,
-            perpBasisTradingModule,
-            perpSetup
-          );
-
-          const finalTotalSupply = await setToken.totalSupply();
-          const finalPositionInfo = await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken);
-          const finalCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken)).collateralBalance;
-
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
-
-          const expectedTotalSupply = initialTotalSupply.add(issueQuantityWithFees);
-          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
-
-          expect(finalTotalSupply).eq(expectedTotalSupply);
-          expect(finalPositionInfo.length).eq(0);
-          expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
-        });
-      });
-
-      describe("when liquidation results in negative account value", () => {
-        beforeEach(async () => {
-          subjectQuantity = ether(1);
-
-          // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
-          await leverUp(
-            setToken,
-            perpBasisTradingModule,
-            perpSetup,
-            owner,
-            baseToken,
-            6,
-            ether(.02),
-            true
-          );
-
-          // Move oracle price down to 5 USDC to enable liquidation
-          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5));
-
-          // Move price down by maker selling 20_000 USDC of vETH
-          // Post trade spot price drops from ~10 USDC to 6_380_562_015_950_425_028
-          await perpSetup.clearingHouse.connect(maker.wallet).openPosition({
-            baseToken: vETH.address,
-            isBaseToQuote: true,       // short
-            isExactInput: false,       // `amount` is USDC
-            amount: ether(20_000),
-            oppositeAmountBound: ZERO,
-            deadline: MAX_UINT_256,
-            sqrtPriceLimitX96: ZERO,
-            referralCode: ZERO_BYTES
-          });
-
-          await perpSetup
-            .clearingHouse
-            .connect(otherTrader.wallet)
-            .liquidate(subjectSetToken, baseToken);
-        });
-
-        // In this test case, the account is bankrupt:
-        // collateralBalance =  10050000000000000000
-        // owedRealizedPnl =   -31795534271984084912
-        it("should issue without transferring any usdc (because account worth 0)", async () => {
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const initialIssuerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
-          const initialTotalSupply = await setToken.totalSupply();
-
-          await subject();
-
-          const finalIssuerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
-          const finalTotalSupply = await setToken.totalSupply();
-
-          const expectedTotalSupply = initialTotalSupply.add(issueQuantityWithFees);
-
-          expect(finalTotalSupply).eq(expectedTotalSupply);
-          expect(finalIssuerUSDCBalance).eq(initialIssuerUSDCBalance);
-        });
-      });
-    });
-  });
-
+  // PerpV2BasisTradingModule#moduleIssueHook implementation calls PerpV2LeverageModuleV2#moduleIssueHook to handle issuance
+  // after updating tracked settled funding. The functionality to track settled funding when moduleIssueHook is called is
+  // tested in the PerpV2BasisTradingModule unit tests (test/protocol/modules/perpV2BasisTradingModule.spec.ts). And the
+  // functionality to set external position unit before issuance, has been tested in the PerpV2LeverageModuleV2 <> SlippageIssuanceModule
+  // integration tests (test/integration/perpV2LeverageV2SlippageIssuance.spec.ts). Hence we will not restest them here.
+  describe("#issuance", () => {});
+
+  // PerpV2BasisTradingModule#moduleRedeemHook does not call PerpV2LeverageModuleV2#moduleRedeemHook. It reimplements the functionality to
+  // set external position unit, with the addition of extra logic to handle performance fees on redemption, and to update tracked settled funding.
+  // The logic to update tracked settled funding when moduleRedeemHook is called is tested in the PerpV2BasisTradingModule unit tests
+  // (test/protocol/modules/perpV2BasisTradingModule.spec.ts). The below tests for redemption are exactly similar to the PerpV2LeverageModuleV2
+  // redemption tests, with the additional case for "when funding payment is positive" (for both cases, when supply goes to 0, supply goes to non-zero
+  // after redemption) to test the logic to handle performance fees during redemption.
   describe("#redemption", async () => {
     let setToken: SetToken;
     let baseToken: Address;
@@ -1169,7 +606,6 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         expect(debtFlows[0]).to.eq(ZERO);
       });
 
-
       // This is slightly off ... over a tenth of a penny.
       it.skip("should not incur a premium", async () => {
         const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
@@ -1211,6 +647,83 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         // feeAndSlippageAdjustedExternalPositionUnit = 9_808_047
 
         expect(valuePerSetUSDC).eq(feeAndSlippageAdjustedExternalPositionUnit);
+      });
+
+      describe("when pending funding payment is positive", async () => {
+        beforeEach(async () => {
+          // Move oracle price down and wait one day
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        });
+
+        it("verify testing condiitons", async () => {
+          const accountInfo = await perpBasisTradingModule.getAccountInfo(setToken.address);
+          expect(accountInfo.pendingFundingPayments).to.be.gt(ZERO);
+        });
+
+        it("should not update the USDC defaultPositionUnit", async () => {
+          const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+          await subject();
+          const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+
+          expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
+        });
+
+        it("should have updated the USDC externalPositionUnit", async () => {
+          const baseBalance = await perpSetup.accountBalance.getBase(setToken.address, vETH.address);
+          usdcTransferOutQuantity = await calculateUSDCTransferOutPreciseUnits(
+            setToken,
+            subjectQuantity,
+            perpBasisTradingModule,
+            perpSetup
+          );
+
+          const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+          const totalSupplyBeforeRedeem = await setToken.totalSupply();
+          const performanceFeePercentage = (await perpBasisTradingModule.feeSettings(subjectSetToken)).performanceFeePercentage;
+          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+
+          await subject();
+
+          const netFundingGrowth = await getNetFundingGrowth(vETH.address, baseBalance, perpSetup);
+          const performanceFeeUnit = toUSDCDecimals(
+            preciseMul(
+              preciseDivCeil(settledFundingBefore.add(netFundingGrowth), totalSupplyBeforeRedeem),
+              performanceFeePercentage
+            )
+          );
+
+          const expectedExternalPositionUnit = toUSDCDecimals(
+            preciseDiv(usdcTransferOutQuantity, subjectQuantity)
+          ).sub(performanceFeeUnit);
+
+          const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+
+          expect(initialExternalPositionUnit).not.eq(finalExternalPositionUnit);
+          expect(finalExternalPositionUnit).closeTo(expectedExternalPositionUnit, 30);
+        });
+
+        it("should have the expected virtual token balance", async () => {
+          const totalSupply = await setToken.totalSupply();
+
+          const initialBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+          await subject();
+          const finalBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+
+          const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
+          const expectedBaseBalance = initialBaseBalance.sub(baseTokenBoughtNotional);
+
+          expect(finalBaseBalance).eq(expectedBaseBalance);
+        });
+
+        it("should not have updated the setToken USDC token balance", async () => {
+          const initialUSDCBalance = await usdc.balanceOf(subjectSetToken);
+          await subject();
+          const finalUSDCBalance = await usdc.balanceOf(subjectSetToken);
+
+          expect(initialUSDCBalance).eq(finalUSDCBalance);
+        });
       });
 
       describe("withdrawal", () => {
