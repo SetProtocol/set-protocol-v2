@@ -352,6 +352,10 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
       onlyManagerAndValidSet(_setToken)
     {
         require(_collateralQuantityUnits > 0, "Deposit amount is 0");
+        require(
+            _collateralQuantityUnits <= _setToken.getDefaultPositionRealUnit(address(collateralToken)).toUint256(),
+            "Amount too high"
+        );
 
         uint256 notionalDepositedQuantity = _depositAndUpdatePositions(_setToken, _collateralQuantityUnits);
 

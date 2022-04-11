@@ -1450,6 +1450,21 @@ describe("PerpV2LeverageModuleV2", () => {
         });
       });
 
+      describe("when trying to deposit airdropped amount", async () => {
+        beforeEach(async () => {
+          // totalSupply = 2, usdc position unit = 100
+          // Airdrop amount = 100
+          await perpSetup.usdc.transfer(subjectSetToken.address, usdcUnits(100));
+
+          // Deposit unit = total usdc balance in Set / totalSupply = 300 / 2 = 150
+          subjectDepositQuantity = usdcUnits(150);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Amount too high");
+        });
+      });
+
       describe("when deposit amount is 0", async () => {
         beforeEach(() => {
           subjectDepositQuantity = usdcUnits(0);
