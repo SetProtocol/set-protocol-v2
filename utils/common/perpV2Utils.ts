@@ -9,7 +9,7 @@ import {
 } from "../index";
 
 import { TWO, ZERO, ONE_DAY_IN_SECONDS } from "../constants";
-import { PerpV2BasisTradingModule, PerpV2LeverageModuleV2, SetToken } from "../contracts";
+import { PerpV2, PerpV2BasisTradingModule, PerpV2LeverageModuleV2, SetToken } from "../contracts";
 import { PerpV2Fixture } from "../fixtures";
 
 
@@ -21,7 +21,7 @@ export function toUSDCDecimals(quantity: BigNumber): BigNumber {
 // Allocates all deposited collateral to a levered position. Returns new baseToken position unit
 export async function leverUp(
   setToken: SetToken,
-  module: PerpV2LeverageModuleV2,
+  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
   owner: Account,
   baseToken: Address,
@@ -65,7 +65,7 @@ export async function leverUp(
 export async function calculateUSDCTransferIn(
   setToken: SetToken,
   setQuantity: BigNumber,
-  module: PerpV2LeverageModuleV2,
+  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
 ) {
   return toUSDCDecimals(await calculateUSDCTransferInPreciseUnits(setToken, setQuantity, module, fixture));
@@ -75,7 +75,7 @@ export async function calculateUSDCTransferIn(
 export async function calculateUSDCTransferInPreciseUnits(
   setToken: SetToken,
   setQuantity: BigNumber,
-  module: PerpV2LeverageModuleV2,
+  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
   includeFunding: boolean = true
 ) {
@@ -124,7 +124,7 @@ export async function calculateUSDCTransferInPreciseUnits(
 export async function calculateUSDCTransferOut(
   setToken: SetToken,
   setQuantity: BigNumber,
-  module: PerpV2LeverageModuleV2,
+  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
 ) {
   return toUSDCDecimals(await calculateUSDCTransferOutPreciseUnits(setToken, setQuantity, module, fixture));
@@ -179,7 +179,7 @@ export async function calculateUSDCTransferOutPreciseUnits(
 
 export async function calculateExternalPositionUnit(
   setToken: SetToken,
-  module: PerpV2LeverageModuleV2,
+  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
 ): Promise<BigNumber> {
   let totalPositionValue = BigNumber.from(0);
@@ -272,7 +272,7 @@ export async function getNetFundingGrowth(
 
 export async function calculateLeverageRatios(
   setToken: Address,
-  perpModule: PerpV2LeverageModuleV2,
+  perpModule: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
 ): Promise<[Address[], BigNumber[]]> {
   const accountInfo = await perpModule.getAccountInfo(setToken);

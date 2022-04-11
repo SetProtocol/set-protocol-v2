@@ -937,6 +937,81 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
+  describe("#deosit", async () => {
+    describe("when entire withdrawn funding via #withdrawFundingAndAccrueFees is deposited back", async () => {
+      let setToken: SetToken;
+      const isInitialized: boolean = true;
+      let depositQuantity: BigNumber;
+      const performanceFeePercentage: BigNumber = ZERO;
+      const skipMockModuleInitialization: boolean = false;
+
+      let subjectCaller: Account;
+      let subjectSetToken: Address;
+      let subjectDepositQuantityUnits: BigNumber;
+
+      const initializeContracts = async () => {
+        depositQuantity = usdcUnits(10);
+        // Issue 1 set
+        setToken = await issueSetsAndDepositToPerp(depositQuantity, isInitialized,
+          ether(1),
+          skipMockModuleInitialization,
+          {
+            feeRecipient: owner.address,
+            maxPerformanceFeePercentage: ether(.2),
+            performanceFeePercentage
+          }
+        );
+        if (isInitialized) {
+          await perpBasisTradingModule.connect(owner.wallet).trade(
+            setToken.address,
+            vETH.address,
+            ether(1),
+            ether(10.15)
+          );
+          // Move index price up and wait one day to accrue positive funding
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11.5));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        }
+      };
+
+      beforeEach(async () => {
+        await initializeContracts();
+        console.log("here");
+        await perpBasisTradingModule.connect(owner.wallet).withdrawFundingAndAccrueFees(
+          setToken.address,
+          usdcUnits(0.1)
+        );
+
+        subjectCaller = owner;
+        subjectSetToken = setToken.address;
+        subjectDepositQuantityUnits = usdcUnits(0.1);     // Performance fee = 0%; Total supply = 1e18
+      });
+
+      async function subject(): Promise<any> {
+        return await perpBasisTradingModule
+          .connect(subjectCaller.wallet)
+          .deposit(subjectSetToken, subjectDepositQuantityUnits);
+      }
+
+      it("should create a deposit", async () => {
+        const {
+          collateralBalance: initialCollateralBalance
+        } = await perpBasisTradingModule.getAccountInfo(subjectSetToken);
+
+        await subject();
+
+        const {
+          collateralBalance: finalCollateralBalance
+        } = await perpBasisTradingModule.getAccountInfo(subjectSetToken);
+
+        const totalSupply = await setToken.totalSupply();
+        const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+          .add(preciseMul(subjectDepositQuantityUnits, totalSupply));
+        expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+      });
+    });
+  });
+
   describe("#removeModule", async () => {
     let setToken: SetToken;
     let subjectModule: Address;
@@ -1719,6 +1794,49 @@ describe("PerpV2BasisTradingModule", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Non-zero settled funding remains");
+      });
+
+      describe("settled funding is zeroed by withdrawing (dust tracked settled funding remains)", async () => {
+        beforeEach(async () => {
+          // Set funding to zero, so no more funding increases
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
+
+          const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
+          const pendingFunding = await perpSetup.exchange.getAllPendingFundingPayment(setToken.address);
+          // Set funding notional to high amount; so that withdrawFundingAndAccrueFees withdraws the entire tracked settled funding
+          const fundingNotional = fromPreciseUnitsToDecimals(trackedSettledFunding.add(pendingFunding.mul(-1)).mul(2), 6);
+
+          await perpBasisTradingModule.withdrawFundingAndAccrueFees(
+            setToken.address,
+            fundingNotional
+          );
+        });
+
+        afterEach(async () => {
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(usdcUnits(0.1));       // 10% in 6 decimals
+        });
+
+        it("verify test conditions", async () => {
+          const trackedSettledFunding = await perpBasisTradingModule.settledFunding(setToken.address);
+          const oneWeiUsdcInPreciseUnits = BigNumber.from(10).pow(12);  // 1 * 10^12
+          expect(trackedSettledFunding).to.be.gte(ZERO);
+          // dust funding remains, but any settled funding below 10^12 wei is too less to be converted to 1 wei of USDC
+          expect(trackedSettledFunding).to.be.lt(oneWeiUsdcInPreciseUnits);
+        });
+
+        it("should set the new fee", async () => {
+          await subject();
+
+          const feeSettings = await perpBasisTradingModule.feeSettings(setToken.address);
+          expect(feeSettings.performanceFeePercentage).to.eq(subjectNewFee);
+        });
+
+        it("should emit the correct PerformanceFeeUpdated event", async () => {
+          await expect(subject()).to.emit(perpBasisTradingModule, "PerformanceFeeUpdated").withArgs(
+            subjectSetToken,
+            subjectNewFee
+          );
+        });
       });
     });
 
