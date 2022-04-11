@@ -29,28 +29,24 @@ contract ZeroExMock {
         bytes data;
     }
 
-    struct BatchFillData {
-        address inputToken;
-        address outputToken;
-        uint256 sellAmount;
-        WrappedBatchCall[] calls;
+    struct RfqOrder {
+        address makerToken;
+        address takerToken;
+        uint128 makerAmount;
+        uint128 takerAmount;
+        address maker;
+        address taker;
+        address txOrigin;
+        bytes32 pool;
+        uint64 expiry;
+        uint256 salt;
     }
 
-    struct WrappedBatchCall {
-        bytes4 selector;
-        uint256 sellAmount;
-        bytes data;
-    }
-
-    struct MultiHopFillData {
-        address[] tokens;
-        uint256 sellAmount;
-        WrappedMultiHopCall[] calls;
-    }
-
-    struct WrappedMultiHopCall {
-        bytes4 selector;
-        bytes data;
+    struct Signature {
+        uint8 signatureType;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     struct BatchSellSubcall {
@@ -145,24 +141,27 @@ contract ZeroExMock {
         _transferTokens();
     }
 
-    function batchFill(
-        BatchFillData memory /* fillData */,
-        uint256 /* minBuyAmount */
+    function fillRfqOrder(
+        RfqOrder memory /* order */,
+        Signature memory /* signature */,
+        uint128 /* takerTokenFillAmount */
     )
         external
         payable
-        returns (uint256)
+        returns (uint128, uint128)
     {
         _transferTokens();
     }
 
-    function multiHopFill(
-        MultiHopFillData memory /* fillData */,
-        uint256 /* minBuyAmount */
+    function batchFillRfqOrders(
+        RfqOrder[] memory /* order */,
+        Signature[] memory /* signature */,
+        uint128[] memory /* takerTokenFillAmount */,
+        bool /* revertIfIncomplete */
     )
         external
         payable
-        returns (uint256)
+        returns (uint128[] memory, uint128[] memory)
     {
         _transferTokens();
     }

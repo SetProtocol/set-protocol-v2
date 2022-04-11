@@ -6,9 +6,85 @@ import { ZeroExApiAdapter, ZeroExMock } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import { addSnapshotBeforeRestoreAfterEach, getAccounts, getWaffleExpect } from "@utils/test/index";
 import { hexUtils } from "@0x/utils";
+import { BigNumber } from "ethers";
 import { take } from "lodash";
 
 const expect = getWaffleExpect();
+const NULL_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
+const NULL_SIGNATURE = {
+  signatureType: 0,
+  v: 0,
+  r: NULL_BYTES32,
+  s: NULL_BYTES32,
+};
+
+interface RfqOrder {
+  makerToken: string;
+  takerToken: string;
+  makerAmount: BigNumber;
+  takerAmount: BigNumber;
+  maker: string;
+  taker: string;
+  txOrigin: string;
+  pool: string;
+  expiry: number;
+  salt: BigNumber;
+}
+
+function createRfqOrder(
+  takerToken: string,
+  makerToken: string,
+  takerAmount: BigNumber,
+  makerAmount: BigNumber,
+  scaling = 1.0,
+): RfqOrder {
+  return {
+    makerToken,
+    takerToken,
+    expiry: 0,
+    maker: ADDRESS_ZERO,
+    taker: ADDRESS_ZERO,
+    txOrigin: ADDRESS_ZERO,
+    salt: ZERO,
+    pool: NULL_BYTES32,
+    ...(scaling === 1
+      ? { makerAmount, takerAmount }
+      : {
+        makerAmount: makerAmount.mul(Math.floor(scaling * 1e4)).div(1e4),
+        takerAmount: takerAmount.mul(Math.floor(scaling * 1e4)).div(1e4),
+      }
+    ),
+  };
+}
+
+interface BatchOrderQuantity {
+  orderSourceQuantity: BigNumber;
+  orderMinDestinationQuantity: BigNumber;
+}
+
+function createBatchOrderQuantities(
+  totalSourceQuantity: BigNumber,
+  totalMinDestinationQuantity: BigNumber,
+  count: number = 3,
+): Array<BatchOrderQuantity> {
+  if (count === 0) {
+    return [];
+  }
+  const osq = totalSourceQuantity.div(count);
+  const omdq = totalMinDestinationQuantity.div(count);
+  const orderQuantities = [];
+  for (let i = 0; i < count - 1; ++i) {
+    orderQuantities.push({
+      orderSourceQuantity: osq,
+      orderMinDestinationQuantity: omdq,
+    });
+  }
+  orderQuantities.push({
+    orderSourceQuantity: totalSourceQuantity.sub(osq.mul(count - 1)),
+    orderMinDestinationQuantity: totalMinDestinationQuantity.sub(omdq.mul(count - 1)),
+  });
+  return orderQuantities;
+}
 
 describe("ZeroExApiAdapter", () => {
   let owner: Account;
@@ -570,16 +646,12 @@ describe("ZeroExApiAdapter", () => {
       });
     });
 
-    describe("batchFill", () => {
+    describe("fillRfqOrder", () => {
       it("validates data", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("batchFill", [
-          {
-            inputToken: sourceToken,
-            outputToken: destToken,
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
+        const data = zeroExMock.interface.encodeFunctionData("fillRfqOrder", [
+          createRfqOrder(sourceToken, destToken, sourceQuantity, minDestinationQuantity),
+          NULL_SIGNATURE,
+          sourceQuantity,
         ]);
         const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
           sourceToken,
@@ -594,17 +666,13 @@ describe("ZeroExApiAdapter", () => {
         expect(_data).to.deep.eq(data);
       });
 
-      it("rejects wrong input token", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("batchFill", [
-          {
-            inputToken: otherToken,
-            outputToken: destToken,
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
+      it("accepts larger order", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("fillRfqOrder", [
+          createRfqOrder(sourceToken, destToken, sourceQuantity, minDestinationQuantity, 1.01),
+          NULL_SIGNATURE,
+          sourceQuantity,
         ]);
-        const tx = zeroExApiAdapter.getTradeCalldata(
+        const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
           sourceToken,
           destToken,
           destination,
@@ -612,60 +680,16 @@ describe("ZeroExApiAdapter", () => {
           minDestinationQuantity,
           data,
         );
-        await expect(tx).to.be.revertedWith("Mismatched input token");
+        expect(target).to.eq(zeroExMock.address);
+        expect(value).to.deep.eq(ZERO);
+        expect(_data).to.deep.eq(data);
       });
 
-      it("rejects wrong output token", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("batchFill", [
-          {
-            inputToken: sourceToken,
-            outputToken: otherToken,
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
-        ]);
-        const tx = zeroExApiAdapter.getTradeCalldata(
-          sourceToken,
-          destToken,
-          destination,
+      it("rejects bad order rate", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("fillRfqOrder", [
+          createRfqOrder(sourceToken, destToken, sourceQuantity, minDestinationQuantity.sub(1)),
+          NULL_SIGNATURE,
           sourceQuantity,
-          minDestinationQuantity,
-          data,
-        );
-        await expect(tx).to.be.revertedWith("Mismatched output token");
-      });
-
-      it("rejects wrong input token quantity", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("batchFill", [
-          {
-            inputToken: sourceToken,
-            outputToken: destToken,
-            sellAmount: otherQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
-        ]);
-        const tx = zeroExApiAdapter.getTradeCalldata(
-          sourceToken,
-          destToken,
-          destination,
-          sourceQuantity,
-          minDestinationQuantity,
-          data,
-        );
-        await expect(tx).to.be.revertedWith("Mismatched input token quantity");
-      });
-
-      it("rejects wrong output token quantity", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("batchFill", [
-          {
-            inputToken: sourceToken,
-            outputToken: destToken,
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          otherQuantity,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           sourceToken,
@@ -677,17 +701,91 @@ describe("ZeroExApiAdapter", () => {
         );
         await expect(tx).to.be.revertedWith("Mismatched output token quantity");
       });
+
+      it("rejects too small order", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("fillRfqOrder", [
+          createRfqOrder(sourceToken, destToken, sourceQuantity, minDestinationQuantity, 0.99),
+          NULL_SIGNATURE,
+          sourceQuantity,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Mismatched output token quantity");
+      });
+
+      it("rejects wrong input token", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("fillRfqOrder", [
+          createRfqOrder(otherToken, destToken, sourceQuantity, minDestinationQuantity),
+          NULL_SIGNATURE,
+          sourceQuantity,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Mismatched input token");
+      });
+
+      it("rejects wrong output token", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("fillRfqOrder", [
+          createRfqOrder(sourceToken, otherToken, sourceQuantity, minDestinationQuantity),
+          NULL_SIGNATURE,
+          sourceQuantity,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Mismatched output token");
+      });
+
+      it("rejects wrong input token quantity", async () => {
+        const data = zeroExMock.interface.encodeFunctionData("fillRfqOrder", [
+          createRfqOrder(sourceToken, destToken, sourceQuantity, minDestinationQuantity),
+          NULL_SIGNATURE,
+          otherQuantity,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Mismatched input token quantity");
+      });
     });
 
-    describe("multiHopFill", () => {
+    describe("batchFillRfqOrder", () => {
       it("validates data", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
-          {
-            tokens: [sourceToken, destToken],
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              destToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          true,
         ]);
         const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
           sourceToken,
@@ -702,14 +800,127 @@ describe("ZeroExApiAdapter", () => {
         expect(_data).to.deep.eq(data);
       });
 
-      it("rejects wrong input token", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
-          {
-            tokens: [otherToken, destToken],
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
+      it("validates data with larger orders", async () => {
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              destToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+              1.01
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          true,
+        ]);
+        const [target, value, _data] = await zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
           minDestinationQuantity,
+          data,
+        );
+        expect(target).to.eq(zeroExMock.address);
+        expect(value).to.deep.eq(ZERO);
+        expect(_data).to.deep.eq(data);
+      });
+
+      it("rejects badly priced orders", async () => {
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              destToken,
+              orderSourceQuantity.add(1),
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          true,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Mismatched output token quantity");
+      });
+
+      it("rejects if no orders", async () => {
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity, 0);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              destToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          true,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("Empty RFQ orders");
+      });
+
+      it("rejects if revertIfIncomplete is not true", async () => {
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              destToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          false,
+        ]);
+        const tx = zeroExApiAdapter.getTradeCalldata(
+          sourceToken,
+          destToken,
+          destination,
+          sourceQuantity,
+          minDestinationQuantity,
+          data,
+        );
+        await expect(tx).to.be.revertedWith("batchFillRfqOrder must be all or nothing");
+      });
+
+      it("rejects wrong input token", async () => {
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              otherToken,
+              destToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          true,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           sourceToken,
@@ -722,34 +933,20 @@ describe("ZeroExApiAdapter", () => {
         await expect(tx).to.be.revertedWith("Mismatched input token");
       });
 
-      it("rejects went path too short", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
-          {
-            tokens: [sourceToken],
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
-        ]);
-        const tx = zeroExApiAdapter.getTradeCalldata(
-          sourceToken,
-          destToken,
-          destination,
-          sourceQuantity,
-          minDestinationQuantity,
-          data,
-        );
-        await expect(tx).to.be.revertedWith("Multihop token path too short");
-      });
-
       it("rejects wrong output token", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
-          {
-            tokens: [sourceToken, otherToken],
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              otherToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          true,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           sourceToken,
@@ -762,14 +959,20 @@ describe("ZeroExApiAdapter", () => {
         await expect(tx).to.be.revertedWith("Mismatched output token");
       });
 
-      it("rejects wrong input token quantity", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
-          {
-            tokens: [sourceToken, destToken],
-            sellAmount: otherQuantity,
-            calls: [],
-          },
-          minDestinationQuantity,
+      it("rejects wrong input token amount", async () => {
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              destToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity.add(1)),
+          true,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           sourceToken,
@@ -782,21 +985,27 @@ describe("ZeroExApiAdapter", () => {
         await expect(tx).to.be.revertedWith("Mismatched input token quantity");
       });
 
-      it("rejects wrong output token quantity", async () => {
-        const data = zeroExMock.interface.encodeFunctionData("multiHopFill", [
-          {
-            tokens: [sourceToken, destToken],
-            sellAmount: sourceQuantity,
-            calls: [],
-          },
-          otherQuantity,
+      it("rejects wrong output token amount", async () => {
+        const orderQuantities = createBatchOrderQuantities(sourceQuantity, minDestinationQuantity);
+        const data = zeroExMock.interface.encodeFunctionData("batchFillRfqOrders", [
+          orderQuantities.map(({ orderSourceQuantity, orderMinDestinationQuantity }) =>
+            createRfqOrder(
+              sourceToken,
+              destToken,
+              orderSourceQuantity,
+              orderMinDestinationQuantity,
+            ),
+          ),
+          orderQuantities.map(() => NULL_SIGNATURE),
+          orderQuantities.map(({ orderSourceQuantity }) => orderSourceQuantity),
+          true,
         ]);
         const tx = zeroExApiAdapter.getTradeCalldata(
           sourceToken,
           destToken,
           destination,
           sourceQuantity,
-          minDestinationQuantity,
+          minDestinationQuantity.add(1),
           data,
         );
         await expect(tx).to.be.revertedWith("Mismatched output token quantity");
