@@ -1,6 +1,17 @@
 // Deploy Hardhat Network State for Subgraph Tests
 // -----------------------------------------------
-// Deploy a test environment to hardhat for subgraph development
+// This script is intended for use with the set-protocol-v2-subgraph repository
+// for deploying a containerized local Hardhat node and test environment for
+// subgraph development. See command `task deploy-hardhat` in that repo for
+// more information.
+//
+// Standalone execution against a local Hardhat node deployed from this
+// repository is possible via the following command:
+//
+//   npx hardhat run --no-compile $(pwd)/subgraph/test/deploy-state.ts --network localhost
+//
+// The following deployment state is executed:
+//
 // - Deploy system
 // - Deploy SetToken with 1 WBTC
 // - Basic Issue 10
