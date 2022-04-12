@@ -1201,12 +1201,13 @@ describe("PerpV2LeverageModuleV2", () => {
       });
 
       it("should update the USDC externalPositionUnit", async () => {
-        const initialExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
         await subject();
-        const finalExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
-
-        const expectedDefaultPosition = initialExternalPositionUnit.add(subjectDepositQuantity);
-        expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
+        const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+          subjectSetToken,
+          perpSetup
+        );
+        expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
 
       it("should emit the correct CollateralDeposited event", async () => {
@@ -1544,12 +1545,12 @@ describe("PerpV2LeverageModuleV2", () => {
     }
 
     describe("when module is initialized", () => {
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         isInitialized = true;
+        await initializeContracts();
       });
 
-      cacheBeforeEach(initializeContracts);
-      beforeEach(() => initializeSubjectVariables());
+      beforeEach(initializeSubjectVariables);
 
       it("should withdraw an amount", async () => {
         const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
@@ -1574,12 +1575,13 @@ describe("PerpV2LeverageModuleV2", () => {
       });
 
       it("should update the USDC externalPositionUnit", async () => {
-        const initialExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
         await subject();
-        const finalExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
-
-        const expectedExternalPositionUnit = initialExternalPositionUnit.sub(subjectWithdrawQuantity);
-        expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
+        const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+          subjectSetToken,
+          perpSetup
+        );
+        expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
 
       it("should emit the correct CollateralWithdrawn event", async () => {
@@ -1649,7 +1651,6 @@ describe("PerpV2LeverageModuleV2", () => {
 
           expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
         });
-
 
         it("should set the expected position unit", async () => {
           await subject();

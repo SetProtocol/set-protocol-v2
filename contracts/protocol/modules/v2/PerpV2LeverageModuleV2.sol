@@ -835,12 +835,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
             initialCollateralPositionBalance
         );
 
-        _setToken.editExternalPosition(
-            address(collateralToken),
-            address(this),
-            _calculateExternalPositionUnit(_setToken),
-            ""
-        );
+        _updateExternalPositionUnit(_setToken);
 
         return collateralNotionalQuantity;
     }
@@ -890,12 +885,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
             initialCollateralPositionBalance
         );
 
-        _setToken.editExternalPosition(
-            address(collateralToken),
-            address(this),
-            _calculateExternalPositionUnit(_setToken),
-            ""
-        );
+        _updateExternalPositionUnit(_setToken);
 
         return collateralNotionalQuantity;
     }
@@ -1063,19 +1053,27 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
     }
 
     /**
-     * @dev Returns PerpV2 acccount value PER SetToken denominated in collateralToken. This value is approximately
-     * equal to the amount of collateralToken returned per SetToken upon redemption. Approximate value works because
-     * as noted above, the external position unit is only updated on an as-needed basis during issuance, redemption,
-     * deposit and withdraw. It does not reflect the current value of the Set's perpetual position. The current value
-     * can be calculated from getPositionNotionalInfo.
+     * @dev Sets the external position unit based on PerpV2 account value.
      *
      * @param _setToken     Instance of SetToken
-     * @return int256       External position unit
      */
-    function _calculateExternalPositionUnit(ISetToken _setToken) internal view returns (int256) {
-        return perpClearingHouse.getAccountValue(address(_setToken))
+    function _updateExternalPositionUnit(ISetToken _setToken) internal {
+        int256 accountValueUnit = perpClearingHouse.getAccountValue(address(_setToken))
             .preciseDiv(_setToken.totalSupply().toInt256())
             .fromPreciseUnitToDecimals(collateralDecimals);
+
+        // Set the external position unit based on PerpV2 Account value; If there is more than 1 position unit of USDC of account
+        // value (to tolerate PRECISE_UNIT math rounding errors), add the component and/or the external position to the SetToken.
+        // Else, untrack the component and/or remove external position from the SetToken. Refer to PositionV2#editExternalPosition for detailed flow.
+        // Setting external posiiton unit to 1 or 0 is acceptable because, As noted above, the external position unit is only updated on an as-needed
+        // basis during issuance, redemption, deposit and withdraw. It does not reflect the current value of the Set's perpetual position.
+        // The current value can be calculated from getPositionNotionalInfo.
+        _setToken.editExternalPosition(
+            address(collateralToken),
+            address(this),
+            accountValueUnit > 1 ? 1 : 0,
+            ""
+        );
     }
 
     /**

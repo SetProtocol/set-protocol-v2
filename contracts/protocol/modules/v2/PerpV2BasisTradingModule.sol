@@ -543,6 +543,8 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
             _collateralBalanceBeforeWithdraw
         );
 
+        _updateExternalPositionUnit(_setToken);
+
         // Subtract withdrawn funding from tracked settled funding
         settledFunding[_setToken] = settledFunding[_setToken].sub(
             _notionalFunding.toPreciseUnitsFromDecimals(collateralDecimals)

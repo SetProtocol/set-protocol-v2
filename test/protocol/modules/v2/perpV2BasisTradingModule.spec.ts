@@ -55,9 +55,6 @@ interface FeeSettings {
   performanceFeePercentage: BigNumber;
 }
 
-// TODO:
-// 1. Remove closeTo in moduleRedeemHook test
-
 describe("PerpV2BasisTradingModule", () => {
   let owner: Account;
   let maker: Account;
@@ -735,12 +732,12 @@ describe("PerpV2BasisTradingModule", () => {
     }
 
     describe("when module is initialized", () => {
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         isInitialized = true;
+        await initializeContracts();
       });
 
-      cacheBeforeEach(initializeContracts);
-      beforeEach(() => initializeSubjectVariables());
+      beforeEach(initializeSubjectVariables);
 
       it("should withdraw an amount", async () => {
         const initialCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
@@ -778,12 +775,13 @@ describe("PerpV2BasisTradingModule", () => {
       });
 
       it("should update the USDC externalPositionUnit", async () => {
-        const initialExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
         await subject();
-        const finalExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
-
-        const expectedExternalPositionUnit = initialExternalPositionUnit.sub(subjectWithdrawQuantity);
-        expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
+        const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+        const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+          subjectSetToken,
+          perpSetup
+        );
+        expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
 
       it("should emit the correct CollateralWithdrawn event", async () => {
@@ -1015,6 +1013,16 @@ describe("PerpV2BasisTradingModule", () => {
       const newUsdcDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
 
       expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit);
+    });
+
+    it("should update external position unit", async () => {
+      await subject();
+        const externalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+        const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+          setToken,
+          perpSetup
+        );
+        expect(externalPositionUnit).eq(expectedExternalPositionUnit);
     });
 
     it("should emit FundingWithdrawn event", async () => {

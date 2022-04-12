@@ -8,8 +8,8 @@ import {
   preciseMul
 } from "../index";
 
-import { TWO, ZERO, ONE_DAY_IN_SECONDS } from "../constants";
-import { PerpV2, PerpV2BasisTradingModule, PerpV2LeverageModuleV2, SetToken } from "../contracts";
+import { ONE, TWO, ZERO, ONE_DAY_IN_SECONDS } from "../constants";
+import { PerpV2BasisTradingModule, PerpV2LeverageModuleV2, SetToken } from "../contracts";
 import { PerpV2Fixture } from "../fixtures";
 
 
@@ -182,7 +182,8 @@ export async function calculateExternalPositionUnit(
   fixture: PerpV2Fixture,
 ): Promise<BigNumber> {
   const totalPositionValue = await fixture.clearingHouse.getAccountValue(setToken.address);
-  return toUSDCDecimals(preciseDiv(totalPositionValue, await setToken.totalSupply()));
+  // return toUSDCDecimals(preciseDiv(totalPositionValue, await setToken.totalSupply()));
+  return totalPositionValue.gt(ZERO) ? ONE : ZERO;
 }
 
 // On every interaction with perpV2, it settles funding for a trader into owed realized pnl
