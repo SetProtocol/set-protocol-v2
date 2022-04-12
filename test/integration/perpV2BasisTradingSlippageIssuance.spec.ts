@@ -37,7 +37,7 @@ import {
 } from "@utils/test/index";
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "ethers";
-import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES, ONE_DAY_IN_SECONDS } from "@utils/constants";
+import { ONE, ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES, ONE_DAY_IN_SECONDS } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
@@ -542,9 +542,9 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         // initialExternalPositionUnit = 10_000_000
         // finalExternalPositionUnit   =  9_597_857
 
-        const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);
+        const expectedExternalPositionUnit = ONE;
         expect(initialExternalPositionUnit).eq(usdcDefaultPositionUnit);
-        expect(finalExternalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
+        expect(finalExternalPositionUnit).to.be.eq(expectedExternalPositionUnit);
       });
 
       it("should have the expected virtual token balance", async () => {

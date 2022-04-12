@@ -3385,24 +3385,6 @@ describe("PerpV2LeverageModuleV2", () => {
       });
     });
 
-    describe("when collateral is deposited but no position is open", async () => {
-      async function subject(): Promise<any> {
-        await perpLeverageModule
-          .connect(subjectCaller.wallet)
-          .moduleIssueHook(subjectSetToken, subjectSetQuantity);
-      }
-
-      it("deposits the correct amount of collateral", async () => {
-        const currentPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
-
-        await subject();
-
-        const newPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
-
-        expect(currentPositionUnit).eq(newPositionUnit);
-      });
-    });
-
     describe("when total supply is 0", async () => {
       let otherSetToken: SetToken;
 
@@ -5803,7 +5785,7 @@ describe("PerpV2LeverageModuleV2", () => {
           expect(initialBaseBalance).eq(finalBaseBalance);
         });
 
-        it("should return adjustment arrays of the correct length with value in correct position", async () => {
+        it.skip("should return adjustment arrays of the correct length with value in correct position", async () => {
           const components = await setToken.getComponents();
           const expectedAdjustmentsLength = components.length;
 
