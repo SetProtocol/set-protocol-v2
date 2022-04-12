@@ -425,11 +425,16 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         override(PerpV2LeverageModuleV2)
         returns (int256[] memory, int256[] memory _)
     {
-        uint256 updatedSettledFunding = _getUpdatedSettledFunding(_setToken);
+        int256 newExternalPositionUnitNetFees = 0;
 
-        int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
+        if (positions[_setToken].length > 0) {
 
-        int256 newExternalPositionUnitNetFees = _calculateNetFeesPositionUnit(_setToken, newExternalPositionUnit, updatedSettledFunding);
+            uint256 updatedSettledFunding = _getUpdatedSettledFunding(_setToken);
+
+            int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
+
+            newExternalPositionUnitNetFees = _calculateNetFeesPositionUnit(_setToken, newExternalPositionUnit, updatedSettledFunding);
+        }
 
         return _formatAdjustments(_setToken, newExternalPositionUnitNetFees);
     }
