@@ -390,7 +390,7 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
     }
 
     /**
-     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Deletes
+     * @dev SETTOKEN ONLY: Removes this module from the SetToken, via call by the SetToken. Deletes
      * position mappings associated with SetToken.
      *
      * NOTE: Function will revert if there is greater than a position unit amount of USDC of account value.
