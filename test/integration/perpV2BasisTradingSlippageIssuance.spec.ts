@@ -294,6 +294,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
           baseToken,
           2,
           ether(.02),
+          true,
           true
         );
 
@@ -508,6 +509,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
           baseToken,
           2,
           ether(.02),
+          true,
           true
         );
 
@@ -855,6 +857,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
             baseToken,
             6,
             ether(.02),
+            true,
             true
           );
 
