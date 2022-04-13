@@ -27,7 +27,8 @@ export async function leverUp(
   baseToken: Address,
   leverageRatio: number,
   slippagePercentage: BigNumber,
-  isLong: boolean
+  isLong: boolean,
+  trackFunding?: boolean,
 ): Promise<BigNumber>{
   const spotPrice = await fixture.getSpotPrice(baseToken);
   const totalSupply = await setToken.totalSupply();
@@ -50,12 +51,21 @@ export async function leverUp(
     totalSupply
   );
 
-  await module.connect(owner.wallet).trade(
-    setToken.address,
-    baseToken,
-    baseTradeQuantityUnit,
-    receiveQuoteQuantityUnit
-  );
+  if (trackFunding) {
+    await (module as PerpV2BasisTradingModule).connect(owner.wallet).tradeAndTrackFunding(
+      setToken.address,
+      baseToken,
+      baseTradeQuantityUnit,
+      receiveQuoteQuantityUnit
+    );
+  } else {
+    await module.connect(owner.wallet).trade(
+      setToken.address,
+      baseToken,
+      baseTradeQuantityUnit,
+      receiveQuoteQuantityUnit
+    );
+  }
 
   return baseTradeQuantityUnit;
 }

@@ -254,7 +254,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         setToken.address,
         {
           feeRecipient: owner.address,
-          performanceFeePercentage: ether(.0),
+          performanceFeePercentage: ether(.1),
           maxPerformanceFeePercentage: ether(.2)
         }
       );
@@ -909,7 +909,12 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
 
       describe("when liquidation results in negative account value", () => {
         beforeEach(async () => {
+          // Move oracle price down, wait one day
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
           // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
+          // Lever again to track funding as `settled`
           await leverUp(
             setToken,
             perpBasisTradingModule,
@@ -918,8 +923,12 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
             baseToken,
             6,
             ether(.02),
+            true,
             true
           );
+
+          // Freeze funding changes
+          await perpSetup.clearingHouseConfig.setMaxFundingRate(ZERO);
 
           // Move oracle price down to 5 USDC to enable liquidation
           await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(5.0));
