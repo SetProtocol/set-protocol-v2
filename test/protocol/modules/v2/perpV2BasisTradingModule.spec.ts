@@ -1916,6 +1916,137 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
+  describe("#getUpdatedSettledFunding", async () => {
+    let setToken: SetToken;
+    let subjectSetToken: Address;
+
+    const initializeContracts = async () => {
+      const depositQuantity = usdcUnits(10);
+
+      setToken = await issueSetsAndDepositToPerp(depositQuantity, true);
+
+      await perpBasisTradingModule.connect(owner.wallet).trade(
+        setToken.address,
+        vETH.address,
+        ether(0.5),
+        ether(5.15)
+      );
+
+      // Move oracle price up and wait one day
+      await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.2));
+      await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+      await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
+        setToken.address,
+        vETH.address,
+        ether(0.5),
+        ether(5.15),
+      );
+    };
+
+    const initializeSubjectVariables = async () => {
+      subjectSetToken = setToken.address;
+    };
+
+    cacheBeforeEach(initializeContracts);
+    beforeEach(initializeSubjectVariables);
+
+    async function subject(): Promise<BigNumber> {
+      return await perpBasisTradingModule.getUpdatedSettledFunding(subjectSetToken);
+    }
+
+    describe("when pending funding payment is zero", async () => {
+      it("should return current settled funding", async () => {
+        const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+        const updatedSettledFunding = await subject();
+
+        expect(settledFundingBefore).to.be.gt(ZERO);
+        expect(updatedSettledFunding).to.eq(settledFundingBefore);
+      });
+    });
+
+    describe("when pending funding payment is positive", async () => {
+      beforeEach(async () => {
+        // Move oracle price up and wait one day
+        await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(10.5));
+        await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+      });
+
+      it("should return correct updated settled funding", async () => {
+        const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+        const pendingFundingPayment = (await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken)).mul(-1);
+        const expectedSettledFunding = settledFundingBefore.add(pendingFundingPayment);
+
+        const updatedSettledFunding = await subject();
+
+        expect(pendingFundingPayment).to.be.gt(ZERO);
+        expect(updatedSettledFunding).to.be.gt(settledFundingBefore);
+        expect(updatedSettledFunding).to.eq(expectedSettledFunding);
+      });
+    });
+
+    describe("when pending funding payment is negative", async () => {
+      describe("when absolute settled funding is less than absolute negative funding", async () => {
+        beforeEach(async () => {
+          // Move oracle price down and wait one day
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.5));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        });
+
+        it("verify testing conditions", async () => {
+          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+          const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
+
+          expect(pendingFundingBefore.abs()).to.be.gt(settledFundingBefore);
+        });
+
+        it("should return correct updated settled funding (zero)", async () => {
+          const updatedSettledFunding = await subject();
+          expect(updatedSettledFunding).to.eq(ZERO);
+        });
+      });
+
+      describe("when absolute settled funding is greater then absolute negative pending funding", async () => {
+        beforeEach(async () => {
+          // Move oracle price up and wait one day
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(11));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+
+          // Trade to accrue pending funding to tracked settled funding
+          await perpBasisTradingModule.connect(owner.wallet).tradeAndTrackFunding(
+            setToken.address,
+            vETH.address,
+            ether(1),
+            ether(10.15)
+          );
+
+          // Move oracle price down and wait one day
+          await perpSetup.setBaseTokenOraclePrice(vETH, usdcUnits(9.8));
+          await increaseTimeAsync(ONE_DAY_IN_SECONDS);
+        });
+
+        it("verify testing conditions", async () => {
+          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+          const pendingFundingBefore = await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken);
+
+          expect(settledFundingBefore.abs()).to.be.gt(pendingFundingBefore.abs());
+        });
+
+        it("should return correct updated settled funding", async () => {
+          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken);
+          const pendingFundingPayment = (await perpSetup.exchange.getAllPendingFundingPayment(subjectSetToken)).mul(-1);
+          const expectedSettledFunding = settledFundingBefore.add(pendingFundingPayment);
+
+          const updatedSettledFunding = await subject();
+
+          expect(pendingFundingPayment).to.be.lt(ZERO);
+          expect(updatedSettledFunding).to.be.lt(settledFundingBefore);
+          expect(updatedSettledFunding).to.eq(expectedSettledFunding);
+        });
+      });
+    });
+  });
+
   describe("#updateFeeRecipient", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
