@@ -156,4 +156,17 @@ interface IPerpV2BasisTradingModule is IPerpV2LeverageModuleV2 {
      */
     function updateFeeRecipient(ISetToken _setToken, address _newFeeRecipient)
         external;
+
+    /**
+     * @dev Adds pending funding payment to tracked settled funding. Returns updated settled funding value in precise units (10e18).
+     *
+     * NOTE: Tracked settled funding value can not be less than zero, hence it is reset to zero if pending funding
+     * payment is negative and |pending funding payment| >= |settledFunding[_setToken]|.
+     *
+     * NOTE: Returned updated settled funding value is correct only for the current block since pending funding payment
+     * updates every block.
+     *
+     * @param _setToken             Instance of SetToken
+     */
+    function getUpdatedSettledFunding(ISetToken _setToken) external view returns (uint256);
 }
