@@ -440,7 +440,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
     }
 
     /**
-     * @dev Adds pending funding payment to tracked settled funding. Returns updated settled funding value.
+     * @dev Adds pending funding payment to tracked settled funding. Returns updated settled funding value in precise units (10e18).
      *
      * NOTE: Tracked settled funding value can not be less than zero, hence it is reset to zero if pending funding
      * payment is negative and |pending funding payment| >= |settledFunding[_setToken]|.
