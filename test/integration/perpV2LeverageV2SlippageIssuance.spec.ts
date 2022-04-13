@@ -991,7 +991,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         // initialExternalPositionUnit = 10_000_000
         // finalExternalPositionUnit   =  9_597_857
 
-        const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);
+        const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);;
         expect(initialExternalPositionUnit).eq(usdcDefaultPositionUnit);
         expect(finalExternalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
       });

@@ -9,7 +9,7 @@ import {
 } from "../index";
 
 import { TWO, ZERO, ONE_DAY_IN_SECONDS } from "../constants";
-import { PerpV2, PerpV2BasisTradingModule, PerpV2LeverageModuleV2, SetToken } from "../contracts";
+import { PerpV2BasisTradingModule, PerpV2LeverageModuleV2, SetToken } from "../contracts";
 import { PerpV2Fixture } from "../fixtures";
 
 
@@ -27,7 +27,8 @@ export async function leverUp(
   baseToken: Address,
   leverageRatio: number,
   slippagePercentage: BigNumber,
-  isLong: boolean
+  isLong: boolean,
+  trackFunding?: boolean,
 ): Promise<BigNumber>{
   const spotPrice = await fixture.getSpotPrice(baseToken);
   const totalSupply = await setToken.totalSupply();
@@ -50,12 +51,21 @@ export async function leverUp(
     totalSupply
   );
 
-  await module.connect(owner.wallet).trade(
-    setToken.address,
-    baseToken,
-    baseTradeQuantityUnit,
-    receiveQuoteQuantityUnit
-  );
+  if (trackFunding) {
+    await (module as PerpV2BasisTradingModule).connect(owner.wallet).tradeAndTrackFunding(
+      setToken.address,
+      baseToken,
+      baseTradeQuantityUnit,
+      receiveQuoteQuantityUnit
+    );
+  } else {
+    await module.connect(owner.wallet).trade(
+      setToken.address,
+      baseToken,
+      baseTradeQuantityUnit,
+      receiveQuoteQuantityUnit
+    );
+  }
 
   return baseTradeQuantityUnit;
 }
@@ -179,31 +189,11 @@ export async function calculateUSDCTransferOutPreciseUnits(
 
 export async function calculateExternalPositionUnit(
   setToken: SetToken,
-  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule,
   fixture: PerpV2Fixture,
+  module: PerpV2LeverageModuleV2 | PerpV2BasisTradingModule
 ): Promise<BigNumber> {
-  let totalPositionValue = BigNumber.from(0);
-  const allPositionInfo = await module.getPositionNotionalInfo(setToken.address);
-
-  for (const positionInfo of allPositionInfo) {
-    const spotPrice = await fixture.getSpotPrice(positionInfo.baseToken);
-    totalPositionValue = totalPositionValue.add(preciseMul(positionInfo.baseBalance, spotPrice));
-  }
-
-  const {
-    collateralBalance,
-    pendingFundingPayments,
-    owedRealizedPnl,
-    netQuoteBalance,
-  } = await module.getAccountInfo(setToken.address);
-
-  const numerator = totalPositionValue
-    .add(collateralBalance)
-    .add(netQuoteBalance)
-    .add(pendingFundingPayments)
-    .add(owedRealizedPnl);
-
-  return toUSDCDecimals(preciseDiv(numerator, await setToken.totalSupply()));
+  const accountInfo = await module.getAccountInfo(setToken.address);
+  return toUSDCDecimals(preciseDiv(accountInfo.collateralBalance, await setToken.totalSupply()));
 }
 
 // On every interaction with perpV2, it settles funding for a trader into owed realized pnl

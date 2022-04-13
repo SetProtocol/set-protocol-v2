@@ -25,9 +25,11 @@ import {
 } from "@utils/index";
 
 import {
+  calculateExternalPositionUnit,
   calculateUSDCTransferOutPreciseUnits,
   toUSDCDecimals,
-  getNetFundingGrowth
+  getNetFundingGrowth,
+  leverUp
 } from "@utils/common";
 
 import {
@@ -52,9 +54,6 @@ interface FeeSettings {
   maxPerformanceFeePercentage: BigNumber;
   performanceFeePercentage: BigNumber;
 }
-
-// TODO:
-// 1. Remove closeTo in moduleRedeemHook test
 
 describe("PerpV2BasisTradingModule", () => {
   let owner: Account;
@@ -282,7 +281,7 @@ describe("PerpV2BasisTradingModule", () => {
     }
 
     it("should revert", async () => {
-      await expect(subject()).to.be.revertedWith("Use intialize(_setToken, _settings) instead");
+      await expect(subject()).to.be.revertedWith("Use initialize(_setToken, _settings) instead");
     });
   });
 
@@ -681,6 +680,261 @@ describe("PerpV2BasisTradingModule", () => {
     });
   });
 
+  describe("#withdraw", () => {
+    let depositQuantity: BigNumber;
+    let subjectSetToken: SetToken;
+    let subjectWithdrawQuantity: BigNumber;
+    let subjectCaller: Account;
+    let isInitialized: boolean;
+
+    const initializeContracts = async () => {
+      subjectSetToken = await setup.createSetToken(
+        [usdc.address],
+        [usdcUnits(100)],
+        [perpBasisTradingModule.address, debtIssuanceMock.address, setup.issuanceModule.address]
+      );
+
+      await debtIssuanceMock.initialize(subjectSetToken.address);
+      await perpBasisTradingModule.updateAllowedSetToken(subjectSetToken.address, true);
+
+      if (isInitialized) {
+        await perpBasisTradingModule["initialize(address,(address,uint256,uint256))"](
+          subjectSetToken.address,
+          {
+            feeRecipient: owner.address,
+            maxPerformanceFeePercentage: ether(.2),
+            performanceFeePercentage: ether(.1)
+          }
+        );
+
+        const issueQuantity = ether(2);
+        await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
+        await setup.issuanceModule.initialize(subjectSetToken.address, ADDRESS_ZERO);
+        await setup.issuanceModule.issue(subjectSetToken.address, issueQuantity, owner.address);
+
+        // Deposit 10 USDC
+        depositQuantity = usdcUnits(10);
+        await perpBasisTradingModule
+          .connect(owner.wallet)
+          .deposit(subjectSetToken.address, depositQuantity);
+      }
+    };
+
+    const initializeSubjectVariables = () => {
+      subjectCaller = owner;
+      subjectWithdrawQuantity = usdcUnits(5);
+    };
+
+    async function subject(): Promise<any> {
+      return await perpBasisTradingModule
+        .connect(subjectCaller.wallet)
+        .withdraw(subjectSetToken.address, subjectWithdrawQuantity);
+    }
+
+    describe("when module is initialized", () => {
+      cacheBeforeEach(async () => {
+        isInitialized = true;
+        await initializeContracts();
+      });
+
+      beforeEach(initializeSubjectVariables);
+
+      it("should withdraw an amount", async () => {
+        const initialCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
+
+        await subject();
+
+        const finalCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
+
+        const totalSupply = await subjectSetToken.totalSupply();
+        const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+          .sub(preciseMul(subjectWithdrawQuantity, totalSupply));
+        expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+      });
+
+      it("should update tracked settled funding", async () => {
+        const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken.address);
+        const [owedRealizedPnlBefore ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken.address);
+
+        await subject();
+
+        const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken.address);
+        const [owedRealizedPnlAfter ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken.address);
+        const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
+
+        expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
+      });
+
+      it("should update the USDC defaultPositionUnit", async () => {
+        const initialDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);
+        await subject();
+        const finalDefaultPosition = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);;
+
+        const expectedDefaultPosition = initialDefaultPosition.add(subjectWithdrawQuantity);
+        expect(finalDefaultPosition).to.eq(expectedDefaultPosition);
+      });
+
+      it("should update the USDC externalPositionUnit", async () => {
+        await subject();
+        const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+        const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+          subjectSetToken,
+          perpSetup,
+          perpBasisTradingModule
+        );
+        expect(externalPositionUnit).eq(expectedExternalPositionUnit);
+      });
+
+      it("should emit the correct CollateralWithdrawn event", async () => {
+        const totalSupply = await subjectSetToken.totalSupply();
+
+        await expect(subject()).to.emit(perpBasisTradingModule, "CollateralWithdrawn").withArgs(
+          subjectSetToken.address,
+          perpSetup.usdc.address,
+          preciseMul(subjectWithdrawQuantity, totalSupply)
+        );
+      });
+
+      describe("when withdraw amount is 0", async () => {
+        beforeEach(() => {
+          subjectWithdrawQuantity = usdcUnits(0);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Withdraw amount is 0");
+        });
+      });
+
+      describe("when the entire amount is withdrawn", async () => {
+        beforeEach(() => {
+          subjectWithdrawQuantity = depositQuantity;
+        });
+
+        it("should remove Perp as an external position module", async () => {
+          const initialExternalModules = await subjectSetToken.getExternalPositionModules(usdc.address);
+          await subject();
+          const finalExternalPositionModules = await subjectSetToken.getExternalPositionModules(usdc.address);
+
+          expect(initialExternalModules.length).eq(1);
+          expect(finalExternalPositionModules.length).eq(0);
+        });
+      });
+
+      describe("when withdrawing and a position exists", () => {
+        let baseToken: Address;
+
+        beforeEach(async () => {
+          baseToken = vETH.address;
+          await leverUp(
+            subjectSetToken,
+            perpBasisTradingModule,
+            perpSetup,
+            owner,
+            baseToken,
+            2,
+            ether(.02),
+            true
+          );
+
+          subjectWithdrawQuantity = usdcUnits(2.5);
+        });
+
+        it("should decrease the collateral balance", async () => {
+          const initialCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
+
+          await subject();
+
+          const finalCollateralBalance = (await perpBasisTradingModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
+
+          const totalSupply = await subjectSetToken.totalSupply();
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+            .sub(preciseMul(subjectWithdrawQuantity, totalSupply));
+
+          expect(toUSDCDecimals(finalCollateralBalance)).to.closeTo(expectedCollateralBalance, 1);
+        });
+
+        it("should update tracked settled funding", async () => {
+          const settledFundingBefore = await perpBasisTradingModule.settledFunding(subjectSetToken.address);
+          const [owedRealizedPnlBefore ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken.address);
+
+          await subject();
+
+          const settledFundingAfter = await perpBasisTradingModule.settledFunding(subjectSetToken.address);
+          const [owedRealizedPnlAfter ] = await perpSetup.accountBalance.getPnlAndPendingFee(subjectSetToken.address);
+          const exactPendingFunding = owedRealizedPnlAfter.abs().sub(owedRealizedPnlBefore.abs());
+
+          expect(settledFundingAfter).to.be.eq(settledFundingBefore.add(exactPendingFunding));
+        });
+
+        it("should set the expected position unit", async () => {
+          await subject();
+          const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+          const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+            subjectSetToken,
+            perpSetup,
+            perpBasisTradingModule
+          );
+          expect(externalPositionUnit).eq(expectedExternalPositionUnit);
+        });
+
+        it("should increase the leverage ratio", async () => {
+          const positionInfo = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken.address))[0];
+          const totalSupply = await subjectSetToken.totalSupply();
+
+          const {
+            collateralBalance: initialCollateralBalance
+          } = await perpBasisTradingModule.getAccountInfo(subjectSetToken.address);
+
+          const initialLeverageRatio = await perpSetup.getCurrentLeverage(
+            subjectSetToken.address,
+            positionInfo,
+            initialCollateralBalance
+          );
+
+          await subject();
+
+          const {
+            collateralBalance: finalCollateralBalance
+          } = await perpBasisTradingModule.getAccountInfo(subjectSetToken.address);
+
+          const finalLeverageRatio = await perpSetup.getCurrentLeverage(
+            subjectSetToken.address,
+            positionInfo,
+            finalCollateralBalance
+          );
+
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
+            .sub(preciseMul(subjectWithdrawQuantity, totalSupply));
+
+          expect(toUSDCDecimals(finalCollateralBalance)).to.closeTo(expectedCollateralBalance, 1);
+          expect(finalLeverageRatio).gt(initialLeverageRatio);
+        });
+      });
+
+      describe("when not called by manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+  });
+
   describe("#withdrawFundingAndAccrueFees", () => {
     let setToken: SetToken;
     let isInitialized: boolean = true;
@@ -763,6 +1017,17 @@ describe("PerpV2BasisTradingModule", () => {
       expect(newUsdcDefaultPositionUnit).to.be.eq(expectedUsdcDefaultPositionUnit);
     });
 
+    it("should update external position unit", async () => {
+      await subject();
+      const externalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
+      const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+        setToken,
+        perpSetup,
+        perpBasisTradingModule
+      );
+      expect(externalPositionUnit).eq(expectedExternalPositionUnit);
+    });
+
     it("should emit FundingWithdrawn event", async () => {
       await expect(subject()).to.emit(perpBasisTradingModule, "FundingWithdrawn").withArgs(
         subjectSetToken,
@@ -771,6 +1036,16 @@ describe("PerpV2BasisTradingModule", () => {
         ZERO,
         ZERO
       );
+    });
+
+    describe("when notional funding is zero", async () => {
+      beforeEach(() => {
+        subjectNotionalFunding = ZERO;
+      });
+
+      it("it should return early and not emit FundingWithdrawn event", async () => {
+        await expect(subject()).to.not.emit(perpBasisTradingModule, "FundingWithdrawn");
+      });
     });
 
     describe("when amount is greater than track settled funding", async () => {

@@ -127,7 +127,7 @@ export default class DeployAdapters {
   public async deployRgtMigrationWrapAdapter(pegExchanger: Address): Promise<RgtMigrationWrapAdapter> {
     return await new RgtMigrationWrapAdapter__factory(this._deployerSigner).deploy(pegExchanger);
   }
-  
+
   public async deployUniswapPairPriceAdapter(
     controller: Address,
     uniswapFactory: Address,

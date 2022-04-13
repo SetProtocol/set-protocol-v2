@@ -1201,12 +1201,14 @@ describe("PerpV2LeverageModuleV2", () => {
       });
 
       it("should update the USDC externalPositionUnit", async () => {
-        const initialExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
         await subject();
-        const finalExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
-
-        const expectedDefaultPosition = initialExternalPositionUnit.add(subjectDepositQuantity);
-        expect(finalExternalPositionUnit).to.eq(expectedDefaultPosition);
+        const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+          subjectSetToken,
+          perpSetup,
+          perpLeverageModule,
+        );
+        expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
 
       it("should emit the correct CollateralDeposited event", async () => {
@@ -1255,19 +1257,18 @@ describe("PerpV2LeverageModuleV2", () => {
             expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
           });
 
-
           it("should set the expected position unit", async () => {
             await subject();
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpLeverageModule,
-              perpSetup
+              perpSetup,
+              perpLeverageModule
             );
 
             // Deposit notional amount = specified position unit * totalSupply = 1 * 2 = $2
             // We've put on a position that hasn't had any real pnl, so we expect set ~= $2 net fees & slippage
-            // externalPositionUnit = 1_979_877
+            // externalPositionUnit = 1_979_717
             expect(externalPositionUnit).eq(expectedExternalPositionUnit);
           });
 
@@ -1345,8 +1346,8 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpLeverageModule,
-              perpSetup
+              perpSetup,
+              perpLeverageModule
             );
 
             // Deposit amount = $1 * 2 (two deposits)
@@ -1440,8 +1441,8 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpLeverageModule,
-              perpSetup
+              perpSetup,
+              perpLeverageModule
             );
 
             // Deposit amount = $1 * 2 (two deposits)
@@ -1451,6 +1452,21 @@ describe("PerpV2LeverageModuleV2", () => {
             // externalPositionUnit = 1_959_917
             expect(externalPositionUnit).eq(expectedExternalPositionUnit);
           });
+        });
+      });
+
+      describe("when trying to deposit airdropped amount", async () => {
+        beforeEach(async () => {
+          // totalSupply = 2, usdc position unit = 100
+          // Airdrop amount = 100
+          await perpSetup.usdc.transfer(subjectSetToken.address, usdcUnits(100));
+
+          // Deposit unit = total usdc balance in Set / totalSupply = 300 / 2 = 150
+          subjectDepositQuantity = usdcUnits(150);
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Amount too high");
         });
       });
 
@@ -1533,12 +1549,12 @@ describe("PerpV2LeverageModuleV2", () => {
     }
 
     describe("when module is initialized", () => {
-      beforeEach(async () => {
+      cacheBeforeEach(async () => {
         isInitialized = true;
+        await initializeContracts();
       });
 
-      cacheBeforeEach(initializeContracts);
-      beforeEach(() => initializeSubjectVariables());
+      beforeEach(initializeSubjectVariables);
 
       it("should withdraw an amount", async () => {
         const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken.address)).collateralBalance;
@@ -1563,12 +1579,14 @@ describe("PerpV2LeverageModuleV2", () => {
       });
 
       it("should update the USDC externalPositionUnit", async () => {
-        const initialExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
         await subject();
-        const finalExternalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
-
-        const expectedExternalPositionUnit = initialExternalPositionUnit.sub(subjectWithdrawQuantity);
-        expect(finalExternalPositionUnit).to.eq(expectedExternalPositionUnit);
+        const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+        const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+          subjectSetToken,
+          perpSetup,
+          perpLeverageModule
+        );
+        expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
 
       it("should emit the correct CollateralWithdrawn event", async () => {
@@ -1637,6 +1655,17 @@ describe("PerpV2LeverageModuleV2", () => {
             .sub(preciseMul(subjectWithdrawQuantity, totalSupply));
 
           expect(toUSDCDecimals(finalCollateralBalance)).to.eq(expectedCollateralBalance);
+        });
+
+        it("should set the expected position unit", async () => {
+          await subject();
+          const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
+          const expectedExternalPositionUnit = await calculateExternalPositionUnit(
+            subjectSetToken,
+            perpSetup,
+            perpLeverageModule
+          );
+          expect(externalPositionUnit).eq(expectedExternalPositionUnit);
         });
 
         it("should increase the leverage ratio", async () => {
@@ -3359,24 +3388,6 @@ describe("PerpV2LeverageModuleV2", () => {
 
           expect(externalPositionUnit).to.be.eq(expectedExternalPositionUnit);
         });
-      });
-    });
-
-    describe("when collateral is deposited but no position is open", async () => {
-      async function subject(): Promise<any> {
-        await perpLeverageModule
-          .connect(subjectCaller.wallet)
-          .moduleIssueHook(subjectSetToken, subjectSetQuantity);
-      }
-
-      it("deposits the correct amount of collateral", async () => {
-        const currentPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
-
-        await subject();
-
-        const newPositionUnit = await setToken.getExternalPositionRealUnit(perpSetup.usdc.address, perpLeverageModule.address);
-
-        expect(currentPositionUnit).eq(newPositionUnit);
       });
     });
 

@@ -37,7 +37,7 @@ import { PreciseUnitMath } from "../../lib/PreciseUnitMath.sol";
  * CHANGELOG:
  * - `Position` library has all internal functions which are inlined to the module contract during compilation.
  * Inlining functions increases bytecode size of the module contract. This library contains the same functions
- * as `Position` library but all the functions have public/external access modifier. Thus, making this version 
+ * as `Position` library but all the functions have public/external access modifier. Thus, making this version
  * linkable which helps in reducing bytecode size of the module contract.
  */
 library PositionV2 {
@@ -62,7 +62,7 @@ library PositionV2 {
     function hasExternalPosition(ISetToken _setToken, address _component) public view returns(bool) {
         return _setToken.getExternalPositionModules(_component).length > 0;
     }
-    
+
     /**
      * Returns whether the SetToken component default position real unit is greater than or equal to units passed in.
      */
@@ -71,7 +71,7 @@ library PositionV2 {
     }
 
     /**
-     * Returns whether the SetToken component external position is greater than or equal to the real units passed in.
+     * Returns whether the SetToken component's external position is greater than or equal to the real units passed in.
      */
     function hasSufficientExternalUnits(
         ISetToken _setToken,
@@ -83,12 +83,12 @@ library PositionV2 {
         view
         returns(bool)
     {
-       return _setToken.getExternalPositionRealUnit(_component, _positionModule) >= _unit.toInt256();    
+       return _setToken.getExternalPositionRealUnit(_component, _positionModule) >= _unit.toInt256();
     }
 
     /**
      * If the position does not exist, create a new Position and add to the SetToken. If it already exists,
-     * then set the position units. If the new units is 0, remove the position. Handles adding/removing of 
+     * then set the position units. If the new units is 0, remove the position. Handles adding/removing of
      * components where needed (in light of potential external positions).
      *
      * @param _setToken           Address of SetToken being modified
@@ -114,7 +114,7 @@ library PositionV2 {
 
     /**
      * Update an external position and remove and external positions or components if necessary. The logic flows as follows:
-     * 1) If component is not already added then add component and external position. 
+     * 1) If component is not already added then add component and external position.
      * 2) If component is added but no existing external position using the passed module exists then add the external position.
      * 3) If the existing position is being added to then just update the unit and data
      * 4) If the position is being closed and no other external positions or default positions are associated with the component
@@ -191,7 +191,7 @@ library PositionV2 {
      * @return                    Notional tracked balance
      */
     function getDefaultTrackedBalance(ISetToken _setToken, address _component) external view returns(uint256) {
-        int256 positionUnit = _setToken.getDefaultPositionRealUnit(_component); 
+        int256 positionUnit = _setToken.getDefaultPositionRealUnit(_component);
         return _setToken.totalSupply().preciseMul(positionUnit.toUint256());
     }
 
