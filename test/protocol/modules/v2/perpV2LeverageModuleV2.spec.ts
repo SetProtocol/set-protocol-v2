@@ -1205,7 +1205,8 @@ describe("PerpV2LeverageModuleV2", () => {
         const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
         const expectedExternalPositionUnit = await calculateExternalPositionUnit(
           subjectSetToken,
-          perpSetup
+          perpSetup,
+          perpLeverageModule,
         );
         expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
@@ -1261,7 +1262,8 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpSetup
+              perpSetup,
+              perpLeverageModule
             );
 
             // Deposit notional amount = specified position unit * totalSupply = 1 * 2 = $2
@@ -1344,7 +1346,8 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpSetup
+              perpSetup,
+              perpLeverageModule
             );
 
             // Deposit amount = $1 * 2 (two deposits)
@@ -1438,7 +1441,8 @@ describe("PerpV2LeverageModuleV2", () => {
             const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
             const expectedExternalPositionUnit = await calculateExternalPositionUnit(
               subjectSetToken,
-              perpSetup
+              perpSetup,
+              perpLeverageModule
             );
 
             // Deposit amount = $1 * 2 (two deposits)
@@ -1579,7 +1583,8 @@ describe("PerpV2LeverageModuleV2", () => {
         const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
         const expectedExternalPositionUnit = await calculateExternalPositionUnit(
           subjectSetToken,
-          perpSetup
+          perpSetup,
+          perpLeverageModule
         );
         expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
@@ -1657,7 +1662,8 @@ describe("PerpV2LeverageModuleV2", () => {
           const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
           const expectedExternalPositionUnit = await calculateExternalPositionUnit(
             subjectSetToken,
-            perpSetup
+            perpSetup,
+            perpLeverageModule
           );
           expect(externalPositionUnit).eq(expectedExternalPositionUnit);
         });

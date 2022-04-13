@@ -779,7 +779,8 @@ describe("PerpV2BasisTradingModule", () => {
         const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
         const expectedExternalPositionUnit = await calculateExternalPositionUnit(
           subjectSetToken,
-          perpSetup
+          perpSetup,
+          perpBasisTradingModule
         );
         expect(externalPositionUnit).eq(expectedExternalPositionUnit);
       });
@@ -870,7 +871,8 @@ describe("PerpV2BasisTradingModule", () => {
           const externalPositionUnit = await subjectSetToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
           const expectedExternalPositionUnit = await calculateExternalPositionUnit(
             subjectSetToken,
-            perpSetup
+            perpSetup,
+            perpBasisTradingModule
           );
           expect(externalPositionUnit).eq(expectedExternalPositionUnit);
         });
@@ -1020,7 +1022,8 @@ describe("PerpV2BasisTradingModule", () => {
       const externalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
       const expectedExternalPositionUnit = await calculateExternalPositionUnit(
         setToken,
-        perpSetup
+        perpSetup,
+        perpBasisTradingModule
       );
       expect(externalPositionUnit).eq(expectedExternalPositionUnit);
     });

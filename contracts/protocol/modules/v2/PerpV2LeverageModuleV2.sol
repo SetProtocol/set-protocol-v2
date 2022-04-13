@@ -47,6 +47,7 @@ import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 import { AddressArrayUtils } from "../../../lib/AddressArrayUtils.sol";
 import { UnitConversionUtils } from "../../../lib/UnitConversionUtils.sol";
 
+
 /**
  * @title PerpV2LeverageModuleV2
  * @author Set Protocol
@@ -1053,25 +1054,28 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
     }
 
     /**
-     * @dev Sets the external position unit based on PerpV2 account value.
+     * @dev Sets the external position unit based on PerpV2 Vault collateral balance. If there more than 1
+     * position unit of USDC of account value (allowing for PRECISE UNIT rounding errors) adds the component
+     * and/or the external position to the SetToken. Else, untracks the component and/or removes external
+     * position from the SetToken. Refer to PositionV2#editExternalPosition for detailed flow.
+     *
+     * NOTE: Setting external position unit to the collateral balance is acceptable because, as noted above, the
+     * external position unit is only updated on an as-needed basis during issuance, redemption, deposit and
+     * withdraw. It does not reflect the current value of the Set's perpetual position. The true current value can
+     * be calculated from getPositionNotionalInfo.
      *
      * @param _setToken     Instance of SetToken
      */
     function _updateExternalPositionUnit(ISetToken _setToken) internal {
-        int256 accountValueUnit = perpClearingHouse.getAccountValue(address(_setToken))
+        int256 collateralValueUnit = perpVault.getBalance(address(_setToken))
+            .toPreciseUnitsFromDecimals(collateralDecimals)
             .preciseDiv(_setToken.totalSupply().toInt256())
             .fromPreciseUnitToDecimals(collateralDecimals);
 
-        // Set the external position unit based on PerpV2 Account value; If there is more than 1 position unit of USDC of account
-        // value (to tolerate PRECISE_UNIT math rounding errors), add the component and/or the external position to the SetToken.
-        // Else, untrack the component and/or remove external position from the SetToken. Refer to PositionV2#editExternalPosition for detailed flow.
-        // Setting external posiiton unit to 1 or 0 is acceptable because, As noted above, the external position unit is only updated on an as-needed
-        // basis during issuance, redemption, deposit and withdraw. It does not reflect the current value of the Set's perpetual position.
-        // The current value can be calculated from getPositionNotionalInfo.
         _setToken.editExternalPosition(
             address(collateralToken),
             address(this),
-            accountValueUnit > 1 ? 1 : 0,
+            collateralValueUnit,
             ""
         );
     }
