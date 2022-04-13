@@ -136,6 +136,8 @@ interface IPerpV2BasisTradingModule is IPerpV2LeverageModuleV2 {
     )
         external;
 
+    /* ============ External Setter Functions ============ */
+
     /**
      * @dev MANAGER ONLY. Update performance fee percentage.
      *
@@ -156,6 +158,8 @@ interface IPerpV2BasisTradingModule is IPerpV2LeverageModuleV2 {
      */
     function updateFeeRecipient(ISetToken _setToken, address _newFeeRecipient)
         external;
+
+    /* ============ External Getter Functions ============ */
 
     /**
      * @dev Adds pending funding payment to tracked settled funding. Returns updated settled funding value in precise units (10e18).
