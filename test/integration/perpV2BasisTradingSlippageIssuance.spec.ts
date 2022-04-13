@@ -536,7 +536,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
       });
 
-      it.skip("should update the USDC externalPositionUnit", async () => {
+      it("should update the USDC externalPositionUnit", async () => {
         const initialExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);
         await subject();
         const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpBasisTradingModule.address);

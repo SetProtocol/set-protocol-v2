@@ -1054,10 +1054,10 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
     }
 
     /**
-     * @dev Sets the external position unit based on PerpV2 Vault collateral balance. If there more than 1
-     * position unit of USDC of account value (allowing for PRECISE UNIT rounding errors) adds the component
-     * and/or the external position to the SetToken. Else, untracks the component and/or removes external
-     * position from the SetToken. Refer to PositionV2#editExternalPosition for detailed flow.
+     * @dev Sets the external position unit based on PerpV2 Vault collateral balance. If there is >= 1
+     * position unit of USDC of collateral value, add the component and/or the external position to the
+     * SetToken. Else, untracks the component and/or removes external position from the SetToken. Refer
+     * to PositionV2#editExternalPosition for detailed flow.
      *
      * NOTE: Setting external position unit to the collateral balance is acceptable because, as noted above, the
      * external position unit is only updated on an as-needed basis during issuance, redemption, deposit and

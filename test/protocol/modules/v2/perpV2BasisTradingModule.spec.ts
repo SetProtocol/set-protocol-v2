@@ -1789,7 +1789,7 @@ describe("PerpV2BasisTradingModule", () => {
           expect(initialBaseBalance).eq(finalBaseBalance);
         });
 
-        it.skip("should return adjustment arrays of the correct length with value in correct position", async () => {
+        it("should return adjustment arrays of the correct length with value in correct position", async () => {
           const components = await setToken.getComponents();
           const expectedAdjustmentsLength = components.length;
 
