@@ -34,7 +34,7 @@ import {
 } from "@utils/test/index";
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "ethers";
-import { ONE, ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
@@ -373,7 +373,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           );
 
           expect(defaultPositionUnit).eq(ZERO);
-          expect(externalPositionUnit).eq(ONE);
+          expect(externalPositionUnit).eq(depositQuantityUnit);
         });
       });
 
