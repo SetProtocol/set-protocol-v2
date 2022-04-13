@@ -429,7 +429,7 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
 
         if (positions[_setToken].length > 0) {
 
-            uint256 updatedSettledFunding = _getUpdatedSettledFunding(_setToken);
+            uint256 updatedSettledFunding = getUpdatedSettledFunding(_setToken);
 
             int256 newExternalPositionUnit = _executePositionTrades(_setToken, _setTokenQuantity, false, true);
 
@@ -439,31 +439,18 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         return _formatAdjustments(_setToken, newExternalPositionUnitNetFees);
     }
 
-    /* ============ Internal Functions ============ */
-
-    /**
-     * @dev Updates tracked settled funding. Once funding is settled to `owedRealizedPnl` on Perpetual protocol, it is difficult to
-     * extract out the funding value again on-chain. This function is called in an external function and is used to track and store
-     * pending funding payment that is about to be settled due to subsequent logic in the external function.
-     *
-     * @param _setToken             Instance of SetToken
-     * @return uint256              Returns the updated settled funding value
-     */
-    function _updateSettledFunding(ISetToken _setToken) internal returns (uint256) {
-        uint256 newSettledFunding = _getUpdatedSettledFunding(_setToken);
-        settledFunding[_setToken] = newSettledFunding;
-        return newSettledFunding;
-    }
-
     /**
      * @dev Adds pending funding payment to tracked settled funding. Returns updated settled funding value.
      *
      * NOTE: Tracked settled funding value can not be less than zero, hence it is reset to zero if pending funding
      * payment is negative and |pending funding payment| >= |settledFunding[_setToken]|.
      *
+     * NOTE: Returned updated settled funding value is correct only for the current block since pending funding payment
+     * updates every block.
+     *
      * @param _setToken             Instance of SetToken
      */
-    function _getUpdatedSettledFunding(ISetToken _setToken) internal view returns (uint256) {
+    function getUpdatedSettledFunding(ISetToken _setToken) public view returns (uint256) {
         // NOTE: pendingFundingPayments are represented as in the Perp system as "funding owed"
         // e.g a positive number is a debt which gets subtracted from owedRealizedPnl on settlement.
         // We are flipping its sign here to reflect its settlement value.
@@ -478,6 +465,22 @@ contract PerpV2BasisTradingModule is PerpV2LeverageModuleV2 {
         }
 
         return 0;
+    }
+
+    /* ============ Internal Functions ============ */
+
+    /**
+     * @dev Updates tracked settled funding. Once funding is settled to `owedRealizedPnl` on Perpetual protocol, it is difficult to
+     * extract out the funding value again on-chain. This function is called in an external function and is used to track and store
+     * pending funding payment that is about to be settled due to subsequent logic in the external function.
+     *
+     * @param _setToken             Instance of SetToken
+     * @return uint256              Returns the updated settled funding value
+     */
+    function _updateSettledFunding(ISetToken _setToken) internal returns (uint256) {
+        uint256 newSettledFunding = getUpdatedSettledFunding(_setToken);
+        settledFunding[_setToken] = newSettledFunding;
+        return newSettledFunding;
     }
 
     /**
