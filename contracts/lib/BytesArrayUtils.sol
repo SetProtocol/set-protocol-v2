@@ -19,12 +19,12 @@
 pragma solidity 0.6.10;
 
 /**
- * @title BytesLibUtils
+ * @title BytesArrayUtils
  * @author Set Protocol
  *
  * Utility library to type cast bytes arrays. Extends BytesLib library functionality.
  */
-library BytesLibUtils {
+library BytesArrayUtils {
 
     /**
      * Type cast byte to boolean.
