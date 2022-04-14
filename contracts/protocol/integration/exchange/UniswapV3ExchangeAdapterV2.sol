@@ -19,6 +19,7 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
+import { BytesArrayUtils } from "../../../lib/BytesArrayUtils.sol";
 import { BytesLib } from "../../../../external/contracts/uniswap/v3/lib/BytesLib.sol";
 import { ISwapRouter } from "../../../interfaces/external/ISwapRouter.sol";
 
@@ -35,6 +36,7 @@ import { ISwapRouter } from "../../../interfaces/external/ISwapRouter.sol";
 contract UniswapV3ExchangeAdapterV2 {
 
     using BytesLib for bytes;
+    using BytesArrayUtils for bytes;
 
     /* ============ State Variables ============ */
 
@@ -87,7 +89,7 @@ contract UniswapV3ExchangeAdapterV2 {
         // For multi-hop trades, `_data.length` is greater than 44.
         require(_data.length >= 44, "Invalid data");
 
-        bool fixInput = toBool(_data, _data.length - 1);        // `fixInput` bool is stored at last byte
+        bool fixInput = _data.toBool(_data.length - 1);        // `fixInput` bool is stored at last byte
 
         address sourceFromPath;
         address destinationFromPath;
@@ -166,23 +168,5 @@ contract UniswapV3ExchangeAdapterV2 {
 
         // Encode fixIn
         return abi.encodePacked(data, _fixIn);
-    }
-
-    /**
-     * Helper function to decode bytes to boolean. Similar to functions found in BytesLib.
-     * Note: Access modifier is set to public to enable complete testing.
-     */
-    function toBool(bytes memory _bytes, uint256 _start) public pure returns (bool) {
-        require(_start + 1 >= _start, "toBool_overflow");
-        require(_bytes.length >= _start + 1, "toBool_outOfBounds");
-        uint8 tempUint;
-
-        assembly {
-            tempUint := mload(add(add(_bytes, 0x1), _start))
-        }
-
-        require(tempUint <= 1, "Invalid bool data");     // Should be either 0 or 1
-
-        return (tempUint == 0) ? false : true;
     }
 }

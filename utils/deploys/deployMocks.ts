@@ -6,6 +6,7 @@ import {
   AaveLendingPoolMock,
   AddressArrayUtilsMock,
   AmmAdapterMock,
+  BytesArrayUtilsMock,
   ChainlinkAggregatorMock,
   ClaimAdapterMock,
   ContractCallerMock,
@@ -66,6 +67,7 @@ import { AaveLendingPoolCoreMock__factory } from "../../typechain/factories/Aave
 import { AaveLendingPoolMock__factory } from "../../typechain/factories/AaveLendingPoolMock__factory";
 import { AddressArrayUtilsMock__factory } from "../../typechain/factories/AddressArrayUtilsMock__factory";
 import { AmmAdapterMock__factory } from "../../typechain/factories/AmmAdapterMock__factory";
+import { BytesArrayUtilsMock__factory } from "../../typechain/factories/BytesArrayUtilsMock__factory";
 import { ChainlinkAggregatorMock__factory } from "../../typechain/factories/ChainlinkAggregatorMock__factory";
 import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapterMock__factory";
 import { CompoundMock__factory } from "../../typechain/factories/CompoundMock__factory";
@@ -461,6 +463,10 @@ export default class DeployMocks {
 
   public async deployStringArrayUtilsMock(): Promise<StringArrayUtilsMock> {
     return await new StringArrayUtilsMock__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployBytesArrayUtilsMock(): Promise<BytesArrayUtilsMock> {
+    return await new BytesArrayUtilsMock__factory(this._deployerSigner).deploy();
   }
 
   /** ***********************************

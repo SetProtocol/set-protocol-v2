@@ -4,7 +4,7 @@ import { solidityPack } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { MAX_UINT_256, ZERO } from "@utils/constants";
+import { ZERO } from "@utils/constants";
 import { UniswapV3ExchangeAdapterV2 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
@@ -268,76 +268,6 @@ describe("UniswapV3ExchangeAdapterV2", () => {
         );
 
         expect(data).to.eq(expectedData);
-      });
-    });
-  });
-
-  describe("#toBool", async () => {
-    let bool: boolean;
-    let randomAddress: Address;
-
-    let subjectBytes: Bytes;
-    let subjectStart: BigNumber;
-
-    before(async () => {
-      randomAddress = await getRandomAddress();
-    });
-
-    beforeEach(async() => {
-      bool = true;
-
-      subjectBytes = solidityPack(
-        ["address", "bool"],
-        [randomAddress, bool]
-      );
-      subjectStart = BigNumber.from(20);    // Address is 20 bytes long
-    });
-
-    async function subject(): Promise<boolean> {
-      return await uniswapV3ExchangeAdapter.toBool(subjectBytes, subjectStart);
-    }
-
-    it("should return correct bool", async () => {
-      const actualBool = await subject();
-
-      expect(actualBool).to.eq(bool);
-    });
-
-    describe("when bool is false", async () => {
-      beforeEach(async() => {
-        bool = false;
-
-        subjectBytes = solidityPack(
-          ["address", "bool"],
-          [randomAddress, bool]
-        );
-      });
-
-      it("should return correct bool", async () => {
-        const actualBool = await subject();
-
-        expect(actualBool).to.eq(bool);
-      });
-    });
-
-    describe("when start is max uint 256", async () => {
-      beforeEach(() => {
-        subjectStart = MAX_UINT_256;
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("toBool_overflow");
-      });
-    });
-
-
-    describe("when start is out of bounds", async () => {
-      beforeEach(() => {
-        subjectStart = BigNumber.from(subjectBytes.length);
-      });
-
-      it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("toBool_outOfBounds");
       });
     });
   });
