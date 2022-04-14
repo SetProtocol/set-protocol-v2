@@ -4,6 +4,7 @@ import { solidityPack } from "ethers/lib/utils";
 
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
+import { ZERO } from "@utils/constants";
 import { UniswapV3ExchangeAdapterV2 } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
