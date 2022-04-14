@@ -22,7 +22,8 @@ pragma solidity 0.6.10;
  * @title BytesArrayUtils
  * @author Set Protocol
  *
- * Utility library to type cast bytes arrays. Extends BytesLib library functionality.
+ * Utility library to type cast bytes arrays. Extends BytesLib (external/contracts/uniswap/v3/lib/BytesLib.sol)
+ * library functionality.
  */
 library BytesArrayUtils {
 
