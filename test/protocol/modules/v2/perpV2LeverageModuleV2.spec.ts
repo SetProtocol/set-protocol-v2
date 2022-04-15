@@ -1505,7 +1505,7 @@ describe("PerpV2LeverageModuleV2", () => {
   });
 
   describe("#withdraw", () => {
-    let depositQuantity: BigNumber;
+    const depositQuantity: BigNumber = usdcUnits(10);
     let subjectSetToken: SetToken;
     let subjectWithdrawQuantity: BigNumber;
     let subjectCaller: Account;
