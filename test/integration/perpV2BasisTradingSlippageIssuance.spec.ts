@@ -778,7 +778,7 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
           expect(finalOwnerUSDCBalance).to.be.closeTo(expectedUSDCBalance, 1);
         });
 
-        it("should remove the module when dust is in the account and be able to add module back", async () => {
+        it("should remove the module and be able to add module back", async () => {
           // Redeem to `1`
           await subject();
 
@@ -811,18 +811,12 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
             .connect(owner.wallet)
             .withdraw(subjectSetToken, freeCollateralPositionUnit);
 
-          const {
-            collateralBalance: finalCollateralBalance
-          } = await perpBasisTradingModule.getAccountInfo(subjectSetToken);
-
-
           /// Remove module
           await setToken.removeModule(perpBasisTradingModule.address);
           const finalModules = await setToken.getModules();
 
           expect(finalModules.includes(perpBasisTradingModule.address)).eq(false);
           expect(positionInfo.length).eq(0);
-          expect(toUSDCDecimals(finalCollateralBalance)).eq(1); // <-- DUST
 
           // Restore module
           await setToken.connect(owner.wallet).addModule(perpBasisTradingModule.address);

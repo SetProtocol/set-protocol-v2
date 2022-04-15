@@ -876,7 +876,12 @@ contract PerpV2LeverageModuleV2 is ModuleBaseV2, ReentrancyGuard, Ownable, SetTo
         returns (uint256)
     {
         uint256 initialCollateralPositionBalance = collateralToken.balanceOf(address(_setToken));
-        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMul(_setToken.totalSupply());
+        // Round up to calculate notional, so that we make atleast `_collateralQuantityUnits` position unit after withdraw.
+        // Example, let totalSupply = 1.005e18, _collateralQuantityUnits = 13159, then
+        // collateralNotionalQuantity = 13159 * 1.005e18 / 1e18 = 13225 (13224.795 rounded up)
+        // We withdraw 13225 from Perp and make a position unit from it. So newPositionUnit = (13225 / 1.005e18) * 1e18
+        // = 13159 (13159.2039801 rounded down)
+        uint256 collateralNotionalQuantity = _collateralQuantityUnits.preciseMulCeil(_setToken.totalSupply());
 
         _withdraw(_setToken, collateralNotionalQuantity);
 

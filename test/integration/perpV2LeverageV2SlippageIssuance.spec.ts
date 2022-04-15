@@ -1129,7 +1129,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           expect(finalOwnerUSDCBalance).to.be.closeTo(expectedUSDCBalance, 1);
         });
 
-        it("should remove the module when dust is in the account and be able to add module back", async () => {
+        it("should remove the module and be able to add module back", async () => {
           // Redeem to `1`
           await subject();
 
@@ -1162,18 +1162,12 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             .connect(owner.wallet)
             .withdraw(subjectSetToken, freeCollateralPositionUnit);
 
-          const {
-            collateralBalance: finalCollateralBalance
-          } = await perpLeverageModule.getAccountInfo(subjectSetToken);
-
-
           /// Remove module
           await setToken.removeModule(perpLeverageModule.address);
           const finalModules = await setToken.getModules();
 
           expect(finalModules.includes(perpLeverageModule.address)).eq(false);
           expect(positionInfo.length).eq(0);
-          expect(toUSDCDecimals(finalCollateralBalance)).eq(1); // <-- DUST
 
           // Restore module
           await setToken.connect(owner.wallet).addModule(perpLeverageModule.address);
