@@ -1511,7 +1511,10 @@ describe("PerpV2LeverageModuleV2", () => {
     let subjectCaller: Account;
     let isInitialized: boolean;
 
-    const initializeContracts = async () => {
+    const initializeContracts = async (
+      issueQuantity: BigNumber = ether(2),
+      depositQuantity: BigNumber = usdcUnits(10)
+    ) => {
       subjectSetToken = await setup.createSetToken(
         [usdc.address],
         [usdcUnits(100)],
@@ -1524,13 +1527,11 @@ describe("PerpV2LeverageModuleV2", () => {
       if (isInitialized) {
         await perpLeverageModule.initialize(subjectSetToken.address);
 
-        const issueQuantity = ether(2);
         await usdc.approve(setup.issuanceModule.address, usdcUnits(1000));
         await setup.issuanceModule.initialize(subjectSetToken.address, ADDRESS_ZERO);
         await setup.issuanceModule.issue(subjectSetToken.address, issueQuantity, owner.address);
 
         // Deposit 10 USDC
-        depositQuantity = usdcUnits(10);
         await perpLeverageModule
           .connect(owner.wallet)
           .deposit(subjectSetToken.address, depositQuantity);
@@ -1711,6 +1712,30 @@ describe("PerpV2LeverageModuleV2", () => {
 
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+
+      describe("when rounding up notional amount is required", async () => {
+        beforeEach(async () => {
+          isInitialized = true;
+          const issueQuantity = ether(1.005);
+          const depositQuantity = usdcUnits(100); // deposit all
+          await initializeContracts(issueQuantity, depositQuantity);
+
+          subjectWithdrawQuantity = BigNumber.from(13159);
+        });
+
+        it("should update USDC default position unit", async () => {
+          await subject();
+
+          const defaultPositionUnit = await subjectSetToken.getDefaultPositionRealUnit(usdc.address);
+
+          // Round up to calculate notional, so that we make atleast `_collateralQuantityUnits` position unit after withdraw.
+          // Example, let totalSupply = 1.005e18, _collateralQuantityUnits = 13159, then
+          // collateralNotionalQuantity = 13159 * 1.005e18 / 1e18 = 13225 (13224.795 rounded up)
+          // We withdraw 13225 from Perp and make a position unit from it. So newPositionUnit = (13225 / 1.005e18) * 1e18
+          // = 13159 (13159.2039801 rounded down)
+          expect(defaultPositionUnit).to.eq(subjectWithdrawQuantity); // 13159
         });
       });
     });
