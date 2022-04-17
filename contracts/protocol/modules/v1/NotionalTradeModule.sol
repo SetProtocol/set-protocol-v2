@@ -26,6 +26,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
+import { IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
@@ -227,7 +228,32 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /* ============ Internal Functions ============ */
 
     function _redeemMaturedPositions(ISetToken _setToken) internal {
+        uint fCashPositionLength = fCashPositions[_setToken].length();
+        if(fCashPositionLength == 0) return;
+        bool toUnderlying = redeemToUnderlying[_setToken];
+        for(uint256 i = 0; i < fCashPositionLength; i++) {
+            IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositions[_setToken].at(i));
+            if(fCashPosition.hasMatured()) {
+                _redeemFCashPosition(_setToken, fCashPosition, toUnderlying);
+            }
+        }
     }
+    function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, bool _toUnderlying) internal {
+        uint256 fCashBalance = _fCashPosition.balanceOf(address(_setToken));
+        if(fCashBalance == 0) return;
+
+        // TODO: Review if this value is correct / what is max implied rate ? 
+        uint32 maxImpliedRate = type(uint32).max;
+        _fCashPosition.operatorSend(address(_setToken), address(this), fCashBalance, "", "");
+
+        if(_toUnderlying) {
+            _fCashPosition.redeemToUnderlying(fCashBalance, address(_setToken), maxImpliedRate);
+        } else {
+            _fCashPosition.redeemToAsset(fCashBalance, address(_setToken), maxImpliedRate);
+        }
+
+    }
+
     function _addFCashPositions(ISetToken _setToken, address[] calldata _fCashPositions) internal {
         for(uint256 i = 0; i < _fCashPositions.length; i++) {
             fCashPositions[_setToken].add(_fCashPositions[i]);
