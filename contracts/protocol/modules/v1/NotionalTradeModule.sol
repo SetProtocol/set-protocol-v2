@@ -25,11 +25,12 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 
 import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
+import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
-contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable {
+contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /* ============ Structs ============ */
@@ -186,13 +187,32 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable {
         emit AnySetAllowedUpdated(_anySetAllowed);
     }
 
-    function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
+    function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external override onlyModule(_setToken) {
         _redeemMaturedPositions(_setToken);
     }
 
-    function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external onlyModule(_setToken) {
+    function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external override onlyModule(_setToken) {
         _redeemMaturedPositions(_setToken);
     }
+
+
+    function componentIssueHook(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity,
+        IERC20 _component,
+        bool _isEquity
+    ) external override onlyModule(_setToken) {
+    }
+
+    function componentRedeemHook(
+        ISetToken _setToken,
+        uint256 _setTokenQuantity,
+        IERC20 _component,
+        bool _isEquity
+    ) external override onlyModule(_setToken) {
+    }
+
+
 
 
     /* ============ External Getter Functions ============ */
