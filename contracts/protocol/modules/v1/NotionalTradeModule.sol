@@ -20,13 +20,14 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC777 } from "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
-import { IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
+import { IWrappedfCash, IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
@@ -258,28 +259,59 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 maxImpliedRate = type(uint32).max;
+
         IERC20 receiveToken;
-        uint256 balanceBefore;
         if(_toUnderlying) {
             (receiveToken,) = _fCashPosition.getUnderlyingToken();
-            balanceBefore = receiveToken.balanceOf(address(_setToken));
-            _fCashPosition.redeemToUnderlying(_amount, address(_setToken), maxImpliedRate);
         } else {
             (receiveToken,,) = _fCashPosition.getAssetToken();
-            balanceBefore = receiveToken.balanceOf(address(_setToken));
-            _fCashPosition.redeemToAsset(_amount, address(_setToken), maxImpliedRate);
         }
+
+        uint256 balanceBefore = receiveToken.balanceOf(address(_setToken));
+        IERC777(address(_fCashPosition)).operatorBurn(
+            address(_setToken),
+            _amount,
+            abi.encode(IWrappedfCash.RedeemOpts(_toUnderlying, false, address(_setToken), maxImpliedRate)),
+            ""
+        );
         uint256 balanceAfter = receiveToken.balanceOf(address(_setToken));
+
         return balanceAfter.sub(balanceBefore);
 
     }
 
-    function _mintFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _fCashAmount, uint256 _maxAssetAmount, bool _useUnderlying) internal returns(uint256 assetAmountSpent) {
+    function _mintFCashPosition(
+        ISetToken _setToken,
+        IWrappedfCashComplete _fCashPosition,
+        uint256 _fCashAmount,
+        uint256 _maxAssetAmount,
+        bool _useUnderlying
+    )
+    internal
+    returns(uint256 assetAmountSpent)
+    {
         if(_fCashAmount == 0) return 0;
-
         // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 minImpliedRate = 0;
+
+        IERC20 paymentToken;
+        if(_useUnderlying) {
+            (paymentToken,) = _fCashPosition.getUnderlyingToken();
+        } else {
+            (paymentToken,,) = _fCashPosition.getAssetToken();
+        }
+
+        paymentToken.transferFrom(address(_setToken), address(this), _maxAssetAmount);
+
+        uint256 balanceBefore = paymentToken.balanceOf(address(this));
         _fCashPosition.mint(_maxAssetAmount, uint88(_fCashAmount), address(_setToken), minImpliedRate, _useUnderlying);
+        assetAmountSpent = paymentToken.balanceOf(address(this)).sub(balanceBefore);
+
+        require(assetAmountSpent <= _maxAssetAmount, "Overpaid");
+
+        if(_maxAssetAmount > assetAmountSpent) {
+            paymentToken.transfer(address(_setToken), _maxAssetAmount.sub(assetAmountSpent));
+        }
 
     }
 
