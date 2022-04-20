@@ -91,16 +91,29 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     function trade(
         ISetToken _setToken,
-        IERC20 _sendToken,
+        address _sendToken,
         uint256 _sendQuantity,
-        IERC20 _receiveToken,
-        uint256 _minReceiveQuantity
+        address _receiveToken,
+        uint256 _minReceiveQuantity,
+        bool _useUnderlying
     )
         external
         nonReentrant
         onlyManagerAndValidSet(_setToken)
         returns(uint256 receiveQuantity)
     {
+        if(fCashPositions[_setToken].contains(_sendToken))
+        {
+            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), _sendQuantity, _useUnderlying);
+        }
+        else if(fCashPositions[_setToken].contains(_receiveToken))
+        {
+            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), _minReceiveQuantity, _minReceiveQuantity, _useUnderlying);
+        }
+        else {
+            revert("Neither send nor receive token is a registered fCash position");
+        }
+
     }
 
     function redeemMaturedPositions(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
@@ -234,23 +247,39 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         for(uint256 i = 0; i < fCashPositionLength; i++) {
             IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositions[_setToken].at(i));
             if(fCashPosition.hasMatured()) {
-                _redeemFCashPosition(_setToken, fCashPosition, toUnderlying);
+                uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
+                _redeemFCashPosition(_setToken, fCashPosition, fCashBalance, toUnderlying);
             }
         }
     }
-    function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, bool _toUnderlying) internal {
-        uint256 fCashBalance = _fCashPosition.balanceOf(address(_setToken));
-        if(fCashBalance == 0) return;
+
+    function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _amount, bool _toUnderlying) internal returns(uint256) {
+        if(_amount == 0) return 0;
 
         // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 maxImpliedRate = type(uint32).max;
-        _fCashPosition.operatorSend(address(_setToken), address(this), fCashBalance, "", "");
-
+        IERC20 receiveToken;
+        uint256 balanceBefore;
         if(_toUnderlying) {
-            _fCashPosition.redeemToUnderlying(fCashBalance, address(_setToken), maxImpliedRate);
+            (receiveToken,) = _fCashPosition.getUnderlyingToken();
+            balanceBefore = receiveToken.balanceOf(address(_setToken));
+            _fCashPosition.redeemToUnderlying(_amount, address(_setToken), maxImpliedRate);
         } else {
-            _fCashPosition.redeemToAsset(fCashBalance, address(_setToken), maxImpliedRate);
+            (receiveToken,,) = _fCashPosition.getAssetToken();
+            balanceBefore = receiveToken.balanceOf(address(_setToken));
+            _fCashPosition.redeemToAsset(_amount, address(_setToken), maxImpliedRate);
         }
+        uint256 balanceAfter = receiveToken.balanceOf(address(_setToken));
+        return balanceAfter.sub(balanceBefore);
+
+    }
+
+    function _mintFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _fCashAmount, uint256 _maxAssetAmount, bool _useUnderlying) internal returns(uint256 assetAmountSpent) {
+        if(_fCashAmount == 0) return 0;
+
+        // TODO: Review if this value is correct / what is max implied rate ? 
+        uint32 minImpliedRate = 0;
+        _fCashPosition.mint(_maxAssetAmount, uint88(_fCashAmount), address(_setToken), minImpliedRate, _useUnderlying);
 
     }
 

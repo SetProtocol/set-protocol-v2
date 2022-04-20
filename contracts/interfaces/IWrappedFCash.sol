@@ -71,5 +71,5 @@ interface IWrappedfCash {
 }
 
 
-interface IWrappedfCashComplete is IWrappedfCash, IERC777 {} 
+interface IWrappedfCashComplete is IWrappedfCash, IERC20 {} 
 
