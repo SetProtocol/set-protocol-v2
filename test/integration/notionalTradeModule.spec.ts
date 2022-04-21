@@ -15,11 +15,12 @@ import {
   initializeForkedTokens,
 } from "@utils/test/index";
 
-import {  SystemFixture } from "@utils/fixtures";
+import { SystemFixture } from "@utils/fixtures";
 import {
   SetToken,
   DebtIssuanceModuleV2,
   ManagerIssuanceHookMock,
+  NotionalTradeModule,
 } from "@utils/contracts";
 
 import { IERC20 } from "@typechain/IERC20";
@@ -40,7 +41,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
   let deployer: DeployHelper;
 
-
   let setup: SystemFixture;
   let tokens: ForkedTokens;
 
@@ -48,6 +48,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
   let steth: IERC20;
   let debtIssuanceModule: DebtIssuanceModuleV2;
   let mockPreIssuanceHook: ManagerIssuanceHookMock;
+  let notionalTradeModule: NotionalTradeModule;
 
   let setToken: SetToken;
   let issueQuantity: BigNumber;
@@ -66,22 +67,25 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     weth = tokens.weth;
     steth = tokens.steth;
 
-
     // Deploy DebtIssuanceModuleV2
     debtIssuanceModule = await deployer.modules.deployDebtIssuanceModuleV2(
-      setup.controller.address
+      setup.controller.address,
     );
-
     await setup.controller.addModule(debtIssuanceModule.address);
+
+    // Deploy NotionalTradeModule
+    notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
+      setup.controller.address,
+    );
+    await setup.controller.addModule(notionalTradeModule.address);
 
     // Deploy mock issuance hook to pass as arg in DebtIssuance module initialization
     mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
 
     // Create liquidity
-    const ape = await getRandomAccount();   // The wallet adding initial liquidity
+    const ape = await getRandomAccount(); // The wallet adding initial liquidity
     await weth.transfer(ape.address, ether(50));
     await steth.transfer(ape.address, ether(50000));
-
   });
 
   async function initialize() {
@@ -89,7 +93,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     setToken = await setup.createSetToken(
       [steth.address],
       [ether(2)],
-      [debtIssuanceModule.address],
+      [debtIssuanceModule.address, notionalTradeModule.address],
       manager.address,
     );
 
@@ -104,21 +108,17 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     // Transferring 2 results in steth.balanceOf(setToken) == 1
     await tokens.steth.transfer(setToken.address, 2);
 
-    await steth
-      .connect(owner.wallet)
-      .approve(debtIssuanceModule.address, MAX_UINT_256);
-
+    await steth.connect(owner.wallet).approve(debtIssuanceModule.address, MAX_UINT_256);
 
     // Initialize debIssuance module
     await debtIssuanceModule.connect(manager.wallet).initialize(
       setToken.address,
-      ether(.1),
+      ether(0.1),
       ether(0), // No issue fee
       ether(0), // No redeem fee
       owner.address,
-      mockPreIssuanceHook.address
+      mockPreIssuanceHook.address,
     );
-
 
     // Issue
     issueQuantity = ether(1);
@@ -135,5 +135,4 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       expect(setTokenBalance).to.eq(issueQuantity);
     });
   });
-
 });
