@@ -244,14 +244,22 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function _redeemMaturedPositions(ISetToken _setToken) internal {
         uint fCashPositionLength = fCashPositions[_setToken].length();
         if(fCashPositionLength == 0) return;
+
         bool toUnderlying = redeemToUnderlying[_setToken];
+
         for(uint256 i = 0; i < fCashPositionLength; i++) {
             IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositions[_setToken].at(i));
+
             if(fCashPosition.hasMatured()) {
                 uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
                 _redeemFCashPosition(_setToken, fCashPosition, fCashBalance, toUnderlying);
+                if(_setToken.isComponent(address(fCashPosition))) {
+                    _setToken.removeComponent(address(fCashPosition));
+                }
             }
+
         }
+
     }
 
     function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _amount, bool _toUnderlying) internal returns(uint256) {
