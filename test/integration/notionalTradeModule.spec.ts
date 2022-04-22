@@ -63,53 +63,53 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
   let wrappedfCashFactory: WrappedfCashFactory;
   let notionalProxy: INotionalProxy;
 
-  cacheBeforeEach(async () => {
-    [owner, manager] = await getAccounts();
+  beforeEach(async () => {
+    // [owner, manager] = await getAccounts();
 
-    deployer = new DeployHelper(owner.wallet);
+    // deployer = new DeployHelper(owner.wallet);
 
-    setup = getSystemFixture(owner.address);
-    await setup.initialize();
+    // setup = getSystemFixture(owner.address);
+    // await setup.initialize();
 
-    // Setup ForkedTokens
-    await initializeForkedTokens(deployer);
-    tokens = getForkedTokens();
-    weth = tokens.weth;
-    steth = tokens.steth;
+    // // Setup ForkedTokens
+    // await initializeForkedTokens(deployer);
+    // tokens = getForkedTokens();
+    // weth = tokens.weth;
+    // steth = tokens.steth;
 
     notionalProxy = (await ethers.getContractAt(
       "INotionalProxy",
       notionalProxyAddress,
     )) as INotionalProxy;
 
-    // Deploy WrappedfCash
-    wrappedfCashBeacon = await deployer.external.deployWrappedfCash(notionalProxyAddress);
-    console.log("wrappedfCashBeacon:", wrappedfCashBeacon.address);
+    // // Deploy WrappedfCash
+    // wrappedfCashBeacon = await deployer.external.deployWrappedfCash(notionalProxyAddress);
+    // console.log("wrappedfCashBeacon:", wrappedfCashBeacon.address);
 
-    wrappedfCashFactory = await deployer.external.deployWrappedfCashFactory(
-      wrappedfCashBeacon.address,
-    );
-    console.log("wrappedfCashFactory:", wrappedfCashFactory.address);
+    // wrappedfCashFactory = await deployer.external.deployWrappedfCashFactory(
+    //   wrappedfCashBeacon.address,
+    // );
+    // console.log("wrappedfCashFactory:", wrappedfCashFactory.address);
 
-    // Deploy DebtIssuanceModuleV2
-    debtIssuanceModule = await deployer.modules.deployDebtIssuanceModuleV2(
-      setup.controller.address,
-    );
-    await setup.controller.addModule(debtIssuanceModule.address);
+    // // Deploy DebtIssuanceModuleV2
+    // debtIssuanceModule = await deployer.modules.deployDebtIssuanceModuleV2(
+    //   setup.controller.address,
+    // );
+    // await setup.controller.addModule(debtIssuanceModule.address);
 
-    // Deploy NotionalTradeModule
-    notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
-      setup.controller.address,
-    );
-    await setup.controller.addModule(notionalTradeModule.address);
+    // // Deploy NotionalTradeModule
+    // notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
+    //   setup.controller.address,
+    // );
+    // await setup.controller.addModule(notionalTradeModule.address);
 
-    // Deploy mock issuance hook to pass as arg in DebtIssuance module initialization
-    mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
+    // // Deploy mock issuance hook to pass as arg in DebtIssuance module initialization
+    // mockPreIssuanceHook = await deployer.mocks.deployManagerIssuanceHookMock();
 
-    // Create liquidity
-    const ape = await getRandomAccount(); // The wallet adding initial liquidity
-    await weth.transfer(ape.address, ether(50));
-    await steth.transfer(ape.address, ether(50000));
+    // // Create liquidity
+    // const ape = await getRandomAccount(); // The wallet adding initial liquidity
+    // await weth.transfer(ape.address, ether(50));
+    // await steth.transfer(ape.address, ether(50000));
   });
 
   async function initialize() {
@@ -153,7 +153,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
   }
 
   describe("Notional setup", async () => {
-    cacheBeforeEach(initialize);
+    // cacheBeforeEach(initialize);
 
     const daiCurrencyId = 2;
 
@@ -173,7 +173,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       expect(currencyId).to.eq(daiCurrencyId);
     });
 
-    [1, 2, 3, 4].forEach(currencyId => {
+    [1, 2, 3, 4].forEach((currencyId) => {
       describe(`With currencyId: ${currencyId}`, () => {
         it("getCurrency should work", async () => {
           const { underlyingToken, assetToken } = await notionalProxy.getCurrency(currencyId);
@@ -193,7 +193,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
           });
         });
 
-
         it("getDepositParameters should work", async () => {
           await notionalProxy.getDepositParameters(currencyId);
         });
@@ -211,19 +210,19 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
         });
 
         it("getActiveMarkets should work", async () => {
+          const latestBlock = await ethers.provider.getBlock("latest");
+          console.log("Latest block before calling getActiveMarkets:", latestBlock);
           const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
           console.log("activeMarkets:", activeMarkets);
         });
-
-
       });
     });
     describe("When currency id is invalid", () => {
       const invalidCurrencyId = 5;
       it("getActiveMarkets should revert correctly", async () => {
-        await expect(
-          notionalProxy.getActiveMarkets(invalidCurrencyId),
-        ).to.be.revertedWith("Invalid currency id");
+        await expect(notionalProxy.getActiveMarkets(invalidCurrencyId)).to.be.revertedWith(
+          "Invalid currency id",
+        );
       });
     });
   });

@@ -61,9 +61,9 @@ const config: HardhatUserConfig = {
       accounts: [`0x${process.env.KOVAN_DEPLOY_PRIVATE_KEY}`],
     },
     staging_mainnet: {
-      url: "https://mainnet.infura.io/v3/" + process.env.INFURA_TOKEN,
+      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
       // @ts-ignore
-      accounts: [`0x${process.env.STAGING_MAINNET_DEPLOY_PRIVATE_KEY}`],
+      // accounts: [`0x${process.env.STAGING_MAINNET_DEPLOY_PRIVATE_KEY}`],
     },
     production: {
       url: "https://mainnet.infura.io/v3/" + process.env.INFURA_TOKEN,
