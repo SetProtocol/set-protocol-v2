@@ -21,6 +21,7 @@ import {
   DebtIssuanceModuleV2,
   ManagerIssuanceHookMock,
   NotionalTradeModule,
+  WrappedfCash,
 } from "@utils/contracts";
 
 import { IERC20 } from "@typechain/IERC20";
@@ -53,6 +54,9 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
   let setToken: SetToken;
   let issueQuantity: BigNumber;
 
+  const notionalProxyAddress = "0x1344a36a1b56144c3bc62e7757377d288fde0369";
+  let wrappedfCashBeacon: WrappedfCash;
+
   cacheBeforeEach(async () => {
     [owner, manager] = await getAccounts();
 
@@ -66,6 +70,12 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     tokens = getForkedTokens();
     weth = tokens.weth;
     steth = tokens.steth;
+
+    // Deploy WrappedfCash
+    wrappedfCashBeacon = await deployer.external.deployWrappedfCash(
+      notionalProxyAddress
+    );
+    console.log("wrappedfCashBeacon:", wrappedfCashBeacon.address);
 
     // Deploy DebtIssuanceModuleV2
     debtIssuanceModule = await deployer.modules.deployDebtIssuanceModuleV2(
