@@ -1,6 +1,7 @@
 import "module-alias/register";
 
-import { BigNumber } from "ethers";
+import { BigNumber, constants } from "ethers";
+import { ethers } from "hardhat";
 
 import { Account, ForkedTokens } from "@utils/test/types";
 import DeployHelper from "@utils/deploys";
@@ -19,6 +20,7 @@ import { SystemFixture } from "@utils/fixtures";
 import {
   SetToken,
   DebtIssuanceModuleV2,
+  INotionalProxy,
   ManagerIssuanceHookMock,
   NotionalTradeModule,
   WrappedfCash,
@@ -26,6 +28,7 @@ import {
 } from "@utils/contracts";
 
 import { IERC20 } from "@typechain/IERC20";
+import { IERC20Metadata } from "@typechain/IERC20Metadata";
 import { MAX_UINT_256 } from "@utils/constants";
 
 const expect = getWaffleExpect();
@@ -58,6 +61,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
   const notionalProxyAddress = "0x1344a36a1b56144c3bc62e7757377d288fde0369";
   let wrappedfCashBeacon: WrappedfCash;
   let wrappedfCashFactory: WrappedfCashFactory;
+  let notionalProxy: INotionalProxy;
 
   cacheBeforeEach(async () => {
     [owner, manager] = await getAccounts();
@@ -73,14 +77,17 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     weth = tokens.weth;
     steth = tokens.steth;
 
+    notionalProxy = (await ethers.getContractAt(
+      "INotionalProxy",
+      notionalProxyAddress,
+    )) as INotionalProxy;
+
     // Deploy WrappedfCash
-    wrappedfCashBeacon = await deployer.external.deployWrappedfCash(
-      notionalProxyAddress
-    );
+    wrappedfCashBeacon = await deployer.external.deployWrappedfCash(notionalProxyAddress);
     console.log("wrappedfCashBeacon:", wrappedfCashBeacon.address);
 
     wrappedfCashFactory = await deployer.external.deployWrappedfCashFactory(
-      wrappedfCashBeacon.address
+      wrappedfCashBeacon.address,
     );
     console.log("wrappedfCashFactory:", wrappedfCashFactory.address);
 
@@ -145,11 +152,79 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       .issue(setToken.address, issueQuantity, owner.address);
   }
 
-  describe("#trade", async () => {
+  describe("Notional setup", async () => {
     cacheBeforeEach(initialize);
-    it("should work", async () => {
-      const setTokenBalance = await setToken.balanceOf(owner.address);
-      expect(setTokenBalance).to.eq(issueQuantity);
+
+    const daiCurrencyId = 2;
+
+    it("owner should work", async () => {
+      const owner = await notionalProxy.owner();
+      console.log("owner:", owner);
+    });
+
+    it("max currency id should work", async () => {
+      const maxCurrencyId = await notionalProxy.getMaxCurrencyId();
+      expect(maxCurrencyId).to.eq(4);
+    });
+
+    it("getCurrencyId should work", async () => {
+      const cdaiAddress = "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643";
+      const currencyId = await notionalProxy.getCurrencyId(cdaiAddress);
+      expect(currencyId).to.eq(daiCurrencyId);
+    });
+
+    [1, 2, 3, 4].forEach(currencyId => {
+      describe(`With currencyId: ${currencyId}`, () => {
+        it("getCurrency should work", async () => {
+          const { underlyingToken, assetToken } = await notionalProxy.getCurrency(currencyId);
+          const underlyingContract = (await ethers.getContractAt(
+            "IERC20Metadata",
+            underlyingToken.tokenAddress,
+          )) as IERC20Metadata;
+
+          const tokenSymbol =
+            underlyingToken.tokenAddress == constants.AddressZero
+              ? "ETH"
+              : await underlyingContract.symbol();
+          console.log("Underlying token", {
+            assetAddress: assetToken.tokenAddress,
+            underlyingAddress: underlyingToken.tokenAddress,
+            symbol: tokenSymbol,
+          });
+        });
+
+
+        it("getDepositParameters should work", async () => {
+          await notionalProxy.getDepositParameters(currencyId);
+        });
+
+        it("getInitializationParameters should work", async () => {
+          await notionalProxy.getInitializationParameters(currencyId);
+        });
+
+        it("getRateStorage should work", async () => {
+          await notionalProxy.getRateStorage(currencyId);
+        });
+
+        it("getCurrencyAndRates should work", async () => {
+          await notionalProxy.getCurrencyAndRates(currencyId);
+        });
+
+        it("getActiveMarkets should work", async () => {
+          const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
+          console.log("activeMarkets:", activeMarkets);
+        });
+
+
+      });
+    });
+    describe("When currency id is invalid", () => {
+      const invalidCurrencyId = 5;
+      it("getActiveMarkets should revert correctly", async () => {
+        await expect(
+          notionalProxy.getActiveMarkets(invalidCurrencyId),
+        ).to.be.revertedWith("Invalid currency id");
+      });
     });
   });
 });

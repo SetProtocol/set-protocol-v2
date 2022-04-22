@@ -45,6 +45,7 @@ export { GovernanceAdapterMock } from "../../typechain/GovernanceAdapterMock";
 export { GovernanceModule } from "../../typechain/GovernanceModule";
 export { IntegrationRegistry } from "../../typechain/IntegrationRegistry";
 export { InvokeMock } from "../../typechain/InvokeMock";
+export { INotionalProxy } from "../../typechain/INotionalProxy";
 export { ISetValuer } from "../../typechain/ISetValuer";
 export { IssuanceModule } from "../../typechain/IssuanceModule";
 export { KyberExchangeAdapter } from "../../typechain/KyberExchangeAdapter";
