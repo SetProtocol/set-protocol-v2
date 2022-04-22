@@ -111,7 +111,7 @@
     "fs-extra": "^5.0.0",
     "jsbi": "^3.2.5",
     "module-alias": "^2.2.2",
-    "notional-solidity-sdk": "https://github.com/notional-finance/notional-solidity-sdk.git#feature/fcash-erc20",
+    "notional-solidity-sdk": "https://github.com/ckoopmann/notional-solidity-sdk.git#642a7caf9651950f88cfd3f944e7ec473b93073e",
     "replace-in-file": "^6.1.0"
   },
   "peerDependencies": {
