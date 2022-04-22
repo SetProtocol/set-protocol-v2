@@ -111,7 +111,7 @@
     "fs-extra": "^5.0.0",
     "jsbi": "^3.2.5",
     "module-alias": "^2.2.2",
-    "notional-solidity-sdk": "https://github.com/ckoopmann/notional-solidity-sdk.git#642a7caf9651950f88cfd3f944e7ec473b93073e",
+    "notional-solidity-sdk": "https://github.com/ckoopmann/notional-solidity-sdk.git#494ffdbbf9e17f2f13f66b13c9bf0868b2e3d79a",
     "replace-in-file": "^6.1.0"
   },
   "peerDependencies": {
