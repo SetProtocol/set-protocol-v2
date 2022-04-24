@@ -89,28 +89,22 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     //           symbol: tokenSymbol,
     //         });
     //       });
-
     //       it("getDepositParameters should work", async () => {
     //         await notionalProxy.getDepositParameters(currencyId);
     //       });
-
     //       it("getInitializationParameters should work", async () => {
     //         await notionalProxy.getInitializationParameters(currencyId);
     //       });
-
     //       it("getRateStorage should work", async () => {
     //         await notionalProxy.getRateStorage(currencyId);
     //       });
-
     //       it("getCurrencyAndRates should work", async () => {
     //         await notionalProxy.getCurrencyAndRates(currencyId);
     //       });
-
     //       it("getActiveMarkets should work", async () => {
     //         const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
     //         expect(activeMarkets.length).to.be.gte(2);
     //       });
-
     //       describe("When the maturity is valid", () => {
     //         let maturity: number;
     //         let referenceTime: number;
@@ -262,21 +256,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       beforeEach(async () => {
         const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
         maturity = activeMarkets[0].maturity;
-      });
-      describe("Deploying WrappedfCash directly", () => {
-        beforeEach(async () => {
-          wrappedFCashInstance = await deployer.external.deployWrappedfCash(notionalProxyAddress);
-        });
-        it("initialization should work", async () => {
-          const initializationData = wrappedfCashImplementation.interface.encodeFunctionData(
-            "initialize",
-            [currencyId, maturity],
-          );
-          await owner.wallet.sendTransaction({
-            to: wrappedFCashInstance.address,
-            data: initializationData,
-          });
-        });
       });
 
       describe("Deploying WrappedfCash with beacon proxy", () => {
