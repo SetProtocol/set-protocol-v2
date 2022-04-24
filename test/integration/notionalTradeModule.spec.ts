@@ -159,7 +159,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
     it("owner should work", async () => {
       const owner = await notionalProxy.owner();
-      console.log("owner:", owner);
     });
 
     it("max currency id should work", async () => {
@@ -173,47 +172,72 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       expect(currencyId).to.eq(daiCurrencyId);
     });
 
-    [1, 2, 3, 4].forEach((currencyId) => {
-      describe(`With currencyId: ${currencyId}`, () => {
-        it("getCurrency should work", async () => {
-          const { underlyingToken, assetToken } = await notionalProxy.getCurrency(currencyId);
-          const underlyingContract = (await ethers.getContractAt(
-            "IERC20Metadata",
-            underlyingToken.tokenAddress,
-          )) as IERC20Metadata;
+    describe("When currencyId is valid", () => {
+      [1, 2, 3, 4].forEach((currencyId) => {
+        describe(`With currencyId: ${currencyId}`, () => {
+          it("getCurrency should work", async () => {
+            const { underlyingToken, assetToken } = await notionalProxy.getCurrency(currencyId);
+            const underlyingContract = (await ethers.getContractAt(
+              "IERC20Metadata",
+              underlyingToken.tokenAddress,
+            )) as IERC20Metadata;
 
-          const tokenSymbol =
-            underlyingToken.tokenAddress == constants.AddressZero
-              ? "ETH"
-              : await underlyingContract.symbol();
-          console.log("Underlying token", {
-            assetAddress: assetToken.tokenAddress,
-            underlyingAddress: underlyingToken.tokenAddress,
-            symbol: tokenSymbol,
+            const tokenSymbol =
+              underlyingToken.tokenAddress == constants.AddressZero
+                ? "ETH"
+                : await underlyingContract.symbol();
+            console.log("Underlying token", {
+              assetAddress: assetToken.tokenAddress,
+              underlyingAddress: underlyingToken.tokenAddress,
+              symbol: tokenSymbol,
+            });
           });
-        });
 
-        it("getDepositParameters should work", async () => {
-          await notionalProxy.getDepositParameters(currencyId);
-        });
+          it("getDepositParameters should work", async () => {
+            await notionalProxy.getDepositParameters(currencyId);
+          });
 
-        it("getInitializationParameters should work", async () => {
-          await notionalProxy.getInitializationParameters(currencyId);
-        });
+          it("getInitializationParameters should work", async () => {
+            await notionalProxy.getInitializationParameters(currencyId);
+          });
 
-        it("getRateStorage should work", async () => {
-          await notionalProxy.getRateStorage(currencyId);
-        });
+          it("getRateStorage should work", async () => {
+            await notionalProxy.getRateStorage(currencyId);
+          });
 
-        it("getCurrencyAndRates should work", async () => {
-          await notionalProxy.getCurrencyAndRates(currencyId);
-        });
+          it("getCurrencyAndRates should work", async () => {
+            await notionalProxy.getCurrencyAndRates(currencyId);
+          });
 
-        it("getActiveMarkets should work", async () => {
-          const latestBlock = await ethers.provider.getBlock("latest");
-          console.log("Latest block before calling getActiveMarkets:", latestBlock);
-          const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
-          console.log("activeMarkets:", activeMarkets);
+          it("getActiveMarkets should work", async () => {
+            const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
+            expect(activeMarkets.length).to.be.gte(2);
+          });
+
+          describe("When the maturity is valid", () => {
+              let maturity: number;
+              let referenceTime: number;
+              beforeEach(async () => {
+                  const secondsInQuarter = 3 * 30 * 24 * 60 * 60;
+                  const latestBlock = await ethers.provider.getBlock("latest");
+                  const blockTime = latestBlock.timestamp;
+                  referenceTime = blockTime - (blockTime % secondsInQuarter);
+                  const quarters = referenceTime / secondsInQuarter;
+
+                  maturity = referenceTime + secondsInQuarter;
+              })
+              it("getSettlementRate should work", async () => {
+                  const settlementRate = await notionalProxy.getSettlementRate(currencyId, maturity);
+                  expect(settlementRate.underlyingDecimals.gt(0)).to.be.true;
+              });
+
+              it("getMarket should work", async () => {
+                  const marketData = await notionalProxy.getMarket(currencyId, maturity, maturity);
+                  expect(marketData.maturity).to.eq(maturity);
+              });
+          })
+        
+
         });
       });
     });
