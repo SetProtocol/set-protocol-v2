@@ -25,7 +25,7 @@
     "compile": "TS_NODE_TRANSPILE_ONLY=1 npx hardhat compile",
     "compile:latest": "SKIP_ABI_GAS_MODS=true BUILD=true TS_NODE_TRANSPILE_ONLY=1 npx hardhat compile",
     "coverage": "yarn clean && yarn build && yarn cov:command",
-    "cov:command": "COVERAGE=true node --max-old-space-size=4096 ./node_modules/.bin/hardhat coverage",
+    "cov:command": "COVERAGE=true BUILD=true node --max-old-space-size=4096 ./node_modules/.bin/hardhat coverage",
     "lint": "yarn run lint-sol && yarn run lint-ts",
     "lint-sol": "solhint 'contracts/**/*.sol'",
     "lint-ts": "eslint -c .eslintrc.js --ext .ts test utils tasks --fix",
