@@ -148,6 +148,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     let tokens: ForkedTokens;
 
     let weth: IERC20;
+    let dai: IERC20;
     let steth: IERC20;
     let debtIssuanceModule: DebtIssuanceModuleV2;
     let mockPreIssuanceHook: ManagerIssuanceHookMock;
@@ -173,7 +174,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       tokens = getForkedTokens();
       weth = tokens.weth;
       steth = tokens.steth;
-
+      dai = tokens.dai;
       // Deploy WrappedfCash
       wrappedfCashImplementation = await deployer.external.deployWrappedfCash(notionalProxyAddress);
 
@@ -249,7 +250,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     }
 
     describe("Test WrappedFCash contracts", () => {
-      // DAI currencyId
+      // kAI currencyId
       const currencyId = 2;
       let maturity: BigNumber;
       let wrappedFCashInstance: WrappedfCash;
@@ -297,6 +298,22 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             expect(assetTokenAddress).to.eq(cdaiAddress);
           });
 
+          it("mint works", async () => {
+            const depositAmountExternal = ethers.utils.parseEther("1");
+            const fCashAmount = ethers.utils.parseEther("1");
+            const receiver = owner.address;
+            const minImpliedRate = 0;
+            const useUnderlying = true;
+            await dai.transfer(owner.address, depositAmountExternal);
+            await dai.connect(owner.wallet).approve(wrappedFCashInstance.address, depositAmountExternal);
+            await wrappedFCashInstance.mint(
+              depositAmountExternal,
+              fCashAmount,
+              receiver,
+              minImpliedRate,
+              useUnderlying,
+            );
+          });
         });
       });
     });
