@@ -5,7 +5,7 @@ import chalk from "chalk";
 import { HardhatUserConfig } from "hardhat/config";
 import { privateKeys } from "./utils/wallets";
 
-import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "solidity-coverage";
 import "./tasks";
