@@ -1,7 +1,7 @@
 import "module-alias/register";
 
 import { BigNumber, Signer } from "ethers";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 
 import { Account, ForkedTokens } from "@utils/test/types";
 import DeployHelper from "@utils/deploys";
@@ -41,6 +41,14 @@ const batchActionArtifact = require("../../external/abi/notional/BatchAction.jso
 const erc1155ActionArtifact = require("../../external/abi/notional/ERC1155Action.json");
 const routerArtifact = require("../../external/abi/notional/Router.json");
 
+async function impersonateAccount(address: string) {
+  await network.provider.request({
+    method: "hardhat_impersonateAccount",
+    params: [address],
+  });
+  return ethers.provider.getSigner(address);
+}
+
 async function upgradeNotionalProxy(signer: Signer) {
   // Create these three contract factories
   console.log("RouterFactory");
@@ -70,10 +78,12 @@ async function upgradeNotionalProxy(signer: Signer) {
   )) as any;
 
   // This is the notional contract w/ notional abi
+  console.log("connecting to notional");
   const notional = (await ethers.getContractAt(
-    ["upgradeTo(address)"],
+    "INotionalProxy",
     "0x1344A36A1B56144C3Bc62E7757377D288fDE0369",
-  ));
+  )) as INotionalProxy;
+  console.log("connected to notional");
 
   // Deploy the new upgraded contracts
   const batchAction = await batchActionFactory.deploy();
@@ -96,11 +106,16 @@ async function upgradeNotionalProxy(signer: Signer) {
   ]);
 
   // Deploy a new router
-  const newRouter = await routerFactory.deploy(routerArgs, signer);
+  const newRouter = await routerFactory.deploy(...routerArgs);
   // Get the owner contract
-  const owner = await ethers.getSigner(await notional.owner());
+  const notionalOwner = await impersonateAccount(await notional.owner());
   // Upgrade the system to the new router
-  await notional.connect(owner).upgradeTo(newRouter);
+
+  const fundingValue = ethers.utils.parseEther("1");
+  await signer.sendTransaction({ to: await notionalOwner.getAddress(), value: fundingValue });
+
+  console.log("Upgrading to", newRouter.address);
+  await notional.connect(notionalOwner).upgradeTo(newRouter.address);
 }
 
 /**
