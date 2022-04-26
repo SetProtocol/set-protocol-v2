@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber, constants } from "ethers";
+import { BigNumber, Signer } from "ethers";
 import { ethers } from "hardhat";
 
 import { Account, ForkedTokens } from "@utils/test/types";
@@ -36,6 +36,72 @@ import { NUpgradeableBeacon__factory } from "@typechain/factories/NUpgradeableBe
 import { MAX_UINT_256 } from "@utils/constants";
 
 const expect = getWaffleExpect();
+
+const batchActionArtifact = require("../../external/abi/notional/BatchAction.json");
+const erc1155ActionArtifact = require("../../external/abi/notional/ERC1155Action.json");
+const routerArtifact = require("../../external/abi/notional/Router.json");
+
+async function upgradeNotionalProxy(signer: Signer) {
+  // Create these three contract factories
+  console.log("RouterFactory");
+  const routerFactory = new ethers.ContractFactory(
+    routerArtifact["abi"],
+    routerArtifact["bytecode"],
+    signer,
+  );
+  console.log("ERC155Factory");
+  const erc1155ActionFactory = new ethers.ContractFactory(
+    erc1155ActionArtifact["abi"],
+    erc1155ActionArtifact["bytecode"],
+    signer,
+  );
+  console.log("BatchActionFactory");
+  const batchActionFactory = new ethers.ContractFactory(
+    batchActionArtifact["abi"],
+    batchActionArtifact["bytecode"],
+    signer,
+  );
+  console.log("Created factories");
+
+  // Get the current router to get current contract addresses (same as notional contract, just different abi)
+  const router = (await ethers.getContractAt(
+    routerArtifact["abi"],
+    "0x1344A36A1B56144C3Bc62E7757377D288fDE0369",
+  )) as any;
+
+  // This is the notional contract w/ notional abi
+  const notional = (await ethers.getContractAt(
+    ["upgradeTo(address)"],
+    "0x1344A36A1B56144C3Bc62E7757377D288fDE0369",
+  ));
+
+  // Deploy the new upgraded contracts
+  const batchAction = await batchActionFactory.deploy();
+  const erc1155Action = await erc1155ActionFactory.deploy();
+
+  // Get the current router args and replace upgraded addresses
+  const routerArgs = await Promise.all([
+    router.GOVERNANCE(),
+    router.VIEWS(),
+    router.INITIALIZE_MARKET(),
+    router.NTOKEN_ACTIONS(),
+    batchAction.address, // upgraded
+    router.ACCOUNT_ACTION(),
+    erc1155Action.address, // upgraded
+    router.LIQUIDATE_CURRENCY(),
+    router.LIQUIDATE_FCASH(),
+    router.cETH(),
+    router.TREASURY(),
+    router.CALCULATION_VIEWS(),
+  ]);
+
+  // Deploy a new router
+  const newRouter = await routerFactory.deploy(routerArgs, signer);
+  // Get the owner contract
+  const owner = await ethers.getSigner(await notional.owner());
+  // Upgrade the system to the new router
+  await notional.connect(owner).upgradeTo(newRouter);
+}
 
 /**
  * Tests the icETH rebalance flow.
@@ -298,21 +364,28 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             expect(assetTokenAddress).to.eq(cdaiAddress);
           });
 
-          it("mint works", async () => {
-            const depositAmountExternal = ethers.utils.parseEther("1");
-            const fCashAmount = ethers.utils.parseEther("1");
-            const receiver = owner.address;
-            const minImpliedRate = 0;
-            const useUnderlying = true;
-            await dai.transfer(owner.address, depositAmountExternal);
-            await dai.connect(owner.wallet).approve(wrappedFCashInstance.address, depositAmountExternal);
-            await wrappedFCashInstance.mint(
-              depositAmountExternal,
-              fCashAmount,
-              receiver,
-              minImpliedRate,
-              useUnderlying,
-            );
+          describe("When notional proxy is upgraded", () => {
+            beforeEach(async () => {
+              await upgradeNotionalProxy(owner.wallet);
+            });
+            it("mint works", async () => {
+              const depositAmountExternal = ethers.utils.parseEther("1");
+              const fCashAmount = ethers.utils.parseEther("1");
+              const receiver = owner.address;
+              const minImpliedRate = 0;
+              const useUnderlying = true;
+              await dai.transfer(owner.address, depositAmountExternal);
+              await dai
+                .connect(owner.wallet)
+                .approve(wrappedFCashInstance.address, depositAmountExternal);
+              await wrappedFCashInstance.mint(
+                depositAmountExternal,
+                fCashAmount,
+                receiver,
+                minImpliedRate,
+                useUnderlying,
+              );
+            });
           });
         });
       });
