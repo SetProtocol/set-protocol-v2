@@ -384,8 +384,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               await upgradeNotionalProxy(owner.wallet);
             });
             it("mint works", async () => {
-              const depositAmountExternal = ethers.utils.parseEther("1");
-              const fCashAmount = ethers.utils.parseEther("1");
+              // No matter how high I set the depositAmoutnExternal get 'Insufficient deposit' revertion from Notional address.
+              // (If I set it below the fCash amoutn I get a transfer failed exception from the DAI contract instead, which is to be expected.
+              const depositAmountExternal = ethers.utils.parseEther("2");
+              const fCashAmount = ethers.utils.parseUnits("1", 8);
               const receiver = owner.address;
               const minImpliedRate = 0;
               const useUnderlying = true;
@@ -393,13 +395,24 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               await dai
                 .connect(owner.wallet)
                 .approve(wrappedFCashInstance.address, depositAmountExternal);
-              await wrappedFCashInstance.mint(
-                depositAmountExternal,
-                fCashAmount,
-                receiver,
-                minImpliedRate,
-                useUnderlying,
+
+              // Double check we have enough dai
+              const balanceBefore = await dai.balanceOf(owner.address);
+              console.log("Dai balance", ethers.utils.formatEther(balanceBefore));
+              expect(balanceBefore).to.be.gte(depositAmountExternal);
+
+              // Double check we have approved enough
+              const allowanceBefore = await dai.allowance(
+                owner.address,
+                wrappedFCashInstance.address,
               );
+              console.log("Allowance", ethers.utils.formatEther(allowanceBefore));
+              expect(allowanceBefore).to.be.gte(depositAmountExternal);
+
+              // Mint fcash (reverting)
+              await wrappedFCashInstance
+                .connect(owner.wallet)
+                .mint(depositAmountExternal, fCashAmount, receiver, minImpliedRate, useUnderlying);
             });
           });
         });
