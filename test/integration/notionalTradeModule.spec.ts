@@ -388,7 +388,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             it("mint works", async () => {
               // No matter how high I set the depositAmoutnExternal get 'Insufficient deposit' revertion from Notional address.
               // (If I set it below the fCash amoutn I get a transfer failed exception from the DAI contract instead, which is to be expected.
-              const depositAmountExternal = ethers.utils.parseEther("2");
+              const depositAmountExternal = ethers.utils.parseEther("1");
               const fCashAmount = ethers.utils.parseUnits("1", 8);
               const receiver = owner.address;
               const minImpliedRate = 0;
@@ -415,6 +415,9 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               await wrappedFCashInstance
                 .connect(owner.wallet)
                 .mint(depositAmountExternal, fCashAmount, receiver, minImpliedRate, useUnderlying);
+
+              const wrappedFCashBalanceAfter = await wrappedFCashInstance.balanceOf(owner.address);
+              console.log("wrappedFCashBalanceAfter", ethers.utils.formatUnits(wrappedFCashBalanceAfter, 8));
             });
           });
         });
