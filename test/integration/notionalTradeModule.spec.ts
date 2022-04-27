@@ -338,6 +338,8 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       beforeEach(async () => {
         const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
         maturity = activeMarkets[0].maturity;
+        const maturityDate = new Date(Math.floor(maturity.toNumber() * 1000));
+        console.log("maturity", maturityDate.toISOString());
       });
 
       describe("Deploying WrappedfCash with beacon proxy", () => {
