@@ -28,6 +28,7 @@ import {
 } from "@utils/contracts";
 
 import { IERC20 } from "@typechain/IERC20";
+import { ICErc20 } from "@typechain/ICErc20";
 import { IERC20Metadata } from "@typechain/IERC20Metadata";
 import { NBeaconProxy } from "@typechain/NBeaconProxy";
 import { NBeaconProxy__factory } from "@typechain/factories/NBeaconProxy__factory";
@@ -51,25 +52,21 @@ async function impersonateAccount(address: string) {
 
 async function upgradeNotionalProxy(signer: Signer) {
   // Create these three contract factories
-  console.log("RouterFactory");
   const routerFactory = new ethers.ContractFactory(
     routerArtifact["abi"],
     routerArtifact["bytecode"],
     signer,
   );
-  console.log("ERC155Factory");
   const erc1155ActionFactory = new ethers.ContractFactory(
     erc1155ActionArtifact["abi"],
     erc1155ActionArtifact["bytecode"],
     signer,
   );
-  console.log("BatchActionFactory");
   const batchActionFactory = new ethers.ContractFactory(
     batchActionArtifact["abi"],
     batchActionArtifact["bytecode"],
     signer,
   );
-  console.log("Created factories");
 
   // Get the current router to get current contract addresses (same as notional contract, just different abi)
   const router = (await ethers.getContractAt(
@@ -78,12 +75,10 @@ async function upgradeNotionalProxy(signer: Signer) {
   )) as any;
 
   // This is the notional contract w/ notional abi
-  console.log("connecting to notional");
   const notional = (await ethers.getContractAt(
     "INotionalProxy",
     "0x1344A36A1B56144C3Bc62E7757377D288fDE0369",
   )) as INotionalProxy;
-  console.log("connected to notional");
 
   // Deploy the new upgraded contracts
   const batchAction = await batchActionFactory.deploy();
@@ -114,7 +109,6 @@ async function upgradeNotionalProxy(signer: Signer) {
   const fundingValue = ethers.utils.parseEther("1");
   await signer.sendTransaction({ to: await notionalOwner.getAddress(), value: fundingValue });
 
-  console.log("Upgrading to", newRouter.address);
   await notional.connect(notionalOwner).upgradeTo(newRouter.address);
 }
 
@@ -231,6 +225,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     let weth: IERC20;
     let dai: IERC20;
     let steth: IERC20;
+    let cDai: ICErc20;
     let debtIssuanceModule: DebtIssuanceModuleV2;
     let mockPreIssuanceHook: ManagerIssuanceHookMock;
     let notionalTradeModule: NotionalTradeModule;
@@ -256,6 +251,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       weth = tokens.weth;
       steth = tokens.steth;
       dai = tokens.dai;
+      cDai = (await ethers.getContractAt("ICErc20", cdaiAddress)) as ICErc20;
       // Deploy WrappedfCash
       wrappedfCashImplementation = await deployer.external.deployWrappedfCash(notionalProxyAddress);
 
@@ -338,8 +334,11 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
       beforeEach(async () => {
         const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
         maturity = activeMarkets[0].maturity;
-        const maturityDate = new Date(Math.floor(maturity.toNumber() * 1000));
-        console.log("maturity", maturityDate.toISOString());
+        // const maturityDate = new Date(Math.floor(maturity.toNumber() * 1000));
+        // console.log("maturity", maturityDate.toISOString());
+        const { underlyingToken, assetToken } = await notionalProxy.getCurrency(currencyId);
+        expect(underlyingToken.tokenAddress).to.eq(ethers.utils.getAddress(dai.address));
+        expect(assetToken.tokenAddress).to.eq(ethers.utils.getAddress(cDai.address));
       });
 
       describe("Deploying WrappedfCash with beacon proxy", () => {
@@ -382,42 +381,92 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
           });
 
           describe("When notional proxy is upgraded", () => {
+            let daiAmount: BigNumber;
+            let fCashAmount: BigNumber;
+            let receiver: string;
+            let minImpliedRate: number;
             beforeEach(async () => {
               await upgradeNotionalProxy(owner.wallet);
+              daiAmount = ethers.utils.parseEther("1");
+              fCashAmount = ethers.utils.parseUnits("1", 8);
+              receiver = owner.address;
+              minImpliedRate = 0;
+              await dai.transfer(owner.address, daiAmount);
             });
-            it("mint works", async () => {
-              // No matter how high I set the depositAmoutnExternal get 'Insufficient deposit' revertion from Notional address.
-              // (If I set it below the fCash amoutn I get a transfer failed exception from the DAI contract instead, which is to be expected.
-              const depositAmountExternal = ethers.utils.parseEther("1");
-              const fCashAmount = ethers.utils.parseUnits("1", 8);
-              const receiver = owner.address;
-              const minImpliedRate = 0;
-              const useUnderlying = true;
-              await dai.transfer(owner.address, depositAmountExternal);
-              await dai
-                .connect(owner.wallet)
-                .approve(wrappedFCashInstance.address, depositAmountExternal);
+            [true, false].forEach((useUnderlying) => {
+              describe(`when ${useUnderlying ? "" : "not"} using underlying`, () => {
+                async function mint() {
+                  let inputToken: IERC20;
+                  let depositAmountExternal: BigNumber;
+                  if (useUnderlying) {
+                    inputToken = dai;
+                    depositAmountExternal = daiAmount;
+                  } else {
+                    await dai.connect(owner.wallet).approve(cDai.address, daiAmount);
+                    const cDaiBalanceBefore = await cDai.balanceOf(owner.address);
+                    await cDai.mint(daiAmount);
+                    const cDaiBalanceAfter = await cDai.balanceOf(owner.address);
+                    depositAmountExternal = cDaiBalanceAfter.sub(cDaiBalanceBefore);
+                    inputToken = cDai;
+                  }
+                  await inputToken.connect(owner.wallet).approve(wrappedFCashInstance.address, depositAmountExternal);
+                  const inputTokenBalanceBefore = await inputToken.balanceOf(owner.address);
+                  const wrappedFCashBalanceBefore = await wrappedFCashInstance.balanceOf(
+                    owner.address,
+                  );
+                  const txReceipt = await wrappedFCashInstance
+                    .connect(owner.wallet)
+                    .mint(
+                      depositAmountExternal,
+                      fCashAmount,
+                      receiver,
+                      minImpliedRate,
+                      useUnderlying,
+                    );
+                  const wrappedFCashBalanceAfter = await wrappedFCashInstance.balanceOf(
+                    owner.address,
+                  );
+                  const inputTokenBalanceAfter = await inputToken.balanceOf(owner.address);
+                  const inputTokenSpent = inputTokenBalanceAfter.sub(inputTokenBalanceBefore);
+                  const wrappedFCashReceived = wrappedFCashBalanceAfter.sub(
+                    wrappedFCashBalanceBefore,
+                  );
+                  return {
+                    wrappedFCashReceived,
+                    depositAmountExternal,
+                    inputTokenSpent,
+                    txReceipt,
+                  };
+                }
+                it("mint works", async () => {
+                  const {
+                    wrappedFCashReceived,
+                    depositAmountExternal,
+                    inputTokenSpent,
+                    inputToken,
+                  } = await mint();
+                  expect(wrappedFCashReceived).to.eq(fCashAmount);
+                  expect(inputTokenSpent).to.be.lte(depositAmountExternal);
+                });
 
-              // Double check we have enough dai
-              const balanceBefore = await dai.balanceOf(owner.address);
-              console.log("Dai balance", ethers.utils.formatEther(balanceBefore));
-              expect(balanceBefore).to.be.gte(depositAmountExternal);
-
-              // Double check we have approved enough
-              const allowanceBefore = await dai.allowance(
-                owner.address,
-                wrappedFCashInstance.address,
-              );
-              console.log("Allowance", ethers.utils.formatEther(allowanceBefore));
-              expect(allowanceBefore).to.be.gte(depositAmountExternal);
-
-              // Mint fcash (reverting)
-              await wrappedFCashInstance
-                .connect(owner.wallet)
-                .mint(depositAmountExternal, fCashAmount, receiver, minImpliedRate, useUnderlying);
-
-              const wrappedFCashBalanceAfter = await wrappedFCashInstance.balanceOf(owner.address);
-              console.log("wrappedFCashBalanceAfter", ethers.utils.formatUnits(wrappedFCashBalanceAfter, 8));
+                it("redeem works", async () => {
+                  const {
+                    wrappedFCashReceived,
+                    depositAmountExternal,
+                    inputTokenSpent,
+                  } = await mint();
+                  const maxImpliedRate = BigNumber.from(2).pow(32).sub(1);
+                  if (useUnderlying) {
+                    await wrappedFCashInstance
+                      .connect(owner.wallet)
+                      .redeemToUnderlying(wrappedFCashReceived, receiver, maxImpliedRate);
+                  } else {
+                    await wrappedFCashInstance
+                      .connect(owner.wallet)
+                      .redeemToAsset(wrappedFCashReceived, receiver, maxImpliedRate);
+                  }
+                });
+              });
             });
           });
         });
