@@ -1,7 +1,7 @@
 import "module-alias/register";
 
 import { BigNumber } from "ethers";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
 import { Account, ForkedTokens } from "@utils/test/types";
@@ -221,19 +221,34 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                 );
             };
 
-            ["buying"].forEach(tradeDirection => {
+            const subjectCall = () => {
+              return notionalTradeModule
+                .connect(caller)
+                .callStatic.trade(
+                  subjectSetToken,
+                  subjectSendToken,
+                  subjectSendQuantity,
+                  subjectReceiverToken,
+                  subjectMinReceiveQuantity,
+                  subjectUseUnderlying,
+                );
+            };
+
+            ["buying", "selling"].forEach(tradeDirection => {
               ["underlyingToken", "assetToken"].forEach(tokenType => {
                 describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
+                  let sendTokenType: string;
+                  let otherToken: IERC20;
                   beforeEach(async () => {
                     const underlyingTokenQuantity = ethers.utils.parseEther("1");
                     const assetToken = cDai;
                     const underlyingToken = dai;
-                    const otherToken = tokenType == "assetToken" ? cDai : dai;
+                    otherToken = tokenType == "assetToken" ? cDai : dai;
                     subjectUseUnderlying = tokenType == "underlyingToken";
                     subjectMinReceiveQuantity = ethers.utils.parseUnits("0.1", 8);
 
                     sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
-                    const sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
+                    sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
                     subjectSendToken = sendToken.address;
 
                     receiverToken = tradeDirection == "buying" ? wrappedFCashInstance : otherToken;
@@ -251,22 +266,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       } else {
                         subjectSendQuantity = underlyingTokenQuantity.mul(2);
                       }
-                      console.log("Sending send token to setToken");
                       await sendToken
                         .connect(owner.wallet)
                         .transfer(setToken.address, subjectSendQuantity);
-                      console.log("Done");
-                      const sendTokenBalance = await sendToken.balanceOf(setToken.address);
-                      console.log(
-                        "sendTokenBalance",
-                        sendTokenBalance.toString(),
-                        sendToken.address,
-                      );
                     }
-                  });
-
-                  it("should not revert", async () => {
-                    await subject();
                   });
 
                   it("setToken should receive receiver token", async () => {
@@ -296,8 +299,54 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       );
                     }
                   });
+
+                  it("should return spent / received amount of non-fcash-token", async () => {
+                    const otherTokenBalanceBefore = await otherToken.balanceOf(setToken.address);
+                    const result = await subjectCall();
+                    await subject();
+                    const otherTokenBalanceAfter = await otherToken.balanceOf(setToken.address);
+
+                    let expectedResult;
+                    if (tradeDirection == "selling") {
+                      expectedResult = otherTokenBalanceAfter.sub(otherTokenBalanceBefore);
+                    } else {
+                      expectedResult = otherTokenBalanceBefore.sub(otherTokenBalanceAfter);
+                    }
+
+                    if (tradeDirection == "buying" && tokenType == "underlyingToken") {
+                      expect(result).to.be.eq(expectedResult);
+                    } else {
+                      // TODO: Review why there is some deviation in these cases
+                      const allowedDeviationPercent = 1;
+                      expect(result).to.be.gte(expectedResult.mul(100 - allowedDeviationPercent).div(100));
+                      expect(result).to.be.lte(expectedResult.mul(100 + allowedDeviationPercent).div(100));
+                    }
+                  });
+
+                  if (tradeDirection == "buying") {
+                    describe("When sendQuantity is too low", () => {
+                      beforeEach(() => {
+                        subjectSendQuantity = BigNumber.from(1000);
+                      });
+                      it("should revert", async () => {
+                        const revertReason =
+                          sendTokenType == "underlyingToken" ? "Dai/insufficient-balance" : "ERC20";
+                        await expect(subject()).to.be.revertedWith(revertReason);
+                      });
+                    });
+                  }
                 });
               });
+            });
+
+            describe("When component has matured", () => {
+              beforeEach(async () => {
+                const maturity = await wrappedFCashInstance.getMaturity();
+                await network.provider.send("evm_setNextBlockTimestamp", [maturity + 1]);
+                await network.provider.send("evm_mine");
+                expect(await wrappedFCashInstance.hasMatured()).to.be.true;
+              });
+              it("should work", async () => {});
             });
           });
         });

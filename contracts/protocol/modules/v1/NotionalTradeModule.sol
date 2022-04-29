@@ -32,6 +32,7 @@ import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
+
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -101,7 +102,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         external
         nonReentrant
         onlyManagerAndValidSet(_setToken)
-        returns(uint256 receiveQuantity)
+        returns(uint256)
     {
         if(fCashPositions[_setToken].contains(_sendToken))
         {
@@ -291,7 +292,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             ""
         );
         uint256 balanceAfter = receiveToken.balanceOf(address(_setToken));
-
         return balanceAfter.sub(balanceBefore);
 
     }
@@ -324,11 +324,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
 
         uint256 balanceBefore = paymentToken.balanceOf(address(_setToken));
-        require(balanceBefore >= _maxAssetAmount, "Input token balance to low");
-
-        uint256 allowanceBefore = paymentToken.allowance(address(_setToken), address(_fCashPosition));
-        require(allowanceBefore >= _maxAssetAmount, "Input token allowance to low");
-
         bytes memory mintCallData = abi.encodeWithSignature(
             "mint(uint256,uint88,address,uint32,bool)",
             _maxAssetAmount,
