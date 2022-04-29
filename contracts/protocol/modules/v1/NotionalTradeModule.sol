@@ -109,7 +109,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
         else if(fCashPositions[_setToken].contains(_receiveToken))
         {
-            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), _minReceiveQuantity, _minReceiveQuantity, _useUnderlying);
+            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), _minReceiveQuantity, _sendQuantity, _useUnderlying);
         }
         else {
             revert("Neither send nor receive token is a registered fCash position");
@@ -262,8 +262,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     }
 
+    function _setOperatorIfNecessary(ISetToken _setToken, IWrappedfCashComplete _fCashPosition) internal {
+        if(!IERC777(address(_fCashPosition)).isOperatorFor(address(this), address(_setToken))){
+            bytes memory authorizeCallData = abi.encodeWithSignature( "authorizeOperator(address)", address(this));
+            _setToken.invoke(address(_fCashPosition), 0, authorizeCallData);
+        }
+    }
+
     function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _amount, bool _toUnderlying) internal returns(uint256) {
         if(_amount == 0) return 0;
+        _setOperatorIfNecessary(_setToken, _fCashPosition);
 
         // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 maxImpliedRate = type(uint32).max;
@@ -309,18 +317,29 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             (paymentToken,,) = _fCashPosition.getAssetToken();
         }
 
-        paymentToken.transferFrom(address(_setToken), address(this), _maxAssetAmount);
-
-        uint256 balanceBefore = paymentToken.balanceOf(address(this));
-        _fCashPosition.mint(_maxAssetAmount, uint88(_fCashAmount), address(_setToken), minImpliedRate, _useUnderlying);
-        assetAmountSpent = paymentToken.balanceOf(address(this)).sub(balanceBefore);
-
-        require(assetAmountSpent <= _maxAssetAmount, "Overpaid");
-
-        if(_maxAssetAmount > assetAmountSpent) {
-            paymentToken.transfer(address(_setToken), _maxAssetAmount.sub(assetAmountSpent));
+        if(IERC20(paymentToken).allowance(address(_setToken), address(_fCashPosition)) < _maxAssetAmount) {
+            bytes memory approveCallData = abi.encodeWithSignature("approve(address,uint256)", address(_fCashPosition), _maxAssetAmount);
+            _setToken.invoke(address(paymentToken), 0, approveCallData);
         }
 
+
+        uint256 balanceBefore = paymentToken.balanceOf(address(_setToken));
+        require(balanceBefore >= _maxAssetAmount, "Input token balance to low");
+
+        uint256 allowanceBefore = paymentToken.allowance(address(_setToken), address(_fCashPosition));
+        require(allowanceBefore >= _maxAssetAmount, "Input token allowance to low");
+
+        bytes memory mintCallData = abi.encodeWithSignature(
+            "mint(uint256,uint88,address,uint32,bool)",
+            _maxAssetAmount,
+            uint88(_fCashAmount),
+            address(_setToken),
+            minImpliedRate,
+            _useUnderlying
+        );
+        _setToken.invoke(address(_fCashPosition), 0, mintCallData);
+        assetAmountSpent = balanceBefore.sub(paymentToken.balanceOf(address(_setToken)));
+        require(assetAmountSpent <= _maxAssetAmount, "Overpaid");
     }
 
     function _addFCashPositions(ISetToken _setToken, address[] calldata _fCashPositions) internal {

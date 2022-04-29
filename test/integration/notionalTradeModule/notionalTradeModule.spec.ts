@@ -1,7 +1,8 @@
 import "module-alias/register";
 
-import { BigNumber} from "ethers";
-import { ethers} from "hardhat";
+import { BigNumber } from "ethers";
+import { ethers } from "hardhat";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
 import { Account, ForkedTokens } from "@utils/test/types";
 import DeployHelper from "@utils/deploys";
@@ -132,7 +133,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             .initialize(setToken.address, [wrappedFCashInstance.address]);
         }
 
-        it("Should be able to issue set from wrappeFCash", async () => {
+        it("Should be able to issue set from wrappedFCash", async () => {
           daiAmount = ethers.utils.parseEther("10");
           fCashAmount = ethers.utils.parseUnits("9", 8);
           const setAmount = ethers.utils.parseEther("1");
@@ -162,6 +163,143 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
           const setBalanceAfter = await setToken.balanceOf(owner.address);
 
           expect(setBalanceAfter.sub(setBalanceBefore)).to.eq(setAmount);
+        });
+        describe("When initial amount of set token has been issued", () => {
+          beforeEach(async () => {
+            daiAmount = ethers.utils.parseEther("2000");
+            fCashAmount = ethers.utils.parseUnits("2000", 8);
+            const setAmount = ethers.utils.parseEther("1000");
+            await dai.transfer(owner.address, daiAmount);
+
+            await mintWrappedFCash(
+              owner.wallet,
+              dai,
+              daiAmount,
+              fCashAmount,
+              cDai,
+              wrappedFCashInstance,
+              true,
+            );
+
+            await wrappedFCashInstance
+              .connect(owner.wallet)
+              .approve(debtIssuanceModule.address, ethers.constants.MaxUint256);
+            await wrappedFCashInstance
+              .connect(owner.wallet)
+              .approve(setToken.address, ethers.constants.MaxUint256);
+
+            await debtIssuanceModule
+              .connect(owner.wallet)
+              .issue(setToken.address, setAmount, owner.address);
+          });
+          describe("#trade", () => {
+            let receiverToken: IERC20;
+            let sendToken: IERC20;
+            let subjectSetToken: string;
+            let subjectSendToken: string;
+            let subjectSendQuantity: BigNumber;
+            let subjectReceiverToken: string;
+            let subjectMinReceiveQuantity: BigNumber;
+            let subjectUseUnderlying: boolean;
+            let caller: SignerWithAddress;
+
+            beforeEach(async () => {
+              subjectSetToken = setToken.address;
+              caller = manager.wallet;
+            });
+
+            const subject = () => {
+              return notionalTradeModule
+                .connect(caller)
+                .trade(
+                  subjectSetToken,
+                  subjectSendToken,
+                  subjectSendQuantity,
+                  subjectReceiverToken,
+                  subjectMinReceiveQuantity,
+                  subjectUseUnderlying,
+                );
+            };
+
+            ["buying"].forEach(tradeDirection => {
+              ["underlyingToken", "assetToken"].forEach(tokenType => {
+                describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
+                  beforeEach(async () => {
+                    const underlyingTokenQuantity = ethers.utils.parseEther("1");
+                    const assetToken = cDai;
+                    const underlyingToken = dai;
+                    const otherToken = tokenType == "assetToken" ? cDai : dai;
+                    subjectUseUnderlying = tokenType == "underlyingToken";
+                    subjectMinReceiveQuantity = ethers.utils.parseUnits("0.1", 8);
+
+                    sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
+                    const sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
+                    subjectSendToken = sendToken.address;
+
+                    receiverToken = tradeDirection == "buying" ? wrappedFCashInstance : otherToken;
+                    subjectReceiverToken = receiverToken.address;
+
+                    if (tradeDirection == "buying") {
+                      if (sendTokenType == "assetToken") {
+                        const assetTokenBalanceBefore = await otherToken.balanceOf(owner.address);
+                        await underlyingToken
+                          .connect(owner.wallet)
+                          .approve(assetToken.address, underlyingTokenQuantity);
+                        await assetToken.connect(owner.wallet).mint(underlyingTokenQuantity);
+                        const assetTokenBalanceAfter = await otherToken.balanceOf(owner.address);
+                        subjectSendQuantity = assetTokenBalanceAfter.sub(assetTokenBalanceBefore);
+                      } else {
+                        subjectSendQuantity = underlyingTokenQuantity.mul(2);
+                      }
+                      console.log("Sending send token to setToken");
+                      await sendToken
+                        .connect(owner.wallet)
+                        .transfer(setToken.address, subjectSendQuantity);
+                      console.log("Done");
+                      const sendTokenBalance = await sendToken.balanceOf(setToken.address);
+                      console.log(
+                        "sendTokenBalance",
+                        sendTokenBalance.toString(),
+                        sendToken.address,
+                      );
+                    }
+                  });
+
+                  it("should not revert", async () => {
+                    await subject();
+                  });
+
+                  it("setToken should receive receiver token", async () => {
+                    const receiverTokenBalanceBefore = await receiverToken.balanceOf(
+                      setToken.address,
+                    );
+                    await subject();
+                    const receiverTokenBalanceAfter = await receiverToken.balanceOf(
+                      setToken.address,
+                    );
+                    expect(receiverTokenBalanceAfter.sub(receiverTokenBalanceBefore)).to.be.gte(
+                      subjectMinReceiveQuantity,
+                    );
+                  });
+
+                  it("setTokens sendToken balance should be adjusted accordingly", async () => {
+                    const sendTokenBalanceBefore = await sendToken.balanceOf(setToken.address);
+                    await subject();
+                    const sendTokenBalanceAfter = await sendToken.balanceOf(setToken.address);
+                    if (tradeDirection == "selling") {
+                      expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
+                        subjectSendQuantity,
+                      );
+                    } else {
+                      expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.be.lte(
+                        subjectSendQuantity,
+                      );
+                    }
+                  });
+                });
+              });
+            });
+          });
         });
       });
     });
