@@ -243,9 +243,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     const underlyingTokenQuantity = ethers.utils.parseEther("1");
                     const assetToken = cDai;
                     const underlyingToken = dai;
+                    const fTokenQuantity = ethers.utils.parseUnits("1", 8);
+
                     otherToken = tokenType == "assetToken" ? cDai : dai;
                     subjectUseUnderlying = tokenType == "underlyingToken";
-                    subjectMinReceiveQuantity = ethers.utils.parseUnits("0.1", 8);
 
                     sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
                     sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
@@ -255,6 +256,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     subjectReceiverToken = receiverToken.address;
 
                     if (tradeDirection == "buying") {
+                      subjectMinReceiveQuantity = fTokenQuantity;
                       if (sendTokenType == "assetToken") {
                         const assetTokenBalanceBefore = await otherToken.balanceOf(owner.address);
                         await underlyingToken
@@ -264,11 +266,18 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         const assetTokenBalanceAfter = await otherToken.balanceOf(owner.address);
                         subjectSendQuantity = assetTokenBalanceAfter.sub(assetTokenBalanceBefore);
                       } else {
-                        subjectSendQuantity = underlyingTokenQuantity.mul(2);
+                        subjectSendQuantity = underlyingTokenQuantity;
                       }
                       await sendToken
                         .connect(owner.wallet)
                         .transfer(setToken.address, subjectSendQuantity);
+                    } else {
+                      subjectSendQuantity = fTokenQuantity;
+                      if (tokenType == "assetToken") {
+                        subjectMinReceiveQuantity = ethers.utils.parseUnits("0.4", 8);
+                      } else {
+                        subjectMinReceiveQuantity = ethers.utils.parseEther("0.9");
+                      }
                     }
                   });
 
@@ -313,14 +322,14 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       expectedResult = otherTokenBalanceBefore.sub(otherTokenBalanceAfter);
                     }
 
-                    if (tradeDirection == "buying" && tokenType == "underlyingToken") {
-                      expect(result).to.be.eq(expectedResult);
-                    } else {
-                      // TODO: Review why there is some deviation in these cases
-                      const allowedDeviationPercent = 1;
-                      expect(result).to.be.gte(expectedResult.mul(100 - allowedDeviationPercent).div(100));
-                      expect(result).to.be.lte(expectedResult.mul(100 + allowedDeviationPercent).div(100));
-                    }
+                    // TODO: Review why there is some deviation
+                    const allowedDeviationPercent = 1;
+                    expect(result).to.be.gte(
+                      expectedResult.mul(100 - allowedDeviationPercent).div(100),
+                    );
+                    expect(result).to.be.lte(
+                      expectedResult.mul(100 + allowedDeviationPercent).div(100),
+                    );
                   });
 
                   if (tradeDirection == "buying") {
@@ -339,14 +348,63 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               });
             });
 
-            describe("When component has matured", () => {
-              beforeEach(async () => {
-                const maturity = await wrappedFCashInstance.getMaturity();
-                await network.provider.send("evm_setNextBlockTimestamp", [maturity + 1]);
-                await network.provider.send("evm_mine");
-                expect(await wrappedFCashInstance.hasMatured()).to.be.true;
+            describe("#moduleIssue/RedeemHook", () => {
+              ["issue", "redeem"].forEach(triggerAction => {
+                describe(`When set token is ${triggerAction}ed`, () => {
+                  let subjectSetToken: string;
+                  let subjectReceiver: string;
+                  let subjectAmount: BigNumber;
+                  let caller: SignerWithAddress;
+                  beforeEach(async () => {
+                    subjectSetToken = setToken.address;
+                    subjectAmount = ethers.utils.parseEther("1");
+                    caller = owner.wallet;
+                    subjectReceiver = caller.address;
+
+                    if (triggerAction == "redeem") {
+                      await debtIssuanceModule
+                        .connect(owner.wallet)
+                        .issue(subjectSetToken, subjectAmount, caller.address);
+                      await setToken
+                        .connect(caller)
+                        .approve(debtIssuanceModule.address, subjectAmount);
+                    } else {
+                      await wrappedFCashInstance
+                        .connect(caller)
+                        .approve(debtIssuanceModule.address, ethers.constants.MaxUint256);
+                    }
+                  });
+                  describe("When component has matured", () => {
+                    let snapshotId: string;
+                    beforeEach(async () => {
+                      snapshotId = await network.provider.send("evm_snapshot", []);
+                      const maturity = await wrappedFCashInstance.getMaturity();
+                      console.log("Setting timeblock to after maturity");
+                      await network.provider.send("evm_setNextBlockTimestamp", [maturity + 1]);
+                      await network.provider.send("evm_mine");
+                      expect(await wrappedFCashInstance.hasMatured()).to.be.true;
+                    });
+                    afterEach(async () => {
+                      await network.provider.send("evm_revert", [snapshotId]);
+                    });
+                    const subject = () => {
+                      if (triggerAction == "issue") {
+                        return debtIssuanceModule
+                          .connect(caller)
+                          .issue(subjectSetToken, subjectAmount, subjectReceiver);
+                      } else {
+                        return debtIssuanceModule
+                          .connect(caller)
+                          .redeem(subjectSetToken, subjectAmount, subjectReceiver);
+                      }
+                    };
+
+                    it("should not revert", async () => {
+                      await subject();
+                    });
+                  });
+                });
               });
-              it("should work", async () => {});
             });
           });
         });

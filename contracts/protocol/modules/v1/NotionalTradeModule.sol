@@ -106,7 +106,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         if(fCashPositions[_setToken].contains(_sendToken))
         {
-            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), _sendQuantity, _useUnderlying);
+            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), _sendQuantity, _minReceiveQuantity, _useUnderlying);
         }
         else if(fCashPositions[_setToken].contains(_receiveToken))
         {
@@ -253,7 +253,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
             if(fCashPosition.hasMatured()) {
                 uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
-                _redeemFCashPosition(_setToken, fCashPosition, fCashBalance, toUnderlying);
+                _redeemFCashPosition(_setToken, fCashPosition, fCashBalance, 0, toUnderlying);
                 if(_setToken.isComponent(address(fCashPosition))) {
                     _setToken.removeComponent(address(fCashPosition));
                 }
@@ -270,7 +270,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
     }
 
-    function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _amount, bool _toUnderlying) internal returns(uint256) {
+    function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _amount, uint256 _minReceiveQuantity, bool _toUnderlying) internal returns(uint256 receivedQuantity) {
         if(_amount == 0) return 0;
         _setOperatorIfNecessary(_setToken, _fCashPosition);
 
@@ -292,7 +292,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             ""
         );
         uint256 balanceAfter = receiveToken.balanceOf(address(_setToken));
-        return balanceAfter.sub(balanceBefore);
+        receivedQuantity = balanceAfter.sub(balanceBefore);
+        require(receivedQuantity >= _minReceiveQuantity, "Not enough received quantity");
 
     }
 
