@@ -32,6 +32,8 @@ import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
+import "hardhat/console.sol";
+
 
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -254,9 +256,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             if(fCashPosition.hasMatured()) {
                 uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
                 _redeemFCashPosition(_setToken, fCashPosition, fCashBalance, 0, toUnderlying);
-                if(_setToken.isComponent(address(fCashPosition))) {
-                    _setToken.removeComponent(address(fCashPosition));
-                }
             }
 
         }
@@ -284,15 +283,26 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             (receiveToken,,) = _fCashPosition.getAssetToken();
         }
 
-        uint256 balanceBefore = receiveToken.balanceOf(address(_setToken));
+        uint256 preTradeReceiveTokenBalance = receiveToken.balanceOf(address(_setToken));
+        uint256 preTradeSendTokenBalance = _fCashPosition.balanceOf(address(_setToken));
+
         IERC777(address(_fCashPosition)).operatorBurn(
             address(_setToken),
             _amount,
             abi.encode(IWrappedfCash.RedeemOpts(_toUnderlying, false, address(_setToken), maxImpliedRate)),
             ""
         );
-        uint256 balanceAfter = receiveToken.balanceOf(address(_setToken));
-        receivedQuantity = balanceAfter.sub(balanceBefore);
+
+
+        (, receivedQuantity) = _updateSetTokenPositions(
+            _setToken,
+            address(_fCashPosition),
+            preTradeSendTokenBalance,
+            address(receiveToken),
+            preTradeReceiveTokenBalance
+        );
+
+
         require(receivedQuantity >= _minReceiveQuantity, "Not enough received quantity");
 
     }
@@ -324,7 +334,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
 
 
-        uint256 balanceBefore = paymentToken.balanceOf(address(_setToken));
+        uint256 preTradeSendTokenBalance = paymentToken.balanceOf(address(_setToken));
+        uint256 preTradeReceiveTokenBalance = _fCashPosition.balanceOf(address(_setToken));
+
         bytes memory mintCallData = abi.encodeWithSignature(
             "mint(uint256,uint88,address,uint32,bool)",
             _maxAssetAmount,
@@ -334,7 +346,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             _useUnderlying
         );
         _setToken.invoke(address(_fCashPosition), 0, mintCallData);
-        assetAmountSpent = balanceBefore.sub(paymentToken.balanceOf(address(_setToken)));
+
+        (assetAmountSpent,) = _updateSetTokenPositions(
+            _setToken,
+            address(paymentToken),
+            preTradeSendTokenBalance,
+            address(_fCashPosition),
+            preTradeReceiveTokenBalance
+        );
+
         require(assetAmountSpent <= _maxAssetAmount, "Overpaid");
     }
 
@@ -342,5 +362,34 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         for(uint256 i = 0; i < _fCashPositions.length; i++) {
             fCashPositions[_setToken].add(_fCashPositions[i]);
         }
+    }
+
+    function _updateSetTokenPositions(
+        ISetToken setToken,
+        address sendToken,
+        uint256 preTradeSendTokenBalance,
+        address receiveToken,
+        uint256 preTradeReceiveTokenBalance
+    ) internal returns (uint256, uint256) {
+        console.log("_updateSetTokenPositions");
+        uint256 setTotalSupply = setToken.totalSupply();
+
+        (uint256 currentSendTokenBalance,,) = setToken.calculateAndEditDefaultPosition(
+            sendToken,
+            setTotalSupply,
+            preTradeSendTokenBalance
+        );
+
+        (uint256 currentReceiveTokenBalance,,) = setToken.calculateAndEditDefaultPosition(
+            receiveToken,
+            setTotalSupply,
+            preTradeReceiveTokenBalance
+        );
+
+        return (
+            preTradeSendTokenBalance.sub(currentSendTokenBalance),
+            currentReceiveTokenBalance.sub(preTradeReceiveTokenBalance)
+        );
+
     }
 }

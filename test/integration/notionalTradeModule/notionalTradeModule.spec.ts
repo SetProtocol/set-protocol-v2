@@ -234,7 +234,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                 );
             };
 
-            ["buying", "selling"].forEach(tradeDirection => {
+            [
+              "buying",
+              "selling",
+            ].forEach(tradeDirection => {
               ["underlyingToken", "assetToken"].forEach(tokenType => {
                 describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                   let sendTokenType: string;
@@ -268,9 +271,19 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       } else {
                         subjectSendQuantity = underlyingTokenQuantity;
                       }
-                      await sendToken
-                        .connect(owner.wallet)
-                        .transfer(setToken.address, subjectSendQuantity);
+                      // Apparently it is not possible to trade tokens that are not a set component
+                      // Also sending extra tokens to the trade module might break it
+                      // TODO: Review
+                      await notionalTradeModule
+                        .connect(manager.wallet)
+                        .trade(
+                          setToken.address,
+                          wrappedFCashInstance.address,
+                          fTokenQuantity.mul(2),
+                          sendToken.address,
+                          subjectSendQuantity,
+                          subjectUseUnderlying,
+                        );
                     } else {
                       subjectSendQuantity = fTokenQuantity;
                       if (tokenType == "assetToken") {
@@ -332,6 +345,34 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     );
                   });
 
+                  it("should adjust the components position of the sendToken correctly", async () => {
+                    const positionBefore = await setToken.getDefaultPositionRealUnit(
+                      sendToken.address,
+                    );
+                    const tradeAmount = await subjectCall();
+                    const sendTokenAmount = tradeDirection == "selling" ? subjectSendQuantity : tradeAmount;
+                    await subject();
+                    const positionAfter = await setToken.getDefaultPositionRealUnit(
+                      sendToken.address,
+                    );
+
+                    const positionChange = positionBefore.sub(positionAfter);
+                    const totalSetSupplyWei = await setToken.totalSupply();
+                    const totalSetSupplyEther = totalSetSupplyWei.div(BigNumber.from(10).pow(18));
+
+
+                    let sendTokenAmountNormalized;
+                    if (sendTokenType == "underlyingToken") {
+                      sendTokenAmountNormalized = sendTokenAmount.div(totalSetSupplyEther);
+                    } else {
+                      sendTokenAmountNormalized = BigNumber.from(
+                        Math.round(sendTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10),
+                      );
+                    }
+
+                    expect(sendTokenAmountNormalized).to.eq(positionChange);
+                  });
+
                   if (tradeDirection == "buying") {
                     describe("When sendQuantity is too low", () => {
                       beforeEach(() => {
@@ -349,7 +390,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             });
 
             describe("#moduleIssue/RedeemHook", () => {
-              ["issue", "redeem"].forEach(triggerAction => {
+              [
+                "issue",
+                "redeem"
+              ].forEach(triggerAction => {
                 describe(`When set token is ${triggerAction}ed`, () => {
                   let subjectSetToken: string;
                   let subjectReceiver: string;
@@ -362,6 +406,17 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     subjectReceiver = caller.address;
 
                     if (triggerAction == "redeem") {
+                      const daiAmount = ethers.utils.parseEther("2.1");
+                      const fCashAmount = ethers.utils.parseUnits("2", 8);
+                      await mintWrappedFCash(
+                        owner.wallet,
+                        dai,
+                        daiAmount,
+                        fCashAmount,
+                        cDai,
+                        wrappedFCashInstance,
+                        true,
+                      );
                       await debtIssuanceModule
                         .connect(owner.wallet)
                         .issue(subjectSetToken, subjectAmount, caller.address);
@@ -369,7 +424,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         .connect(caller)
                         .approve(debtIssuanceModule.address, subjectAmount);
                     } else {
-                      await wrappedFCashInstance
+                      await dai.transfer(caller.address, daiAmount);
+                      await dai.connect(caller).approve(cDai.address, ethers.constants.MaxUint256);
+                      await cDai.connect(caller).mint(daiAmount);
+                      await cDai
                         .connect(caller)
                         .approve(debtIssuanceModule.address, ethers.constants.MaxUint256);
                     }
@@ -379,7 +437,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     beforeEach(async () => {
                       snapshotId = await network.provider.send("evm_snapshot", []);
                       const maturity = await wrappedFCashInstance.getMaturity();
-                      console.log("Setting timeblock to after maturity");
                       await network.provider.send("evm_setNextBlockTimestamp", [maturity + 1]);
                       await network.provider.send("evm_mine");
                       expect(await wrappedFCashInstance.hasMatured()).to.be.true;
@@ -399,8 +456,54 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       }
                     };
 
-                    it("should not revert", async () => {
+                    it("should adjust assetToken balance correctly", async () => {
+                      const minAmountCDaiTransfered = ethers.utils.parseUnits("90", 8);
+                      const cDaiBalanceBefore = await cDai.balanceOf(caller.address);
                       await subject();
+                      const cDaiBalanceAfter = await cDai.balanceOf(caller.address);
+                      const amountCDaiTransfered =
+                        triggerAction == "redeem"
+                          ? cDaiBalanceAfter.sub(cDaiBalanceBefore)
+                          : cDaiBalanceBefore.sub(cDaiBalanceAfter);
+
+                      expect(amountCDaiTransfered).to.be.gte(minAmountCDaiTransfered);
+                    });
+
+                    it("should issue correct amount of set tokens", async () => {
+                      const setTokenBalanceBefore = await setToken.balanceOf(caller.address);
+                      await subject();
+                      const setTokenBalanceAfter = await setToken.balanceOf(caller.address);
+                      const expectedBalanceChange =
+                        triggerAction == "issue" ? subjectAmount : subjectAmount.mul(-1);
+                      expect(setTokenBalanceAfter.sub(setTokenBalanceBefore)).to.eq(
+                        expectedBalanceChange,
+                      );
+                    });
+
+                    it("Removes wrappedFCash from component list", async () => {
+                      expect(await setToken.isComponent(wrappedFCashInstance.address)).to.be.true;
+                      await subject();
+                      expect(await setToken.isComponent(wrappedFCashInstance.address)).to.be.false;
+                    });
+
+                    it("Adds assetToken (cDai) to component list", async () => {
+                      expect(await setToken.isComponent(cDai.address)).to.be.false;
+                      await subject();
+                      expect(await setToken.isComponent(cDai.address)).to.be.true;
+                    });
+
+                    it("Adds asset token to component list", async () => {
+                      expect(await setToken.isComponent(cDai.address)).to.be.false;
+                      await subject();
+                      expect(await setToken.isComponent(cDai.address)).to.be.true;
+                    });
+
+                    it("Afterwards setToken should have no fCash balance anymore", async () => {
+                      const balanceBefore = await wrappedFCashInstance.balanceOf(subjectSetToken);
+                      expect(balanceBefore).to.be.gt(0);
+                      await subject();
+                      const balanceAfter = await wrappedFCashInstance.balanceOf(subjectSetToken);
+                      expect(balanceAfter).to.eq(0);
                     });
                   });
                 });
