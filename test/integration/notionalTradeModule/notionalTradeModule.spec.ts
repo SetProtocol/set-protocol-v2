@@ -193,12 +193,12 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               .issue(setToken.address, setAmount, owner.address);
           });
           describe("#trade", () => {
-            let receiverToken: IERC20;
+            let receiveToken: IERC20;
             let sendToken: IERC20;
             let subjectSetToken: string;
             let subjectSendToken: string;
             let subjectSendQuantity: BigNumber;
-            let subjectReceiverToken: string;
+            let subjectReceiveToken: string;
             let subjectMinReceiveQuantity: BigNumber;
             let subjectUseUnderlying: boolean;
             let caller: SignerWithAddress;
@@ -215,7 +215,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   subjectSetToken,
                   subjectSendToken,
                   subjectSendQuantity,
-                  subjectReceiverToken,
+                  subjectReceiveToken,
                   subjectMinReceiveQuantity,
                   subjectUseUnderlying,
                 );
@@ -228,19 +228,17 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   subjectSetToken,
                   subjectSendToken,
                   subjectSendQuantity,
-                  subjectReceiverToken,
+                  subjectReceiveToken,
                   subjectMinReceiveQuantity,
                   subjectUseUnderlying,
                 );
             };
 
-            [
-              "buying",
-              "selling",
-            ].forEach(tradeDirection => {
+            ["buying", "selling"].forEach(tradeDirection => {
               ["underlyingToken", "assetToken"].forEach(tokenType => {
                 describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                   let sendTokenType: string;
+                  let receiveTokenType: string;
                   let otherToken: IERC20;
                   beforeEach(async () => {
                     const underlyingTokenQuantity = ethers.utils.parseEther("1");
@@ -252,11 +250,13 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     subjectUseUnderlying = tokenType == "underlyingToken";
 
                     sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
+                    sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
                     sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
+                    receiveTokenType = tradeDirection == "selling" ? tokenType : "wrappedFCash";
                     subjectSendToken = sendToken.address;
 
-                    receiverToken = tradeDirection == "buying" ? wrappedFCashInstance : otherToken;
-                    subjectReceiverToken = receiverToken.address;
+                    receiveToken = tradeDirection == "buying" ? wrappedFCashInstance : otherToken;
+                    subjectReceiveToken = receiveToken.address;
 
                     if (tradeDirection == "buying") {
                       subjectMinReceiveQuantity = fTokenQuantity;
@@ -295,14 +295,12 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   });
 
                   it("setToken should receive receiver token", async () => {
-                    const receiverTokenBalanceBefore = await receiverToken.balanceOf(
+                    const receiveTokenBalanceBefore = await receiveToken.balanceOf(
                       setToken.address,
                     );
                     await subject();
-                    const receiverTokenBalanceAfter = await receiverToken.balanceOf(
-                      setToken.address,
-                    );
-                    expect(receiverTokenBalanceAfter.sub(receiverTokenBalanceBefore)).to.be.gte(
+                    const receiveTokenBalanceAfter = await receiveToken.balanceOf(setToken.address);
+                    expect(receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore)).to.be.gte(
                       subjectMinReceiveQuantity,
                     );
                   });
@@ -345,12 +343,54 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     );
                   });
 
+                  it("should adjust the components position of the receiveToken correctly", async () => {
+                    const positionBefore = await setToken.getDefaultPositionRealUnit(
+                      receiveToken.address,
+                    );
+                    const tradeAmount = await subjectCall();
+                    const receiveTokenAmount =
+                      tradeDirection == "buying" ? subjectMinReceiveQuantity : tradeAmount;
+                    await subject();
+                    const positionAfter = await setToken.getDefaultPositionRealUnit(
+                      receiveToken.address,
+                    );
+
+                    const positionChange = positionAfter.sub(positionBefore);
+                    const totalSetSupplyWei = await setToken.totalSupply();
+                    const totalSetSupplyEther = totalSetSupplyWei.div(BigNumber.from(10).pow(18));
+
+                    let receiveTokenAmountNormalized;
+                    if (receiveTokenType == "underlyingToken") {
+                      receiveTokenAmountNormalized = receiveTokenAmount.div(totalSetSupplyEther);
+                    } else {
+                      receiveTokenAmountNormalized = BigNumber.from(
+                        Math.floor(
+                          receiveTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10,
+                        ),
+                      );
+                    }
+
+                    if (receiveTokenType == "underlyingToken") {
+                      // TODO: Review why there is some deviation
+                      const allowedDeviationPercent = 1;
+                      expect(receiveTokenAmountNormalized).to.be.gte(
+                        positionChange.mul(100 - allowedDeviationPercent).div(100),
+                      );
+                      expect(receiveTokenAmountNormalized).to.be.lte(
+                        positionChange.mul(100 + allowedDeviationPercent).div(100),
+                      );
+                    } else {
+                      expect(receiveTokenAmountNormalized).to.eq(positionChange);
+                    }
+                  });
+
                   it("should adjust the components position of the sendToken correctly", async () => {
                     const positionBefore = await setToken.getDefaultPositionRealUnit(
                       sendToken.address,
                     );
                     const tradeAmount = await subjectCall();
-                    const sendTokenAmount = tradeDirection == "selling" ? subjectSendQuantity : tradeAmount;
+                    const sendTokenAmount =
+                      tradeDirection == "selling" ? subjectSendQuantity : tradeAmount;
                     await subject();
                     const positionAfter = await setToken.getDefaultPositionRealUnit(
                       sendToken.address,
@@ -360,13 +400,15 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     const totalSetSupplyWei = await setToken.totalSupply();
                     const totalSetSupplyEther = totalSetSupplyWei.div(BigNumber.from(10).pow(18));
 
-
                     let sendTokenAmountNormalized;
                     if (sendTokenType == "underlyingToken") {
                       sendTokenAmountNormalized = sendTokenAmount.div(totalSetSupplyEther);
                     } else {
                       sendTokenAmountNormalized = BigNumber.from(
-                        Math.round(sendTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10),
+                        // TODO: Why do we have to use round here and floor with the receive token ?
+                        Math.round(
+                          sendTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10,
+                        ),
                       );
                     }
 
@@ -390,11 +432,8 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             });
 
             describe("#moduleIssue/RedeemHook", () => {
-              [
-                "issue",
-                "redeem"
-              ].forEach(triggerAction => {
-                describe(`When set token is ${triggerAction}ed`, () => {
+              ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
+                describe(`When hook is triggered by ${triggerAction}`, () => {
                   let subjectSetToken: string;
                   let subjectReceiver: string;
                   let subjectAmount: BigNumber;
@@ -432,6 +471,55 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         .approve(debtIssuanceModule.address, ethers.constants.MaxUint256);
                     }
                   });
+
+                  const subject = () => {
+                    if (triggerAction == "issue") {
+                      return debtIssuanceModule
+                        .connect(caller)
+                        .issue(subjectSetToken, subjectAmount, subjectReceiver);
+                    } else if (triggerAction == "redeem") {
+                      return debtIssuanceModule
+                        .connect(caller)
+                        .redeem(subjectSetToken, subjectAmount, subjectReceiver);
+                    } else {
+                      return notionalTradeModule
+                        .connect(caller)
+                        .redeemMaturedPositions(subjectSetToken);
+                    }
+                  };
+
+                  describe("When component has not matured yet", () => {
+                    beforeEach(async () => {
+                      if (triggerAction == "issue") {
+                        const daiAmount = ethers.utils.parseEther("2.1");
+                        const fCashAmount = ethers.utils.parseUnits("2", 8);
+                        await mintWrappedFCash(
+                          caller,
+                          dai,
+                          daiAmount,
+                          fCashAmount,
+                          cDai,
+                          wrappedFCashInstance,
+                          true,
+                        );
+                        await wrappedFCashInstance
+                          .connect(caller)
+                          .approve(debtIssuanceModule.address, fCashAmount);
+                      }
+                      expect(await wrappedFCashInstance.hasMatured()).to.be.false;
+                    });
+                    it("fCash position remains the same", async () => {
+                      const positionBefore = await setToken.getDefaultPositionRealUnit(
+                        wrappedFCashInstance.address,
+                      );
+                      await subject();
+                      const positionAfter = await setToken.getDefaultPositionRealUnit(
+                        wrappedFCashInstance.address,
+                      );
+                      expect(positionAfter).to.eq(positionBefore);
+                    });
+                  });
+
                   describe("When component has matured", () => {
                     let snapshotId: string;
                     beforeEach(async () => {
@@ -444,41 +532,32 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     afterEach(async () => {
                       await network.provider.send("evm_revert", [snapshotId]);
                     });
-                    const subject = () => {
-                      if (triggerAction == "issue") {
-                        return debtIssuanceModule
-                          .connect(caller)
-                          .issue(subjectSetToken, subjectAmount, subjectReceiver);
-                      } else {
-                        return debtIssuanceModule
-                          .connect(caller)
-                          .redeem(subjectSetToken, subjectAmount, subjectReceiver);
-                      }
-                    };
 
-                    it("should adjust assetToken balance correctly", async () => {
-                      const minAmountCDaiTransfered = ethers.utils.parseUnits("90", 8);
-                      const cDaiBalanceBefore = await cDai.balanceOf(caller.address);
-                      await subject();
-                      const cDaiBalanceAfter = await cDai.balanceOf(caller.address);
-                      const amountCDaiTransfered =
-                        triggerAction == "redeem"
-                          ? cDaiBalanceAfter.sub(cDaiBalanceBefore)
-                          : cDaiBalanceBefore.sub(cDaiBalanceAfter);
+                    if (triggerAction != "manualTrigger") {
+                      it("should adjust assetToken balance correctly", async () => {
+                        const minAmountCDaiTransfered = ethers.utils.parseUnits("90", 8);
+                        const cDaiBalanceBefore = await cDai.balanceOf(caller.address);
+                        await subject();
+                        const cDaiBalanceAfter = await cDai.balanceOf(caller.address);
+                        const amountCDaiTransfered =
+                          triggerAction == "redeem"
+                            ? cDaiBalanceAfter.sub(cDaiBalanceBefore)
+                            : cDaiBalanceBefore.sub(cDaiBalanceAfter);
 
-                      expect(amountCDaiTransfered).to.be.gte(minAmountCDaiTransfered);
-                    });
+                        expect(amountCDaiTransfered).to.be.gte(minAmountCDaiTransfered);
+                      });
 
-                    it("should issue correct amount of set tokens", async () => {
-                      const setTokenBalanceBefore = await setToken.balanceOf(caller.address);
-                      await subject();
-                      const setTokenBalanceAfter = await setToken.balanceOf(caller.address);
-                      const expectedBalanceChange =
-                        triggerAction == "issue" ? subjectAmount : subjectAmount.mul(-1);
-                      expect(setTokenBalanceAfter.sub(setTokenBalanceBefore)).to.eq(
-                        expectedBalanceChange,
-                      );
-                    });
+                      it("should issue correct amount of set tokens", async () => {
+                        const setTokenBalanceBefore = await setToken.balanceOf(caller.address);
+                        await subject();
+                        const setTokenBalanceAfter = await setToken.balanceOf(caller.address);
+                        const expectedBalanceChange =
+                          triggerAction == "issue" ? subjectAmount : subjectAmount.mul(-1);
+                        expect(setTokenBalanceAfter.sub(setTokenBalanceBefore)).to.eq(
+                          expectedBalanceChange,
+                        );
+                      });
+                    }
 
                     it("Removes wrappedFCash from component list", async () => {
                       expect(await setToken.isComponent(wrappedFCashInstance.address)).to.be.true;
@@ -504,6 +583,22 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       await subject();
                       const balanceAfter = await wrappedFCashInstance.balanceOf(subjectSetToken);
                       expect(balanceAfter).to.eq(0);
+                    });
+
+                    it("Afterwards setToken should have received asset token", async () => {
+                      const balanceBefore = await cDai.balanceOf(subjectSetToken);
+                      await subject();
+                      const balanceAfter = await cDai.balanceOf(subjectSetToken);
+                      expect(balanceAfter.sub(balanceBefore)).to.be.gt(0);
+                    });
+
+                    it("Afterwards setToken should have positive cDai position", async () => {
+                      const positionBefore = await setToken.getDefaultPositionRealUnit(
+                        cDai.address,
+                      );
+                      await subject();
+                      const positionAfter = await setToken.getDefaultPositionRealUnit(cDai.address);
+                      expect(positionAfter.sub(positionBefore)).to.be.gt(0);
                     });
                   });
                 });
