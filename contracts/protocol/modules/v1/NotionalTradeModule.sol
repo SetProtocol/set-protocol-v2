@@ -36,9 +36,6 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    /* ============ Structs ============ */
-
-
     /* ============ Events ============ */
 
     /**
@@ -58,6 +55,39 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         ISetToken indexed _setToken,
         bool indexed _added
     );
+
+    /**
+     * @dev Emitted when minting new FCash
+     * @param _setToken         SetToken on whose behalf fcash was minted
+     * @param _fCashPosition    Address of wrappedFCash token
+     * @param _sendToken        Address of send token used to pay for minting
+     * @param _fCashAmount      Amount of fCash minted
+     * @param _sentAmount       Amount of sendToken spent
+     */
+    event FCashMinted(
+        ISetToken indexed _setToken,
+        IWrappedfCashComplete indexed _fCashPosition,
+        IERC20 indexed _sendToken, 
+        uint256 _fCashAmount,
+        uint256 _sentAmount
+    );
+
+    /**
+     * @dev Emitted when redeeming new FCash
+     * @param _setToken         SetToken on whose behalf fcash was redeemed
+     * @param _fCashPosition    Address of wrappedFCash token
+     * @param _receiveToken     Address of receive token used to pay for redeeming
+     * @param _fCashAmount      Amount of fCash redeemed / burned
+     * @param _receivedAmount   Amount of receiveToken received
+     */
+    event FCashRedeemed(
+        ISetToken indexed _setToken,
+        IWrappedfCashComplete indexed _fCashPosition,
+        IERC20 indexed _receiveToken, 
+        uint256 _fCashAmount,
+        uint256 _receivedAmount
+    );
+
 
     /* ============ Constants ============ */
 
@@ -99,16 +129,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * Reverts if send and receive token are not a combination of 1 registered fCash position and its underlying or asset token.
      * @param _setToken                     Instance of the SetToken
      * @param _sendToken                    Address of the token to trade out of ("sell")
-     * @param _sendQuantity                 Amount of send token to sell. (Fixed amount in the redeem case and max amount in mint case);
+     * @param _sendAmount                 Amount of send token to sell. (Fixed amount in the redeem case and max amount in mint case);
      * @param _receiveToken                  Address of the token to trade in to ("buy")
-     * @param _receiveQuantity              Amount of receive token to buy. (Fixed amount in the mint case and min amount in redeem case);
+     * @param _receiveAmount              Amount of receive token to buy. (Fixed amount in the mint case and min amount in redeem case);
      */
     function trade(
         ISetToken _setToken,
         address _sendToken,
-        uint256 _sendQuantity,
+        uint256 _sendAmount,
         address _receiveToken,
-        uint256 _receiveQuantity
+        uint256 _receiveAmount
     )
         external
         nonReentrant
@@ -117,11 +147,11 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         if(fCashPositions[_setToken].contains(_sendToken))
         {
-            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), IERC20(_receiveToken), _sendQuantity, _receiveQuantity);
+            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), IERC20(_receiveToken), _sendAmount, _receiveAmount);
         }
         else if(fCashPositions[_setToken].contains(_receiveToken))
         {
-            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), IERC20(_sendToken), _receiveQuantity, _sendQuantity);
+            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), IERC20(_sendToken), _receiveAmount, _sendAmount);
         }
         else {
             revert("Neither send nor receive token is a registered fCash position");
@@ -230,7 +260,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @dev Hook called once before setToken issuance
      * @dev Ensures that no matured fCash positions are in the set when it is issued
      */
-    function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external override onlyModule(_setToken) {
+    function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenAmount */) external override onlyModule(_setToken) {
         _redeemMaturedPositions(_setToken);
     }
 
@@ -238,7 +268,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @dev Hook called once before setToken redemption
      * @dev Ensures that no matured fCash positions are in the set when it is redeemed
      */
-    function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenQuantity */) external override onlyModule(_setToken) {
+    function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenAmount */) external override onlyModule(_setToken) {
         _redeemMaturedPositions(_setToken);
     }
 
@@ -249,7 +279,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      */
     function componentIssueHook(
         ISetToken _setToken,
-        uint256 _setTokenQuantity,
+        uint256 _setTokenAmount,
         IERC20 _component,
         bool _isEquity
     ) external override onlyModule(_setToken) {
@@ -261,7 +291,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      */
     function componentRedeemHook(
         ISetToken _setToken,
-        uint256 _setTokenQuantity,
+        uint256 _setTokenAmount,
         IERC20 _component,
         bool _isEquity
     ) external override onlyModule(_setToken) {
@@ -276,7 +306,11 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @dev Get array of registered fCash positions
      * @param _setToken             Instance of the SetToken
      */
-    function getFCashPositions(ISetToken _setToken) external view returns(address[] memory positions) {
+    function getFCashPositions(ISetToken _setToken)
+    external
+    view
+    returns(address[] memory positions)
+    {
         uint256 length = fCashPositions[_setToken].length();
         for(uint256 i = 0; i < length; i++) {
             positions[i] = fCashPositions[_setToken].at(i);
@@ -288,7 +322,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Redeem all matured fCash positions for the given SetToken
      */
-    function _redeemMaturedPositions(ISetToken _setToken) internal {
+    function _redeemMaturedPositions(ISetToken _setToken)
+    internal
+    {
         uint fCashPositionLength = fCashPositions[_setToken].length();
         if(fCashPositionLength == 0) return;
 
@@ -308,16 +344,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     }
 
-    /**
-     * @dev Add this contract as an IERC777-operator for the SetTokens balance of given wrappedFCash token
-     * @dev Except for the typing this would also work for any ERC777 token as _fCashPosition. (not necessarily wrappedFCash)
-     */
-    function _setOperatorIfNecessary(ISetToken _setToken, IWrappedfCashComplete _fCashPosition) internal {
-        if(!IERC777(address(_fCashPosition)).isOperatorFor(address(this), address(_setToken))){
-            bytes memory authorizeCallData = abi.encodeWithSignature( "authorizeOperator(address)", address(this));
-            _setToken.invoke(address(_fCashPosition), 0, authorizeCallData);
-        }
-    }
+
 
     /**
      * @dev Redeem a given fCash position from the specified send token (either underlying or asset token)
@@ -328,38 +355,25 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         IWrappedfCashComplete _fCashPosition,
         IERC20 _sendToken,
         uint256 _fCashAmount,
-        uint256 _maxAssetAmount
+        uint256 _maxSendAmount
     )
     internal
-    returns(uint256 assetAmountSpent)
+    returns(uint256 sentAmount)
     {
         if(_fCashAmount == 0) return 0;
-        // TODO: Review if this value is correct / what is max implied rate ? 
-        uint32 minImpliedRate = 0;
 
         bool fromUnderlying = _isUnderlying(_fCashPosition, _sendToken);
 
 
-        if(IERC20(_sendToken).allowance(address(_setToken), address(_fCashPosition)) < _maxAssetAmount) {
-            bytes memory approveCallData = abi.encodeWithSignature("approve(address,uint256)", address(_fCashPosition), _maxAssetAmount);
-            _setToken.invoke(address(_sendToken), 0, approveCallData);
-        }
-
+        _approveIfNecessary(_setToken, _fCashPosition, _sendToken, _maxSendAmount);
 
         uint256 preTradeSendTokenBalance = _sendToken.balanceOf(address(_setToken));
         uint256 preTradeReceiveTokenBalance = _fCashPosition.balanceOf(address(_setToken));
 
-        bytes memory mintCallData = abi.encodeWithSignature(
-            "mint(uint256,uint88,address,uint32,bool)",
-            _maxAssetAmount,
-            uint88(_fCashAmount),
-            address(_setToken),
-            minImpliedRate,
-            fromUnderlying
-        );
-        _setToken.invoke(address(_fCashPosition), 0, mintCallData);
+        _mint(_setToken, _fCashPosition, _maxSendAmount, _fCashAmount, fromUnderlying);
 
-        (assetAmountSpent,) = _updateSetTokenPositions(
+
+        (sentAmount,) = _updateSetTokenPositions(
             _setToken,
             address(_sendToken),
             preTradeSendTokenBalance,
@@ -367,7 +381,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             preTradeReceiveTokenBalance
         );
 
-        require(assetAmountSpent <= _maxAssetAmount, "Overpaid");
+        require(sentAmount <= _maxSendAmount, "Overpaid");
+        emit FCashMinted(_setToken, _fCashPosition, _sendToken, _fCashAmount, sentAmount);
     }
 
     /**
@@ -378,33 +393,23 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         ISetToken _setToken,
         IWrappedfCashComplete _fCashPosition,
         IERC20 _receiveToken,
-        uint256 _amount,
-        uint256 _minReceiveQuantity
+        uint256 _fCashAmount,
+        uint256 _minReceiveAmount
     )
     internal
-    returns(uint256 receivedQuantity)
+    returns(uint256 receivedAmount)
     {
-        if(_amount == 0) return 0;
+        if(_fCashAmount == 0) return 0;
         _setOperatorIfNecessary(_setToken, _fCashPosition);
 
-        // TODO: Review if this value is correct / what is max implied rate ? 
-        uint32 maxImpliedRate = type(uint32).max;
-
-
         bool toUnderlying = _isUnderlying(_fCashPosition, _receiveToken);
-
         uint256 preTradeReceiveTokenBalance = _receiveToken.balanceOf(address(_setToken));
         uint256 preTradeSendTokenBalance = _fCashPosition.balanceOf(address(_setToken));
 
-        IERC777(address(_fCashPosition)).operatorBurn(
-            address(_setToken),
-            _amount,
-            abi.encode(IWrappedfCash.RedeemOpts(toUnderlying, false, address(_setToken), maxImpliedRate)),
-            ""
-        );
+        _burn(_setToken, _fCashPosition, _fCashAmount, toUnderlying);
 
 
-        (, receivedQuantity) = _updateSetTokenPositions(
+        (, receivedAmount) = _updateSetTokenPositions(
             _setToken,
             address(_fCashPosition),
             preTradeSendTokenBalance,
@@ -413,8 +418,91 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         );
 
 
-        require(receivedQuantity >= _minReceiveQuantity, "Not enough received quantity");
+        require(receivedAmount >= _minReceiveAmount, "Not enough received amount");
+        emit FCashRedeemed(_setToken, _fCashPosition, _receiveToken, _fCashAmount, receivedAmount);
 
+    }
+
+    /**
+     * @dev Add this contract as an IERC777-operator for the SetTokens balance of given wrappedFCash token
+     * @dev Except for the typing this would also work for any ERC777 token as _fCashPosition. (not necessarily wrappedFCash)
+     */
+    function _setOperatorIfNecessary(
+        ISetToken _setToken,
+        IWrappedfCashComplete _fCashPosition
+    )
+    internal
+    {
+        if(!IERC777(address(_fCashPosition)).isOperatorFor(address(this), address(_setToken))){
+            bytes memory authorizeCallData = abi.encodeWithSignature( "authorizeOperator(address)", address(this));
+            _setToken.invoke(address(_fCashPosition), 0, authorizeCallData);
+        }
+    }
+
+    /**
+     * @dev Approve the given wrappedFCash instance to spend the setToken's sendToken 
+     */
+    function _approveIfNecessary(
+        ISetToken _setToken,
+        IWrappedfCashComplete _fCashPosition,
+        IERC20 _sendToken,
+        uint256 _maxAssetAmount
+    )
+    internal
+    {
+        if(IERC20(_sendToken).allowance(address(_setToken), address(_fCashPosition)) < _maxAssetAmount) {
+            // TODO: Review if we want to only approve "_maxAssetAmount" or keep it at maxUint256
+            bytes memory approveCallData = abi.encodeWithSignature("approve(address,uint256)", address(_fCashPosition), type(uint256).max);
+            _setToken.invoke(address(_sendToken), 0, approveCallData);
+        }
+    }
+
+    /**
+     * @dev Invokes the wrappedFCash token's mint function from the setToken
+     */
+    function _mint(
+        ISetToken _setToken,
+        IWrappedfCashComplete _fCashPosition,
+        uint256 _maxAssetAmount,
+        uint256 _fCashAmount,
+        bool _fromUnderlying
+    )
+    internal
+    {
+        // TODO: Review if this value is correct / what is min implied rate ? 
+        uint32 minImpliedRate = 0;
+
+        bytes memory mintCallData = abi.encodeWithSignature(
+            "mint(uint256,uint88,address,uint32,bool)",
+            _maxAssetAmount,
+            uint88(_fCashAmount),
+            address(_setToken),
+            minImpliedRate,
+            _fromUnderlying
+        );
+        _setToken.invoke(address(_fCashPosition), 0, mintCallData);
+    }
+
+    /**
+     * @dev Uses operator rights to burn the given amount of fCash token on behalf of the setToken
+     */
+    function _burn(
+        ISetToken _setToken,
+        IWrappedfCashComplete _fCashPosition,
+        uint256 _fCashAmount,
+        bool _toUnderlying
+    )
+    internal
+    {
+        // TODO: Review if this value is correct / what is max implied rate ? 
+        uint32 maxImpliedRate = type(uint32).max;
+        // TODO: This is copied from the notional sdk proxy. Review if this is really more efficient that just invoking "burn" through the setToken (as in the mint case
+        IERC777(address(_fCashPosition)).operatorBurn(
+            address(_setToken),
+            _fCashAmount,
+            abi.encode(IWrappedfCash.RedeemOpts(_toUnderlying, false, address(_setToken), maxImpliedRate)),
+            ""
+        );
     }
 
     /**
@@ -442,7 +530,11 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function _getPaymentToken(
         IWrappedfCashComplete _fCashPosition,
         bool _getUnderlying
-    ) internal view returns(IERC20 paymentToken) {
+    )
+    internal
+    view
+    returns(IERC20 paymentToken)
+    {
         (IERC20 underlyingToken, IERC20 assetToken) = _getUnderlyingAndAssetTokens(_fCashPosition);
          paymentToken = _getUnderlying ? underlyingToken : assetToken;
     }
@@ -450,7 +542,11 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Returns both underlying and asset token address for given fCash position
      */
-    function _getUnderlyingAndAssetTokens(IWrappedfCashComplete _fCashPosition) internal view returns(IERC20 underlyingToken, IERC20 assetToken) {
+    function _getUnderlyingAndAssetTokens(IWrappedfCashComplete _fCashPosition)
+    internal
+    view
+    returns(IERC20 underlyingToken, IERC20 assetToken)
+    {
         (underlyingToken,) = _fCashPosition.getUnderlyingToken();
         (assetToken,,) = _fCashPosition.getAssetToken();
     }
@@ -467,7 +563,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /**
      * @dev Update set token positions after mint or redeem
-     * @dev WARNING: This function is largely copied from the 
+     * @dev WARNING: This function is largely copied from the trade module
      */
     function _updateSetTokenPositions(
         ISetToken setToken,
