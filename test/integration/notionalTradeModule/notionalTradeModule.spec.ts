@@ -200,7 +200,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             let subjectSendQuantity: BigNumber;
             let subjectReceiveToken: string;
             let subjectMinReceiveQuantity: BigNumber;
-            let subjectUseUnderlying: boolean;
             let caller: SignerWithAddress;
 
             beforeEach(async () => {
@@ -217,7 +216,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   subjectSendQuantity,
                   subjectReceiveToken,
                   subjectMinReceiveQuantity,
-                  subjectUseUnderlying,
                 );
             };
 
@@ -230,7 +228,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   subjectSendQuantity,
                   subjectReceiveToken,
                   subjectMinReceiveQuantity,
-                  subjectUseUnderlying,
                 );
             };
 
@@ -247,9 +244,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     const fTokenQuantity = ethers.utils.parseUnits("1", 8);
 
                     otherToken = tokenType == "assetToken" ? cDai : dai;
-                    subjectUseUnderlying = tokenType == "underlyingToken";
-
-                    sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
                     sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
                     sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
                     receiveTokenType = tradeDirection == "selling" ? tokenType : "wrappedFCash";
@@ -281,8 +275,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           wrappedFCashInstance.address,
                           fTokenQuantity.mul(2),
                           sendToken.address,
-                          subjectSendQuantity,
-                          subjectUseUnderlying,
+                          subjectSendQuantity
                         );
                     } else {
                       subjectSendQuantity = fTokenQuantity;

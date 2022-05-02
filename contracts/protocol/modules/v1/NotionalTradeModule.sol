@@ -1,5 +1,5 @@
 /*
-    Copyright 2021 Set Labs Inc.
+    Copyright 2022 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -98,8 +98,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         address _sendToken,
         uint256 _sendQuantity,
         address _receiveToken,
-        uint256 _minReceiveQuantity,
-        bool _useUnderlying
+        uint256 _minReceiveQuantity
     )
         external
         nonReentrant
@@ -108,11 +107,11 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         if(fCashPositions[_setToken].contains(_sendToken))
         {
-            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), _sendQuantity, _minReceiveQuantity, _useUnderlying);
+            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), IERC20(_receiveToken), _sendQuantity, _minReceiveQuantity);
         }
         else if(fCashPositions[_setToken].contains(_receiveToken))
         {
-            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), _minReceiveQuantity, _sendQuantity, _useUnderlying);
+            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), IERC20(_sendToken), _minReceiveQuantity, _sendQuantity);
         }
         else {
             revert("Neither send nor receive token is a registered fCash position");
@@ -250,12 +249,14 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         bool toUnderlying = redeemToUnderlying[_setToken];
 
+
         for(uint256 i = 0; i < fCashPositionLength; i++) {
             IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositions[_setToken].at(i));
 
             if(fCashPosition.hasMatured()) {
+                IERC20 receiveToken = _getPaymentToken(fCashPosition, toUnderlying);
                 uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
-                _redeemFCashPosition(_setToken, fCashPosition, fCashBalance, 0, toUnderlying);
+                _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
             }
 
         }
@@ -269,27 +270,32 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
     }
 
-    function _redeemFCashPosition(ISetToken _setToken, IWrappedfCashComplete _fCashPosition, uint256 _amount, uint256 _minReceiveQuantity, bool _toUnderlying) internal returns(uint256 receivedQuantity) {
+    function _redeemFCashPosition(
+        ISetToken _setToken,
+        IWrappedfCashComplete _fCashPosition,
+        IERC20 _receiveToken,
+        uint256 _amount,
+        uint256 _minReceiveQuantity
+    )
+    internal
+    returns(uint256 receivedQuantity)
+    {
         if(_amount == 0) return 0;
         _setOperatorIfNecessary(_setToken, _fCashPosition);
 
         // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 maxImpliedRate = type(uint32).max;
 
-        IERC20 receiveToken;
-        if(_toUnderlying) {
-            (receiveToken,) = _fCashPosition.getUnderlyingToken();
-        } else {
-            (receiveToken,,) = _fCashPosition.getAssetToken();
-        }
 
-        uint256 preTradeReceiveTokenBalance = receiveToken.balanceOf(address(_setToken));
+        bool toUnderlying = _isUnderlying(_fCashPosition, _receiveToken);
+
+        uint256 preTradeReceiveTokenBalance = _receiveToken.balanceOf(address(_setToken));
         uint256 preTradeSendTokenBalance = _fCashPosition.balanceOf(address(_setToken));
 
         IERC777(address(_fCashPosition)).operatorBurn(
             address(_setToken),
             _amount,
-            abi.encode(IWrappedfCash.RedeemOpts(_toUnderlying, false, address(_setToken), maxImpliedRate)),
+            abi.encode(IWrappedfCash.RedeemOpts(toUnderlying, false, address(_setToken), maxImpliedRate)),
             ""
         );
 
@@ -298,7 +304,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             _setToken,
             address(_fCashPosition),
             preTradeSendTokenBalance,
-            address(receiveToken),
+            address(_receiveToken),
             preTradeReceiveTokenBalance
         );
 
@@ -307,12 +313,36 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     }
 
+    function _isUnderlying(
+        IWrappedfCashComplete _fCashPosition,
+        IERC20 _otherToken
+    ) internal view returns(bool isUnderlying){
+        (IERC20 underlyingToken, IERC20 assetToken) = _getUnderlyingAndAssetTokens(_fCashPosition);
+        isUnderlying = _otherToken == underlyingToken;
+        if(!isUnderlying) {
+            require(_otherToken == assetToken, "Token is neither asset nor underlying token");
+        }
+    }
+
+    function _getPaymentToken(
+        IWrappedfCashComplete _fCashPosition,
+        bool _isUnderlying
+    ) internal view returns(IERC20 paymentToken) {
+        (IERC20 underlyingToken, IERC20 assetToken) = _getUnderlyingAndAssetTokens(_fCashPosition);
+         paymentToken = _isUnderlying ? underlyingToken : assetToken;
+    }
+
+    function _getUnderlyingAndAssetTokens(IWrappedfCashComplete _fCashPosition) internal view returns(IERC20 underlyingToken, IERC20 assetToken) {
+        (underlyingToken,) = _fCashPosition.getUnderlyingToken();
+        (assetToken,,) = _fCashPosition.getAssetToken();
+    }
+
     function _mintFCashPosition(
         ISetToken _setToken,
         IWrappedfCashComplete _fCashPosition,
+        IERC20 _sendToken,
         uint256 _fCashAmount,
-        uint256 _maxAssetAmount,
-        bool _useUnderlying
+        uint256 _maxAssetAmount
     )
     internal
     returns(uint256 assetAmountSpent)
@@ -321,20 +351,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 minImpliedRate = 0;
 
-        IERC20 paymentToken;
-        if(_useUnderlying) {
-            (paymentToken,) = _fCashPosition.getUnderlyingToken();
-        } else {
-            (paymentToken,,) = _fCashPosition.getAssetToken();
-        }
+        bool fromUnderlying = _isUnderlying(_fCashPosition, _sendToken);
 
-        if(IERC20(paymentToken).allowance(address(_setToken), address(_fCashPosition)) < _maxAssetAmount) {
+
+        if(IERC20(_sendToken).allowance(address(_setToken), address(_fCashPosition)) < _maxAssetAmount) {
             bytes memory approveCallData = abi.encodeWithSignature("approve(address,uint256)", address(_fCashPosition), _maxAssetAmount);
-            _setToken.invoke(address(paymentToken), 0, approveCallData);
+            _setToken.invoke(address(_sendToken), 0, approveCallData);
         }
 
 
-        uint256 preTradeSendTokenBalance = paymentToken.balanceOf(address(_setToken));
+        uint256 preTradeSendTokenBalance = _sendToken.balanceOf(address(_setToken));
         uint256 preTradeReceiveTokenBalance = _fCashPosition.balanceOf(address(_setToken));
 
         bytes memory mintCallData = abi.encodeWithSignature(
@@ -343,13 +369,13 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             uint88(_fCashAmount),
             address(_setToken),
             minImpliedRate,
-            _useUnderlying
+            fromUnderlying
         );
         _setToken.invoke(address(_fCashPosition), 0, mintCallData);
 
         (assetAmountSpent,) = _updateSetTokenPositions(
             _setToken,
-            address(paymentToken),
+            address(_sendToken),
             preTradeSendTokenBalance,
             address(_fCashPosition),
             preTradeReceiveTokenBalance
