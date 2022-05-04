@@ -113,6 +113,7 @@
     "module-alias": "^2.2.2",
     "wrapped-fcash": "https://github.com/ckoopmann/wrapped-fcash.git#59e0ad4a66addd909c3f033a970646355c04bc6f",
     "openzeppelin-contracts-V4": "npm:@openzeppelin/contracts@4.5",
+    "@openzeppelin-upgradeable/contracts": "npm:@openzeppelin/contracts-upgradeable@4.5.2",
     "replace-in-file": "^6.1.0"
   },
   "peerDependencies": {
