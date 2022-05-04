@@ -1615,11 +1615,6 @@
   dependencies:
     "@octokit/openapi-types" "^11.2.0"
 
-"@openzeppelin/contracts-upgradeable@^4.5.2":
-  version "4.5.2"
-  resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.5.2.tgz#90d9e47bacfd8693bfad0ac8a394645575528d05"
-  integrity sha512-xgWZYaPlrEOQo3cBj97Ufiuv79SPd8Brh4GcFYhPgb6WvAq4ppz8dWKL6h+jLAK01rUqMRp/TS9AdXgAeNvCLA==
-
 "@openzeppelin/contracts@3.4.1-solc-0.7-2":
   version "3.4.1-solc-0.7-2"
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-3.4.1-solc-0.7-2.tgz#371c67ebffe50f551c3146a9eec5fe6ffe862e92"
@@ -6455,15 +6450,6 @@ fs-extra@^4.0.2, fs-extra@^4.0.3:
     jsonfile "^4.0.0"
     universalify "^0.1.0"
 
-fs-extra@^5.0.0:
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-5.0.0.tgz#414d0110cdd06705734d055652c5411260c31abd"
-  integrity sha512-66Pm4RYbjzdyeuqudYqhFiNBbCIuI9kgRqLPSHIlXHidW8NIQtVdkM1yeZ4lXwuhbTETv3EUGMNHAAw6hiundQ==
-  dependencies:
-    graceful-fs "^4.1.2"
-    jsonfile "^4.0.0"
-    universalify "^0.1.0"
-
 fs-extra@^7.0.0, fs-extra@^7.0.1:
   version "7.0.1"
   resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-7.0.1.tgz#4f189c44aa123b895f722804f55ea23eadc348e9"
@@ -6482,7 +6468,7 @@ fs-extra@^8.1.0:
     jsonfile "^4.0.0"
     universalify "^0.1.0"
 
-fs-extra@^9.1.0:
+fs-extra@^9.0.0, fs-extra@^9.1.0:
   version "9.1.0"
   resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-9.1.0.tgz#5954460c764a8da2094ba3554bf839e6b9a7c86d"
   integrity sha512-hcg3ZmepS30/7BSFqRvoo3DOMQu7IjqxO5nCDt+zM9XWjb33Wg7ziNT+Qvqbuc3+gWpzO02JubVyk2G4Zvo1OQ==
@@ -9540,14 +9526,6 @@ normalize-url@^6.0.0:
   version "6.1.0"
   resolved "https://registry.yarnpkg.com/normalize-url/-/normalize-url-6.1.0.tgz#40d0885b535deffe3f3147bec877d05fe4c5668a"
   integrity sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==
-
-"notional-solidity-sdk@https://github.com/ckoopmann/notional-solidity-sdk.git#77aa2f8fd8a72b8f5865e561f2d39d4606c3740c":
-  version "1.0.0"
-  resolved "https://github.com/ckoopmann/notional-solidity-sdk.git#77aa2f8fd8a72b8f5865e561f2d39d4606c3740c"
-  dependencies:
-    "@openzeppelin/contracts-upgradeable" "^4.5.2"
-    dotenv "^10.0.0"
-    openzeppelin-contracts-V4 "npm:@openzeppelin/contracts@4.5"
 
 npm-audit-report@^2.1.5:
   version "2.1.5"
@@ -13826,6 +13804,12 @@ wrap-ansi@^7.0.0:
     ansi-styles "^4.0.0"
     string-width "^4.1.0"
     strip-ansi "^6.0.0"
+
+"wrapped-fcash@https://github.com/ckoopmann/wrapped-fcash.git#59e0ad4a66addd909c3f033a970646355c04bc6f":
+  version "1.0.0"
+  resolved "https://github.com/ckoopmann/wrapped-fcash.git#59e0ad4a66addd909c3f033a970646355c04bc6f"
+  dependencies:
+    dotenv "^10.0.0"
 
 wrappy@1:
   version "1.0.2"
