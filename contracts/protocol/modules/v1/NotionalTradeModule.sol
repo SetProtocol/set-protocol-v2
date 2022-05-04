@@ -472,8 +472,10 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         // TODO: Review if this value is correct / what is min implied rate ? 
         uint32 minImpliedRate = 0;
 
+        string memory functionSignature =  
+            _fromUnderlying ? "mintViaUnderlying(uint256,uint88,address,uint32)": "mintViaAsset(uint256,uint88,address,uint32)";
         bytes memory mintCallData = abi.encodeWithSignature(
-            "mint(uint256,uint88,address,uint32,bool)",
+            functionSignature,
             _maxAssetAmount,
             uint88(_fCashAmount),
             address(_setToken),

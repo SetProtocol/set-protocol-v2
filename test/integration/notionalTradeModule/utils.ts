@@ -143,9 +143,16 @@ export async function mintWrappedFCash(
   await inputToken.connect(signer).approve(wrappedFCashInstance.address, depositAmountExternal);
   const inputTokenBalanceBefore = await inputToken.balanceOf(signer.address);
   const wrappedFCashBalanceBefore = await wrappedFCashInstance.balanceOf(signer.address);
-  const txReceipt = await wrappedFCashInstance
-    .connect(signer)
-    .mint(depositAmountExternal, fCashAmount, receiver, minImpliedRate, useUnderlying);
+  let txReceipt;
+  if (useUnderlying) {
+    txReceipt = await wrappedFCashInstance
+      .connect(signer)
+      .mintViaUnderlying(depositAmountExternal, fCashAmount, receiver, minImpliedRate);
+  } else {
+    txReceipt = await wrappedFCashInstance
+      .connect(signer)
+      .mintViaAsset(depositAmountExternal, fCashAmount, receiver, minImpliedRate);
+  }
   const wrappedFCashBalanceAfter = await wrappedFCashInstance.balanceOf(signer.address);
   const inputTokenBalanceAfter = await inputToken.balanceOf(signer.address);
   const inputTokenSpent = inputTokenBalanceAfter.sub(inputTokenBalanceBefore);
