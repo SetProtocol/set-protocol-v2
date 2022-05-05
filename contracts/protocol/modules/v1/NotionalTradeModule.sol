@@ -400,13 +400,12 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     returns(uint256 receivedAmount)
     {
         if(_fCashAmount == 0) return 0;
-        _setOperatorIfNecessary(_setToken, _fCashPosition);
 
         bool toUnderlying = _isUnderlying(_fCashPosition, _receiveToken);
         uint256 preTradeReceiveTokenBalance = _receiveToken.balanceOf(address(_setToken));
         uint256 preTradeSendTokenBalance = _fCashPosition.balanceOf(address(_setToken));
 
-        _burn(_setToken, _fCashPosition, _fCashAmount, toUnderlying);
+        _redeem(_setToken, _fCashPosition, _fCashAmount, toUnderlying);
 
 
         (, receivedAmount) = _updateSetTokenPositions(
@@ -421,22 +420,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         require(receivedAmount >= _minReceiveAmount, "Not enough received amount");
         emit FCashRedeemed(_setToken, _fCashPosition, _receiveToken, _fCashAmount, receivedAmount);
 
-    }
-
-    /**
-     * @dev Add this contract as an IERC777-operator for the SetTokens balance of given wrappedFCash token
-     * @dev Except for the typing this would also work for any ERC777 token as _fCashPosition. (not necessarily wrappedFCash)
-     */
-    function _setOperatorIfNecessary(
-        ISetToken _setToken,
-        IWrappedfCashComplete _fCashPosition
-    )
-    internal
-    {
-        if(!IERC777(address(_fCashPosition)).isOperatorFor(address(this), address(_setToken))){
-            bytes memory authorizeCallData = abi.encodeWithSignature( "authorizeOperator(address)", address(this));
-            _setToken.invoke(address(_fCashPosition), 0, authorizeCallData);
-        }
     }
 
     /**
@@ -486,9 +469,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /**
-     * @dev Uses operator rights to burn the given amount of fCash token on behalf of the setToken
+     * @dev Redeems the given amount of fCash token on behalf of the setToken
      */
-    function _burn(
+    function _redeem(
         ISetToken _setToken,
         IWrappedfCashComplete _fCashPosition,
         uint256 _fCashAmount,
@@ -498,13 +481,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 maxImpliedRate = type(uint32).max;
-        // TODO: This is copied from the notional sdk proxy. Review if this is really more efficient that just invoking "burn" through the setToken (as in the mint case
-        IERC777(address(_fCashPosition)).operatorBurn(
-            address(_setToken),
+
+        string memory functionSignature =  
+            _toUnderlying ? "redeemToUnderlying(uint256,address,uint32)": "redeemToAsset(uint256,address,uint32)";
+        bytes memory redeemCallData = abi.encodeWithSignature(
+            functionSignature,
             _fCashAmount,
-            abi.encode(IWrappedfCash.RedeemOpts(_toUnderlying, false, address(_setToken), maxImpliedRate)),
-            ""
+            address(_setToken),
+            maxImpliedRate
         );
+        _setToken.invoke(address(_fCashPosition), 0, redeemCallData);
     }
 
     /**
