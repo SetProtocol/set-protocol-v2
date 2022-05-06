@@ -42,13 +42,24 @@ contract WrappedfCashMock is ERC777, IWrappedfCash {
         underlyingToken = _underlyingToken;
     }
 
+    function initialize(uint16 currencyId, uint40 maturity) external override {
+    }
+
     /// @notice Mints wrapped fCash ERC20 tokens
-    function mint(
+    function mintViaAsset(
         uint256 depositAmountExternal,
         uint88 fCashAmount,
         address receiver,
-        uint32 minImpliedRate,
-        bool useUnderlying
+        uint32 minImpliedRate
+    ) external override{
+        _mint(receiver, fCashAmount, "", "");
+    }
+
+    function mintViaUnderlying(
+        uint256 depositAmountExternal,
+        uint88 fCashAmount,
+        address receiver,
+        uint32 minImpliedRate
     ) external override{
         _mint(receiver, fCashAmount, "", "");
     }

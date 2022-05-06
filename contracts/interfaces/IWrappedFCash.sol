@@ -27,14 +27,21 @@ interface IWrappedfCash {
         // Zero signifies no maximum slippage
         uint32 maxImpliedRate;
     }
+    function initialize(uint16 currencyId, uint40 maturity) external;
 
     /// @notice Mints wrapped fCash ERC20 tokens
-    function mint(
+    function mintViaAsset(
         uint256 depositAmountExternal,
         uint88 fCashAmount,
         address receiver,
-        uint32 minImpliedRate,
-        bool useUnderlying
+        uint32 minImpliedRate
+    ) external;
+
+    function mintViaUnderlying(
+        uint256 depositAmountExternal,
+        uint88 fCashAmount,
+        address receiver,
+        uint32 minImpliedRate
     ) external;
 
     function redeem(uint256 amount, RedeemOpts memory data) external;
@@ -71,5 +78,4 @@ interface IWrappedfCash {
 }
 
 
-interface IWrappedfCashComplete is IWrappedfCash, IERC20 {} 
-
+interface IWrappedfCashComplete is IWrappedfCash, IERC777 {} 
