@@ -127,6 +127,7 @@ export { WrapModule } from "../../typechain/WrapModule";
 export { WrapModuleV2 } from "../../typechain/WrapModuleV2";
 export { WrappedfCash } from "../../typechain/WrappedfCash";
 export { WrappedfCashFactory } from "../../typechain/WrappedfCashFactory";
+export { WrappedfCashMock } from "../../typechain/WrappedfCashMock";
 export { YearnWrapV2Adapter } from "../../typechain/YearnWrapV2Adapter";
 export { YearnStrategyMock } from "../../typechain/YearnStrategyMock";
 export { ZeroExApiAdapter } from "../../typechain/ZeroExApiAdapter";

@@ -3,7 +3,7 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Different types of internal tokens
 ///  - UnderlyingToken: underlying asset for a cToken (except for Ether)
@@ -20,13 +20,6 @@ enum TokenType {
 }
 
 interface IWrappedfCash {
-    struct RedeemOpts {
-        bool redeemToUnderlying;
-        bool transferfCash;
-        address receiver;
-        // Zero signifies no maximum slippage
-        uint32 maxImpliedRate;
-    }
     function initialize(uint16 currencyId, uint40 maturity) external;
 
     /// @notice Mints wrapped fCash ERC20 tokens
@@ -44,7 +37,6 @@ interface IWrappedfCash {
         uint32 minImpliedRate
     ) external;
 
-    function redeem(uint256 amount, RedeemOpts memory data) external;
     function redeemToAsset(uint256 amount, address receiver, uint32 maxImpliedRate) external;
     function redeemToUnderlying(uint256 amount, address receiver, uint32 maxImpliedRate) external;
 
@@ -78,4 +70,4 @@ interface IWrappedfCash {
 }
 
 
-interface IWrappedfCashComplete is IWrappedfCash, IERC777 {} 
+interface IWrappedfCashComplete is IWrappedfCash, IERC20 {} 

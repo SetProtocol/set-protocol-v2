@@ -19,12 +19,14 @@
 pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
-import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TokenType, IWrappedfCash } from "../interfaces/IWrappedFCash.sol";
 
+import "hardhat/console.sol";
+
 // mock class using BasicToken
-contract WrappedfCashMock is ERC777, IWrappedfCash {
+contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     uint256 private fCashId;
     uint40 private maturity;
@@ -37,7 +39,8 @@ contract WrappedfCashMock is ERC777, IWrappedfCash {
     int256 private assetPrecision;
     TokenType private tokenType;
 
-    constructor (IERC20 _assetToken, IERC20 _underlyingToken) public ERC777("FCashMock", "FCM", new address[](0)) {
+    constructor (IERC20 _assetToken, IERC20 _underlyingToken) public ERC20("FCashMock", "FCM") {
+        console.log("Constructor WrappedfCashMock");
         assetToken = _assetToken;
         underlyingToken = _underlyingToken;
     }
@@ -52,7 +55,8 @@ contract WrappedfCashMock is ERC777, IWrappedfCash {
         address receiver,
         uint32 minImpliedRate
     ) external override{
-        _mint(receiver, fCashAmount, "", "");
+        assetToken.transferFrom(msg.sender, address(this), depositAmountExternal);
+        _mint(receiver, fCashAmount);
     }
 
     function mintViaUnderlying(
@@ -61,30 +65,19 @@ contract WrappedfCashMock is ERC777, IWrappedfCash {
         address receiver,
         uint32 minImpliedRate
     ) external override{
-        _mint(receiver, fCashAmount, "", "");
+        underlyingToken.transferFrom(msg.sender, address(this), depositAmountExternal);
+        _mint(receiver, fCashAmount);
     }
 
-    function redeem(uint256 amount, RedeemOpts memory opts) public override {
-        bytes memory data = abi.encode(opts);
-        burn(amount, data);
-    }
 
     function redeemToAsset(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
-        redeem(amount, RedeemOpts({
-            redeemToUnderlying: false,
-            transferfCash: false,
-            receiver: receiver,
-            maxImpliedRate: maxImpliedRate
-        }));
+        _burn(msg.sender, amount);
+        assetToken.transfer(receiver, amount);
     }
 
     function redeemToUnderlying(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
-        redeem(amount, RedeemOpts({
-            redeemToUnderlying: true,
-            transferfCash: false,
-            receiver: receiver,
-            maxImpliedRate: maxImpliedRate
-        }));
+        _burn(msg.sender, amount);
+        underlyingToken.transfer(receiver, amount);
     }
 
     /// @notice Returns the underlying fCash ID of the token
