@@ -315,32 +315,41 @@ describe("NotionalTradeModule", () => {
           beforeEach(async () => {
             await notionalTradeModule.updateAllowedSetToken(setToken.address, true);
           });
-          describe("#registerToModule", () => {
-            let caller: SignerWithAddress;
-            let subjectSetToken: Address;
-            let subjectDebtIssuanceModule: Address;
 
-            const subject = () => {
-              return notionalTradeModule
-                .connect(caller)
-                .registerToModule(subjectSetToken, subjectDebtIssuanceModule);
-            };
-
-            beforeEach(() => {
-              caller = manager.wallet;
-              subjectDebtIssuanceModule = debtIssuanceModule.address;
-              subjectSetToken = setToken.address;
-            });
-
-            it("should not revert", async () => {
-              await subject();
-            });
-          });
           describe("when token is initialized on the notional module", () => {
             beforeEach(async () => {
               await notionalTradeModule
                 .connect(manager.wallet)
                 .initialize(setToken.address, [wrappedfCashMock.address]);
+            });
+
+            describe("#registerToModule", () => {
+              let caller: SignerWithAddress;
+              let subjectSetToken: Address;
+              let subjectIssuanceModule: Address;
+
+              const subject = () => {
+                return notionalTradeModule
+                  .connect(caller)
+                  .registerToModule(subjectSetToken, subjectIssuanceModule);
+              };
+
+              beforeEach(async () => {
+                caller = manager.wallet;
+                subjectSetToken = setToken.address;
+                const newIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
+                console.log("Adding module on controller");
+                await setup.controller.addModule(newIssuanceModule.address);
+                console.log("Adding module on token");
+                await setToken.connect(manager.wallet).addModule(newIssuanceModule.address);
+                console.log("Initializing new issuance module");
+                await newIssuanceModule.initialize(setToken.address);
+                subjectIssuanceModule = newIssuanceModule.address;
+              });
+
+              it("should not revert", async () => {
+                await subject();
+              });
             });
 
             describe("#getFCashPositions", () => {
