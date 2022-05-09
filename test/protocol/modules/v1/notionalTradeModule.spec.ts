@@ -8,6 +8,7 @@ import {
   ManagerIssuanceHookMock,
   NotionalTradeModule,
   DebtIssuanceModule,
+  DebtIssuanceMock,
   SetToken,
   StandardTokenMock,
   WrappedfCashMock,
@@ -153,6 +154,30 @@ describe("NotionalTradeModule", () => {
           await debtIssuanceModule.issue(setToken.address, initialSetBalance, owner.address);
         });
 
+        describe("#updateAllowedSetToken", async () => {
+          let caller: SignerWithAddress;
+          let subjectSetToken: Address;
+          let subjectStatus: boolean;
+
+          beforeEach(async () => {
+            caller = owner.wallet;
+            subjectStatus = true;
+          });
+
+          const subject = () => {
+            return notionalTradeModule
+              .connect(caller)
+              .updateAllowedSetToken(subjectSetToken, subjectStatus);
+          };
+          describe("when set token is invalid", () => {
+            beforeEach(() => {
+              subjectSetToken = ethers.constants.AddressZero;
+            });
+            it("should revert", async () => {
+              await expect(subject()).to.be.revertedWith("Invalid set token");
+            });
+          });
+        });
         describe("#initialize", async () => {
           let isAllowListed: boolean = true;
           let subjectSetToken: Address;
@@ -327,6 +352,7 @@ describe("NotionalTradeModule", () => {
               let caller: SignerWithAddress;
               let subjectSetToken: Address;
               let subjectIssuanceModule: Address;
+              let newIssuanceModule: DebtIssuanceMock;
 
               const subject = () => {
                 return notionalTradeModule
@@ -337,18 +363,26 @@ describe("NotionalTradeModule", () => {
               beforeEach(async () => {
                 caller = manager.wallet;
                 subjectSetToken = setToken.address;
-                const newIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
-                console.log("Adding module on controller");
+                newIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
                 await setup.controller.addModule(newIssuanceModule.address);
-                console.log("Adding module on token");
                 await setToken.connect(manager.wallet).addModule(newIssuanceModule.address);
-                console.log("Initializing new issuance module");
-                await newIssuanceModule.initialize(setToken.address);
                 subjectIssuanceModule = newIssuanceModule.address;
               });
 
-              it("should not revert", async () => {
-                await subject();
+              describe("when token is initialized on new issuance module", () => {
+                beforeEach(async () => {
+                  await newIssuanceModule.initialize(setToken.address);
+                });
+
+                it("should not revert", async () => {
+                  await subject();
+                });
+              });
+
+              describe("when token is NOT initialized on new issuance module", () => {
+                it("should revert", async () => {
+                  await expect(subject()).to.be.revertedWith("Issuance not initialized");
+                });
               });
             });
 
@@ -403,6 +437,20 @@ describe("NotionalTradeModule", () => {
                     subjectMinReceiveQuantity,
                   );
               };
+
+              describe("When neither token is a registered fCash position", () => {
+                beforeEach(() => {
+                  subjectSendToken = dai.address;
+                  subjectSendQuantity = ether(1);
+                  subjectReceiveToken = cDai.address;
+                  subjectMinReceiveQuantity = ether(1);
+                });
+                it("should revert", async () => {
+                  await expect(subject()).to.be.revertedWith(
+                    "Neither send nor receive token is a registered fCash position",
+                  );
+                });
+              });
 
               ["buying", "selling"].forEach(tradeDirection => {
                 ["underlyingToken", "assetToken"].forEach(tokenType => {
