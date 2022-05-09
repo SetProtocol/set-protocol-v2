@@ -204,9 +204,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /**
-     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any deposited collateral assets
-     * are disabled to be used as collateral on Aave. Aave Settings and manager enabled assets state is deleted.
-     * Note: Function will revert is there is any debt remaining on Aave
+     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Redeems any matured positions
      */
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);

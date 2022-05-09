@@ -546,7 +546,7 @@ describe("NotionalTradeModule", () => {
               });
             });
             describe("#moduleIssue/RedeemHook", () => {
-              ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
+              ["issue", "redeem", "manualTrigger", "removeModule"].forEach(triggerAction => {
                 describe(`When hook is triggered by ${triggerAction}`, () => {
                   let subjectSetToken: string;
                   let subjectReceiver: string;
@@ -605,6 +605,10 @@ describe("NotionalTradeModule", () => {
                       return debtIssuanceModule
                         .connect(caller)
                         .redeem(subjectSetToken, subjectAmount, subjectReceiver);
+                    } else if (triggerAction == "removeModule") {
+                      return setToken
+                        .connect(manager.wallet)
+                        .removeModule(notionalTradeModule.address);
                     } else {
                       return notionalTradeModule
                         .connect(caller)
@@ -649,7 +653,7 @@ describe("NotionalTradeModule", () => {
                       await wrappedfCashMock.setMatured(true);
                     });
 
-                    if (triggerAction != "manualTrigger") {
+                    if (["issue", "redeem"].includes(triggerAction)) {
                       it("should adjust assetToken balance correctly", async () => {
                         const cDaiBalanceBefore = await cDai.balanceOf(caller.address);
                         await subject();
