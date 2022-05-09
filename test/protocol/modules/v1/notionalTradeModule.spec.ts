@@ -321,6 +321,19 @@ describe("NotionalTradeModule", () => {
                 .connect(manager.wallet)
                 .initialize(setToken.address, [wrappedfCashMock.address]);
             });
+            describe("#getFCashPositions", () => {
+              let subjectSetToken: string;
+              const subject = () => {
+                return notionalTradeModule.getFCashPositions(subjectSetToken);
+              };
+              beforeEach(() => {
+                subjectSetToken = setToken.address;
+              });
+              it("should return the correct fCash positions", async () => {
+                const fCashPositions = await subject();
+                expect(fCashPositions).to.deep.eq([wrappedfCashMock.address]);
+              });
+            });
             describe("#trade", () => {
               let receiveToken: IERC20;
               let sendToken: IERC20;
@@ -399,11 +412,6 @@ describe("NotionalTradeModule", () => {
                         await receiveToken.transfer(
                           wrappedfCashMock.address,
                           subjectMinReceiveQuantity,
-                        );
-                        console.log(
-                          "Sent receive tokens to mock",
-                          receiveToken.address,
-                          await receiveToken.balanceOf(wrappedfCashMock.address),
                         );
                       }
                     });

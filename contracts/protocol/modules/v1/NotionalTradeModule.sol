@@ -312,6 +312,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     returns(address[] memory positions)
     {
         uint256 length = fCashPositions[_setToken].length();
+        positions = new address[](length);
         for(uint256 i = 0; i < length; i++) {
             positions[i] = fCashPositions[_setToken].at(i);
         }
