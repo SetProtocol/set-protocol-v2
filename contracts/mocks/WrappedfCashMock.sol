@@ -30,7 +30,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     uint256 private fCashId;
     uint40 private maturity;
-    bool private _hasMatured;
+    bool private matured;
     uint16 private currencyId;
     uint8 private marketIndex;
     IERC20 private underlyingToken;
@@ -38,6 +38,8 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     IERC20 private assetToken;
     int256 private assetPrecision;
     TokenType private tokenType;
+
+    uint256 private redemptionAssetAmount;
 
     constructor (IERC20 _assetToken, IERC20 _underlyingToken) public ERC20("FCashMock", "FCM") {
         console.log("Constructor WrappedfCashMock");
@@ -71,8 +73,12 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
 
     function redeemToAsset(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
+        console.log("redeemToAsset");
         _burn(msg.sender, amount);
-        assetToken.transfer(receiver, amount);
+        console.logUint(assetToken.balanceOf(address(this)));
+        uint256 assetTokenAmount = redemptionAssetAmount == 0 ? amount : redemptionAssetAmount;
+        console.logUint(assetTokenAmount);
+        assetToken.transfer(receiver, assetTokenAmount);
     }
 
     function redeemToUnderlying(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
@@ -92,7 +98,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     /// @notice True if the fCash has matured, assets mature exactly on the block time
     function hasMatured() external override view returns (bool) {
-        return _hasMatured;
+        return matured;
     }
 
     /// @notice Returns the underlying fCash currency
@@ -122,5 +128,13 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     /// bearing token like a cToken or aToken.
     function getAssetToken() external override view returns (IERC20, int256, TokenType) {
         return (assetToken, assetPrecision, tokenType);
+    }
+
+    function setMatured(bool _matured) external{
+        matured = _matured;
+    }
+
+    function setRedemptionAssetAmount(uint256 _redemptionAssetAmount) external{
+        redemptionAssetAmount = _redemptionAssetAmount;
     }
 }
