@@ -42,7 +42,6 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     uint256 private redemptionAssetAmount;
 
     constructor (IERC20 _assetToken, IERC20 _underlyingToken) public ERC20("FCashMock", "FCM") {
-        console.log("Constructor WrappedfCashMock");
         assetToken = _assetToken;
         underlyingToken = _underlyingToken;
     }
@@ -73,11 +72,8 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
 
     function redeemToAsset(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
-        console.log("redeemToAsset");
         _burn(msg.sender, amount);
-        console.logUint(assetToken.balanceOf(address(this)));
         uint256 assetTokenAmount = redemptionAssetAmount == 0 ? amount : redemptionAssetAmount;
-        console.logUint(assetTokenAmount);
         assetToken.transfer(receiver, assetTokenAmount);
     }
 
