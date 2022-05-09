@@ -542,15 +542,18 @@ describe("NotionalTradeModule", () => {
                         // Apparently it is not possible to trade tokens that are not a set component
                         // Also sending extra tokens to the trade module might break it
                         // TODO: Review
-                        await sendToken.transfer(wrappedfCashMock.address, subjectSendQuantity);
+                        await sendToken.transfer(
+                          wrappedfCashMock.address,
+                          subjectSendQuantity.mul(2),
+                        );
                         await notionalTradeModule
                           .connect(manager.wallet)
                           .trade(
                             setToken.address,
                             wrappedfCashMock.address,
-                            fTokenQuantity,
+                            fTokenQuantity.mul(2),
                             sendToken.address,
-                            subjectSendQuantity,
+                            subjectSendQuantity.mul(2),
                           );
                       }
                       if (tradeDirection == "selling") {
@@ -561,6 +564,25 @@ describe("NotionalTradeModule", () => {
                       }
                     });
 
+                    if (tradeDirection == "buying") {
+                      describe(`when too much ${tokenType} is spent`, () => {
+                        beforeEach(async () => {
+                          await wrappedfCashMock.setMintTokenSpent(subjectSendQuantity.mul(2));
+                        });
+                        it("should revert", async () => {
+                          await expect(subject()).to.be.revertedWith("Overspent");
+                        });
+                      });
+                    } else {
+                      describe(`when too little ${tokenType} is returned`, () => {
+                        beforeEach(async () => {
+                          await wrappedfCashMock.setRedeemTokenReturned(subjectMinReceiveQuantity.div(2));
+                        });
+                        it("should revert", async () => {
+                          await expect(subject()).to.be.revertedWith("Not enough received amount");
+                        });
+                      });
+                    }
                     it("setToken should receive receiver token", async () => {
                       const receiveTokenBalanceBefore = await receiveToken.balanceOf(
                         setToken.address,
@@ -713,7 +735,7 @@ describe("NotionalTradeModule", () => {
                       .transfer(wrappedfCashMock.address, cDaiBalance);
 
                     const redemptionAssetAmount = cDaiBalance.div(2);
-                    await wrappedfCashMock.setRedemptionAssetAmount(redemptionAssetAmount);
+                    await wrappedfCashMock.setRedeemTokenReturned(redemptionAssetAmount);
 
                     if (triggerAction == "redeem") {
                       await mintWrappedFCash(

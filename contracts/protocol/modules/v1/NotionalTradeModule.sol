@@ -380,7 +380,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             preTradeReceiveTokenBalance
         );
 
-        require(sentAmount <= _maxSendAmount, "Overpaid");
+        require(sentAmount <= _maxSendAmount, "Overspent");
         emit FCashMinted(_setToken, _fCashPosition, _sendToken, _fCashAmount, sentAmount);
     }
 

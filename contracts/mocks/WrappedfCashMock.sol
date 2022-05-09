@@ -39,7 +39,8 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     int256 private assetPrecision;
     TokenType private tokenType;
 
-    uint256 private redemptionAssetAmount;
+    uint256 private redeemTokenReturned;
+    uint256 private mintTokenSpent;
 
     constructor (IERC20 _assetToken, IERC20 _underlyingToken) public ERC20("FCashMock", "FCM") {
         assetToken = _assetToken;
@@ -56,7 +57,8 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         address receiver,
         uint32 minImpliedRate
     ) external override{
-        assetToken.transferFrom(msg.sender, address(this), depositAmountExternal);
+        uint256 assetTokenAmount = mintTokenSpent == 0 ? depositAmountExternal : mintTokenSpent;
+        assetToken.transferFrom(msg.sender, address(this), assetTokenAmount);
         _mint(receiver, fCashAmount);
     }
 
@@ -66,20 +68,22 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         address receiver,
         uint32 minImpliedRate
     ) external override{
-        underlyingToken.transferFrom(msg.sender, address(this), depositAmountExternal);
+        uint256 underlyingTokenAmount = mintTokenSpent == 0 ? depositAmountExternal : mintTokenSpent;
+        underlyingToken.transferFrom(msg.sender, address(this), underlyingTokenAmount);
         _mint(receiver, fCashAmount);
     }
 
 
     function redeemToAsset(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
         _burn(msg.sender, amount);
-        uint256 assetTokenAmount = redemptionAssetAmount == 0 ? amount : redemptionAssetAmount;
+        uint256 assetTokenAmount = redeemTokenReturned == 0 ? amount : redeemTokenReturned;
         assetToken.transfer(receiver, assetTokenAmount);
     }
 
     function redeemToUnderlying(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
         _burn(msg.sender, amount);
-        underlyingToken.transfer(receiver, amount);
+        uint256 underlyingTokenAmount = redeemTokenReturned == 0 ? amount : redeemTokenReturned;
+        underlyingToken.transfer(receiver, underlyingTokenAmount);
     }
 
     /// @notice Returns the underlying fCash ID of the token
@@ -130,7 +134,12 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         matured = _matured;
     }
 
-    function setRedemptionAssetAmount(uint256 _redemptionAssetAmount) external{
-        redemptionAssetAmount = _redemptionAssetAmount;
+    function setRedeemTokenReturned(uint256 _redeemTokenReturned) external{
+        redeemTokenReturned = _redeemTokenReturned;
     }
+
+    function setMintTokenSpent(uint256 _mintTokenSpent) external{
+        mintTokenSpent = _mintTokenSpent;
+    }
+
 }
