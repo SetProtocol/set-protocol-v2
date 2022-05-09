@@ -154,6 +154,36 @@ describe("NotionalTradeModule", () => {
           await debtIssuanceModule.issue(setToken.address, initialSetBalance, owner.address);
         });
 
+        describe("#updateAnySetAllowed", async () => {
+          let caller: SignerWithAddress;
+          let subjectStatus: boolean;
+
+          beforeEach(async () => {
+            caller = owner.wallet;
+          });
+
+          const subject = () => {
+            return notionalTradeModule.connect(caller).updateAnySetAllowed(subjectStatus);
+          };
+          describe("when setting to true", () => {
+            beforeEach(async () => {
+              subjectStatus = true;
+            });
+            it("updates allowedSetTokens", async () => {
+              await subject();
+              expect(await notionalTradeModule.anySetAllowed()).to.be.true;
+            });
+            describe("when caller is not the owner", () => {
+              beforeEach(() => {
+                caller = manager.wallet;
+              });
+              it("should revert", async () => {
+                await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+              });
+            });
+          });
+        });
+
         describe("#updateAllowedSetToken", async () => {
           let caller: SignerWithAddress;
           let subjectSetToken: Address;
@@ -161,7 +191,6 @@ describe("NotionalTradeModule", () => {
 
           beforeEach(async () => {
             caller = owner.wallet;
-            subjectStatus = true;
           });
 
           const subject = () => {
@@ -169,15 +198,52 @@ describe("NotionalTradeModule", () => {
               .connect(caller)
               .updateAllowedSetToken(subjectSetToken, subjectStatus);
           };
-          describe("when set token is invalid", () => {
-            beforeEach(() => {
-              subjectSetToken = ethers.constants.AddressZero;
+          describe("when adding a new allowed set token", () => {
+            beforeEach(async () => {
+              subjectStatus = true;
             });
-            it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Invalid set token");
+            describe("when set token is invalid", () => {
+              beforeEach(() => {
+                subjectSetToken = ethers.constants.AddressZero;
+              });
+              it("should revert", async () => {
+                await expect(subject()).to.be.revertedWith("Invalid SetToken");
+              });
+            });
+            describe("when set token is valid", () => {
+              beforeEach(() => {
+                subjectSetToken = setToken.address;
+              });
+              it("updates allowedSetTokens", async () => {
+                await subject();
+                expect(await notionalTradeModule.allowedSetTokens(subjectSetToken)).to.be.true;
+              });
+            });
+            describe("when caller is not the owner", () => {
+              beforeEach(() => {
+                caller = manager.wallet;
+              });
+              it("should revert", async () => {
+                await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+              });
+            });
+          });
+          describe("when removing an allowed set token", () => {
+            beforeEach(async () => {
+              subjectSetToken = setToken.address;
+              subjectStatus = false;
+              await notionalTradeModule
+                .connect(owner.wallet)
+                .updateAllowedSetToken(subjectSetToken, true);
+            });
+            it("updates allowedSetTokens", async () => {
+              expect(await notionalTradeModule.allowedSetTokens(subjectSetToken)).to.be.true;
+              await subject();
+              expect(await notionalTradeModule.allowedSetTokens(subjectSetToken)).to.be.false;
             });
           });
         });
+
         describe("#initialize", async () => {
           let isAllowListed: boolean = true;
           let subjectSetToken: Address;
