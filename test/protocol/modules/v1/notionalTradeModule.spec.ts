@@ -565,6 +565,25 @@ describe("NotionalTradeModule", () => {
                     });
 
                     if (tradeDirection == "buying") {
+
+                      describe("When sendToken is neither underlying nor asset token", () => {
+                        beforeEach(async () => {
+                          subjectSendToken = ethers.constants.AddressZero;
+                        });
+                        it("should revert", async () => {
+                          await expect(subject()).to.be.revertedWith("Token is neither asset nor underlying token");
+                        });
+                      });
+
+                      describe("When receiveAmount is 0", () => {
+                        beforeEach(async () => {
+                          subjectMinReceiveQuantity = BigNumber.from(0);
+                        });
+                        it("should not revert", async () => {
+                          await subject();
+                        });
+                      });
+
                       describe(`when too much ${tokenType} is spent`, () => {
                         beforeEach(async () => {
                           await wrappedfCashMock.setMintTokenSpent(subjectSendQuantity.mul(2));
@@ -574,9 +593,29 @@ describe("NotionalTradeModule", () => {
                         });
                       });
                     } else {
+
+                      describe("When receiveToken is neither underlying nor asset token", () => {
+                        beforeEach(async () => {
+                          subjectReceiveToken = ethers.constants.AddressZero;
+                        });
+                        it("should revert", async () => {
+                          await expect(subject()).to.be.revertedWith("Token is neither asset nor underlying token");
+                        });
+                      });
+
+                      describe("When sendAmount is 0", () => {
+                        beforeEach(async () => {
+                          subjectSendQuantity = BigNumber.from(0);
+                        });
+                        it("should not revert", async () => {
+                          await subject();
+                        });
+                      });
                       describe(`when too little ${tokenType} is returned`, () => {
                         beforeEach(async () => {
-                          await wrappedfCashMock.setRedeemTokenReturned(subjectMinReceiveQuantity.div(2));
+                          await wrappedfCashMock.setRedeemTokenReturned(
+                            subjectMinReceiveQuantity.div(2),
+                          );
                         });
                         it("should revert", async () => {
                           await expect(subject()).to.be.revertedWith("Not enough received amount");
@@ -885,6 +924,14 @@ describe("NotionalTradeModule", () => {
                       await subject();
                       const positionAfter = await setToken.getDefaultPositionRealUnit(cDai.address);
                       expect(positionAfter.sub(positionBefore)).to.be.gt(0);
+                    });
+                    describe("When positions have been redeemed already", () => {
+                      beforeEach(async () => {
+                        await notionalTradeModule.redeemMaturedPositions(setToken.address);
+                      });
+                      it("should not revert", async () => {
+                        await subject();
+                      });
                     });
                   });
                 });
