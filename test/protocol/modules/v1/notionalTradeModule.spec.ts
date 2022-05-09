@@ -315,12 +315,34 @@ describe("NotionalTradeModule", () => {
           beforeEach(async () => {
             await notionalTradeModule.updateAllowedSetToken(setToken.address, true);
           });
+          describe("#registerToModule", () => {
+            let caller: SignerWithAddress;
+            let subjectSetToken: Address;
+            let subjectDebtIssuanceModule: Address;
+
+            const subject = () => {
+              return notionalTradeModule
+                .connect(caller)
+                .registerToModule(subjectSetToken, subjectDebtIssuanceModule);
+            };
+
+            beforeEach(() => {
+              caller = manager.wallet;
+              subjectDebtIssuanceModule = debtIssuanceModule.address;
+              subjectSetToken = setToken.address;
+            });
+
+            it("should not revert", async () => {
+              await subject();
+            });
+          });
           describe("when token is initialized on the notional module", () => {
             beforeEach(async () => {
               await notionalTradeModule
                 .connect(manager.wallet)
                 .initialize(setToken.address, [wrappedfCashMock.address]);
             });
+
             describe("#getFCashPositions", () => {
               let subjectSetToken: string;
               const subject = () => {
