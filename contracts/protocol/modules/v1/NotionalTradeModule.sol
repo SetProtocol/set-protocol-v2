@@ -199,7 +199,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
         }
 
-        // _collateralAssets and _borrowAssets arrays are validated in their respective internal functions
         _addFCashPositions(_setToken, _fCashPositions);
     }
 
@@ -309,11 +308,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     view
     returns(address[] memory positions)
     {
-        uint256 length = fCashPositions[_setToken].length();
-        positions = new address[](length);
-        for(uint256 i = 0; i < length; i++) {
-            positions[i] = fCashPositions[_setToken].at(i);
-        }
+        return _getFCashPositions(_setToken);
     }
 
     /* ============ Internal Functions ============ */
@@ -324,19 +319,21 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function _redeemMaturedPositions(ISetToken _setToken)
     internal
     {
-        uint fCashPositionLength = fCashPositions[_setToken].length();
+        address[] memory fCashPositionsArray = _getFCashPositions(_setToken);
+        uint fCashPositionLength = fCashPositionsArray.length;
         if(fCashPositionLength == 0) return;
 
         bool toUnderlying = redeemToUnderlying[_setToken];
 
 
         for(uint256 i = 0; i < fCashPositionLength; i++) {
-            IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositions[_setToken].at(i));
+            IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositionsArray[i]);
 
             if(fCashPosition.hasMatured()) {
                 IERC20 receiveToken = _getPaymentToken(fCashPosition, toUnderlying);
                 uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
                 _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
+                fCashPositions[_setToken].remove(address(fCashPosition));
             }
 
         }
@@ -538,6 +535,22 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         (assetToken,,) = _fCashPosition.getAssetToken();
     }
 
+    /**
+     * @dev Returns an array with fcash position addresses for given set token
+     */
+    function _getFCashPositions(ISetToken _setToken)
+    internal
+    view
+    returns(address[] memory positions)
+    {
+        uint256 length = fCashPositions[_setToken].length();
+        positions = new address[](length);
+        for(uint256 i = 0; i < length; i++) {
+            positions[i] = fCashPositions[_setToken].at(i);
+        }
+    }
+
+
 
     /**
      * @dev Register given fCash positions to enable them to be traded and have them monitored for maturity redemption
@@ -547,6 +560,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             fCashPositions[_setToken].add(_fCashPositions[i]);
         }
     }
+
+    /**
+     * @dev Remove given fCash positions to disable them from trading and maturity redemption
+     */
+    function _removeFCashPositions(ISetToken _setToken, address[] memory _fCashPositions) internal {
+        for(uint256 i = 0; i < _fCashPositions.length; i++) {
+            fCashPositions[_setToken].remove(_fCashPositions[i]);
+        }
+    }
+
 
     /**
      * @dev Update set token positions after mint or redeem

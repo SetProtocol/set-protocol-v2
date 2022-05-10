@@ -759,18 +759,19 @@ describe("NotionalTradeModule", () => {
               });
             });
             describe("#moduleIssue/RedeemHook", () => {
+              let subjectSetToken: string;
+              let subjectReceiver: string;
+              let subjectAmount: BigNumber;
+              let caller: SignerWithAddress;
+              beforeEach(() => {
+                subjectSetToken = setToken.address;
+                subjectAmount = ethers.utils.parseEther("1");
+                caller = owner.wallet;
+                subjectReceiver = caller.address;
+              });
               ["issue", "redeem", "manualTrigger", "removeModule"].forEach(triggerAction => {
                 describe(`When hook is triggered by ${triggerAction}`, () => {
-                  let subjectSetToken: string;
-                  let subjectReceiver: string;
-                  let subjectAmount: BigNumber;
-                  let caller: SignerWithAddress;
                   beforeEach(async () => {
-                    subjectSetToken = setToken.address;
-                    subjectAmount = ethers.utils.parseEther("1");
-                    caller = owner.wallet;
-                    subjectReceiver = caller.address;
-
                     const daiAmount = ethers.utils.parseEther("2.1");
                     const fCashAmount = ethers.utils.parseUnits("2", 8);
 
@@ -895,6 +896,14 @@ describe("NotionalTradeModule", () => {
                       expect(await setToken.isComponent(wrappedfCashMock.address)).to.be.true;
                       await subject();
                       expect(await setToken.isComponent(wrappedfCashMock.address)).to.be.false;
+                    });
+
+                    it("Removes wrappedFCash from the list of registered fCashPositions", async () => {
+                      await subject();
+                      const fCashPositions = await notionalTradeModule.getFCashPositions(
+                        subjectSetToken,
+                      );
+                      expect(fCashPositions).to.not.include(wrappedfCashMock.address);
                     });
 
                     it("Adds assetToken (cDai) to component list", async () => {
