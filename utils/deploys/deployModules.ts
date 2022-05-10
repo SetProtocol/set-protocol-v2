@@ -22,7 +22,7 @@ import {
   StreamingFeeModule,
   TradeModule,
   WrapModule,
-  WrapModuleV2,
+  WrapModuleV2
 } from "../contracts";
 import { Address } from "../types";
 
@@ -112,14 +112,8 @@ export default class DeployModules {
     return await new StakingModule__factory(this._deployerSigner).deploy(controller);
   }
 
-  public async deployCustomOracleNavIssuanceModule(
-    controller: Address,
-    weth: Address,
-  ): Promise<CustomOracleNavIssuanceModule> {
-    return await new CustomOracleNavIssuanceModule__factory(this._deployerSigner).deploy(
-      controller,
-      weth,
-    );
+  public async deployCustomOracleNavIssuanceModule(controller: Address, weth: Address): Promise<CustomOracleNavIssuanceModule> {
+    return await new CustomOracleNavIssuanceModule__factory(this._deployerSigner).deploy(controller, weth);
   }
 
   public async deploySingleIndexModule(
@@ -127,7 +121,7 @@ export default class DeployModules {
     weth: Address,
     uniswapRouter: Address,
     sushiswapRouter: Address,
-    balancerProxy: Address,
+    balancerProxy: Address
   ): Promise<SingleIndexModule> {
     return await new SingleIndexModule__factory(this._deployerSigner).deploy(
       controller,
@@ -140,9 +134,12 @@ export default class DeployModules {
 
   public async deployGeneralIndexModule(
     controller: Address,
-    weth: Address,
+    weth: Address
   ): Promise<GeneralIndexModule> {
-    return await new GeneralIndexModule__factory(this._deployerSigner).deploy(controller, weth);
+    return await new GeneralIndexModule__factory(this._deployerSigner).deploy(
+      controller,
+      weth
+    );
   }
 
   public async deployGovernanceModule(controller: Address): Promise<GovernanceModule> {
@@ -201,7 +198,7 @@ export default class DeployModules {
     perpV2LibraryName: string,
     perpV2LibraryAddress: Address,
     perpV2PositionsLibraryName: string,
-    perpV2PositionsLibraryAddress: Address,
+    perpV2PositionsLibraryAddress: Address
   ): Promise<PerpV2LeverageModuleV2> {
     return await new PerpV2LeverageModuleV2__factory(
       // @ts-ignore
@@ -210,8 +207,14 @@ export default class DeployModules {
         [perpV2LibraryName]: perpV2LibraryAddress,
         [perpV2PositionsLibraryName]: perpV2PositionsLibraryAddress,
       },
-      this._deployerSigner,
-    ).deploy(controller, perpVault, perpQuoter, perpMarketRegistry, maxPerpPositionsPerSet);
+      this._deployerSigner
+    ).deploy(
+      controller,
+      perpVault,
+      perpQuoter,
+      perpMarketRegistry,
+      maxPerpPositionsPerSet
+    );
   }
 
   public async deployPerpV2BasisTradingModule(
@@ -225,7 +228,7 @@ export default class DeployModules {
     perpV2LibraryName: string,
     perpV2LibraryAddress: Address,
     perpV2PositionsLibraryName: string,
-    perpV2PositionsLibraryAddress: Address,
+    perpV2PositionsLibraryAddress: Address
   ): Promise<PerpV2BasisTradingModule> {
     return await new PerpV2BasisTradingModule__factory(
       // @ts-ignore
@@ -234,7 +237,13 @@ export default class DeployModules {
         [perpV2LibraryName]: perpV2LibraryAddress,
         [perpV2PositionsLibraryName]: perpV2PositionsLibraryAddress,
       },
-      this._deployerSigner,
-    ).deploy(controller, perpVault, perpQuoter, perpMarketRegistry, maxPerpPositionsPerSet);
+      this._deployerSigner
+    ).deploy(
+      controller,
+      perpVault,
+      perpQuoter,
+      perpMarketRegistry,
+      maxPerpPositionsPerSet
+    );
   }
 }

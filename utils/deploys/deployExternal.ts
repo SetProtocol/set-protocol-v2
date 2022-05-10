@@ -733,5 +733,4 @@ export default class DeployExternalContracts {
   public async getVToken(token: Address): Promise<PerpV2BaseToken> {
     return await new PerpV2BaseToken__factory(this._deployerSigner).attach(token);
   }
-
 }

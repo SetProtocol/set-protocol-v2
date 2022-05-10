@@ -112,7 +112,7 @@ import { Uint256ArrayUtilsMock__factory } from "../../typechain/factories/Uint25
 import { WrapAdapterMock__factory } from "../../typechain/factories/WrapAdapterMock__factory";
 import { WrapV2AdapterMock__factory } from "../../typechain/factories/WrapV2AdapterMock__factory";
 import { ZeroExMock__factory } from "../../typechain/factories/ZeroExMock__factory";
-import { StringArrayUtilsMock__factory } from "../../typechain/factories/StringArrayUtilsMock__factory";
+import { StringArrayUtilsMock__factory  } from "../../typechain/factories/StringArrayUtilsMock__factory";
 import { SynthMock__factory } from "../../typechain/factories/SynthMock__factory";
 import { SynthetixExchangerMock__factory } from "../../typechain/factories/SynthetixExchangerMock__factory";
 import { YearnStrategyMock__factory } from "../../typechain/factories/YearnStrategyMock__factory";
@@ -161,9 +161,7 @@ export default class DeployMocks {
     return await new Uint256ArrayUtilsMock__factory(this._deployerSigner).deploy();
   }
 
-  public async deployKyberNetworkProxyMock(
-    mockWethAddress: Address,
-  ): Promise<KyberNetworkProxyMock> {
+  public async deployKyberNetworkProxyMock(mockWethAddress: Address): Promise<KyberNetworkProxyMock> {
     return await new KyberNetworkProxyMock__factory(this._deployerSigner).deploy(mockWethAddress);
   }
 
@@ -183,9 +181,7 @@ export default class DeployMocks {
     return await new DebtModuleMock__factory(this._deployerSigner).deploy(controllerAddress);
   }
 
-  public async deployGovernanceAdapterMock(
-    initialProposalId: BigNumberish,
-  ): Promise<GovernanceAdapterMock> {
+  public async deployGovernanceAdapterMock(initialProposalId: BigNumberish): Promise<GovernanceAdapterMock> {
     return await new GovernanceAdapterMock__factory(this._deployerSigner).deploy(initialProposalId);
   }
 
@@ -231,7 +227,7 @@ export default class DeployMocks {
 
   public async deployOracleAdapterMock(
     asset: Address,
-    dummyPrice: BigNumber,
+    dummyPrice: BigNumber
   ): Promise<OracleAdapterMock> {
     return await new OracleAdapterMock__factory(this._deployerSigner).deploy(asset, dummyPrice);
   }
@@ -240,16 +236,13 @@ export default class DeployMocks {
     return await new PositionMock__factory(this._deployerSigner).deploy();
   }
 
-  public async deployPositionV2Mock(
-    libraryName: string,
-    libraryAddress: Address,
-  ): Promise<PositionV2Mock> {
+  public async deployPositionV2Mock(libraryName: string, libraryAddress: Address): Promise<PositionV2Mock> {
     return await new PositionV2Mock__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner,
+      this._deployerSigner
     ).deploy();
   }
 
@@ -262,7 +255,8 @@ export default class DeployMocks {
   }
 
   public async deployStakingAdapterMock(stakingAsset: Address): Promise<StakingAdapterMock> {
-    return await new StakingAdapterMock__factory(this._deployerSigner).deploy(stakingAsset);
+    return await new StakingAdapterMock__factory(this._deployerSigner)
+      .deploy(stakingAsset);
   }
 
   public async deployTokenMock(
@@ -270,15 +264,10 @@ export default class DeployMocks {
     initialBalance: BigNumberish = ether(1000000000),
     decimals: BigNumberish = 18,
     name: string = "Token",
-    symbol: string = "Symbol",
+    symbol: string = "Symbol"
   ): Promise<StandardTokenMock> {
-    return await new StandardTokenMock__factory(this._deployerSigner).deploy(
-      initialAccount,
-      initialBalance,
-      name,
-      symbol,
-      decimals,
-    );
+    return await new StandardTokenMock__factory(this._deployerSigner)
+      .deploy(initialAccount, initialBalance, name, symbol, decimals);
   }
 
   public async deployTokenWithFeeMock(
@@ -286,15 +275,10 @@ export default class DeployMocks {
     initialBalance: BigNumberish = ether(1000000000),
     fee: BigNumberish = ether(0.1),
     name: string = "Token",
-    symbol: string = "Symbol",
+    symbol: string = "Symbol"
   ): Promise<StandardTokenWithFeeMock> {
-    return await new StandardTokenWithFeeMock__factory(this._deployerSigner).deploy(
-      initialAccount,
-      initialBalance,
-      name,
-      symbol,
-      fee,
-    );
+    return await new StandardTokenWithFeeMock__factory(this._deployerSigner)
+      .deploy(initialAccount, initialBalance, name, symbol, fee);
   }
 
   public async deployTokenWithErrorMock(
@@ -303,15 +287,10 @@ export default class DeployMocks {
     error: BigNumberish,
     name: string = "Token",
     symbol: string = "Symbol",
-    decimals: BigNumberish = BigNumber.from(18),
+    decimals: BigNumberish = BigNumber.from(18)
   ): Promise<StandardTokenWithRoundingErrorMock> {
     return await new StandardTokenWithRoundingErrorMock__factory(this._deployerSigner).deploy(
-      initialAccount,
-      initialBalance,
-      error,
-      name,
-      symbol,
-      decimals,
+      initialAccount, initialBalance, error, name, symbol, decimals
     );
   }
 
@@ -331,9 +310,7 @@ export default class DeployMocks {
     return await new AaveLendingPoolCoreMock__factory(this._deployerSigner).deploy();
   }
 
-  public async deployAaveLendingPoolMock(
-    aaveLendingPoolCore: Address,
-  ): Promise<AaveLendingPoolMock> {
+  public async deployAaveLendingPoolMock(aaveLendingPoolCore: Address): Promise<AaveLendingPoolMock> {
     return await new AaveLendingPoolMock__factory(this._deployerSigner).deploy(aaveLendingPoolCore);
   }
 
@@ -343,7 +320,7 @@ export default class DeployMocks {
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner,
+      this._deployerSigner
     ).deploy();
   }
 
@@ -353,33 +330,30 @@ export default class DeployMocks {
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner,
+      this._deployerSigner
     ).deploy();
   }
 
-  public async deployPerpV2LibraryV2Mock(
-    libraryName: string,
-    libraryAddress: Address,
-  ): Promise<PerpV2LibraryV2Mock> {
+  public async deployPerpV2LibraryV2Mock(libraryName: string, libraryAddress: Address): Promise<PerpV2LibraryV2Mock> {
     return await new PerpV2LibraryV2Mock__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner,
+      this._deployerSigner
     ).deploy();
   }
 
   public async deployPerpV2PositionsMock(
     libraryName: string,
-    libraryAddress: Address,
+    libraryAddress: Address
   ): Promise<PerpV2PositionsMock> {
     return await new PerpV2PositionsMock__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner,
+      this._deployerSigner
     ).deploy();
   }
 
@@ -414,25 +388,22 @@ export default class DeployMocks {
   public async deployComptrollerMock(
     comp: Address,
     compAmount: BigNumber,
-    cToken: Address,
+    cToken: Address
   ): Promise<ComptrollerMock> {
     return await new ComptrollerMock__factory(this._deployerSigner).deploy(
       comp,
       compAmount,
-      cToken,
+      cToken
     );
   }
 
-  public async deployCompoundMock(
-    libraryName: string,
-    libraryAddress: Address,
-  ): Promise<CompoundMock> {
+  public async deployCompoundMock(libraryName: string, libraryAddress: Address): Promise<CompoundMock> {
     return await new CompoundMock__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner,
+      this._deployerSigner
     ).deploy();
   }
 
@@ -443,14 +414,8 @@ export default class DeployMocks {
     name: string = "Token",
     symbol: string = "Symbol",
   ): Promise<SynthMock> {
-    return await new SynthMock__factory(this._deployerSigner).deploy(
-      initialAccount,
-      initialBalance,
-      name,
-      symbol,
-      18,
-      currencyKey,
-    );
+    return await new SynthMock__factory(this._deployerSigner)
+      .deploy(initialAccount, initialBalance, name, symbol, 18, currencyKey);
   }
 
   public async deploySynthetixExchangerMock(
@@ -458,7 +423,7 @@ export default class DeployMocks {
     sEth: Address,
     sBtc: Address,
     currencyKeys: any,
-    rates: any,
+    rates: any
   ): Promise<SynthetixExchangerMock> {
     return await new SynthetixExchangerMock__factory(this._deployerSigner).deploy(
       sUsd,
@@ -470,7 +435,7 @@ export default class DeployMocks {
       rates.usd.eth,
       rates.eth.usd,
       rates.usd.btc,
-      rates.btc.usd,
+      rates.btc.usd
     );
   }
 
@@ -494,10 +459,7 @@ export default class DeployMocks {
     return await new ChainlinkAggregatorMock__factory(this._deployerSigner).deploy(decimals);
   }
 
-  public async deployTribePegExchangerMock(
-    rgt: Address,
-    tribe: Address,
-  ): Promise<TribePegExchangerMock> {
+  public async deployTribePegExchangerMock(rgt: Address, tribe: Address): Promise<TribePegExchangerMock> {
     return await new TribePegExchangerMock__factory(this._deployerSigner).deploy(rgt, tribe);
   }
 
@@ -521,9 +483,6 @@ export default class DeployMocks {
   }
 
   public async getForkedZeroExExchange(): Promise<ZeroExMock> {
-    return await ZeroExMock__factory.connect(
-      dependencies.ZERO_EX_EXCHANGE[1],
-      this._deployerSigner,
-    );
+    return await ZeroExMock__factory.connect(dependencies.ZERO_EX_EXCHANGE[1], this._deployerSigner);
   }
 }
