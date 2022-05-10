@@ -160,6 +160,34 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /**
+     * @dev Register given fCash positions to enable them to be traded and have them monitored for maturity redemption
+     */
+    function addFCashPositions(
+        ISetToken _setToken,
+        address[] calldata _fCashPositions
+    )
+    external
+    onlyManagerAndValidSet(_setToken)
+    {
+        _addFCashPositions(_setToken, _fCashPositions);
+    }
+
+    /**
+     * @dev Remove given fCash positions to disable them from trading and maturity redemption
+     */
+    function removeFCashPositions(
+        ISetToken _setToken,
+        address[] calldata _fCashPositions
+    )
+    external
+    onlyManagerAndValidSet(_setToken)
+    {
+        _removeFCashPositions(_setToken, _fCashPositions);
+    }
+
+
+
+    /**
      * @dev CALLABLE BY ANYBODY: Redeem all matured fCash positions of given setToken
      * Redeem all fCash positions that have reached maturity for their asset token (cToken)
      * This will update the set tokens components and positions (removes matured fCash positions and creates / increases positions of the asset token).
@@ -252,6 +280,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         anySetAllowed = _anySetAllowed;
         emit AnySetAllowedUpdated(_anySetAllowed);
     }
+
 
     /**
      * @dev Hook called once before setToken issuance
@@ -564,7 +593,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Remove given fCash positions to disable them from trading and maturity redemption
      */
-    function _removeFCashPositions(ISetToken _setToken, address[] memory _fCashPositions) internal {
+    function _removeFCashPositions(ISetToken _setToken, address[] calldata _fCashPositions) internal {
         for(uint256 i = 0; i < _fCashPositions.length; i++) {
             fCashPositions[_setToken].remove(_fCashPositions[i]);
         }

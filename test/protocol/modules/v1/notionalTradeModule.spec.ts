@@ -414,6 +414,90 @@ describe("NotionalTradeModule", () => {
                 .initialize(setToken.address, [wrappedfCashMock.address]);
             });
 
+            describe("#addFCashPositions", () => {
+              let subjectFCashPositions: Address[];
+              let subjectSetToken: Address;
+              let caller: SignerWithAddress;
+              beforeEach(async () => {
+                subjectFCashPositions = [await getRandomAddress(), await getRandomAddress()];
+                subjectSetToken = setToken.address;
+                caller = manager.wallet;
+              });
+              const subject = () => {
+                return notionalTradeModule
+                  .connect(caller)
+                  .addFCashPositions(subjectSetToken, subjectFCashPositions);
+              };
+              it("should adjust fCash positions accordingly", async () => {
+                await subject();
+                const fCashPositions = await notionalTradeModule.getFCashPositions(subjectSetToken);
+                subjectFCashPositions.forEach(fCashPosition => {
+                  expect(fCashPositions).to.include(fCashPosition);
+                });
+              });
+              describe("when caller is not the manager", () => {
+                beforeEach(() => {
+                  caller = owner.wallet;
+                });
+                it("should revert", async () => {
+                  await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+                });
+              });
+              describe("when fCashPosition is already registered", () => {
+                beforeEach(async () => {
+                  subjectFCashPositions = [wrappedfCashMock.address, await getRandomAddress()];
+                });
+                it("should adjust fCash positions correctly", async () => {
+                  await subject();
+                  const fCashPositions = await notionalTradeModule.getFCashPositions(
+                    subjectSetToken,
+                  );
+                  expect(fCashPositions).to.deep.eq(subjectFCashPositions);
+                });
+              });
+            });
+
+            describe("#removeFCashPositions", () => {
+              let subjectFCashPositions: Address[];
+              let subjectSetToken: Address;
+              let caller: SignerWithAddress;
+              beforeEach(async () => {
+                subjectFCashPositions = [wrappedfCashMock.address];
+                subjectSetToken = setToken.address;
+                caller = manager.wallet;
+              });
+              const subject = () => {
+                return notionalTradeModule
+                  .connect(caller)
+                  .removeFCashPositions(subjectSetToken, subjectFCashPositions);
+              };
+              it("should adjust fCash positions accordingly", async () => {
+                await subject();
+                const fCashPositions = await notionalTradeModule.getFCashPositions(subjectSetToken);
+                expect(fCashPositions).to.deep.eq([]);
+              });
+              describe("when caller is not the manager", () => {
+                beforeEach(() => {
+                  caller = owner.wallet;
+                });
+                it("should revert", async () => {
+                  await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+                });
+              });
+              describe("when one of the fCashPositions is not registered", () => {
+                beforeEach(async () => {
+                  subjectFCashPositions = [await getRandomAddress(), wrappedfCashMock.address];
+                });
+                it("should adjust fCash positions correctly", async () => {
+                  await subject();
+                  const fCashPositions = await notionalTradeModule.getFCashPositions(
+                    subjectSetToken,
+                  );
+                  expect(fCashPositions).to.deep.eq([]);
+                });
+              });
+            });
+
             describe("#registerToModule", () => {
               let caller: SignerWithAddress;
               let subjectSetToken: Address;
