@@ -559,19 +559,20 @@ describe("NotionalTradeModule", () => {
                       if (tradeDirection == "selling") {
                         await receiveToken.transfer(
                           wrappedfCashMock.address,
-                          subjectMinReceiveQuantity,
+                          subjectMinReceiveQuantity.mul(2),
                         );
                       }
                     });
 
                     if (tradeDirection == "buying") {
-
                       describe("When sendToken is neither underlying nor asset token", () => {
                         beforeEach(async () => {
                           subjectSendToken = ethers.constants.AddressZero;
                         });
                         it("should revert", async () => {
-                          await expect(subject()).to.be.revertedWith("Token is neither asset nor underlying token");
+                          await expect(subject()).to.be.revertedWith(
+                            "Token is neither asset nor underlying token",
+                          );
                         });
                       });
 
@@ -593,13 +594,14 @@ describe("NotionalTradeModule", () => {
                         });
                       });
                     } else {
-
                       describe("When receiveToken is neither underlying nor asset token", () => {
                         beforeEach(async () => {
                           subjectReceiveToken = ethers.constants.AddressZero;
                         });
                         it("should revert", async () => {
-                          await expect(subject()).to.be.revertedWith("Token is neither asset nor underlying token");
+                          await expect(subject()).to.be.revertedWith(
+                            "Token is neither asset nor underlying token",
+                          );
                         });
                       });
 
@@ -648,6 +650,11 @@ describe("NotionalTradeModule", () => {
                           subjectSendQuantity,
                         );
                       }
+                    });
+
+                    it("should not revert when executing trade twice", async () => {
+                      await subject();
+                      await subject();
                     });
 
                     it("should return spent / received amount of non-fcash-token", async () => {
