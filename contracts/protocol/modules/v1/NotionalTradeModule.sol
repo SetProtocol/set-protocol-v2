@@ -97,14 +97,13 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /* ============ State Variables ============ */
 
-    // Internal mapping of enabled collateral and borrow tokens for syncing positions
+    // Mapping for a set token, wether or not to redeem to underlying upon reaching maturity
     mapping(ISetToken => bool) internal redeemToUnderlying;
 
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
     mapping(ISetToken => bool) public allowedSetTokens;
 
     // Mapping of SetToken to fCash positions that are availabe for trading on this fCash token and that are monitored for maturity
-    // TODO: Check / Compare alternative ways to handle this. Maybe remove this mapping and just use the set token components list ? 
     mapping(ISetToken => EnumerableSet.AddressSet) private fCashPositions;
 
     // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list. Updateable by governance.
@@ -127,10 +126,10 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * If sendToken is a registered fCash position it redeems it, if the receiveToken is an fCash position it mints it.
      * The respective other token must be either the underlying or asset token of the fCash position.
      * Reverts if send and receive token are not a combination of 1 registered fCash position and its underlying or asset token.
-     * @param _setToken                     Instance of the SetToken
-     * @param _sendToken                    Address of the token to trade out of ("sell")
+     * @param _setToken                   Instance of the SetToken
+     * @param _sendToken                  Address of the token to trade out of ("sell")
      * @param _sendAmount                 Amount of send token to sell. (Fixed amount in the redeem case and max amount in mint case);
-     * @param _receiveToken                  Address of the token to trade in to ("buy")
+     * @param _receiveToken               Address of the token to trade in to ("buy")
      * @param _receiveAmount              Amount of receive token to buy. (Fixed amount in the mint case and min amount in redeem case);
      */
     function trade(
@@ -161,6 +160,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /**
      * @dev Register given fCash positions to enable them to be traded and have them monitored for maturity redemption
+     * @param _setToken                   Instance of the SetToken
+     * @param _fCashPositions             Addresses of fCash wrappers to register for trading / maturity redemption
      */
     function addFCashPositions(
         ISetToken _setToken,
@@ -174,6 +175,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /**
      * @dev Remove given fCash positions to disable them from trading and maturity redemption
+     * @param _setToken                   Instance of the SetToken
+     * @param _fCashPositions             Addresses of fCash wrappers to remove from registry
      */
     function removeFCashPositions(
         ISetToken _setToken,
@@ -355,6 +358,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         bool toUnderlying = redeemToUnderlying[_setToken];
 
 
+        // TODO: Review alterative to keeping track of registered fCash positions. For example iterate through all components and check for each component if it is a wrappedFCash token.
         for(uint256 i = 0; i < fCashPositionLength; i++) {
             IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositionsArray[i]);
 
@@ -385,6 +389,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     internal
     returns(uint256 sentAmount)
     {
+        // TODO: If we want to integrate the wrapper deployment into this contract but don't want to keep the fCash position registry, we can call the wrapper factory here.
         if(_fCashAmount == 0) return 0;
 
         bool fromUnderlying = _isUnderlying(_fCashPosition, _sendToken);
@@ -477,7 +482,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     )
     internal
     {
-        // TODO: Review if this value is correct / what is min implied rate ? 
         uint32 minImpliedRate = 0;
 
         string memory functionSignature =  
@@ -504,7 +508,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     )
     internal
     {
-        // TODO: Review if this value is correct / what is max implied rate ? 
         uint32 maxImpliedRate = type(uint32).max;
 
         string memory functionSignature =  
@@ -586,6 +589,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      */
     function _addFCashPositions(ISetToken _setToken, address[] calldata _fCashPositions) internal {
         for(uint256 i = 0; i < _fCashPositions.length; i++) {
+            // TODO: If we want to integrate the deployment of the wrapper in to this contract and also keep this fCashPosition registry we can call the wrapper factory here.
             fCashPositions[_setToken].add(_fCashPositions[i]);
         }
     }
