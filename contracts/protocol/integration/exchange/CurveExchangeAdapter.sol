@@ -128,7 +128,7 @@ contract CurveExchangeAdapter {
     /* ============ External Functions ============ */ 
 
     /**
-     * Calculate Curve trade encoded calldata. To be invoked on the SetToken.
+     * Invokes an exchange on Curve Stableswap pool. To be invoked on the SetToken.
      *
      * @param _sourceToken                  The input token.
      * @param _destinationToken             The output token.
