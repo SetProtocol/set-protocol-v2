@@ -18,7 +18,7 @@ pragma experimental "ABIEncoderV2";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import { IStableSwap } from "../../../interfaces/external/IStableSwap.sol";
+import { IStableSwapPool } from "../../../interfaces/external/IStableSwapPool.sol";
 import { IWETH } from "../../../interfaces/external/IWETH.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
@@ -46,7 +46,7 @@ contract CurveStEthExchangeAdapter {
     // Address of stETH token.
     IERC20 immutable public stETH;                      
     // Address of Curve Eth/StEth stableswap pool.
-    IStableSwap immutable public stableswap;
+    IStableSwapPool immutable public stableswap;
     // Index for ETH for Curve stableswap pool.
     int128 internal constant ETH_INDEX = 0;            
     // Index for stETH for Curve stableswap pool.
@@ -64,7 +64,7 @@ contract CurveStEthExchangeAdapter {
     constructor(
         IWETH _weth,
         IERC20 _stETH,
-        IStableSwap _stableswap
+        IStableSwapPool _stableswap
     )
         public
     {
@@ -105,8 +105,7 @@ contract CurveStEthExchangeAdapter {
             ETH_INDEX,
             STETH_INDEX,
             _sourceQuantity,
-            _minDestinationQuantity,
-            address(this)
+            _minDestinationQuantity
         );
 
         // transfer proceeds
@@ -131,7 +130,7 @@ contract CurveStEthExchangeAdapter {
         stETH.transferFrom(msg.sender, address(this), _sourceQuantity);
 
         // sell stETH
-        uint256 amountOut = stableswap.exchange(STETH_INDEX, ETH_INDEX, _sourceQuantity, _minDestinationQuantity, address(this));
+        uint256 amountOut = stableswap.exchange(STETH_INDEX, ETH_INDEX, _sourceQuantity, _minDestinationQuantity);
 
         // wrap eth
         weth.deposit{value: amountOut}();
