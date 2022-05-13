@@ -105,7 +105,8 @@ contract CurveStEthExchangeAdapter {
             ETH_INDEX,
             STETH_INDEX,
             _sourceQuantity,
-            _minDestinationQuantity
+            _minDestinationQuantity,
+            address(this)
         );
 
         // transfer proceeds
@@ -130,7 +131,7 @@ contract CurveStEthExchangeAdapter {
         stETH.transferFrom(msg.sender, address(this), _sourceQuantity);
 
         // sell stETH
-        uint256 amountOut = stableswap.exchange(STETH_INDEX, ETH_INDEX, _sourceQuantity, _minDestinationQuantity);
+        uint256 amountOut = stableswap.exchange(STETH_INDEX, ETH_INDEX, _sourceQuantity, _minDestinationQuantity, address(this));
 
         // wrap eth
         weth.deposit{value: amountOut}();

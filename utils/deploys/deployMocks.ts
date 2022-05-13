@@ -11,7 +11,7 @@ import {
   ContractCallerMock,
   CompoundMock,
   ComptrollerMock,
-  CurveStEthStableswapMock,
+  CurveStableswapMock,
   CustomSetValuerMock,
   DebtIssuanceMock,
   DebtModuleMock,
@@ -71,7 +71,7 @@ import { ClaimAdapterMock__factory } from "../../typechain/factories/ClaimAdapte
 import { CompoundMock__factory } from "../../typechain/factories/CompoundMock__factory";
 import { ComptrollerMock__factory } from "../../typechain/factories/ComptrollerMock__factory";
 import { ContractCallerMock__factory } from "../../typechain/factories/ContractCallerMock__factory";
-import { CurveStEthStableswapMock__factory } from "../../typechain/factories/CurveStEthStableswapMock__factory";
+import { CurveStableswapMock__factory } from "../../typechain/factories/CurveStableswapMock__factory";
 import { CustomSetValuerMock__factory } from "../../typechain/factories/CustomSetValuerMock__factory";
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
@@ -181,8 +181,8 @@ export default class DeployMocks {
     return await new GovernanceAdapterMock__factory(this._deployerSigner).deploy(initialProposalId);
   }
 
-  public async deployCurveStEthStableswapMock(coins: Address[]): Promise<CurveStEthStableswapMock> {
-    return await new CurveStEthStableswapMock__factory(this._deployerSigner).deploy(coins);
+  public async deployCurveStableswapMock(coins: Address[]): Promise<CurveStableswapMock> {
+    return await new CurveStableswapMock__factory(this._deployerSigner).deploy(coins);
   }
 
   public async deployOneInchExchangeMock(

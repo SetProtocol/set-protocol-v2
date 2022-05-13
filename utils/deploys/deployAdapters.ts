@@ -5,6 +5,7 @@ import {
   AaveV2WrapV2Adapter,
   BalancerV1IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
+  CurveExchangeAdapter,
   CurveStakingAdapter,
   CurveStEthExchangeAdapter,
   KyberExchangeAdapter,
@@ -34,6 +35,7 @@ import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/Aave
 import { AaveV2WrapV2Adapter__factory } from "../../typechain/factories/AaveV2WrapV2Adapter__factory";
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
+import { CurveExchangeAdapter__factory } from "../../typechain/factories/CurveExchangeAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
 import { CurveStEthExchangeAdapter__factory } from "../../typechain/factories/CurveStEthExchangeAdapter__factory";
 import { KyberExchangeAdapter__factory } from "../../typechain/factories/KyberExchangeAdapter__factory";
@@ -127,7 +129,7 @@ export default class DeployAdapters {
   public async deployRgtMigrationWrapAdapter(pegExchanger: Address): Promise<RgtMigrationWrapAdapter> {
     return await new RgtMigrationWrapAdapter__factory(this._deployerSigner).deploy(pegExchanger);
   }
-  
+
   public async deployUniswapPairPriceAdapter(
     controller: Address,
     uniswapFactory: Address,
@@ -188,6 +190,10 @@ export default class DeployAdapters {
 
   public async deployAaveV2WrapV2Adapter(lendingPool: Address): Promise<AaveV2WrapV2Adapter> {
     return await new AaveV2WrapV2Adapter__factory(this._deployerSigner).deploy(lendingPool);
+  }
+
+  public async deployCurveExchangeAdapter(tokenA: Address, tokenB: Address, exchange: Address): Promise<CurveExchangeAdapter> {
+    return await new CurveExchangeAdapter__factory(this._deployerSigner).deploy(tokenA, tokenB, 0, 1, exchange);
   }
 
   public async deployCurveStEthExchangeAdapter(weth: Address, steth: Address, exchange: Address): Promise<CurveStEthExchangeAdapter> {
