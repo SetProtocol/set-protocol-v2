@@ -27,7 +27,7 @@ import { AaveV2Fixture, CurveFixture, SystemFixture } from "@utils/fixtures";
 import {
   AaveLeverageModule,
   CurveStEthExchangeAdapter,
-  CurveStEthStableswapMock,
+  CurveStableswapMock,
   SetToken,
   DebtIssuanceModuleV2,
   ManagerIssuanceHookMock,
@@ -57,7 +57,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
   let setup: SystemFixture;
   let aaveSetup: AaveV2Fixture;
   let curveSetup: CurveFixture;
-  let stableswap: CurveStEthStableswapMock;
+  let stableswap: CurveStableswapMock;
   let aaveLeverageModule: AaveLeverageModule;
   let tokens: ForkedTokens;
 
