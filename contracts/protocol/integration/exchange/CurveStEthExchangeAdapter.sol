@@ -18,7 +18,7 @@ pragma experimental "ABIEncoderV2";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeMath } from "@openzeppelin/contracts/math/SafeMath.sol";
 
-import { IStableSwapStEth } from "../../../interfaces/external/IStableSwapStEth.sol";
+import { IStableSwap } from "../../../interfaces/external/IStableSwap.sol";
 import { IWETH } from "../../../interfaces/external/IWETH.sol";
 import { PreciseUnitMath } from "../../../lib/PreciseUnitMath.sol";
 
@@ -46,7 +46,7 @@ contract CurveStEthExchangeAdapter {
     // Address of stETH token.
     IERC20 immutable public stETH;                      
     // Address of Curve Eth/StEth stableswap pool.
-    IStableSwapStEth immutable public stableswap;
+    IStableSwap immutable public stableswap;
     // Index for ETH for Curve stableswap pool.
     int128 internal constant ETH_INDEX = 0;            
     // Index for stETH for Curve stableswap pool.
@@ -64,7 +64,7 @@ contract CurveStEthExchangeAdapter {
     constructor(
         IWETH _weth,
         IERC20 _stETH,
-        IStableSwapStEth _stableswap
+        IStableSwap _stableswap
     )
         public
     {
