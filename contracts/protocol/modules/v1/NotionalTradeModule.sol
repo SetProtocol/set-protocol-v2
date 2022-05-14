@@ -33,6 +33,12 @@ import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
 
+/**
+ * @title NotionalTradeModule
+ * @author Set Protocol
+ * @notice Smart contract that enables trading in and out of Notional fCash positions and redeem matured positions.
+ * @dev This module depends on the wrappedFCash token-wrapper. Meaning positions managed with this module have to be in the form of wrappedfCash NOT fCash directly.
+ */
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using EnumerableSet for EnumerableSet.AddressSet;
 
