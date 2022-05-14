@@ -104,7 +104,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /* ============ State Variables ============ */
 
     // Mapping for a set token, wether or not to redeem to underlying upon reaching maturity
-    mapping(ISetToken => bool) internal redeemToUnderlying;
+    mapping(ISetToken => bool) public redeemToUnderlying;
 
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
     mapping(ISetToken => bool) public allowedSetTokens;

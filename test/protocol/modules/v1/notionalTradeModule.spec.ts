@@ -536,6 +536,48 @@ describe("NotionalTradeModule", () => {
               });
             });
 
+            describe("#setRedeemToUnderlying", () => {
+              let subjectSetToken: string;
+              let subjectToUnderlying: boolean;
+              let caller: SignerWithAddress;
+              const subject = () => {
+                return notionalTradeModule
+                  .connect(caller)
+                  .setRedeemToUnderlying(subjectSetToken, subjectToUnderlying);
+              };
+              beforeEach(() => {
+                subjectSetToken = setToken.address;
+                subjectToUnderlying = true;
+                caller = manager.wallet;
+              });
+              describe("when setting to true", () => {
+                it("should adjust the state correctly", async () => {
+                  await subject();
+                  expect(await notionalTradeModule.redeemToUnderlying(subjectSetToken)).to.be.true;
+                });
+                describe("when caller is not the manager", () => {
+                  beforeEach(() => {
+                    caller = owner.wallet;
+                  });
+                  it("should revert", async () => {
+                    await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+                  });
+                });
+              });
+
+              describe("when setting to false", () => {
+                beforeEach(async () => {
+                  subjectToUnderlying = false;
+                  await notionalTradeModule.setRedeemToUnderlying(subjectSetToken, true);
+                  expect(await notionalTradeModule.redeemToUnderlying(subjectSetToken)).to.be.true;
+                });
+                it("should adjust the state correctly", async () => {
+                  await subject();
+                  expect(await notionalTradeModule.redeemToUnderlying(subjectSetToken)).to.be.false;
+                });
+              });
+            });
+
             describe("#getFCashPositions", () => {
               let subjectSetToken: string;
               const subject = () => {
@@ -894,7 +936,7 @@ describe("NotionalTradeModule", () => {
                           await setToken
                             .connect(caller)
                             .approve(debtIssuanceModule.address, subjectAmount);
-                        } else if (triggerAction == "issue"){
+                        } else if (triggerAction == "issue") {
                           await dai.transfer(caller.address, daiAmount);
 
                           if (redeemToken == "underlying") {
@@ -974,9 +1016,13 @@ describe("NotionalTradeModule", () => {
 
                         if (["issue", "redeem"].includes(triggerAction)) {
                           it(`should adjust ${redeemToken} balance correctly`, async () => {
-                            const outputTokenBalanceBefore = await outputToken.balanceOf(caller.address);
+                            const outputTokenBalanceBefore = await outputToken.balanceOf(
+                              caller.address,
+                            );
                             await subject();
-                            const outputTokenBalanceAfter = await outputToken.balanceOf(caller.address);
+                            const outputTokenBalanceAfter = await outputToken.balanceOf(
+                              caller.address,
+                            );
                             const amountCDaiTransfered =
                               triggerAction == "redeem"
                                 ? outputTokenBalanceAfter.sub(outputTokenBalanceBefore)
@@ -1026,16 +1072,9 @@ describe("NotionalTradeModule", () => {
                         });
 
                         it(`Afterwards setToken should have received ${redeemToken} token`, async () => {
-                          console.log("Output token address", outputToken.address);
                           const balanceBefore = await outputToken.balanceOf(subjectSetToken);
                           await subject();
                           const balanceAfter = await outputToken.balanceOf(subjectSetToken);
-                          const cDaiBalanceAfter = await cDai.balanceOf(subjectSetToken);
-                          const daiBalanceAfter = await dai.balanceOf(subjectSetToken);
-                          console.log("balances after", {
-                            cDaiBalanceAfter: cDaiBalanceAfter.toString(),
-                            daiBalanceAfter: daiBalanceAfter.toString(),
-                          });
                           expect(balanceAfter.sub(balanceBefore)).to.be.gt(0);
                         });
 
