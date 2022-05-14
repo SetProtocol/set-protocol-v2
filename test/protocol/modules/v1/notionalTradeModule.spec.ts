@@ -894,15 +894,24 @@ describe("NotionalTradeModule", () => {
                           await setToken
                             .connect(caller)
                             .approve(debtIssuanceModule.address, subjectAmount);
-                        } else {
+                        } else if (triggerAction == "issue"){
                           await dai.transfer(caller.address, daiAmount);
-                          await dai
-                            .connect(caller)
-                            .approve(cDai.address, ethers.constants.MaxUint256);
-                          await cDai.connect(caller).mint(daiAmount);
-                          await cDai
-                            .connect(caller)
-                            .approve(debtIssuanceModule.address, ethers.constants.MaxUint256);
+
+                          if (redeemToken == "underlying") {
+                            // If matured tokens are redeemed to underlying token issuer will need that token (dai) for issuance
+                            await dai
+                              .connect(caller)
+                              .approve(debtIssuanceModule.address, ethers.constants.MaxUint256);
+                          } else {
+                            // If matured tokens are redeemed to asset token issuer will need that token (cDai) for issuance
+                            await dai
+                              .connect(caller)
+                              .approve(cDai.address, ethers.constants.MaxUint256);
+                            await cDai.connect(caller).mint(daiAmount);
+                            await cDai
+                              .connect(caller)
+                              .approve(debtIssuanceModule.address, ethers.constants.MaxUint256);
+                          }
                         }
                       });
 
@@ -964,14 +973,14 @@ describe("NotionalTradeModule", () => {
                         });
 
                         if (["issue", "redeem"].includes(triggerAction)) {
-                          it("should adjust assetToken balance correctly", async () => {
-                            const cDaiBalanceBefore = await cDai.balanceOf(caller.address);
+                          it(`should adjust ${redeemToken} balance correctly`, async () => {
+                            const outputTokenBalanceBefore = await outputToken.balanceOf(caller.address);
                             await subject();
-                            const cDaiBalanceAfter = await cDai.balanceOf(caller.address);
+                            const outputTokenBalanceAfter = await outputToken.balanceOf(caller.address);
                             const amountCDaiTransfered =
                               triggerAction == "redeem"
-                                ? cDaiBalanceAfter.sub(cDaiBalanceBefore)
-                                : cDaiBalanceBefore.sub(cDaiBalanceAfter);
+                                ? outputTokenBalanceAfter.sub(outputTokenBalanceBefore)
+                                : outputTokenBalanceBefore.sub(outputTokenBalanceAfter);
 
                             expect(amountCDaiTransfered).to.be.gt(0);
                           });
