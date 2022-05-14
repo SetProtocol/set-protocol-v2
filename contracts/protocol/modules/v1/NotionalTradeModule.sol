@@ -636,6 +636,5 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             preTradeSendTokenBalance.sub(currentSendTokenBalance),
             currentReceiveTokenBalance.sub(preTradeReceiveTokenBalance)
         );
-
     }
 }

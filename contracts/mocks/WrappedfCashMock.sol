@@ -1,5 +1,5 @@
 /*
-    Copyright 2020 Set Labs Inc.
+    Copyright 2022 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -47,7 +47,9 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         underlyingToken = _underlyingToken;
     }
 
-    function initialize(uint16 currencyId, uint40 maturity) external override {
+    function initialize(uint16 _currencyId, uint40 _maturity) external override {
+        currencyId = _currencyId;
+        maturity = _maturity;
     }
 
     /// @notice Mints wrapped fCash ERC20 tokens
@@ -55,7 +57,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         uint256 depositAmountExternal,
         uint88 fCashAmount,
         address receiver,
-        uint32 minImpliedRate
+        uint32 /* minImpliedRate */
     ) external override{
         uint256 assetTokenAmount = mintTokenSpent == 0 ? depositAmountExternal : mintTokenSpent;
         assetToken.transferFrom(msg.sender, address(this), assetTokenAmount);
@@ -66,7 +68,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         uint256 depositAmountExternal,
         uint88 fCashAmount,
         address receiver,
-        uint32 minImpliedRate
+        uint32 /* minImpliedRate */
     ) external override{
         uint256 underlyingTokenAmount = mintTokenSpent == 0 ? depositAmountExternal : mintTokenSpent;
         underlyingToken.transferFrom(msg.sender, address(this), underlyingTokenAmount);
@@ -74,13 +76,21 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     }
 
 
-    function redeemToAsset(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
+    function redeemToAsset(
+        uint256 amount,
+        address receiver,
+        uint32 /* maxImpliedRate */
+    ) external override {
         _burn(msg.sender, amount);
         uint256 assetTokenAmount = redeemTokenReturned == 0 ? amount : redeemTokenReturned;
         assetToken.transfer(receiver, assetTokenAmount);
     }
 
-    function redeemToUnderlying(uint256 amount, address receiver, uint32 maxImpliedRate) external override {
+    function redeemToUnderlying(
+        uint256 amount,
+        address receiver,
+        uint32 /* maxImpliedRate */
+    ) external override {
         _burn(msg.sender, amount);
         uint256 underlyingTokenAmount = redeemTokenReturned == 0 ? amount : redeemTokenReturned;
         underlyingToken.transfer(receiver, underlyingTokenAmount);
