@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import { BigNumber, Signer } from "ethers";
-import { INotionalProxy, WrappedfCash } from "@utils/contracts";
+import { INotionalProxy, WrappedfCash, WrappedfCashFactory } from "@utils/contracts";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { IERC20 } from "@typechain/IERC20";
 import { ICErc20 } from "@typechain/ICErc20";
@@ -81,8 +81,7 @@ export async function upgradeNotionalProxy(signer: Signer) {
 }
 
 export async function deployWrappedfCashInstance(
-  deployer: DeployHelper,
-  owner: SignerWithAddress,
+  wrappedfCashFactory: WrappedfCashFactory,
   underlyingAddress: string,
   maturityIndex = 0,
 ) {
@@ -93,6 +92,16 @@ export async function deployWrappedfCashInstance(
   const currencyId = await notionalProxy.getCurrencyId(underlyingAddress);
   const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
   const maturity = activeMarkets[maturityIndex].maturity;
+  const wrappeFCashAddress = await wrappedfCashFactory.callStatic.deployWrapper(
+    currencyId,
+    maturity,
+  );
+  await wrappedfCashFactory.deployWrapper(currencyId, maturity);
+  const wrappedFCashInstance = await ethers.getContractAt("WrappedfCash", wrappeFCashAddress) as WrappedfCash;
+  return wrappedFCashInstance;
+}
+
+export async function deployWrappedfCashFactory(deployer: DeployHelper, owner: SignerWithAddress) {
   const wrappedfCashImplementation = await deployer.external.deployWrappedfCash(
     NOTIONAL_PROXY_ADDRESS,
   );
@@ -104,13 +113,7 @@ export async function deployWrappedfCashInstance(
   const wrappedfCashFactory = await deployer.external.deployWrappedfCashFactory(
     wrappedfCashBeacon.address,
   );
-  const wrappeFCashAddress = await wrappedfCashFactory.callStatic.deployWrapper(
-    currencyId,
-    maturity,
-  );
-  await wrappedfCashFactory.deployWrapper(currencyId, maturity);
-  const wrappedFCashInstance = wrappedfCashImplementation.attach(wrappeFCashAddress);
-  return wrappedFCashInstance;
+  return wrappedfCashFactory;
 }
 
 export async function mintWrappedFCash(

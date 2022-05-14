@@ -22,11 +22,17 @@ import {
   ManagerIssuanceHookMock,
   NotionalTradeModule,
   WrappedfCash,
+  WrappedfCashFactory,
 } from "@utils/contracts";
 
 import { IERC20 } from "@typechain/IERC20";
 import { ICErc20 } from "@typechain/ICErc20";
-import { upgradeNotionalProxy, deployWrappedfCashInstance, mintWrappedFCash } from "./utils";
+import {
+  upgradeNotionalProxy,
+  deployWrappedfCashInstance,
+  deployWrappedfCashFactory,
+  mintWrappedFCash,
+} from "./utils";
 
 const expect = getWaffleExpect();
 
@@ -55,8 +61,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
   describe("When WrappedfCash is deployed", () => {
     let wrappedFCashInstance: WrappedfCash;
+    let wrappedFCashFactory: WrappedfCashFactory;
     beforeEach(async () => {
-      wrappedFCashInstance = await deployWrappedfCashInstance(deployer, owner.wallet, cdaiAddress);
+      wrappedFCashFactory = await deployWrappedfCashFactory(deployer, owner.wallet);
+      wrappedFCashInstance = await deployWrappedfCashInstance(wrappedFCashFactory, cdaiAddress);
     });
 
     describe("When notional proxy is upgraded", () => {
@@ -86,6 +94,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
           // Deploy NotionalTradeModule
           notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
             setup.controller.address,
+            wrappedFCashFactory.address,
           );
           await setup.controller.addModule(notionalTradeModule.address);
 
@@ -275,7 +284,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           wrappedFCashInstance.address,
                           fTokenQuantity.mul(2),
                           sendToken.address,
-                          subjectSendQuantity
+                          subjectSendQuantity,
                         );
                     } else {
                       subjectSendQuantity = fTokenQuantity;
@@ -406,7 +415,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     }
 
                     // TODO: Returned trade amount seems to be slighly off / or one of the calculations above has a rounding error. Review
-                    expect(sendTokenAmountNormalized).to.closeTo(positionChange, positionChange.div(10**6).toNumber());
+                    expect(sendTokenAmountNormalized).to.closeTo(
+                      positionChange,
+                      positionChange.div(10 ** 6).toNumber(),
+                    );
                   });
 
                   if (tradeDirection == "buying") {
