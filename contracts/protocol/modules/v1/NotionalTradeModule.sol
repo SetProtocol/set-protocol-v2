@@ -37,7 +37,7 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
  * @title NotionalTradeModule
  * @author Set Protocol
  * @notice Smart contract that enables trading in and out of Notional fCash positions and redeem matured positions.
- * @dev This module depends on the wrappedFCash token-wrapper. Meaning positions managed with this module have to be in the form of wrappedfCash NOT fCash directly.
+ * @dev This module depends on the wrappedFCash erc20-token-wrapper. Meaning positions managed with this module have to be in the form of wrappedfCash NOT fCash directly.
  */
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -288,6 +288,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function updateAnySetAllowed(bool _anySetAllowed) external onlyOwner {
         anySetAllowed = _anySetAllowed;
         emit AnySetAllowedUpdated(_anySetAllowed);
+    }
+
+    function setRedeemToUnderlying(
+        ISetToken _setToken,
+        bool _toUnderlying
+    )
+    external
+    onlyManagerAndValidSet(_setToken)
+    {
+        redeemToUnderlying[_setToken] = _toUnderlying;
     }
 
 
