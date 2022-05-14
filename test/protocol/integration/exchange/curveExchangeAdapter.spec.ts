@@ -51,6 +51,8 @@ describe("CurveExchangeAdapter", () => {
     adapter = await deployer.adapters.deployCurveExchangeAdapter(
       setup.weth.address,
       stEth.address,
+      BigNumber.from(0),
+      BigNumber.from(1),
       stableswap.address,
     );
 
@@ -67,11 +69,15 @@ describe("CurveExchangeAdapter", () => {
   describe("#constructor", async () => {
     let subjectWeth: Address;
     let subjectSteth: Address;
+    let subjectWethIndex: BigNumber;
+    let subjectStethIndex: BigNumber;
     let subjectExchangeAddress: Address;
 
     beforeEach(async () => {
       subjectWeth = setup.weth.address;
       subjectSteth = stEth.address;
+      subjectWethIndex = BigNumber.from(0);
+      subjectStethIndex = BigNumber.from(1);
       subjectExchangeAddress = stableswap.address;
     });
 
@@ -79,6 +85,8 @@ describe("CurveExchangeAdapter", () => {
       return await deployer.adapters.deployCurveExchangeAdapter(
         subjectWeth,
         subjectSteth,
+        subjectWethIndex,
+        subjectStethIndex,
         subjectExchangeAddress,
       );
     }
@@ -105,6 +113,34 @@ describe("CurveExchangeAdapter", () => {
     it("should have the correct exchange address", async () => {
       const adapter = await subject();
       expect(await adapter.stableswap()).to.eq(subjectExchangeAddress);
+    });
+
+    context("when incorrect tokenAIndex is passed in", async () => {
+      beforeEach(async () => {
+        subjectWeth = setup.weth.address;
+        subjectSteth = stEth.address;
+        subjectWethIndex = BigNumber.from(1);
+        subjectStethIndex = BigNumber.from(1);
+        subjectExchangeAddress = stableswap.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Stableswap pool has invalid index for tokenA");
+      });
+    });
+
+    context("when incorrect tokenBIndex is passed in", async () => {
+      beforeEach(async () => {
+        subjectWeth = setup.weth.address;
+        subjectSteth = stEth.address;
+        subjectWethIndex = BigNumber.from(0);
+        subjectStethIndex = BigNumber.from(0);
+        subjectExchangeAddress = stableswap.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Stableswap pool has invalid index for tokenB");
+      });
     });
   });
 
@@ -255,27 +291,54 @@ describe("CurveExchangeAdapter", () => {
         );
     }
 
-    beforeEach(async () => {
-      subjectSourceToken = stEth.address;
-      subjectSourceQuantity = ether(25);
-      subjectDestinationToken = setup.weth.address;
-      subjectMinDestinationQuantity = ether(25);
+    context("when trading steth for weth", async () => {
+      beforeEach(async () => {
+        subjectSourceToken = stEth.address;
+        subjectSourceQuantity = ether(25);
+        subjectDestinationToken = setup.weth.address;
+        subjectMinDestinationQuantity = ether(25);
 
-      subjectMockSetToken = mockSetToken.address;
+        subjectMockSetToken = mockSetToken.address;
+      });
+
+      it("should succeed", async () => {
+        const previousStEthBalance = await stEth.balanceOf(owner.address);
+        const previousWethBalance = await setup.weth.balanceOf(subjectMockSetToken);
+        expect(previousStEthBalance).to.eq(ether(1000000000));
+        expect(previousWethBalance).to.eq(0);
+
+        await subject();
+
+        const afterStEthBalance = await stEth.balanceOf(owner.address);
+        const afterWethBalance = await setup.weth.balanceOf(subjectMockSetToken);
+        expect(afterStEthBalance).to.eq(previousStEthBalance.sub(subjectSourceQuantity));
+        expect(afterWethBalance).to.eq(previousWethBalance.add(subjectMinDestinationQuantity));
+      });
     });
 
-    it("should trade steth for weth and send them to the set token", async () => {
-      const previousStEthBalance = await stEth.balanceOf(owner.address);
-      const previousWethBalance = await setup.weth.balanceOf(subjectMockSetToken);
-      expect(previousStEthBalance).to.eq(ether(1000000000));
-      expect(previousWethBalance).to.eq(0);
+    context("when trading weth for steth", async () => {
+      beforeEach(async () => {
+        subjectSourceToken = setup.weth.address;
+        subjectSourceQuantity = ether(25);
+        subjectDestinationToken = stEth.address;
+        subjectMinDestinationQuantity = ether(25);
 
-      await subject();
+        subjectMockSetToken = mockSetToken.address;
+      });
 
-      const afterStEthBalance = await stEth.balanceOf(owner.address);
-      const afterWethBalance = await setup.weth.balanceOf(subjectMockSetToken);
-      expect(afterStEthBalance).to.eq(previousStEthBalance.sub(subjectSourceQuantity));
-      expect(afterWethBalance).to.eq(previousWethBalance.add(subjectMinDestinationQuantity));
+      it("should succeed", async () => {
+        const previousWethBalance = await setup.weth.balanceOf(owner.address);
+        const previousStEthBalance = await stEth.balanceOf(subjectMockSetToken);
+        expect(previousWethBalance).to.eq(ether(5000));
+        expect(previousStEthBalance).to.eq(0);
+
+        await subject();
+
+        const afterWethBalance = await setup.weth.balanceOf(owner.address);
+        const afterStEthBalance = await stEth.balanceOf(subjectMockSetToken);
+        expect(afterWethBalance).to.eq(previousWethBalance.sub(subjectSourceQuantity));
+        expect(afterStEthBalance).to.eq(previousStEthBalance.add(subjectMinDestinationQuantity));
+      });
     });
 
     context("when sourceToken and destinationToken are the same", async () => {
