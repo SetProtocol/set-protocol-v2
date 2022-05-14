@@ -28,6 +28,7 @@ import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
 import { IWrappedfCash, IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
+import { IWrappedfCashFactory } from "../../../interfaces/IWrappedFCashFactory.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
@@ -115,14 +116,18 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list. Updateable by governance.
     bool public anySetAllowed;
 
+    IWrappedfCashFactory public wrappedfCashFactory;
+
     /* ============ Constructor ============ */
 
     constructor(
-        IController _controller
+        IController _controller,
+        IWrappedfCashFactory _wrappedfCashFactory
     )
         public
         ModuleBase(_controller)
     {
+        wrappedfCashFactory = _wrappedfCashFactory;
     }
 
     /* ============ External Functions ============ */
@@ -606,8 +611,36 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function _addFCashPositions(ISetToken _setToken, address[] calldata _fCashPositions) internal {
         for(uint256 i = 0; i < _fCashPositions.length; i++) {
             // TODO: If we want to integrate the deployment of the wrapper in to this contract and also keep this fCashPosition registry we can call the wrapper factory here.
-            fCashPositions[_setToken].add(_fCashPositions[i]);
+            address fCashPosition = _fCashPositions[i];
+            require(_isWrappedFCash(fCashPosition), "Given address is not a valid fCash position");
+            fCashPositions[_setToken].add(fCashPosition);
         }
+    }
+
+    /**
+     * @dev Checks if a given address is an fCash position that was deployed from the factory
+     */
+    function _isWrappedFCash(address _fCashPosition) internal returns(bool){
+        uint16 currencyId;
+        try IWrappedfCash(_fCashPosition).getCurrencyId() returns(uint16 _currencyId){
+            currencyId = _currencyId;
+        } catch {
+            return false;
+        }
+
+        uint40 maturity;
+        try IWrappedfCash(_fCashPosition).getMaturity() returns(uint40 _maturity){
+            maturity = _maturity;
+        } catch {
+            return false;
+        }
+
+        try wrappedfCashFactory.computeAddress(currencyId, maturity) returns(address _computedAddress){
+            return _fCashPosition == _computedAddress;
+        } catch {
+            return false;
+        }
+
     }
 
     /**

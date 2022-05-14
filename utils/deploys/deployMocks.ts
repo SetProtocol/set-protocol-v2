@@ -59,6 +59,7 @@ import {
   UnitConversionUtilsMock,
   SetTokenAccessibleMock,
   WrappedfCashMock,
+  WrappedfCashFactoryMock,
 } from "../contracts";
 
 import { ether } from "../common";
@@ -121,6 +122,7 @@ import { UniswapV3MathMock__factory } from "../../typechain/factories/UniswapV3M
 import { UnitConversionUtilsMock__factory } from "../../typechain/factories/UnitConversionUtilsMock__factory";
 import { SetTokenAccessibleMock__factory } from "../../typechain/factories/SetTokenAccessibleMock__factory";
 import { WrappedfCashMock__factory } from "../../typechain/factories/WrappedfCashMock__factory";
+import { WrappedfCashFactoryMock__factory } from "../../typechain/factories/WrappedfCashFactoryMock__factory";
 
 export default class DeployMocks {
   private _deployerSigner: Signer;
@@ -473,6 +475,10 @@ export default class DeployMocks {
 
   public async deployWrappedfCashMock(assetToken: Address, underlyingToken: Address): Promise<WrappedfCashMock> {
     return await new WrappedfCashMock__factory(this._deployerSigner).deploy(assetToken, underlyingToken);
+  }
+
+  public async deployWrappedfCashFactoryMock(): Promise<WrappedfCashFactoryMock> {
+    return await new WrappedfCashFactoryMock__factory(this._deployerSigner).deploy();
   }
   /** ***********************************
    * Instance getters

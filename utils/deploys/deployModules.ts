@@ -179,8 +179,8 @@ export default class DeployModules {
     ).deploy(controller, lendingPoolAddressesProvider);
   }
 
-  public async deployNotionalTradeModule(controller: Address): Promise<NotionalTradeModule> {
-    return await new NotionalTradeModule__factory(this._deployerSigner).deploy(controller);
+  public async deployNotionalTradeModule(controller: Address, wrappedfCashFactory: Address): Promise<NotionalTradeModule> {
+    return await new NotionalTradeModule__factory(this._deployerSigner).deploy(controller, wrappedfCashFactory);
   }
 
   public async deployWrapModuleV2(controller: Address, weth: Address): Promise<WrapModuleV2> {
