@@ -80,11 +80,7 @@ export async function upgradeNotionalProxy(signer: Signer) {
   await notional.connect(notionalOwner).upgradeTo(newRouter.address);
 }
 
-export async function deployWrappedfCashInstance(
-  wrappedfCashFactory: WrappedfCashFactory,
-  underlyingAddress: string,
-  maturityIndex = 0,
-) {
+export async function getCurrencyIdAndMaturity(underlyingAddress: string, maturityIndex: number) {
   const notionalProxy = (await ethers.getContractAt(
     "INotionalProxy",
     NOTIONAL_PROXY_ADDRESS,
@@ -92,12 +88,23 @@ export async function deployWrappedfCashInstance(
   const currencyId = await notionalProxy.getCurrencyId(underlyingAddress);
   const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
   const maturity = activeMarkets[maturityIndex].maturity;
+  return { currencyId, maturity };
+}
+
+export async function deployWrappedfCashInstance(
+  wrappedfCashFactory: WrappedfCashFactory,
+  currencyId: number,
+  maturity: number,
+) {
   const wrappeFCashAddress = await wrappedfCashFactory.callStatic.deployWrapper(
     currencyId,
     maturity,
   );
   await wrappedfCashFactory.deployWrapper(currencyId, maturity);
-  const wrappedFCashInstance = await ethers.getContractAt("WrappedfCash", wrappeFCashAddress) as WrappedfCash;
+  const wrappedFCashInstance = (await ethers.getContractAt(
+    "WrappedfCash",
+    wrappeFCashAddress,
+  )) as WrappedfCash;
   return wrappedFCashInstance;
 }
 

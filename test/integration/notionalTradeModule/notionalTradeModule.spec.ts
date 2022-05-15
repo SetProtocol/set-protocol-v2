@@ -31,6 +31,7 @@ import {
   upgradeNotionalProxy,
   deployWrappedfCashInstance,
   deployWrappedfCashFactory,
+  getCurrencyIdAndMaturity,
   mintWrappedFCash,
 } from "./utils";
 
@@ -62,9 +63,16 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
   describe("When WrappedfCash is deployed", () => {
     let wrappedFCashInstance: WrappedfCash;
     let wrappedFCashFactory: WrappedfCashFactory;
+    let currencyId: number;
+    let maturity: number;
     beforeEach(async () => {
       wrappedFCashFactory = await deployWrappedfCashFactory(deployer, owner.wallet);
-      wrappedFCashInstance = await deployWrappedfCashInstance(wrappedFCashFactory, cdaiAddress);
+      ({ currencyId, maturity } = await getCurrencyIdAndMaturity(cdaiAddress, 0));
+      wrappedFCashInstance = await deployWrappedfCashInstance(
+        wrappedFCashFactory,
+        currencyId,
+        maturity,
+      );
     });
 
     describe("When notional proxy is upgraded", () => {
@@ -137,9 +145,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
             debtIssuanceModule.address,
           );
           await notionalTradeModule.updateAllowedSetToken(setToken.address, true);
-          await notionalTradeModule
-            .connect(manager.wallet)
-            .initialize(setToken.address);
+          await notionalTradeModule.connect(manager.wallet).initialize(setToken.address);
         }
 
         it("Should be able to issue set from wrappedFCash", async () => {
@@ -216,37 +222,17 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               caller = manager.wallet;
             });
 
-            const subject = () => {
-              return notionalTradeModule
-                .connect(caller)
-                .trade(
-                  subjectSetToken,
-                  subjectSendToken,
-                  subjectSendQuantity,
-                  subjectReceiveToken,
-                  subjectMinReceiveQuantity,
-                );
-            };
-
-            const subjectCall = () => {
-              return notionalTradeModule
-                .connect(caller)
-                .callStatic.trade(
-                  subjectSetToken,
-                  subjectSendToken,
-                  subjectSendQuantity,
-                  subjectReceiveToken,
-                  subjectMinReceiveQuantity,
-                );
-            };
-
             ["buying", "selling"].forEach(tradeDirection => {
               ["underlyingToken", "assetToken"].forEach(tokenType => {
                 describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                   let sendTokenType: string;
                   let receiveTokenType: string;
                   let otherToken: IERC20;
+                  let subjectCurrencyId: number;
+                  let subjectMaturity: number;
                   beforeEach(async () => {
+                    subjectCurrencyId = currencyId;
+                    subjectMaturity = maturity;
                     const underlyingTokenQuantity = ethers.utils.parseEther("1");
                     const assetToken = cDai;
                     const underlyingToken = dai;
@@ -279,9 +265,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       // TODO: Review
                       await notionalTradeModule
                         .connect(manager.wallet)
-                        .trade(
+                        .redeemFCashPosition(
                           setToken.address,
-                          wrappedFCashInstance.address,
+                          subjectCurrencyId,
+                          subjectMaturity,
                           fTokenQuantity.mul(2),
                           sendToken.address,
                           subjectSendQuantity,
@@ -295,6 +282,58 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       }
                     }
                   });
+
+                  const subject = () => {
+                    if (tradeDirection == "buying") {
+                      return notionalTradeModule
+                        .connect(caller)
+                        .mintFCashPosition(
+                          subjectSetToken,
+                          subjectCurrencyId,
+                          subjectMaturity,
+                          subjectMinReceiveQuantity,
+                          subjectSendToken,
+                          subjectSendQuantity,
+                        );
+                    } else {
+                      return notionalTradeModule
+                        .connect(caller)
+                        .redeemFCashPosition(
+                          subjectSetToken,
+                          subjectCurrencyId,
+                          subjectMaturity,
+                          subjectSendQuantity,
+                          subjectReceiveToken,
+                          subjectMinReceiveQuantity,
+                        );
+                    }
+                  };
+
+                  const subjectCall = () => {
+                    if (tradeDirection == "buying") {
+                      return notionalTradeModule
+                        .connect(caller)
+                        .callStatic.mintFCashPosition(
+                          subjectSetToken,
+                          subjectCurrencyId,
+                          subjectMaturity,
+                          subjectMinReceiveQuantity,
+                          subjectSendToken,
+                          subjectSendQuantity,
+                        );
+                    } else {
+                      return notionalTradeModule
+                        .connect(caller)
+                        .callStatic.redeemFCashPosition(
+                          subjectSetToken,
+                          subjectCurrencyId,
+                          subjectMaturity,
+                          subjectSendQuantity,
+                          subjectReceiveToken,
+                          subjectMinReceiveQuantity,
+                        );
+                    }
+                  };
 
                   it("setToken should receive receiver token", async () => {
                     const receiveTokenBalanceBefore = await receiveToken.balanceOf(
