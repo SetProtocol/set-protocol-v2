@@ -272,7 +272,6 @@ describe("NotionalTradeModule", () => {
           describe("#initialize", async () => {
             let isAllowListed: boolean = true;
             let subjectSetToken: Address;
-            let subjectFCashPositions: Address[];
             let subjectCaller: Account;
 
             beforeEach(async () => {
@@ -283,15 +282,12 @@ describe("NotionalTradeModule", () => {
               }
 
               subjectSetToken = setToken.address;
-              subjectFCashPositions = [wrappedfCashMock.address];
               subjectCaller = manager;
               console.log("Done");
             });
 
             async function subject(): Promise<any> {
-              return notionalTradeModule
-                .connect(subjectCaller.wallet)
-                .initialize(subjectSetToken, subjectFCashPositions);
+              return notionalTradeModule.connect(subjectCaller.wallet).initialize(subjectSetToken);
             }
 
             describe("when isAllowListed is true", () => {
@@ -305,18 +301,6 @@ describe("NotionalTradeModule", () => {
                   notionalTradeModule.address,
                 );
                 expect(isModuleEnabled).to.eq(true);
-              });
-
-              describe("when fCash position list contains invalid fCash position", async () => {
-                beforeEach(async () => {
-                  subjectFCashPositions = [wrappedfCashMock.address, await getRandomAddress()];
-                });
-
-                it("should revert", async () => {
-                  await expect(subject()).to.be.revertedWith(
-                    "Given address is not a valid fCash position",
-                  );
-                });
               });
 
               describe("when debt issuance module is not added to integration registry", async () => {
@@ -446,97 +430,7 @@ describe("NotionalTradeModule", () => {
 
             describe("when token is initialized on the notional module", () => {
               beforeEach(async () => {
-                await notionalTradeModule
-                  .connect(manager.wallet)
-                  .initialize(setToken.address, [wrappedfCashMock.address]);
-              });
-
-              describe("#addFCashPositions", () => {
-                let subjectFCashPositions: Address[];
-                let subjectSetToken: Address;
-                let caller: SignerWithAddress;
-                beforeEach(async () => {
-                  subjectFCashPositions = [wrappedfCashMock.address];
-                  subjectSetToken = setToken.address;
-                  caller = manager.wallet;
-                });
-                const subject = () => {
-                  return notionalTradeModule
-                    .connect(caller)
-                    .addFCashPositions(subjectSetToken, subjectFCashPositions);
-                };
-                it("should adjust fCash positions accordingly", async () => {
-                  await subject();
-                  const fCashPositions = await notionalTradeModule.getFCashPositions(
-                    subjectSetToken,
-                  );
-                  subjectFCashPositions.forEach(fCashPosition => {
-                    expect(fCashPositions).to.include(fCashPosition);
-                  });
-                });
-                describe("when caller is not the manager", () => {
-                  beforeEach(() => {
-                    caller = owner.wallet;
-                  });
-                  it("should revert", async () => {
-                    await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-                  });
-                });
-                describe("when fCashPosition is already registered", () => {
-                  beforeEach(async () => {
-                    subjectFCashPositions = [wrappedfCashMock.address];
-                  });
-                  it("should keep fcash positions unchanged", async () => {
-                    await subject();
-                    const fCashPositions = await notionalTradeModule.getFCashPositions(
-                      subjectSetToken,
-                    );
-                    expect(fCashPositions).to.deep.eq(subjectFCashPositions);
-                  });
-                });
-              });
-
-              describe("#removeFCashPositions", () => {
-                let subjectFCashPositions: Address[];
-                let subjectSetToken: Address;
-                let caller: SignerWithAddress;
-                beforeEach(async () => {
-                  subjectFCashPositions = [wrappedfCashMock.address];
-                  subjectSetToken = setToken.address;
-                  caller = manager.wallet;
-                });
-                const subject = () => {
-                  return notionalTradeModule
-                    .connect(caller)
-                    .removeFCashPositions(subjectSetToken, subjectFCashPositions);
-                };
-                it("should adjust fCash positions accordingly", async () => {
-                  await subject();
-                  const fCashPositions = await notionalTradeModule.getFCashPositions(
-                    subjectSetToken,
-                  );
-                  expect(fCashPositions).to.deep.eq([]);
-                });
-                describe("when caller is not the manager", () => {
-                  beforeEach(() => {
-                    caller = owner.wallet;
-                  });
-                  it("should revert", async () => {
-                    await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-                  });
-                });
-                describe("when one of the fCashPositions is not registered", () => {
-                  beforeEach(async () => {
-                    subjectFCashPositions = [await getRandomAddress(), wrappedfCashMock.address];
-                  });
-                  it("should adjust fCash positions correctly", async () => {
-                    await subject();
-                    const fCashPositions = await notionalTradeModule.getFCashPositions(
-                      subjectSetToken,
-                    );
-                    expect(fCashPositions).to.deep.eq([]);
-                  });
-                });
+                await notionalTradeModule.connect(manager.wallet).initialize(setToken.address);
               });
 
               describe("#registerToModule", () => {
@@ -645,49 +539,15 @@ describe("NotionalTradeModule", () => {
                 let subjectSendQuantity: BigNumber;
                 let subjectReceiveToken: string;
                 let subjectMinReceiveQuantity: BigNumber;
+                let subjectCurrencyId: number;
+                let subjectMaturity: number | BigNumber;
                 let caller: SignerWithAddress;
 
                 beforeEach(async () => {
                   subjectSetToken = setToken.address;
                   caller = manager.wallet;
-                });
-
-                const subject = () => {
-                  return notionalTradeModule
-                    .connect(caller)
-                    .trade(
-                      subjectSetToken,
-                      subjectSendToken,
-                      subjectSendQuantity,
-                      subjectReceiveToken,
-                      subjectMinReceiveQuantity,
-                    );
-                };
-
-                const subjectCall = () => {
-                  return notionalTradeModule
-                    .connect(caller)
-                    .callStatic.trade(
-                      subjectSetToken,
-                      subjectSendToken,
-                      subjectSendQuantity,
-                      subjectReceiveToken,
-                      subjectMinReceiveQuantity,
-                    );
-                };
-
-                describe("When neither token is a registered fCash position", () => {
-                  beforeEach(() => {
-                    subjectSendToken = dai.address;
-                    subjectSendQuantity = ether(1);
-                    subjectReceiveToken = cDai.address;
-                    subjectMinReceiveQuantity = ether(1);
-                  });
-                  it("should revert", async () => {
-                    await expect(subject()).to.be.revertedWith(
-                      "Neither send nor receive token is a registered fCash position",
-                    );
-                  });
+                  subjectCurrencyId = currencyId;
+                  subjectMaturity = maturity;
                 });
 
                 ["buying", "selling"].forEach(tradeDirection => {
@@ -720,9 +580,10 @@ describe("NotionalTradeModule", () => {
                           );
                           await notionalTradeModule
                             .connect(manager.wallet)
-                            .trade(
+                            .redeemFCashPosition(
                               setToken.address,
-                              wrappedfCashMock.address,
+                              subjectCurrencyId,
+                              subjectMaturity,
                               fTokenQuantity.mul(2),
                               sendToken.address,
                               subjectSendQuantity.mul(2),
@@ -735,6 +596,60 @@ describe("NotionalTradeModule", () => {
                           );
                         }
                       });
+
+                      const subject = () => {
+                        if (tradeDirection == "buying") {
+                          return notionalTradeModule
+                            .connect(caller)
+                            .mintFCashPosition(
+                              subjectSetToken,
+                              subjectCurrencyId,
+                              subjectMaturity,
+                              subjectMinReceiveQuantity,
+                              subjectSendToken,
+                              subjectSendQuantity,
+                            );
+                        } else {
+                          return notionalTradeModule
+                            .connect(caller)
+                            .redeemFCashPosition(
+                              subjectSetToken,
+                              subjectCurrencyId,
+                              subjectMaturity,
+                              subjectSendQuantity,
+                              subjectReceiveToken,
+                              subjectMinReceiveQuantity,
+                            );
+                        }
+                      };
+
+                      const subjectCall = () => {
+                        if (tradeDirection == "buying") {
+                          return notionalTradeModule
+                            .connect(caller)
+                            .callStatic
+                            .mintFCashPosition(
+                              subjectSetToken,
+                              subjectCurrencyId,
+                              subjectMaturity,
+                              subjectMinReceiveQuantity,
+                              subjectSendToken,
+                              subjectSendQuantity,
+                            );
+                        } else {
+                          return notionalTradeModule
+                            .connect(caller)
+                            .callStatic
+                            .redeemFCashPosition(
+                              subjectSetToken,
+                              subjectCurrencyId,
+                              subjectMaturity,
+                              subjectSendQuantity,
+                              subjectReceiveToken,
+                              subjectMinReceiveQuantity,
+                            );
+                        }
+                      };
 
                       if (tradeDirection == "buying") {
                         describe("When sendToken is neither underlying nor asset token", () => {
@@ -961,7 +876,9 @@ describe("NotionalTradeModule", () => {
                         .setRedeemToUnderlying(subjectSetToken, toUnderlying);
                       outputToken = redeemToken == "underlying" ? dai : cDai;
                     });
-                    ["issue", "redeem", "manualTrigger", "removeModule"].forEach(
+                    [
+                      // "issue", "redeem", "manualTrigger", "removeModule"
+                    ].forEach(
                       triggerAction => {
                         describe(`When hook is triggered by ${triggerAction}`, () => {
                           beforeEach(async () => {

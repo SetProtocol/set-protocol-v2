@@ -139,7 +139,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
           await notionalTradeModule.updateAllowedSetToken(setToken.address, true);
           await notionalTradeModule
             .connect(manager.wallet)
-            .initialize(setToken.address, [wrappedFCashInstance.address]);
+            .initialize(setToken.address);
         }
 
         it("Should be able to issue set from wrappedFCash", async () => {

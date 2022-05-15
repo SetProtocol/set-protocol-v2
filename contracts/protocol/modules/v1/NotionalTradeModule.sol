@@ -32,8 +32,6 @@ import { IWrappedfCash, IWrappedfCashComplete } from "../../../interfaces/IWrapp
 import { IWrappedfCashFactory } from "../../../interfaces/IWrappedFCashFactory.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
-import "@openzeppelin/contracts/utils/EnumerableSet.sol";
-
 
 
 /**
@@ -43,7 +41,6 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
  * @dev This module depends on the wrappedFCash erc20-token-wrapper. Meaning positions managed with this module have to be in the form of wrappedfCash NOT fCash directly.
  */
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
-    using EnumerableSet for EnumerableSet.AddressSet;
     using Address for address;
 
     /* ============ Events ============ */
@@ -113,9 +110,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
     mapping(ISetToken => bool) public allowedSetTokens;
 
-    // Mapping of SetToken to fCash positions that are availabe for trading on this fCash token and that are monitored for maturity
-    mapping(ISetToken => EnumerableSet.AddressSet) private fCashPositions;
-
     // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list. Updateable by governance.
     bool public anySetAllowed;
 
@@ -158,51 +152,79 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         onlyManagerAndValidSet(_setToken)
         returns(uint256)
     {
-        if(fCashPositions[_setToken].contains(_sendToken))
+        if(_isWrappedFCash(_sendToken))
         {
             return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), IERC20(_receiveToken), _sendAmount, _receiveAmount);
         }
-        else if(fCashPositions[_setToken].contains(_receiveToken))
+        else if(_isWrappedFCash(_receiveToken))
         {
             return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), IERC20(_sendToken), _receiveAmount, _sendAmount);
         }
         else {
             revert("Neither send nor receive token is a registered fCash position");
         }
-
     }
 
     /**
-     * @dev Register given fCash positions to enable them to be traded and have them monitored for maturity redemption
+     * @dev MANAGER ONLY: Trades into a new fCash position.
      * @param _setToken                   Instance of the SetToken
-     * @param _fCashPositions             Addresses of fCash wrappers to register for trading / maturity redemption
+     * @param _currencyId                 CurrencyId of the fCash token as defined by the notional protocol. 
+     * @param _maturity                   Maturity of the fCash token as defined by the notional protocol.
+     * @param _mintAmount                 Amount of fCash token to mint 
+     * @param _sendToken                  Token to mint from, must be either the underlying or the asset token.
+     * @param _maxSendAmount              Maximum amount to spend
      */
-    function addFCashPositions(
+    function mintFCashPosition(
         ISetToken _setToken,
-        address[] calldata _fCashPositions
+        uint16 _currencyId,
+        uint40 _maturity,
+        uint256 _mintAmount,
+        address _sendToken,
+        uint256 _maxSendAmount
     )
-    external
-    onlyManagerAndValidSet(_setToken)
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+        returns(uint256)
     {
-        _addFCashPositions(_setToken, _fCashPositions);
+
+        IWrappedfCashComplete wrappedfCash = _getWrappedfCash(_currencyId, _maturity);
+        return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), _mintAmount, _maxSendAmount);
     }
 
     /**
-     * @dev Remove given fCash positions to disable them from trading and maturity redemption
+     * @dev MANAGER ONLY: Trades out of an existing fCash position.
+     * Will revert if no wrapper for the selected fCash token was deployed
      * @param _setToken                   Instance of the SetToken
-     * @param _fCashPositions             Addresses of fCash wrappers to remove from registry
+     * @param _currencyId                 CurrencyId of the fCash token as defined by the notional protocol. 
+     * @param _maturity                   Maturity of the fCash token as defined by the notional protocol.
+     * @param _redeemAmount               Amount of fCash token to redeem 
+     * @param _receiveToken               Token to redeem into, must be either asset or underlying token of the fCash token
+     * @param _minReceiveAmount           Minimum amount of receive token to receive
      */
-    function removeFCashPositions(
+    function redeemFCashPosition(
         ISetToken _setToken,
-        address[] calldata _fCashPositions
+        uint16 _currencyId,
+        uint40 _maturity,
+        uint256 _redeemAmount,
+        address _receiveToken,
+        uint256 _minReceiveAmount
     )
-    external
-    onlyManagerAndValidSet(_setToken)
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+        returns(uint256)
     {
-        _removeFCashPositions(_setToken, _fCashPositions);
+
+        IWrappedfCashComplete wrappedfCash = _getWrappedfCash(_currencyId, _maturity);
+        return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), _redeemAmount, _minReceiveAmount);
     }
 
-
+    function _getWrappedfCash(uint16 _currencyId, uint40 _maturity) internal view returns(IWrappedfCashComplete) {
+        address wrappedfCashAddress = wrappedfCashFactory.computeAddress(_currencyId, _maturity);
+        require(wrappedfCashAddress.isContract(), "WrappedfCash not deployed for given parameters");
+        return IWrappedfCashComplete(wrappedfCashAddress);
+    }
 
     /**
      * @dev CALLABLE BY ANYBODY: Redeem all matured fCash positions of given setToken
@@ -218,11 +240,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @dev MANGER ONLY: Initialize given SetToken with initial list of registered fCash positions
      * Redeem all fCash positions that have reached maturity for their asset token (cToken)
      * @param _setToken                     Instance of the SetToken
-     * @param _fCashPositions               WrappedFCash tokens to register for trading and maturity monitoring. (this will NOT add these components to the set)
      */
     function initialize(
-        ISetToken _setToken,
-        address[] calldata _fCashPositions
+        ISetToken _setToken
     )
         external
         onlySetManager(_setToken, msg.sender)
@@ -243,8 +263,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         for(uint256 i = 0; i < modules.length; i++) {
             try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
         }
-
-        _addFCashPositions(_setToken, _fCashPositions);
     }
 
     /**
@@ -255,8 +273,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         // Redeem matured positions prior to any removal action
         _redeemMaturedPositions(setToken);
-
-        delete fCashPositions[setToken];
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
@@ -377,22 +393,19 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         ISetToken.Position[] memory positions = _setToken.getPositions();
         uint positionsLength = positions.length;
-        if(positionsLength == 0) return;
 
         bool toUnderlying = redeemToUnderlying[_setToken];
 
-        for(uint256 i = 0; i < positions.length; i++) {
+        for(uint256 i = 0; i < positionsLength; i++) {
             // Check that the given position is an equity position
             if(positions[i].unit > 0) {
                 address component = positions[i].component;
                 if(_isWrappedFCash(component)) {
                     IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(component);
-
                     if(fCashPosition.hasMatured()) {
                         IERC20 receiveToken = _getPaymentToken(fCashPosition, toUnderlying);
                         uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
                         _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
-                        fCashPositions[_setToken].remove(address(fCashPosition));
                     }
                 }
             }
@@ -599,33 +612,42 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function _getFCashPositions(ISetToken _setToken)
     internal
     view
-    returns(address[] memory positions)
+    returns(address[] memory fCashPositions)
     {
-        uint256 length = fCashPositions[_setToken].length();
-        positions = new address[](length);
-        for(uint256 i = 0; i < length; i++) {
-            positions[i] = fCashPositions[_setToken].at(i);
+        ISetToken.Position[] memory positions = _setToken.getPositions();
+        uint positionsLength = positions.length;
+        uint numFCashPositions;
+
+        for(uint256 i = 0; i < positionsLength; i++) {
+            // Check that the given position is an equity position
+            if(positions[i].unit > 0) {
+                address component = positions[i].component;
+                if(_isWrappedFCash(component)) {
+                    numFCashPositions++;
+                }
+            }
+        }
+
+        fCashPositions = new address[](numFCashPositions);
+
+        uint j;
+        for(uint256 i = 0; i < positionsLength; i++) {
+            if(positions[i].unit > 0) {
+                address component = positions[i].component;
+                if(_isWrappedFCash(component)) {
+                    fCashPositions[j] = component;
+                    j++;
+                }
+            }
         }
     }
 
 
-
-    /**
-     * @dev Register given fCash positions to enable them to be traded and have them monitored for maturity redemption
-     */
-    function _addFCashPositions(ISetToken _setToken, address[] calldata _fCashPositions) internal {
-        for(uint256 i = 0; i < _fCashPositions.length; i++) {
-            // TODO: If we want to integrate the deployment of the wrapper in to this contract and also keep this fCashPosition registry we can call the wrapper factory here.
-            address fCashPosition = _fCashPositions[i];
-            require(_isWrappedFCash(fCashPosition), "Given address is not a valid fCash position");
-            fCashPositions[_setToken].add(fCashPosition);
-        }
-    }
 
     /**
      * @dev Checks if a given address is an fCash position that was deployed from the factory
      */
-    function _isWrappedFCash(address _fCashPosition) internal returns(bool){
+    function _isWrappedFCash(address _fCashPosition) internal view returns(bool){
         if(!_fCashPosition.isContract()) {
             return false;
         }
@@ -650,16 +672,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
 
     }
-
-    /**
-     * @dev Remove given fCash positions to disable them from trading and maturity redemption
-     */
-    function _removeFCashPositions(ISetToken _setToken, address[] calldata _fCashPositions) internal {
-        for(uint256 i = 0; i < _fCashPositions.length; i++) {
-            fCashPositions[_setToken].remove(_fCashPositions[i]);
-        }
-    }
-
 
     /**
      * @dev Update set token positions after mint or redeem
