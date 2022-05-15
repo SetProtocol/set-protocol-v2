@@ -307,6 +307,18 @@ describe("NotionalTradeModule", () => {
                 expect(isModuleEnabled).to.eq(true);
               });
 
+              describe("when fCash position list contains invalid fCash position", async () => {
+                beforeEach(async () => {
+                  subjectFCashPositions = [wrappedfCashMock.address, await getRandomAddress()];
+                });
+
+                it("should revert", async () => {
+                  await expect(subject()).to.be.revertedWith(
+                    "Given address is not a valid fCash position",
+                  );
+                });
+              });
+
               describe("when debt issuance module is not added to integration registry", async () => {
                 beforeEach(async () => {
                   await setup.integrationRegistry.removeIntegration(
@@ -598,7 +610,9 @@ describe("NotionalTradeModule", () => {
                 describe("when setting to false", () => {
                   beforeEach(async () => {
                     subjectToUnderlying = false;
-                    await notionalTradeModule.connect(manager.wallet).setRedeemToUnderlying(subjectSetToken, true);
+                    await notionalTradeModule
+                      .connect(manager.wallet)
+                      .setRedeemToUnderlying(subjectSetToken, true);
                     expect(await notionalTradeModule.redeemToUnderlying(subjectSetToken)).to.be
                       .true;
                   });

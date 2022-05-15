@@ -23,6 +23,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC777 } from "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
@@ -42,6 +43,7 @@ import "@openzeppelin/contracts/utils/EnumerableSet.sol";
  */
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Address for address;
 
     /* ============ Events ============ */
 
@@ -621,6 +623,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @dev Checks if a given address is an fCash position that was deployed from the factory
      */
     function _isWrappedFCash(address _fCashPosition) internal returns(bool){
+        if(!_fCashPosition.isContract()) {
+            return false;
+        }
         uint16 currencyId;
         try IWrappedfCash(_fCashPosition).getCurrencyId() returns(uint16 _currencyId){
             currencyId = _currencyId;
