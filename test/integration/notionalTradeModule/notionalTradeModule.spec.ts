@@ -64,7 +64,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     let wrappedFCashInstance: WrappedfCash;
     let wrappedFCashFactory: WrappedfCashFactory;
     let currencyId: number;
-    let maturity: number;
+    let maturity: BigNumber;
     beforeEach(async () => {
       wrappedFCashFactory = await deployWrappedfCashFactory(deployer, owner.wallet);
       ({ currencyId, maturity } = await getCurrencyIdAndMaturity(cdaiAddress, 0));
@@ -222,14 +222,20 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               caller = manager.wallet;
             });
 
-            ["buying", "selling"].forEach(tradeDirection => {
-              ["underlyingToken", "assetToken"].forEach(tokenType => {
+            [
+              "buying",
+              "selling"
+            ].forEach(tradeDirection => {
+              [
+                "underlyingToken",
+                "assetToken"
+              ].forEach(tokenType => {
                 describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                   let sendTokenType: string;
                   let receiveTokenType: string;
                   let otherToken: IERC20;
                   let subjectCurrencyId: number;
-                  let subjectMaturity: number;
+                  let subjectMaturity: BigNumber;
                   beforeEach(async () => {
                     subjectCurrencyId = currencyId;
                     subjectMaturity = maturity;
@@ -335,149 +341,182 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     }
                   };
 
-                  it("setToken should receive receiver token", async () => {
-                    const receiveTokenBalanceBefore = await receiveToken.balanceOf(
-                      setToken.address,
-                    );
-                    await subject();
-                    const receiveTokenBalanceAfter = await receiveToken.balanceOf(setToken.address);
-                    expect(receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore)).to.be.gte(
-                      subjectMinReceiveQuantity,
-                    );
-                  });
+                  (tradeDirection == "buying" ? ["new", "existing"] : ["existing"]).forEach(wrapperType => {
+                    describe(`when using ${wrapperType} wrapper`, () => {
+                      beforeEach(async () => {
+                        if (wrapperType == "new") {
+                          const newWrapperId = await getCurrencyIdAndMaturity(cdaiAddress, 1);
+                          subjectMaturity = newWrapperId.maturity;
+                          subjectCurrencyId = newWrapperId.currencyId;
+                          const newWrapperAddress = await wrappedFCashFactory.computeAddress(
+                            subjectCurrencyId,
+                            subjectMaturity,
+                          );
 
-                  it("setTokens sendToken balance should be adjusted accordingly", async () => {
-                    const sendTokenBalanceBefore = await sendToken.balanceOf(setToken.address);
-                    await subject();
-                    const sendTokenBalanceAfter = await sendToken.balanceOf(setToken.address);
-                    if (tradeDirection == "selling") {
-                      expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
-                        subjectSendQuantity,
-                      );
-                    } else {
-                      expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.be.lte(
-                        subjectSendQuantity,
-                      );
-                    }
-                  });
-
-                  it("should return spent / received amount of non-fcash-token", async () => {
-                    const otherTokenBalanceBefore = await otherToken.balanceOf(setToken.address);
-                    const result = await subjectCall();
-                    await subject();
-                    const otherTokenBalanceAfter = await otherToken.balanceOf(setToken.address);
-
-                    let expectedResult;
-                    if (tradeDirection == "selling") {
-                      expectedResult = otherTokenBalanceAfter.sub(otherTokenBalanceBefore);
-                    } else {
-                      expectedResult = otherTokenBalanceBefore.sub(otherTokenBalanceAfter);
-                    }
-
-                    // TODO: Review why there is some deviation
-                    const allowedDeviationPercent = 1;
-                    expect(result).to.be.gte(
-                      expectedResult.mul(100 - allowedDeviationPercent).div(100),
-                    );
-                    expect(result).to.be.lte(
-                      expectedResult.mul(100 + allowedDeviationPercent).div(100),
-                    );
-                  });
-
-                  it("should adjust the components position of the receiveToken correctly", async () => {
-                    const positionBefore = await setToken.getDefaultPositionRealUnit(
-                      receiveToken.address,
-                    );
-                    const tradeAmount = await subjectCall();
-                    const receiveTokenAmount =
-                      tradeDirection == "buying" ? subjectMinReceiveQuantity : tradeAmount;
-                    await subject();
-                    const positionAfter = await setToken.getDefaultPositionRealUnit(
-                      receiveToken.address,
-                    );
-
-                    const positionChange = positionAfter.sub(positionBefore);
-                    const totalSetSupplyWei = await setToken.totalSupply();
-                    const totalSetSupplyEther = totalSetSupplyWei.div(BigNumber.from(10).pow(18));
-
-                    let receiveTokenAmountNormalized;
-                    if (receiveTokenType == "underlyingToken") {
-                      receiveTokenAmountNormalized = receiveTokenAmount.div(totalSetSupplyEther);
-                    } else {
-                      receiveTokenAmountNormalized = BigNumber.from(
-                        Math.floor(
-                          receiveTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10,
-                        ),
-                      );
-                    }
-
-                    if (receiveTokenType == "underlyingToken") {
-                      // TODO: Review why there is some deviation
-                      const allowedDeviationPercent = 1;
-                      expect(receiveTokenAmountNormalized).to.be.gte(
-                        positionChange.mul(100 - allowedDeviationPercent).div(100),
-                      );
-                      expect(receiveTokenAmountNormalized).to.be.lte(
-                        positionChange.mul(100 + allowedDeviationPercent).div(100),
-                      );
-                    } else {
-                      expect(receiveTokenAmountNormalized).to.eq(positionChange);
-                    }
-                  });
-
-                  it("should adjust the components position of the sendToken correctly", async () => {
-                    const positionBefore = await setToken.getDefaultPositionRealUnit(
-                      sendToken.address,
-                    );
-                    const tradeAmount = await subjectCall();
-                    const sendTokenAmount =
-                      tradeDirection == "selling" ? subjectSendQuantity : tradeAmount;
-                    await subject();
-                    const positionAfter = await setToken.getDefaultPositionRealUnit(
-                      sendToken.address,
-                    );
-
-                    const positionChange = positionBefore.sub(positionAfter);
-                    const totalSetSupplyWei = await setToken.totalSupply();
-                    const totalSetSupplyEther = totalSetSupplyWei.div(BigNumber.from(10).pow(18));
-
-                    let sendTokenAmountNormalized;
-                    if (sendTokenType == "underlyingToken") {
-                      sendTokenAmountNormalized = sendTokenAmount.div(totalSetSupplyEther);
-                    } else {
-                      sendTokenAmountNormalized = BigNumber.from(
-                        // TODO: Why do we have to use round here and floor with the receive token ?
-                        Math.round(
-                          sendTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10,
-                        ),
-                      );
-                    }
-
-                    // TODO: Returned trade amount seems to be slighly off / or one of the calculations above has a rounding error. Review
-                    expect(sendTokenAmountNormalized).to.closeTo(
-                      positionChange,
-                      positionChange.div(10 ** 6).toNumber(),
-                    );
-                  });
-
-                  if (tradeDirection == "buying") {
-                    describe("When sendQuantity is too low", () => {
-                      beforeEach(() => {
-                        subjectSendQuantity = BigNumber.from(1000);
+                          receiveToken = (await ethers.getContractAt(
+                            "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20",
+                            newWrapperAddress,
+                          )) as IERC20;
+                        }
                       });
-                      it("should revert", async () => {
-                        const revertReason =
-                          sendTokenType == "underlyingToken" ? "Dai/insufficient-balance" : "ERC20";
-                        await expect(subject()).to.be.revertedWith(revertReason);
+                      it("setToken should receive receiver token", async () => {
+                        const receiveTokenBalanceBefore =
+                          wrapperType == "new" ? 0 : await receiveToken.balanceOf(subjectSetToken);
+                        await subject();
+                        const receiveTokenBalanceAfter = await receiveToken.balanceOf(
+                          subjectSetToken,
+                        );
+                        expect(receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore)).to.be.gte(
+                          subjectMinReceiveQuantity,
+                        );
                       });
+
+                      it("setTokens sendToken balance should be adjusted accordingly", async () => {
+                        const sendTokenBalanceBefore = await sendToken.balanceOf(setToken.address);
+                        await subject();
+                        const sendTokenBalanceAfter = await sendToken.balanceOf(setToken.address);
+                        if (tradeDirection == "selling") {
+                          expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
+                            subjectSendQuantity,
+                          );
+                        } else {
+                          expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.be.lte(
+                            subjectSendQuantity,
+                          );
+                        }
+                      });
+
+                      it("should return spent / received amount of non-fcash-token", async () => {
+                        const otherTokenBalanceBefore = await otherToken.balanceOf(
+                          setToken.address,
+                        );
+                        const result = await subjectCall();
+                        await subject();
+                        const otherTokenBalanceAfter = await otherToken.balanceOf(setToken.address);
+
+                        let expectedResult;
+                        if (tradeDirection == "selling") {
+                          expectedResult = otherTokenBalanceAfter.sub(otherTokenBalanceBefore);
+                        } else {
+                          expectedResult = otherTokenBalanceBefore.sub(otherTokenBalanceAfter);
+                        }
+
+                        // TODO: Review why there is some deviation
+                        const allowedDeviationPercent = 1;
+                        expect(result).to.be.gte(
+                          expectedResult.mul(100 - allowedDeviationPercent).div(100),
+                        );
+                        expect(result).to.be.lte(
+                          expectedResult.mul(100 + allowedDeviationPercent).div(100),
+                        );
+                      });
+
+                      it("should adjust the components position of the receiveToken correctly", async () => {
+                        const positionBefore = await setToken.getDefaultPositionRealUnit(
+                          receiveToken.address,
+                        );
+                        const tradeAmount = await subjectCall();
+                        const receiveTokenAmount =
+                          tradeDirection == "buying" ? subjectMinReceiveQuantity : tradeAmount;
+                        await subject();
+                        const positionAfter = await setToken.getDefaultPositionRealUnit(
+                          receiveToken.address,
+                        );
+
+                        const positionChange = positionAfter.sub(positionBefore);
+                        const totalSetSupplyWei = await setToken.totalSupply();
+                        const totalSetSupplyEther = totalSetSupplyWei.div(
+                          BigNumber.from(10).pow(18),
+                        );
+
+                        let receiveTokenAmountNormalized;
+                        if (receiveTokenType == "underlyingToken") {
+                          receiveTokenAmountNormalized = receiveTokenAmount.div(
+                            totalSetSupplyEther,
+                          );
+                        } else {
+                          receiveTokenAmountNormalized = BigNumber.from(
+                            Math.floor(
+                              receiveTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10,
+                            ),
+                          );
+                        }
+
+                        if (receiveTokenType == "underlyingToken") {
+                          // TODO: Review why there is some deviation
+                          const allowedDeviationPercent = 1;
+                          expect(receiveTokenAmountNormalized).to.be.gte(
+                            positionChange.mul(100 - allowedDeviationPercent).div(100),
+                          );
+                          expect(receiveTokenAmountNormalized).to.be.lte(
+                            positionChange.mul(100 + allowedDeviationPercent).div(100),
+                          );
+                        } else {
+                          expect(receiveTokenAmountNormalized).to.eq(positionChange);
+                        }
+                      });
+
+                      it("should adjust the components position of the sendToken correctly", async () => {
+                        const positionBefore = await setToken.getDefaultPositionRealUnit(
+                          sendToken.address,
+                        );
+                        const tradeAmount = await subjectCall();
+                        const sendTokenAmount =
+                          tradeDirection == "selling" ? subjectSendQuantity : tradeAmount;
+                        await subject();
+                        const positionAfter = await setToken.getDefaultPositionRealUnit(
+                          sendToken.address,
+                        );
+
+                        const positionChange = positionBefore.sub(positionAfter);
+                        const totalSetSupplyWei = await setToken.totalSupply();
+                        const totalSetSupplyEther = totalSetSupplyWei.div(
+                          BigNumber.from(10).pow(18),
+                        );
+
+                        let sendTokenAmountNormalized;
+                        if (sendTokenType == "underlyingToken") {
+                          sendTokenAmountNormalized = sendTokenAmount.div(totalSetSupplyEther);
+                        } else {
+                          sendTokenAmountNormalized = BigNumber.from(
+                            // TODO: Why do we have to use round here and floor with the receive token ?
+                            Math.round(
+                              sendTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() / 10,
+                            ),
+                          );
+                        }
+
+                        // TODO: Returned trade amount seems to be slighly off / or one of the calculations above has a rounding error. Review
+                        expect(sendTokenAmountNormalized).to.closeTo(
+                          positionChange,
+                          positionChange.div(10 ** 6).toNumber(),
+                        );
+                      });
+
+                      if (tradeDirection == "buying") {
+                        describe("When sendQuantity is too low", () => {
+                          beforeEach(() => {
+                            subjectSendQuantity = BigNumber.from(1000);
+                          });
+                          it("should revert", async () => {
+                            const revertReason =
+                              sendTokenType == "underlyingToken"
+                                ? "Dai/insufficient-balance"
+                                : "ERC20";
+                            await expect(subject()).to.be.revertedWith(revertReason);
+                          });
+                        });
+                      }
                     });
-                  }
+                  });
                 });
               });
             });
 
             describe("#moduleIssue/RedeemHook", () => {
-              ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
+              [
+                "issue", "redeem", "manualTrigger"
+              ].forEach(triggerAction => {
                 describe(`When hook is triggered by ${triggerAction}`, () => {
                   let subjectSetToken: string;
                   let subjectReceiver: string;

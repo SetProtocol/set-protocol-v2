@@ -153,7 +153,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         returns(uint256)
     {
 
-        IWrappedfCashComplete wrappedfCash = _getWrappedfCash(_currencyId, _maturity);
+        IWrappedfCashComplete wrappedfCash = _deployWrappedfCash(_currencyId, _maturity);
         return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), _mintAmount, _maxSendAmount);
     }
 
@@ -183,12 +183,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         IWrappedfCashComplete wrappedfCash = _getWrappedfCash(_currencyId, _maturity);
         return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), _redeemAmount, _minReceiveAmount);
-    }
-
-    function _getWrappedfCash(uint16 _currencyId, uint40 _maturity) internal view returns(IWrappedfCashComplete) {
-        address wrappedfCashAddress = wrappedfCashFactory.computeAddress(_currencyId, _maturity);
-        require(wrappedfCashAddress.isContract(), "WrappedfCash not deployed for given parameters");
-        return IWrappedfCashComplete(wrappedfCashAddress);
     }
 
     /**
@@ -349,6 +343,23 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /* ============ Internal Functions ============ */
+
+    /**
+     * @dev Deploy wrapper if it does not exist yet and return address
+     */
+    function _deployWrappedfCash(uint16 _currencyId, uint40 _maturity) internal returns(IWrappedfCashComplete) {
+        address wrappedfCashAddress = wrappedfCashFactory.deployWrapper(_currencyId, _maturity);
+        return IWrappedfCashComplete(wrappedfCashAddress);
+    }
+     
+    /**
+     * @dev Return wrapper address and revert if it isn't deployed
+     */
+    function _getWrappedfCash(uint16 _currencyId, uint40 _maturity) internal view returns(IWrappedfCashComplete) {
+        address wrappedfCashAddress = wrappedfCashFactory.computeAddress(_currencyId, _maturity);
+        require(wrappedfCashAddress.isContract(), "WrappedfCash not deployed for given parameters");
+        return IWrappedfCashComplete(wrappedfCashAddress);
+    }
 
     /**
      * @dev Redeem all matured fCash positions for the given SetToken

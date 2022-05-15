@@ -94,7 +94,7 @@ export async function getCurrencyIdAndMaturity(underlyingAddress: string, maturi
 export async function deployWrappedfCashInstance(
   wrappedfCashFactory: WrappedfCashFactory,
   currencyId: number,
-  maturity: number,
+  maturity: BigNumber,
 ) {
   const wrappeFCashAddress = await wrappedfCashFactory.callStatic.deployWrapper(
     currencyId,
