@@ -129,41 +129,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /* ============ External Functions ============ */
 
-    /**
-     * @dev MANAGER ONLY: Trades in or out of an fCash position.
-     * If sendToken is a registered fCash position it redeems it, if the receiveToken is an fCash position it mints it.
-     * The respective other token must be either the underlying or asset token of the fCash position.
-     * Reverts if send and receive token are not a combination of 1 registered fCash position and its underlying or asset token.
-     * @param _setToken                   Instance of the SetToken
-     * @param _sendToken                  Address of the token to trade out of ("sell")
-     * @param _sendAmount                 Amount of send token to sell. (Fixed amount in the redeem case and max amount in mint case);
-     * @param _receiveToken               Address of the token to trade in to ("buy")
-     * @param _receiveAmount              Amount of receive token to buy. (Fixed amount in the mint case and min amount in redeem case);
-     */
-    function trade(
-        ISetToken _setToken,
-        address _sendToken,
-        uint256 _sendAmount,
-        address _receiveToken,
-        uint256 _receiveAmount
-    )
-        external
-        nonReentrant
-        onlyManagerAndValidSet(_setToken)
-        returns(uint256)
-    {
-        if(_isWrappedFCash(_sendToken))
-        {
-            return _redeemFCashPosition(_setToken, IWrappedfCashComplete(_sendToken), IERC20(_receiveToken), _sendAmount, _receiveAmount);
-        }
-        else if(_isWrappedFCash(_receiveToken))
-        {
-            return _mintFCashPosition(_setToken, IWrappedfCashComplete(_receiveToken), IERC20(_sendToken), _receiveAmount, _sendAmount);
-        }
-        else {
-            revert("Neither send nor receive token is a registered fCash position");
-        }
-    }
 
     /**
      * @dev MANAGER ONLY: Trades into a new fCash position.
