@@ -35,6 +35,7 @@ import { ModuleBase } from "../../lib/ModuleBase.sol";
 import "@openzeppelin/contracts/utils/EnumerableSet.sol";
 
 
+
 /**
  * @title NotionalTradeModule
  * @author Set Protocol
@@ -374,26 +375,28 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function _redeemMaturedPositions(ISetToken _setToken)
     internal
     {
-        address[] memory fCashPositionsArray = _getFCashPositions(_setToken);
-        uint fCashPositionLength = fCashPositionsArray.length;
-        if(fCashPositionLength == 0) return;
+        ISetToken.Position[] memory positions = _setToken.getPositions();
+        uint positionsLength = positions.length;
+        if(positionsLength == 0) return;
 
         bool toUnderlying = redeemToUnderlying[_setToken];
 
+        for(uint256 i = 0; i < positions.length; i++) {
+            // Check that the given position is an equity position
+            if(positions[i].unit > 0) {
+                address component = positions[i].component;
+                if(_isWrappedFCash(component)) {
+                    IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(component);
 
-        // TODO: Review alterative to keeping track of registered fCash positions. For example iterate through all components and check for each component if it is a wrappedFCash token.
-        for(uint256 i = 0; i < fCashPositionLength; i++) {
-            IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(fCashPositionsArray[i]);
-
-            if(fCashPosition.hasMatured()) {
-                IERC20 receiveToken = _getPaymentToken(fCashPosition, toUnderlying);
-                uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
-                _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
-                fCashPositions[_setToken].remove(address(fCashPosition));
+                    if(fCashPosition.hasMatured()) {
+                        IERC20 receiveToken = _getPaymentToken(fCashPosition, toUnderlying);
+                        uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
+                        _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
+                        fCashPositions[_setToken].remove(address(fCashPosition));
+                    }
+                }
             }
-
         }
-
     }
 
 
