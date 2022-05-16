@@ -550,7 +550,7 @@ describe("NotionalTradeModule", () => {
                   subjectMaturity = maturity;
                 });
 
-                ["buying", "welling"].forEach(tradeDirection => {
+                ["buying", "selling"].forEach(tradeDirection => {
                   ["underlyingToken", "assetToken"].forEach(tokenType => {
                     describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                       let sendTokenType: string;
