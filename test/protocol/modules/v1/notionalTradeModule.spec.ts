@@ -704,6 +704,18 @@ describe("NotionalTradeModule", () => {
                           });
                         });
                       } else {
+
+                        describe("When wrappedFCash is not deployed for given parameters", () => {
+                          beforeEach(async () => {
+                            subjectCurrencyId = 10;
+                          });
+                          it("should revert", async () => {
+                            await expect(subject()).to.be.revertedWith(
+                              "WrappedfCash not deployed for given parameters",
+                            );
+                          });
+                        });
+
                         describe("When receiveToken is neither underlying nor asset token", () => {
                           beforeEach(async () => {
                             subjectReceiveToken = ethers.constants.AddressZero;
