@@ -1085,6 +1085,7 @@ describe("NotionalTradeModule", () => {
                               "wrong maturity",
                               "reverted getCurrencyId",
                               "reverted getMaturity",
+                              "reverted computeAddress",
                             ].forEach(reason => {
                               describe(`When the wrappedFCash position is not recognized as such because of ${reason}`, () => {
                                 beforeEach(async () => {
@@ -1096,6 +1097,8 @@ describe("NotionalTradeModule", () => {
                                     await wrappedfCashMock.setRevertCurrencyId(true);
                                   } else if (reason == "reverted getMaturity") {
                                     await wrappedfCashMock.setRevertMaturity(true);
+                                  } else if (reason == "reverted computeAddress") {
+                                    await wrappedfCashFactoryMock.setRevertComputeAddress(true);
                                   }
                                 });
                                 it("fCash position remains the same", async () => {
@@ -1113,6 +1116,7 @@ describe("NotionalTradeModule", () => {
 
                             describe("When setToken contains an additional position that is not a smart contract", () => {
                               beforeEach(async () => {
+                                const nonContractComponent = await getRandomAddress();
                                 // We add the owner as a fake-module to be able to add arbitrary addresses as components
                                 await setup.controller
                                   .connect(owner.wallet)
@@ -1121,7 +1125,10 @@ describe("NotionalTradeModule", () => {
                                 await setToken.connect(owner.wallet).initializeModule();
                                 await setToken
                                   .connect(owner.wallet)
-                                  .addComponent(await getRandomAddress());
+                                  .addComponent(nonContractComponent);
+                                await setToken
+                                  .connect(owner.wallet)
+                                  .editDefaultPositionUnit(nonContractComponent, 420);
                               });
                               it(`Afterwards setToken should have received ${redeemToken} token`, async () => {
                                 const balanceBefore = await outputToken.balanceOf(subjectSetToken);
