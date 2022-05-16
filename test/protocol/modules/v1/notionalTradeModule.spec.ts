@@ -538,6 +538,17 @@ describe("NotionalTradeModule", () => {
                     await setToken
                       .connect(owner.wallet)
                       .editDefaultPositionUnit(wrappedfCashMock.address, -420);
+                    const externalPositionModule = await getRandomAddress();
+                    await setToken
+                      .connect(owner.wallet)
+                      .addExternalPositionModule(wrappedfCashMock.address, externalPositionModule);
+                    await setToken
+                      .connect(owner.wallet)
+                      .editExternalPositionUnit(
+                        wrappedfCashMock.address,
+                        externalPositionModule,
+                        -420,
+                      );
                   });
                   it("should not return the fCash component", async () => {
                     const fCashPositions = await subject();
@@ -1121,9 +1132,25 @@ describe("NotionalTradeModule", () => {
                                       .addModule(owner.address);
                                     await setToken.connect(manager.wallet).addModule(owner.address);
                                     await setToken.connect(owner.wallet).initializeModule();
+                                    // Just changing the default position to <= 0 will make it disappear from the position list
                                     await setToken
                                       .connect(owner.wallet)
                                       .editDefaultPositionUnit(wrappedfCashMock.address, -420);
+                                    const externalPositionModule = await getRandomAddress();
+                                    await setToken
+                                      .connect(owner.wallet)
+                                      .addExternalPositionModule(
+                                        wrappedfCashMock.address,
+                                        externalPositionModule,
+                                      );
+                                    // Have to add it back in as an external position to get a negative unit
+                                    await setToken
+                                      .connect(owner.wallet)
+                                      .editExternalPositionUnit(
+                                        wrappedfCashMock.address,
+                                        externalPositionModule,
+                                        -420,
+                                      );
                                   }
                                 });
                                 it("fCash position remains the same", async () => {
