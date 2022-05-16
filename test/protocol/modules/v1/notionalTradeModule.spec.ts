@@ -530,6 +530,20 @@ describe("NotionalTradeModule", () => {
                   const fCashPositions = await subject();
                   expect(fCashPositions).to.deep.eq([wrappedfCashMock.address]);
                 });
+                describe("When the unit is negative", () => {
+                  beforeEach(async () => {
+                    await setup.controller.connect(owner.wallet).addModule(owner.address);
+                    await setToken.connect(manager.wallet).addModule(owner.address);
+                    await setToken.connect(owner.wallet).initializeModule();
+                    await setToken
+                      .connect(owner.wallet)
+                      .editDefaultPositionUnit(wrappedfCashMock.address, -420);
+                  });
+                  it("should not return the fCash component", async () => {
+                    const fCashPositions = await subject();
+                    expect(fCashPositions).to.deep.eq([]);
+                  });
+                });
               });
               describe("#redeem/mintFCashPosition", () => {
                 let receiveToken: IERC20;
@@ -1086,6 +1100,7 @@ describe("NotionalTradeModule", () => {
                               "reverted getCurrencyId",
                               "reverted getMaturity",
                               "reverted computeAddress",
+                              "negative unit",
                             ].forEach(reason => {
                               describe(`When the wrappedFCash position is not recognized as such because of ${reason}`, () => {
                                 beforeEach(async () => {
@@ -1099,6 +1114,16 @@ describe("NotionalTradeModule", () => {
                                     await wrappedfCashMock.setRevertMaturity(true);
                                   } else if (reason == "reverted computeAddress") {
                                     await wrappedfCashFactoryMock.setRevertComputeAddress(true);
+                                  } else if (reason == "negative unit") {
+                                    // We add the owner as a fake-module to be able to add arbitrary addresses as components
+                                    await setup.controller
+                                      .connect(owner.wallet)
+                                      .addModule(owner.address);
+                                    await setToken.connect(manager.wallet).addModule(owner.address);
+                                    await setToken.connect(owner.wallet).initializeModule();
+                                    await setToken
+                                      .connect(owner.wallet)
+                                      .editDefaultPositionUnit(wrappedfCashMock.address, -420);
                                   }
                                 });
                                 it("fCash position remains the same", async () => {
