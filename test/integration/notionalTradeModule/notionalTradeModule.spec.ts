@@ -207,7 +207,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               .connect(owner.wallet)
               .issue(setToken.address, setAmount, owner.address);
           });
-          describe("#trade", () => {
+          describe("#mint/redeemFCashPosition", () => {
             let receiveToken: IERC20;
             let sendToken: IERC20;
             let subjectSetToken: string;

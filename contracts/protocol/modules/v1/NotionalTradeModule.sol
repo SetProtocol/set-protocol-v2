@@ -113,10 +113,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     // Boolean that returns if any SetToken can initialize this module. If false, then subject to allow list. Updateable by governance.
     bool public anySetAllowed;
 
-    IWrappedfCashFactory public wrappedfCashFactory;
+    // Factory that is used to deploy and check fCash wrapper contracts
+    IWrappedfCashFactory public immutable wrappedfCashFactory;
 
     /* ============ Constructor ============ */
 
+    /**
+     * @dev Instantiate addresses
+     * @param _controller                       Address of controller contract
+     * @param _wrappedfCashFactory              Address of fCash wrapper factory used to check and deploy wrappers
+     */
     constructor(
         IController _controller,
         IWrappedfCashFactory _wrappedfCashFactory
@@ -124,6 +130,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         public
         ModuleBase(_controller)
     {
+        // TODO: Review if we want to make this address mutable. (made it immutable initially to be consistent with other modules)
         wrappedfCashFactory = _wrappedfCashFactory;
     }
 
@@ -404,7 +411,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     internal
     returns(uint256 sentAmount)
     {
-        // TODO: If we want to integrate the wrapper deployment into this contract but don't want to keep the fCash position registry, we can call the wrapper factory here.
         if(_fCashAmount == 0) return 0;
 
         bool fromUnderlying = _isUnderlying(_fCashPosition, _sendToken);
