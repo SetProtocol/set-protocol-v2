@@ -627,8 +627,7 @@ describe("NotionalTradeModule", () => {
                         if (tradeDirection == "buying") {
                           return notionalTradeModule
                             .connect(caller)
-                            .callStatic
-                            .mintFCashPosition(
+                            .callStatic.mintFCashPosition(
                               subjectSetToken,
                               subjectCurrencyId,
                               subjectMaturity,
@@ -639,8 +638,7 @@ describe("NotionalTradeModule", () => {
                         } else {
                           return notionalTradeModule
                             .connect(caller)
-                            .callStatic
-                            .redeemFCashPosition(
+                            .callStatic.redeemFCashPosition(
                               subjectSetToken,
                               subjectCurrencyId,
                               subjectMaturity,
@@ -876,9 +874,7 @@ describe("NotionalTradeModule", () => {
                         .setRedeemToUnderlying(subjectSetToken, toUnderlying);
                       outputToken = redeemToken == "underlying" ? dai : cDai;
                     });
-                    [
-                      // "issue", "redeem", "manualTrigger", "removeModule"
-                    ].forEach(
+                    ["issue", "redeem", "manualTrigger", "removeModule"].forEach(
                       triggerAction => {
                         describe(`When hook is triggered by ${triggerAction}`, () => {
                           beforeEach(async () => {
