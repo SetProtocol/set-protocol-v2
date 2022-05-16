@@ -610,6 +610,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             }
         }
 
+        // TODO: Looping twice just to get the array length for initialization feels inefficient, review if there is a better way.
         fCashPositions = new address[](numFCashPositions);
 
         uint j;
