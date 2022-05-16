@@ -39,6 +39,9 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     int256 private assetPrecision;
     TokenType private tokenType;
 
+    bool private revertCurrencyId;
+    bool private revertMaturity;
+
     uint256 private redeemTokenReturned;
     uint256 private mintTokenSpent;
 
@@ -103,6 +106,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     /// @notice Returns the underlying fCash maturity of the token
     function getMaturity() external override view returns (uint40) {
+        require(!revertMaturity, "Test revertion Maturity");
         return maturity;
     }
 
@@ -113,6 +117,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     /// @notice Returns the underlying fCash currency
     function getCurrencyId() external override view returns (uint16) {
+        require(!revertCurrencyId, "Test revertion CurrencyId");
         return currencyId;
     }
 
@@ -150,6 +155,14 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     function setMintTokenSpent(uint256 _mintTokenSpent) external{
         mintTokenSpent = _mintTokenSpent;
+    }
+
+    function setRevertCurrencyId(bool _revertCurrencyId) external{
+        revertCurrencyId = _revertCurrencyId;
+    }
+
+    function setRevertMaturity(bool _revertMaturity) external{
+        revertMaturity = _revertMaturity;
     }
 
 }
