@@ -423,8 +423,8 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
         subjectSetToken = setToken.address;
         subjectCollateralAsset = steth.address;
         subjectRepayAsset = weth.address;
-        subjectRedeemQuantityUnits = ether(1);
-        subjectMinRepayQuantityUnits = ether(0.9);
+        subjectRedeemQuantityUnits = ether(1.0158);
+        subjectMinRepayQuantityUnits = ether(1);
         subjectAdapterName = adapterName;
 
         const tradeCalldata = await adapter.getTradeCalldata(
@@ -489,10 +489,12 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component.toLowerCase()).to.eq(weth.address.toLowerCase());
+        expect(newSecondPosition.positionState).to.eq(0); // Pay everything back
 
-        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
-        expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
-        expect(newSecondPosition.positionState).to.eq(1); // External
+        // Due to exchange rates in Curve Pool, there's a tiny bit of WETH left in the set token when redeeming
+        // with the current parameters. Actual WETH left in the Set = 428_176_647_407_742. So around 0.0004 ETH
+        expect(newSecondPosition.unit.div(ether(0.0001))).to.closeTo(expectedSecondPositionUnit, 4);
+        expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
       });
 
       it("should transfer the correct components to the Stableswap", async () => {
