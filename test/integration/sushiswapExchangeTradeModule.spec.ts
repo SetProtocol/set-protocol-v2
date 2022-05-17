@@ -60,7 +60,7 @@ describe("SushiSwap TradeModule Integration [ @forked-mainnet ]", () => {
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
-    wbtcRate = ether(29);
+    wbtcRate = ether(14);
 
     sushiswapSetup = getUniswapFixture(owner.address);
     sushiswapRouter = sushiswapSetup.getForkedSushiswapRouter();

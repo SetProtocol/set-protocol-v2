@@ -102,4 +102,8 @@ export class CurveFixture {
   public async getForkedCurveStEthStableswapPool(): Promise<CurveStableswapMock> {
     return await this._deployer.external.getCurveStEthStableswapMock();
   }
+
+  public async getForkedWethStethCurveStableswapPool(): Promise<CurveStableswapMock> {
+    return await this._deployer.external.getCurveWethStethStableswapMock();
+  }
 }

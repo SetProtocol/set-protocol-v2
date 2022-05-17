@@ -1,5 +1,5 @@
 require("dotenv").config();
-require('hardhat-contract-sizer');
+require("hardhat-contract-sizer");
 
 import chalk from "chalk";
 import { HardhatUserConfig } from "hardhat/config";
@@ -12,7 +12,7 @@ import "./tasks";
 
 const forkingConfig = {
   url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
-  blockNumber: 12198000,
+  blockNumber: 14792479,
 };
 
 const mochaConfig = {
