@@ -485,7 +485,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         if(IERC20(_sendToken).allowance(address(_setToken), address(_fCashPosition)) < _maxAssetAmount) {
             // TODO: Review if we want to only approve "_maxAssetAmount" or keep it at maxUint256
-            bytes memory approveCallData = abi.encodeWithSignature("approve(address,uint256)", address(_fCashPosition), type(uint256).max);
+            bytes memory approveCallData = abi.encodeWithSelector(_sendToken.approve.selector, address(_fCashPosition), type(uint256).max);
             _setToken.invoke(address(_sendToken), 0, approveCallData);
         }
     }
@@ -504,10 +504,10 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         uint32 minImpliedRate = 0;
 
-        string memory functionSignature =  
-            _fromUnderlying ? "mintViaUnderlying(uint256,uint88,address,uint32)": "mintViaAsset(uint256,uint88,address,uint32)";
-        bytes memory mintCallData = abi.encodeWithSignature(
-            functionSignature,
+        bytes4 functionSelector = 
+            _fromUnderlying ? _fCashPosition.mintViaUnderlying.selector : _fCashPosition.mintViaAsset.selector;
+        bytes memory mintCallData = abi.encodeWithSelector(
+            functionSelector,
             _maxAssetAmount,
             uint88(_fCashAmount),
             address(_setToken),
@@ -530,10 +530,10 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         uint32 maxImpliedRate = type(uint32).max;
 
-        string memory functionSignature =  
-            _toUnderlying ? "redeemToUnderlying(uint256,address,uint32)": "redeemToAsset(uint256,address,uint32)";
-        bytes memory redeemCallData = abi.encodeWithSignature(
-            functionSignature,
+        bytes4 functionSelector =
+            _toUnderlying ? _fCashPosition.redeemToUnderlying.selector : _fCashPosition.redeemToAsset.selector;
+        bytes memory redeemCallData = abi.encodeWithSelector(
+            functionSelector,
             _fCashAmount,
             address(_setToken),
             maxImpliedRate
