@@ -15,7 +15,7 @@ import {
 } from "@utils/test/index";
 
 import { SystemFixture } from "@utils/fixtures";
-import { CurveStEthExchangeAdapter, CurveStEthStableswapMock } from "@utils/contracts";
+import { CurveStEthExchangeAdapter, CurveStableswapMock } from "@utils/contracts";
 
 import { StandardTokenMock } from "@typechain/StandardTokenMock";
 
@@ -29,7 +29,7 @@ describe("CurveStEthExchangeAdapter", () => {
   let deployer: DeployHelper;
   let setup: SystemFixture;
 
-  let stableswap: CurveStEthStableswapMock;
+  let stableswap: CurveStableswapMock;
   let adapter: CurveStEthExchangeAdapter;
 
   before(async () => {
@@ -42,7 +42,7 @@ describe("CurveStEthExchangeAdapter", () => {
     stEth = await deployer.mocks.deployTokenMock(owner.address);
     await stEth.connect(whale.wallet).mint(whale.address, ether(100));
 
-    stableswap = await deployer.mocks.deployCurveStEthStableswapMock([ETH_ADDRESS, stEth.address]);
+    stableswap = await deployer.mocks.deployCurveStableswapMock([ETH_ADDRESS, stEth.address]);
 
     adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
       setup.weth.address,
@@ -101,7 +101,7 @@ describe("CurveStEthExchangeAdapter", () => {
 
     context("when stableswap pool does not support ETH in index 0", async () => {
       beforeEach(async () => {
-        const mock = await deployer.mocks.deployCurveStEthStableswapMock([stEth.address, stEth.address]);
+        const mock = await deployer.mocks.deployCurveStableswapMock([stEth.address, stEth.address]);
         subjectExchangeAddress = mock.address;
       });
 
@@ -112,7 +112,7 @@ describe("CurveStEthExchangeAdapter", () => {
 
     context("when stableswap pool does not support stETH in index 1", async () => {
       beforeEach(async () => {
-        const mock = await deployer.mocks.deployCurveStEthStableswapMock([ETH_ADDRESS, ETH_ADDRESS]);
+        const mock = await deployer.mocks.deployCurveStableswapMock([ETH_ADDRESS, ETH_ADDRESS]);
         subjectExchangeAddress = mock.address;
       });
 

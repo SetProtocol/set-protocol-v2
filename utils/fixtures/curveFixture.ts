@@ -5,7 +5,7 @@ import { Signer } from "ethers";
 import { CurvePoolERC20 } from "../../typechain/CurvePoolERC20";
 import { Stableswap } from "../../typechain/Stableswap";
 import { CurveDeposit } from "../../typechain/CurveDeposit";
-import { CurveStEthStableswapMock } from "../../typechain/CurveStEthStableswapMock";
+import { CurveStableswapMock } from "../../typechain/CurveStableswapMock";
 import { CRVToken } from "../../typechain/CRVToken";
 import { GaugeController } from "../../typechain/GaugeController";
 import { Minter } from "../../typechain/Minter";
@@ -99,7 +99,11 @@ export class CurveFixture {
     return gauge;
   }
 
-  public async getForkedCurveStEthStableswapPool(): Promise<CurveStEthStableswapMock> {
+  public async getForkedCurveStEthStableswapPool(): Promise<CurveStableswapMock> {
     return await this._deployer.external.getCurveStEthStableswapMock();
+  }
+
+  public async getForkedWethStethCurveStableswapPool(): Promise<CurveStableswapMock> {
+    return await this._deployer.external.getCurveWethStethStableswapMock();
   }
 }

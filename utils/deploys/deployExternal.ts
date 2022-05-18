@@ -18,7 +18,7 @@ import {
 } from "./../contracts/compound";
 import {
   WETH9,
-  DelegateRegistry
+  DelegateRegistry,
 } from "./../contracts";
 
 import { Address } from "./../types";
@@ -40,7 +40,7 @@ import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/
 import {
   CurveDeposit,
   CurvePoolERC20,
-  CurveStEthStableswapMock,
+  CurveStableswapMock,
   CRVToken,
   GaugeController,
   LiquidityGauge,
@@ -50,7 +50,7 @@ import {
 } from "../contracts/curve";
 
 import { CurvePoolERC20__factory } from "../../typechain/factories/CurvePoolERC20__factory";
-import { CurveStEthStableswapMock__factory } from "../../typechain/factories/CurveStEthStableswapMock__factory";
+import { CurveStableswapMock__factory } from "../../typechain/factories/CurveStableswapMock__factory";
 import { Stableswap__factory } from "../../typechain/factories/Stableswap__factory";
 import { CurveDeposit__factory } from "../../typechain/factories/CurveDeposit__factory";
 import { CRVToken__factory } from "../../typechain/factories/CRVToken__factory";
@@ -494,9 +494,16 @@ export default class DeployExternalContracts {
     return await new CurvePoolERC20__factory(this._deployerSigner).deploy(_name, _symbol, _decimals, _supply);
   }
 
-  public async getCurveStEthStableswapMock(): Promise<CurveStEthStableswapMock> {
-    return await CurveStEthStableswapMock__factory.connect(
+  public async getCurveStEthStableswapMock(): Promise<CurveStableswapMock> {
+    return await CurveStableswapMock__factory.connect(
       dependencies.CURVE_ETH_STETH_EXCHANGE[1],
+      this._deployerSigner
+    );
+  }
+
+  public async getCurveWethStethStableswapMock(): Promise<CurveStableswapMock> {
+    return await CurveStableswapMock__factory.connect(
+      dependencies.CURVE_WETH_STETH_EXCHANGE[1],
       this._deployerSigner
     );
   }
