@@ -767,7 +767,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 );
                               });
 
-                              it("should issue correct amount of set tokens", async () => {
+                              it(`should ${triggerAction} correct amount of set tokens`, async () => {
                                 const setTokenBalanceBefore = await setToken.balanceOf(
                                   caller.address,
                                 );
@@ -783,48 +783,32 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                               });
                             }
 
-                            it("Removes wrappedFCash from component list", async () => {
-                              expect(await setToken.isComponent(wrappedFCashInstance.address)).to.be
-                                .true;
-                              await subject();
-                              expect(await setToken.isComponent(wrappedFCashInstance.address)).to.be
-                                .false;
-                            });
+                            it("Adjusts balances and positions correctly", async () => {
+                              const outputTokenBalanceBefore = await outputToken.balanceOf(subjectSetToken);
 
-                            it("Adds outputToken to component list", async () => {
-                              expect(await setToken.isComponent(outputToken.address)).to.be.false;
                               await subject();
+
+                              // Check that fcash balance is 0 after
+                              const fCashBalanceAfter = await wrappedFCashInstance.balanceOf(
+                                subjectSetToken,
+                              );
+                              expect(fCashBalanceAfter).to.eq(0);
+
+                              // Check that fcash was removed from component list
+                              expect(await setToken.isComponent(wrappedFCashInstance.address)).to.be .false;
+
+                              // Check that output token was added to component list
                               expect(await setToken.isComponent(outputToken.address)).to.be.true;
-                            });
 
-                            it("Afterwards setToken should have no fCash balance anymore", async () => {
-                              const balanceBefore = await wrappedFCashInstance.balanceOf(
-                                subjectSetToken,
-                              );
-                              expect(balanceBefore).to.be.gt(0);
-                              await subject();
-                              const balanceAfter = await wrappedFCashInstance.balanceOf(
-                                subjectSetToken,
-                              );
-                              expect(balanceAfter).to.eq(0);
-                            });
+                              // Check that output balance is positive afterwards
+                              const outputTokenBalanceAfter = await outputToken.balanceOf(subjectSetToken);
+                              expect(outputTokenBalanceAfter.sub(outputTokenBalanceBefore)).to.be.gt(0);
 
-                            it("Afterwards setToken should have received asset token", async () => {
-                              const balanceBefore = await outputToken.balanceOf(subjectSetToken);
-                              await subject();
-                              const balanceAfter = await outputToken.balanceOf(subjectSetToken);
-                              expect(balanceAfter.sub(balanceBefore)).to.be.gt(0);
-                            });
-
-                            it("Afterwards setToken should have positive outputToken position", async () => {
-                              const positionBefore = await setToken.getDefaultPositionRealUnit(
+                              // Check that output token position is positive afterwards
+                              const outputTokenPositionAfter = await setToken.getDefaultPositionRealUnit(
                                 outputToken.address,
                               );
-                              await subject();
-                              const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                outputToken.address,
-                              );
-                              expect(positionAfter.sub(positionBefore)).to.be.gt(0);
+                              expect(outputTokenPositionAfter).to.be.gt(0);
                             });
                           });
                         });
