@@ -797,12 +797,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                               expect(await setToken.isComponent(outputToken.address)).to.be.true;
                             });
 
-                            it("Adds asset token to component list", async () => {
-                              expect(await setToken.isComponent(outputToken.address)).to.be.false;
-                              await subject();
-                              expect(await setToken.isComponent(outputToken.address)).to.be.true;
-                            });
-
                             it("Afterwards setToken should have no fCash balance anymore", async () => {
                               const balanceBefore = await wrappedFCashInstance.balanceOf(
                                 subjectSetToken,
