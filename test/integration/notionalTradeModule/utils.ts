@@ -4,6 +4,7 @@ import { INotionalProxy, WrappedfCash, WrappedfCashFactory } from "@utils/contra
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { IERC20 } from "@typechain/IERC20";
 import { ICErc20 } from "@typechain/ICErc20";
+import { ICEth } from "@typechain/ICEth";
 import DeployHelper from "@utils/deploys";
 import { NUpgradeableBeacon__factory } from "@typechain/factories/NUpgradeableBeacon__factory";
 
@@ -12,6 +13,8 @@ const NOTIONAL_PROXY_ADDRESS = "0x1344A36A1B56144C3Bc62E7757377D288fDE0369";
 const batchActionArtifact = require("../../../external/abi/notional/BatchAction.json");
 const erc1155ActionArtifact = require("../../../external/abi/notional/ERC1155Action.json");
 const routerArtifact = require("../../../external/abi/notional/Router.json");
+
+const cEthAddress = "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5";
 
 async function impersonateAccount(address: string) {
   await network.provider.request({
@@ -128,7 +131,7 @@ export async function mintWrappedFCash(
   underlyingToken: IERC20,
   underlyingTokenAmount: BigNumber,
   fCashAmount: BigNumber,
-  assetToken: ICErc20,
+  assetToken: ICErc20 | ICEth,
   wrappedFCashInstance: WrappedfCash,
   useUnderlying: boolean = false,
   receiver: string | undefined = undefined,
@@ -142,9 +145,15 @@ export async function mintWrappedFCash(
     inputToken = underlyingToken;
     depositAmountExternal = underlyingTokenAmount;
   } else {
-    await underlyingToken.connect(signer).approve(assetToken.address, underlyingTokenAmount);
     const assetTokenBalanceBefore = await assetToken.balanceOf(signer.address);
-    await assetToken.mint(underlyingTokenAmount);
+    if (assetToken.address == cEthAddress) {
+      assetToken = assetToken as ICEth;
+      await assetToken.connect(signer).mint({ value: underlyingTokenAmount });
+    } else {
+      assetToken = assetToken as ICErc20;
+      await underlyingToken.connect(signer).approve(assetToken.address, underlyingTokenAmount);
+      await assetToken.connect(signer).mint(underlyingTokenAmount);
+    }
     const assetTokenBalanceAfter = await assetToken.balanceOf(signer.address);
     depositAmountExternal = assetTokenBalanceAfter.sub(assetTokenBalanceBefore);
     inputToken = assetToken;
