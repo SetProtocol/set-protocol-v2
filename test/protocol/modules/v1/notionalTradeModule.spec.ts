@@ -1120,8 +1120,7 @@ describe("NotionalTradeModule", () => {
                             [
                               "wrong currencyId",
                               "wrong maturity",
-                              "reverted getCurrencyId",
-                              "reverted getMaturity",
+                              "reverted getDecodedID",
                               "reverted computeAddress",
                               "negative unit",
                             ].forEach(reason => {
@@ -1131,10 +1130,8 @@ describe("NotionalTradeModule", () => {
                                     await wrappedfCashMock.initialize(420, maturity);
                                   } else if (reason == "wrong maturity") {
                                     await wrappedfCashMock.initialize(currencyId, 420);
-                                  } else if (reason == "reverted getCurrencyId") {
-                                    await wrappedfCashMock.setRevertCurrencyId(true);
-                                  } else if (reason == "reverted getMaturity") {
-                                    await wrappedfCashMock.setRevertMaturity(true);
+                                  } else if (reason == "reverted getDecodedID") {
+                                    await wrappedfCashMock.setRevertDecodedID(true);
                                   } else if (reason == "reverted computeAddress") {
                                     await wrappedfCashFactoryMock.setRevertComputeAddress(true);
                                   } else if (reason == "negative unit") {

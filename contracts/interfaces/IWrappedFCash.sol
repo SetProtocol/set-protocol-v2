@@ -43,14 +43,8 @@ interface IWrappedfCash {
     /// @notice Returns the underlying fCash ID of the token
     function getfCashId() external view returns (uint256);
 
-    /// @notice Returns the underlying fCash maturity of the token
-    function getMaturity() external view returns (uint40 maturity);
-
     /// @notice True if the fCash has matured, assets mature exactly on the block time
     function hasMatured() external view returns (bool);
-
-    /// @notice Returns the underlying fCash currency
-    function getCurrencyId() external view returns (uint16 currencyId);
 
     /// @notice Returns the components of the fCash idd
     function getDecodedID() external view returns (uint16 currencyId, uint40 maturity);

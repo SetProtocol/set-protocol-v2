@@ -130,7 +130,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         public
         ModuleBase(_controller)
     {
-        // TODO: Review if we want to make this address mutable. (made it immutable initially to be consistent with other modules)
         wrappedfCashFactory = _wrappedfCashFactory;
     }
 
@@ -610,7 +609,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             }
         }
 
-        // TODO: Looping twice just to get the array length for initialization feels inefficient, review if there is a better way.
         fCashPositions = new address[](numFCashPositions);
 
         uint j;
@@ -634,26 +632,16 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         if(!_fCashPosition.isContract()) {
             return false;
         }
-        uint16 currencyId;
-        try IWrappedfCash(_fCashPosition).getCurrencyId() returns(uint16 _currencyId){
-            currencyId = _currencyId;
+
+        try IWrappedfCash(_fCashPosition).getDecodedID() returns(uint16 _currencyId, uint40 _maturity){
+            try wrappedfCashFactory.computeAddress(_currencyId, _maturity) returns(address _computedAddress){
+                return _fCashPosition == _computedAddress;
+            } catch {
+                return false;
+            }
         } catch {
             return false;
         }
-
-        uint40 maturity;
-        try IWrappedfCash(_fCashPosition).getMaturity() returns(uint40 _maturity){
-            maturity = _maturity;
-        } catch {
-            return false;
-        }
-
-        try wrappedfCashFactory.computeAddress(currencyId, maturity) returns(address _computedAddress){
-            return _fCashPosition == _computedAddress;
-        } catch {
-            return false;
-        }
-
     }
 
     /**
