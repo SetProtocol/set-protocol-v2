@@ -38,17 +38,17 @@ import {
 
 const expect = getWaffleExpect();
 
-type AssetTokenName = "cDai" | "cUsdc";
-type UnderlyingTokenName = "dai" | "usdc";
 
-const tokenAddresses: Partial<Record<AssetTokenName, string>> = {
+const tokenAddresses: Record<string, string> = {
   cDai: "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
   cUsdc: "0x39AA39c021dfbaE8faC545936693aC917d5E7563",
+  // cWeth: "0x9813ECB6102a117BDbd85AC268D3D5E7ab47523C",
 };
 
-const underlyingTokens: Record<AssetTokenName, UnderlyingTokenName> = {
+const underlyingTokens: Record<string, string> = {
   cDai: "dai",
   cUsdc: "usdc",
+  cWeth: "weth",
 };
 
 describe("Notional trade module integration [ @forked-mainnet ]", () => {
@@ -248,14 +248,8 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   caller = manager.wallet;
                 });
 
-                [
-                  "buying",
-                  // "selling"
-                ].forEach(tradeDirection => {
-                  [
-                    "underlyingToken",
-                    // "assetToken"
-                  ].forEach(tokenType => {
+                ["buying", "selling"].forEach(tradeDirection => {
+                  ["underlyingToken", "assetToken"].forEach(tokenType => {
                     describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                       let sendTokenType: string;
                       let receiveTokenType: string;
@@ -577,9 +571,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                 });
 
                 describe("#moduleIssue/RedeemHook", () => {
-                  [
-                    // "issue", "redeem", "manualTrigger"
-                  ].forEach(triggerAction => {
+                  ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
                     describe(`When hook is triggered by ${triggerAction}`, () => {
                       let subjectSetToken: string;
                       let subjectReceiver: string;
