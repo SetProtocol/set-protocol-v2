@@ -44,6 +44,8 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     uint256 private redeemTokenReturned;
     uint256 private mintTokenSpent;
 
+    address internal constant ETH_ADDRESS = address(0);
+
     constructor (IERC20 _assetToken, IERC20 _underlyingToken) public ERC20("FCashMock", "FCM") {
         assetToken = _assetToken;
         underlyingToken = _underlyingToken;
@@ -123,13 +125,13 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     /// @notice Returns the token and precision of the token that this token settles
     /// to. For example, fUSDC will return the USDC token address and 1e6. The zero
     /// address will represent ETH.
-    function getUnderlyingToken() external override view returns (IERC20, int256) {
+    function getUnderlyingToken() public override view returns (IERC20, int256) {
         return (underlyingToken, underlyingPrecision);
     }
 
     /// @notice Returns the asset token which the fCash settles to. This will be an interest
     /// bearing token like a cToken or aToken.
-    function getAssetToken() external override view returns (IERC20, int256, TokenType) {
+    function getAssetToken() public override view returns (IERC20, int256, TokenType) {
         return (assetToken, assetPrecision, tokenType);
     }
 
@@ -147,6 +149,15 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     function setRevertDecodedID(bool _revertDecodedID) external{
         revertDecodedID = _revertDecodedID;
+    }
+
+    function getToken(bool useUnderlying) public view override returns (IERC20 token, bool isETH) {
+        if (useUnderlying) {
+            (token, /* */) = getUnderlyingToken();
+        } else {
+            (token, /* */, /* */) = getAssetToken();
+        }
+        isETH = address(token) == ETH_ADDRESS;
     }
 
 

@@ -385,7 +385,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
                 if(_isWrappedFCash(component)) {
                     IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(component);
                     if(fCashPosition.hasMatured()) {
-                        IERC20 receiveToken = _getPaymentToken(fCashPosition, toUnderlying);
+                        (IERC20 receiveToken,) = fCashPosition.getToken(toUnderlying);
                         uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
                         _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
                     }
@@ -560,20 +560,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
     }
 
-    /**
-     * @dev Returns underlying or asset token address for given fCashPosition based on _getUnderlying flag
-     */
-    function _getPaymentToken(
-        IWrappedfCashComplete _fCashPosition,
-        bool _getUnderlying
-    )
-    internal
-    view
-    returns(IERC20 paymentToken)
-    {
-        (IERC20 underlyingToken, IERC20 assetToken) = _getUnderlyingAndAssetTokens(_fCashPosition);
-         paymentToken = _getUnderlying ? underlyingToken : assetToken;
-    }
 
     /**
      * @dev Returns both underlying and asset token address for given fCash position

@@ -60,6 +60,8 @@ interface IWrappedfCash {
     /// @notice Returns the asset token which the fCash settles to. This will be an interest
     /// bearing token like a cToken or aToken.
     function getAssetToken() external view returns (IERC20 assetToken, int256 assetPrecision, TokenType tokenType);
+
+    function getToken(bool useUnderlying) external view returns (IERC20 token, bool isETH);
 }
 
 
