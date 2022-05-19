@@ -1,7 +1,7 @@
 import "module-alias/register";
 import { BigNumber } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
@@ -44,7 +44,7 @@ describe("NotionalTradeModule", () => {
   let compoundSetup: CompoundFixture;
   let cTokenInitialMantissa: BigNumber;
 
-  beforeEach(async () => {
+  before(async () => {
     [owner, manager] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -60,8 +60,17 @@ describe("NotionalTradeModule", () => {
 
   describe("when factory mock is deployed", async () => {
     let wrappedfCashFactoryMock: WrappedfCashFactoryMock;
-    beforeEach(async () => {
+    let snapshotId: number;
+    before(async () => {
       wrappedfCashFactoryMock = await deployer.mocks.deployWrappedfCashFactoryMock();
+    });
+
+    beforeEach(async () => {
+      snapshotId = await network.provider.send("evm_snapshot", []);
+    });
+
+    afterEach(async () => {
+      await network.provider.send("evm_revert", [snapshotId]);
     });
 
     describe("#constructor", async () => {
