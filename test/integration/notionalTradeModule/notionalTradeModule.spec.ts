@@ -274,9 +274,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   caller = manager.wallet;
                 });
 
-                [
-                  "buying", "selling"
-                ].forEach(tradeDirection => {
+                ["buying", "selling"].forEach(tradeDirection => {
                   ["underlyingToken", "assetToken"].forEach(tokenType => {
                     describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                       let sendTokenType: string;
@@ -527,29 +525,25 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                   totalSetSupplyEther,
                                 );
                               } else {
+                                const precision = 10 ** 9;
                                 receiveTokenAmountNormalized = BigNumber.from(
                                   Math.floor(
-                                    receiveTokenAmount.mul(1000).div(totalSetSupplyEther).toNumber() /
-                                      1000,
+                                    receiveTokenAmount
+                                      .mul(precision)
+                                      .div(totalSetSupplyEther)
+                                      .toNumber() / precision,
                                   ),
                                 );
                               }
 
-                              if (
-                                receiveTokenType == "underlyingToken" ||
-                                assetTokenName == "cEth"
-                              ) {
-                                // TODO: Review why there is some deviation
-                                const allowedDeviationPercent = 1;
-                                expect(receiveTokenAmountNormalized).to.be.gte(
-                                  positionChange.mul(100 - allowedDeviationPercent).div(100),
-                                );
-                                expect(receiveTokenAmountNormalized).to.be.lte(
-                                  positionChange.mul(100 + allowedDeviationPercent).div(100),
-                                );
-                              } else {
-                                expect(receiveTokenAmountNormalized).to.eq(positionChange);
-                              }
+                              // TODO: Review why there is some deviation
+                              const allowedDeviation = receiveTokenAmountNormalized.div(10000);
+                              expect(receiveTokenAmountNormalized).to.be.gte(
+                                positionChange.sub(allowedDeviation),
+                              );
+                              expect(receiveTokenAmountNormalized).to.be.lte(
+                                positionChange.add(allowedDeviation),
+                              );
                             });
 
                             it("should adjust the components position of the sendToken correctly", async () => {
@@ -624,9 +618,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           .setRedeemToUnderlying(subjectSetToken, toUnderlying);
                         outputToken = redeemToken == "underlying" ? underlyingToken : assetToken;
                       });
-                      [
-                        "issue", "redeem", "manualTrigger"
-                      ].forEach(triggerAction => {
+                      ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
                         describe(`When hook is triggered by ${triggerAction}`, () => {
                           let subjectSetToken: string;
                           let subjectReceiver: string;
