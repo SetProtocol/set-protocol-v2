@@ -110,10 +110,7 @@ describe("NotionalTradeModule", () => {
         );
       });
 
-      [
-        "dai",
-        "weth",
-      ].forEach(underlyingTokenName => {
+      ["dai", "weth"].forEach(underlyingTokenName => {
         describe(`When underlying token is ${underlyingTokenName}`, () => {
           let assetToken: CERc20;
           let underlyingToken: StandardTokenMock;
@@ -950,7 +947,7 @@ describe("NotionalTradeModule", () => {
                     let caller: SignerWithAddress;
                     beforeEach(() => {
                       subjectSetToken = setToken.address;
-                      subjectAmount = ethers.utils.parseEther("1");
+                      subjectAmount = ethers.utils.parseUnits("1", 8);
                       caller = owner.wallet;
                       subjectReceiver = caller.address;
                     });
