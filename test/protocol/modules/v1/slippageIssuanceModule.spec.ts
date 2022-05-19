@@ -22,6 +22,7 @@ import {
 } from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
+import { getRandomAddress } from "@utils/common";
 
 const expect = getWaffleExpect();
 
@@ -1142,6 +1143,46 @@ describe("SlippageIssuanceModule", () => {
         it("should revert", async () => {
           await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
         });
+      });
+    });
+
+    describe.only("#issue", async () => {
+      let subjectSetToken: Address;
+      let subjectQuantity: BigNumber;
+      let subjectTo: Address;
+
+      beforeEach(async () => {
+        subjectSetToken = await getRandomAddress();
+        subjectQuantity = ether(1);
+        subjectTo = await getRandomAddress();
+      });
+
+      async function subject(): Promise<any> {
+        return await slippageIssuance.issue(subjectSetToken, subjectQuantity, subjectTo);
+      }
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Call issueWithSlippage instead");
+      });
+    });
+
+    describe.only("#redeem", async () => {
+      let subjectSetToken: Address;
+      let subjectQuantity: BigNumber;
+      let subjectTo: Address;
+
+      beforeEach(async () => {
+        subjectSetToken = await getRandomAddress();
+        subjectQuantity = ether(1);
+        subjectTo = await getRandomAddress();
+      });
+
+      async function subject(): Promise<any> {
+        return await slippageIssuance.redeem(subjectSetToken, subjectQuantity, subjectTo);
+      }
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Call redeemWithSlippage instead");
       });
     });
   });

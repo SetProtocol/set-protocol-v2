@@ -40,9 +40,21 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
 
     constructor(IController _controller) public DebtIssuanceModule(_controller) {}
 
-    // TODO: Override issue and redeem?
-
     /* ============ External Functions ============ */
+
+    /**
+     * @dev Reverts upon calling. Call `issueWithSlippage` instead.
+     */
+    function issue(ISetToken /*_setToken*/, uint256 /*_quantity*/, address /*_to*/) external override(DebtIssuanceModule) {
+        revert("Call issueWithSlippage instead");
+    }
+
+    /**
+     * @dev Reverts upon calling. Call `redeemWithSlippage` instead.
+     */
+    function redeem(ISetToken /*_setToken*/, uint256 /*_quantity*/, address /*_to*/) external override(DebtIssuanceModule) {
+        revert("Call redeemWithSlippage instead");
+    }
 
     /**
      * Deposits components to the SetToken, replicates any external module component positions and mints
