@@ -425,7 +425,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         bool fromUnderlying = _isUnderlying(_fCashPosition, _sendToken);
 
 
-        _approveIfNecessary(_setToken, _fCashPosition, _sendToken, _maxSendAmount);
+        _approve(_setToken, _fCashPosition, _sendToken, _maxSendAmount);
 
         uint256 preTradeSendTokenBalance = _sendToken.balanceOf(address(_setToken));
         uint256 preTradeReceiveTokenBalance = _fCashPosition.balanceOf(address(_setToken));
@@ -485,7 +485,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Approve the given wrappedFCash instance to spend the setToken's sendToken 
      */
-    function _approveIfNecessary(
+    function _approve(
         ISetToken _setToken,
         IWrappedfCashComplete _fCashPosition,
         IERC20 _sendToken,
@@ -494,8 +494,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     internal
     {
         if(IERC20(_sendToken).allowance(address(_setToken), address(_fCashPosition)) < _maxAssetAmount) {
-            // TODO: Review if we want to only approve "_maxAssetAmount" or keep it at maxUint256
-            bytes memory approveCallData = abi.encodeWithSelector(_sendToken.approve.selector, address(_fCashPosition), type(uint256).max);
+            bytes memory approveCallData = abi.encodeWithSelector(_sendToken.approve.selector, address(_fCashPosition), _maxAssetAmount);
             _setToken.invoke(address(_sendToken), 0, approveCallData);
         }
     }
