@@ -473,8 +473,8 @@ export default class DeployMocks {
     return await new BytesArrayUtilsMock__factory(this._deployerSigner).deploy();
   }
 
-  public async deployWrappedfCashMock(assetToken: Address, underlyingToken: Address): Promise<WrappedfCashMock> {
-    return await new WrappedfCashMock__factory(this._deployerSigner).deploy(assetToken, underlyingToken);
+  public async deployWrappedfCashMock(assetToken: Address, underlyingToken: Address, weth: Address): Promise<WrappedfCashMock> {
+    return await new WrappedfCashMock__factory(this._deployerSigner).deploy(assetToken, underlyingToken, weth);
   }
 
   public async deployWrappedfCashFactoryMock(): Promise<WrappedfCashFactoryMock> {

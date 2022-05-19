@@ -39,6 +39,8 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     int256 private assetPrecision;
     TokenType private tokenType;
 
+    IERC20 private weth;
+
     bool private revertDecodedID;
 
     uint256 private redeemTokenReturned;
@@ -46,9 +48,10 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     address internal constant ETH_ADDRESS = address(0);
 
-    constructor (IERC20 _assetToken, IERC20 _underlyingToken) public ERC20("FCashMock", "FCM") {
+    constructor (IERC20 _assetToken, IERC20 _underlyingToken, IERC20 _weth) public ERC20("FCashMock", "FCM") {
         assetToken = _assetToken;
         underlyingToken = _underlyingToken;
+        weth = _weth;
     }
 
     function initialize(uint16 _currencyId, uint40 _maturity) external override {
@@ -75,7 +78,11 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         uint32 /* minImpliedRate */
     ) external override{
         uint256 underlyingTokenAmount = mintTokenSpent == 0 ? depositAmountExternal : mintTokenSpent;
-        underlyingToken.transferFrom(msg.sender, address(this), underlyingTokenAmount);
+        if(address(underlyingToken) == ETH_ADDRESS) {
+            weth.transferFrom(msg.sender, address(this), underlyingTokenAmount);
+        } else {
+            underlyingToken.transferFrom(msg.sender, address(this), underlyingTokenAmount);
+        }
         _mint(receiver, fCashAmount);
     }
 
@@ -97,7 +104,11 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     ) external override {
         _burn(msg.sender, amount);
         uint256 underlyingTokenAmount = redeemTokenReturned == 0 ? amount : redeemTokenReturned;
-        underlyingToken.transfer(receiver, underlyingTokenAmount);
+        if(address(underlyingToken) == ETH_ADDRESS) {
+            weth.transfer(receiver, underlyingTokenAmount);
+        } else {
+            underlyingToken.transfer(receiver, underlyingTokenAmount);
+        }
     }
 
     /// @notice Returns the underlying fCash ID of the token
