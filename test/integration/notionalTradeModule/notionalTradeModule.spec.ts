@@ -42,7 +42,7 @@ const expect = getWaffleExpect();
 const tokenAddresses: Record<string, string> = {
   cDai: "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
   cUsdc: "0x39AA39c021dfbaE8faC545936693aC917d5E7563",
-  // cEth: "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5",
+  cEth: "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5",
 };
 
 const underlyingTokens: Record<string, string> = {
