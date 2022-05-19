@@ -721,8 +721,8 @@ export default class DeployExternalContracts {
   }
 
   // Notional
-  public async deployWrappedfCash(notionalProxy: Address): Promise<WrappedfCash> {
-    return await new WrappedfCash__factory(this._deployerSigner).deploy(notionalProxy);
+  public async deployWrappedfCash(notionalProxy: Address, weth: Address): Promise<WrappedfCash> {
+    return await new WrappedfCash__factory(this._deployerSigner).deploy(notionalProxy, weth);
   }
 
   public async deployWrappedfCashFactory(beacon: Address): Promise<WrappedfCashFactory> {

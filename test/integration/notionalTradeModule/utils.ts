@@ -111,9 +111,10 @@ export async function deployWrappedfCashInstance(
   return wrappedFCashInstance;
 }
 
-export async function deployWrappedfCashFactory(deployer: DeployHelper, owner: SignerWithAddress) {
+export async function deployWrappedfCashFactory(deployer: DeployHelper, owner: SignerWithAddress, wethAddress: string) {
   const wrappedfCashImplementation = await deployer.external.deployWrappedfCash(
     NOTIONAL_PROXY_ADDRESS,
+    wethAddress,
   );
 
   const wrappedfCashBeacon = await new NUpgradeableBeacon__factory(owner).deploy(

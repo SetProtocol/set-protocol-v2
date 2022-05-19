@@ -43,6 +43,9 @@ import { ModuleBase } from "../../lib/ModuleBase.sol";
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using Address for address;
 
+    // This value has to be the same as the one used in wrapped-fcash Constants
+    address internal constant ETH_ADDRESS = address(0);
+
     /* ============ Events ============ */
 
     /**
@@ -115,6 +118,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     // Factory that is used to deploy and check fCash wrapper contracts
     IWrappedfCashFactory public immutable wrappedfCashFactory;
+    IERC20 public immutable weth;
 
     /* ============ Constructor ============ */
 
@@ -125,12 +129,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      */
     constructor(
         IController _controller,
-        IWrappedfCashFactory _wrappedfCashFactory
+        IWrappedfCashFactory _wrappedfCashFactory,
+        IERC20 _weth
+
     )
         public
         ModuleBase(_controller)
     {
         wrappedfCashFactory = _wrappedfCashFactory;
+        weth = _weth;
     }
 
     /* ============ External Functions ============ */
@@ -386,6 +393,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
                     IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(component);
                     if(fCashPosition.hasMatured()) {
                         (IERC20 receiveToken,) = fCashPosition.getToken(toUnderlying);
+                        if(address(receiveToken) == ETH_ADDRESS) {
+                            receiveToken = weth;
+                        }
                         uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
                         _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
                     }
@@ -570,6 +580,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     returns(IERC20 underlyingToken, IERC20 assetToken)
     {
         (underlyingToken,) = _fCashPosition.getUnderlyingToken();
+        if(address(underlyingToken) == ETH_ADDRESS) {
+            underlyingToken = weth;
+        }
         (assetToken,,) = _fCashPosition.getAssetToken();
     }
 

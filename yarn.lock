@@ -13823,9 +13823,9 @@ wrap-ansi@^7.0.0:
     string-width "^4.1.0"
     strip-ansi "^6.0.0"
 
-"wrapped-fcash@https://github.com/ckoopmann/wrapped-fcash.git#59e0ad4a66addd909c3f033a970646355c04bc6f":
+"wrapped-fcash@https://github.com/ckoopmann/wrapped-fcash.git#6b7d870c9b750aa343f0405f3543c9bbb0e3cdfc":
   version "1.0.0"
-  resolved "https://github.com/ckoopmann/wrapped-fcash.git#59e0ad4a66addd909c3f033a970646355c04bc6f"
+  resolved "https://github.com/ckoopmann/wrapped-fcash.git#6b7d870c9b750aa343f0405f3543c9bbb0e3cdfc"
   dependencies:
     dotenv "^10.0.0"
 

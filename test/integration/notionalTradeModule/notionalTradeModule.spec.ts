@@ -99,7 +99,11 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
           let wrappedFCashFactory: WrappedfCashFactory;
 
           before(async () => {
-            wrappedFCashFactory = await deployWrappedfCashFactory(deployer, owner.wallet);
+            wrappedFCashFactory = await deployWrappedfCashFactory(
+              deployer,
+              owner.wallet,
+              tokens.weth.address,
+            );
             ({ currencyId, maturity } = await getCurrencyIdAndMaturity(assetTokenAddress, 0));
             wrappedFCashInstance = await deployWrappedfCashInstance(
               wrappedFCashFactory,
@@ -138,6 +142,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
                 setup.controller.address,
                 wrappedFCashFactory.address,
+                tokens.weth.address,
               );
               await setup.controller.addModule(notionalTradeModule.address);
 
@@ -274,8 +279,14 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   caller = manager.wallet;
                 });
 
-                ["buying", "selling"].forEach(tradeDirection => {
-                  ["underlyingToken", "assetToken"].forEach(tokenType => {
+                [
+                  "buying",
+                  "selling"
+                ].forEach(tradeDirection => {
+                  [
+                    "underlyingToken",
+                    "assetToken"
+                  ].forEach(tokenType => {
                     describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                       let sendTokenType: string;
                       let receiveTokenType: string;
@@ -525,7 +536,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                   totalSetSupplyEther,
                                 );
                               } else {
-                                const precision = 10 ** 9;
+                                const precision = 10 ** 3;
                                 receiveTokenAmountNormalized = BigNumber.from(
                                   Math.floor(
                                     receiveTokenAmount
@@ -595,7 +606,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                   const revertReason =
                                     sendTokenType == "underlyingToken" && assetTokenName == "cDai"
                                       ? "Dai/insufficient-balance"
-                                      : "ERC20";
+                                      : sendTokenType == "underlyingToken" &&
+                                        assetTokenName == "cEth"
+                                        ? "Insufficient cash"
+                                        : "ERC20";
                                   await expect(subject()).to.be.revertedWith(revertReason);
                                 });
                               });
@@ -618,7 +632,9 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           .setRedeemToUnderlying(subjectSetToken, toUnderlying);
                         outputToken = redeemToken == "underlying" ? underlyingToken : assetToken;
                       });
-                      ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
+                      [
+                        "issue", "redeem", "manualTrigger"
+                      ].forEach(triggerAction => {
                         describe(`When hook is triggered by ${triggerAction}`, () => {
                           let subjectSetToken: string;
                           let subjectReceiver: string;
