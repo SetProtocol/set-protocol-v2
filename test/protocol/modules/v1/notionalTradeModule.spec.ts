@@ -725,7 +725,87 @@ describe("NotionalTradeModule", () => {
                             }
                           };
 
+                          describe("When paymentToken is not a registered component", () => {
+                            beforeEach(async () => {
+                              const fTokenQuantity = subjectMinReceiveQuantity;
+                              const sendTokenBalanceBefore = await sendToken.balanceOf(
+                                setToken.address,
+                              );
+                              const sendTokenPositionBefore = await setToken.getTotalComponentRealUnits(
+                                sendToken.address,
+                              );
+                              if (tradeDirection == "buying") {
+                                await notionalTradeModule
+                                  .connect(manager.wallet)
+                                  .mintFCashPosition(
+                                    setToken.address,
+                                    subjectCurrencyId,
+                                    subjectMaturity,
+                                    fTokenQuantity,
+                                    sendToken.address,
+                                    sendTokenBalanceBefore,
+                                  );
+                              } else {
+                                await notionalTradeModule
+                                  .connect(manager.wallet)
+                                  .redeemFCashPosition(
+                                    setToken.address,
+                                    subjectCurrencyId,
+                                    subjectMaturity,
+                                    sendTokenBalanceBefore,
+                                    receiveToken.address,
+                                    0,
+                                  );
+                              }
+                              await sendToken.transfer(setToken.address, subjectSendQuantity);
+
+                              const sendTokenBalanceAfter = await sendToken.balanceOf(
+                                setToken.address,
+                              );
+                              const sendTokenPositionAfter = await setToken.getTotalComponentRealUnits(
+                                sendToken.address,
+                              );
+                              const componentsAfter = await setToken.getComponents();
+
+                              console.log({
+                                sendToken: sendToken.address,
+                                sendTokenPositionBefore: sendTokenPositionBefore.toString(),
+                                sendTokenBalanceBefore: sendTokenBalanceBefore.toString(),
+                                sendTokenPositionAfter: sendTokenPositionAfter.toString(),
+                                sendTokenBalanceAfter: sendTokenBalanceAfter.toString(),
+                                componentsAfter,
+                              });
+
+                              expect(sendTokenBalanceAfter).to.be.gte(subjectSendQuantity);
+                              expect(sendTokenPositionAfter).to.eq(0);
+                            });
+                            it("setToken should receive receiver token", async () => {
+                              const receiveTokenBalanceBefore = await receiveToken.balanceOf(
+                                setToken.address,
+                              );
+                              await subject();
+                              const receiveTokenBalanceAfter = await receiveToken.balanceOf(
+                                setToken.address,
+                              );
+                              expect(
+                                receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
+                              ).to.be.gte(subjectMinReceiveQuantity);
+                            });
+                          });
+
                           if (tradeDirection == "buying") {
+                            it("setToken should receive receiver token", async () => {
+                              const receiveTokenBalanceBefore = await receiveToken.balanceOf(
+                                setToken.address,
+                              );
+                              await subject();
+                              const receiveTokenBalanceAfter = await receiveToken.balanceOf(
+                                setToken.address,
+                              );
+                              expect(
+                                receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
+                              ).to.be.gte(subjectMinReceiveQuantity);
+                            });
                             describe("When sendToken is neither underlying nor asset token", () => {
                               beforeEach(async () => {
                                 subjectSendToken = ethers.constants.AddressZero;
