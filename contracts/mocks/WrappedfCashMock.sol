@@ -67,7 +67,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         uint32 /* minImpliedRate */
     ) external override{
         uint256 assetTokenAmount = mintTokenSpent == 0 ? depositAmountExternal : mintTokenSpent;
-        assetToken.transferFrom(msg.sender, address(this), assetTokenAmount);
+        require(assetToken.transferFrom(msg.sender, address(this), assetTokenAmount), "WrappedfCashMock: Transfer failed");
         _mint(receiver, fCashAmount);
     }
 
@@ -78,11 +78,13 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         uint32 /* minImpliedRate */
     ) external override{
         uint256 underlyingTokenAmount = mintTokenSpent == 0 ? depositAmountExternal : mintTokenSpent;
+        bool transferSuccess;
         if(address(underlyingToken) == ETH_ADDRESS) {
-            weth.transferFrom(msg.sender, address(this), underlyingTokenAmount);
+            transferSuccess = weth.transferFrom(msg.sender, address(this), underlyingTokenAmount);
         } else {
-            underlyingToken.transferFrom(msg.sender, address(this), underlyingTokenAmount);
+            transferSuccess = underlyingToken.transferFrom(msg.sender, address(this), underlyingTokenAmount);
         }
+        require(transferSuccess, "WrappedfCashMock: Transfer failed");
         _mint(receiver, fCashAmount);
     }
 

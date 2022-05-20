@@ -748,9 +748,22 @@ describe("NotionalTradeModule", () => {
 
                             describe(`when too much ${tokenType} is spent`, () => {
                               beforeEach(async () => {
-                                await wrappedfCashMock.setMintTokenSpent(
-                                  subjectSendQuantity.mul(2),
+                                const oldSubjectSendQuantity = subjectSendQuantity;
+
+                                // Execute trade where we are spending much less than approved to create left-over allowance
+                                subjectSendQuantity = subjectSendQuantity.mul(3).div(2);
+                                await wrappedfCashMock.setMintTokenSpent(1);
+                                await subject();
+
+                                const spendAmount = oldSubjectSendQuantity.mul(5).div(4);
+                                const allowance = await sendToken.allowance(
+                                  setToken.address,
+                                  wrappedfCashMock.address,
                                 );
+                                expect(allowance).to.be.gte(spendAmount);
+                                await wrappedfCashMock.setMintTokenSpent(spendAmount);
+
+                                subjectSendQuantity = oldSubjectSendQuantity;
                               });
                               it("should revert", async () => {
                                 await expect(subject()).to.be.revertedWith("Overspent");
