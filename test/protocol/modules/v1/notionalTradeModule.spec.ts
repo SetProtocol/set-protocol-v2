@@ -624,7 +624,10 @@ describe("NotionalTradeModule", () => {
                       subjectMaturity = maturity;
                     });
 
-                    ["buying", "selling"].forEach(tradeDirection => {
+                    [
+                      "buying",
+                      // "selling"
+                    ].forEach(tradeDirection => {
                       ["underlyingToken", "assetToken"].forEach(tokenType => {
                         describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                           let sendTokenType: string;
@@ -767,6 +770,23 @@ describe("NotionalTradeModule", () => {
                               });
                               it("should revert", async () => {
                                 await expect(subject()).to.be.revertedWith("Overspent");
+                              });
+                            });
+
+                            describe("when swap fails due to insufficient allowance", () => {
+                              beforeEach(async () => {
+                                await wrappedfCashMock.setMintTokenSpent(
+                                  subjectSendQuantity.mul(2),
+                                );
+                              });
+                              it("should revert", async () => {
+                                const revertMessage =
+                                  tokenType == "assetToken"
+                                    ? "WrappedfCashMock: Transfer failed"
+                                    : underlyingTokenName == "dai"
+                                      ? "ERC20: transfer amount exceeds allowance"
+                                      : "Address: low-level call with value failed";
+                                await expect(subject()).to.be.revertedWith(revertMessage);
                               });
                             });
                           } else {
