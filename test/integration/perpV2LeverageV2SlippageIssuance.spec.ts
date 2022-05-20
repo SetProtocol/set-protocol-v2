@@ -34,7 +34,7 @@ import {
 } from "@utils/test/index";
 import { PerpV2Fixture, SystemFixture } from "@utils/fixtures";
 import { BigNumber } from "ethers";
-import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES } from "@utils/constants";
+import { ADDRESS_ZERO, ZERO, MAX_UINT_256, ZERO_BYTES, PRECISE_UNIT } from "@utils/constants";
 
 const expect = getWaffleExpect();
 
@@ -183,25 +183,20 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
   async function calculateRedemptionData(
     setToken: Address,
-    redeemQuantity: BigNumber,
+    redeemQuantityNetFees: BigNumber,
     usdcTransferOutQuantity: BigNumber
   ) {
     // Calculate fee adjusted usdcTransferOut
-    const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-      setToken,
-      redeemQuantity,
-      false
-    ))[0];
-
-    const feeAdjustedTransferOutUSDC = preciseMul(redeemQuantityWithFees, usdcTransferOutQuantity);
+    const externalPositionUnit = preciseDiv(usdcTransferOutQuantity, redeemQuantityNetFees);
+    const feeAdjustedTransferOutUSDC = preciseMul(redeemQuantityNetFees, externalPositionUnit);
 
     // Calculate realizedPnl. The amount is debited from collateral returned to redeemer *and*
     // debited from the Perp account collateral balance because withdraw performs a settlement.
     let realizedPnlUSDC = BigNumber.from(0);
-    const positionUnitInfo = await await perpLeverageModule.getPositionUnitInfo(setToken);
+    const positionUnitInfo = await perpLeverageModule.getPositionUnitInfo(setToken);
 
     for (const info of positionUnitInfo) {
-      const baseTradeQuantityNotional = preciseMul(info.baseUnit, redeemQuantity);
+      const baseTradeQuantityNotional = preciseMul(info.baseUnit, redeemQuantityNetFees);
 
       const { deltaQuote } = await perpSetup.getSwapQuote(
         info.baseToken,
@@ -222,14 +217,27 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
     return {
       feeAdjustedTransferOutUSDC,
-      realizedPnlUSDC,
-      redeemQuantityWithFees
+      realizedPnlUSDC
     };
+  }
+
+  function calculateQuantityNetFees(
+    setQuantity: BigNumber,
+    issueFee: BigNumber,
+    redeemFee: BigNumber,
+    isIssue: boolean,
+  ): BigNumber {
+    if (isIssue) {
+      return preciseMul(setQuantity, PRECISE_UNIT.add(issueFee));
+    } else {
+      return preciseMul(setQuantity, PRECISE_UNIT.sub(redeemFee));
+    }
   }
 
   describe("#issuance", async () => {
     let setToken: SetToken;
     let issueFee: BigNumber;
+    let redeemFee: BigNumber;
     let usdcDefaultPositionUnit: BigNumber;
 
     let subjectSetToken: Address;
@@ -248,6 +256,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         [perpLeverageModule.address, slippageIssuanceModule.address]
       );
       issueFee = ether(0.005);
+      redeemFee = ether(0.005);
       await slippageIssuanceModule.initialize(
         setToken.address,
         ether(0.02),
@@ -333,6 +342,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       let baseToken: Address;
       let depositQuantityUnit: BigNumber;
       let usdcTransferInQuantity: BigNumber;
+      let quantityNetFees: BigNumber;
 
       cacheBeforeEach(initializeContracts);
 
@@ -381,9 +391,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         beforeEach(async () => {
           subjectQuantity = ether(1);
 
+          quantityNetFees = calculateQuantityNetFees(subjectQuantity, issueFee, redeemFee, true);
           usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
-            subjectQuantity,
+            quantityNetFees,
             perpLeverageModule,
             perpSetup
           );
@@ -398,7 +409,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         });
 
         it("should have set the expected USDC externalPositionUnit", async () => {
-          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, quantityNetFees);
 
           await subject();
 
@@ -419,7 +430,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
-          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
+          const baseTokenBoughtNotional = preciseMul(basePositionUnit, quantityNetFees);
           const expectedBaseBalance = initialBaseBalance.add(baseTokenBoughtNotional);
 
           expect(finalBaseBalance).eq(expectedBaseBalance);
@@ -429,30 +440,13 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
           await subject();
           const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
-
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, usdcTransferInQuantity);
-
-          // usdcTransferIn        = 10_008_105
-          // feeAdjustedTransferIn = 10_058_145
-          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(feeAdjustedTransferIn);
+          const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance).add(usdcTransferInQuantity);
           expect(toUSDCDecimals(finalCollateralBalance)).to.be.closeTo(expectedCollateralBalance, 2);
         });
 
         it("should get required component issuance units correctly", async () => {
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, quantityNetFees);
+          const feeAdjustedTransferIn = preciseMul(quantityNetFees, externalPositionUnit);
 
           const [components, equityFlows, debtFlows] = await slippageIssuanceModule.callStatic.getRequiredComponentIssuanceUnitsOffChain(
             subjectSetToken,
@@ -473,16 +467,17 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         beforeEach(async () => {
           subjectQuantity = ether(2);
 
+          quantityNetFees = calculateQuantityNetFees(subjectQuantity, issueFee, redeemFee, true);
           usdcTransferInQuantity = await calculateUSDCTransferIn(
             setToken,
-            subjectQuantity,
+            quantityNetFees,
             perpLeverageModule,
             perpSetup
           );
         });
 
         it("should have set the expected USDC externalPositionUnit", async () => {
-          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
+          const expectedExternalPositionUnit = preciseDiv(usdcTransferInQuantity, quantityNetFees);
 
           await subject();
 
@@ -503,7 +498,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
           const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
-          const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
+          const baseTokenBoughtNotional = preciseMul(basePositionUnit, quantityNetFees);
           const expectedBaseBalance = initialBaseBalance.add(baseTokenBoughtNotional);
 
           expect(finalBaseBalance).eq(expectedBaseBalance);
@@ -514,14 +509,8 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           await subject();
           const finalCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
 
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, quantityNetFees);
+          const feeAdjustedTransferIn = preciseMul(quantityNetFees, externalPositionUnit);
 
           // usdcTransferIn        = 20_024_302
           // feeAdjustedTransferIn = 20_124_423
@@ -530,14 +519,8 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         });
 
         it("should deposit the expected amount into the Perp vault", async () => {
-          const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            true
-          ))[0];
-
-          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, subjectQuantity);
-          const feeAdjustedTransferIn = preciseMul(issueQuantityWithFees, externalPositionUnit);
+          const externalPositionUnit = preciseDiv(usdcTransferInQuantity, quantityNetFees);
+          const feeAdjustedTransferIn = preciseMul(quantityNetFees, externalPositionUnit);
 
           const initialCollateralBalance = (await perpLeverageModule.getAccountInfo(subjectSetToken)).collateralBalance;
           await subject();
@@ -755,10 +738,12 @@ describe("PerpV2LeverageSlippageIssuance", () => {
   describe("#redemption", async () => {
     let setToken: SetToken;
     let baseToken: Address;
+    let issueFee: BigNumber;
     let redeemFee: BigNumber;
     let depositQuantityUnit: BigNumber;
     let usdcDefaultPositionUnit: BigNumber;
     let usdcTransferOutQuantity: BigNumber;
+    let quantityNetFees: BigNumber;
 
     let subjectSetToken: Address;
     let subjectQuantity: BigNumber;
@@ -775,6 +760,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         [usdcDefaultPositionUnit],
         [perpLeverageModule.address, slippageIssuanceModule.address]
       );
+      issueFee = ether(0.005);
       redeemFee = ether(0.005);
       await slippageIssuanceModule.initialize(
         setToken.address,
@@ -833,9 +819,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         subjectTo = owner.address;
         subjectCaller = owner;
 
+        quantityNetFees = calculateQuantityNetFees(subjectQuantity, issueFee, redeemFee, false);
         usdcTransferOutQuantity = await calculateUSDCTransferOut(
           setToken,
-          subjectQuantity,
+          quantityNetFees,
           perpLeverageModule,
           perpSetup
         );
@@ -854,10 +841,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         await subject();
         const finalExternalPositionUnit = await setToken.getExternalPositionRealUnit(usdc.address, perpLeverageModule.address);
 
-        const expectedExternalPositionUnit = usdcTransferOutQuantity;
+        const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, quantityNetFees);
 
         expect(initialExternalPositionUnit).not.eq(finalExternalPositionUnit);
-        expect(finalExternalPositionUnit).eq(expectedExternalPositionUnit);
+        expect(finalExternalPositionUnit).closeTo(expectedExternalPositionUnit, 1);
       });
 
       it("should have the expected virtual token balance", async () => {
@@ -868,7 +855,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
         const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
-        const baseTokenBoughtNotional = preciseMul(basePositionUnit, subjectQuantity);
+        const baseTokenBoughtNotional = preciseMul(basePositionUnit, quantityNetFees);
         const expectedBaseBalance = initialBaseBalance.sub(baseTokenBoughtNotional);
 
         expect(finalBaseBalance).eq(expectedBaseBalance);
@@ -892,7 +879,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             realizedPnlUSDC
           } = await calculateRedemptionData(
             subjectSetToken,
-            subjectQuantity,
+            quantityNetFees,
             usdcTransferOutQuantity
           ));
         });
@@ -927,7 +914,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const finalOwnerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
 
           const expectedUSDCBalance = initialOwnerUSDCBalance.add(feeAdjustedTransferOutUSDC);
-          expect(finalOwnerUSDCBalance).eq(expectedUSDCBalance);
+          expect(finalOwnerUSDCBalance).closeTo(expectedUSDCBalance, 1);
         });
       });
     });
@@ -967,9 +954,10 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         subjectTo = owner.address;
         subjectCaller = owner;
 
+        quantityNetFees = calculateQuantityNetFees(subjectQuantity, issueFee, redeemFee, false);
         usdcTransferOutQuantity = await calculateUSDCTransferOut(
           setToken,
-          subjectQuantity,
+          quantityNetFees,
           perpLeverageModule,
           perpSetup
         );
@@ -991,7 +979,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         // initialExternalPositionUnit = 10_000_000
         // finalExternalPositionUnit   =  9_597_857
 
-        const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);;
+        const expectedExternalPositionUnit = preciseDiv(usdcTransferOutQuantity, quantityNetFees);;
         expect(initialExternalPositionUnit).eq(usdcDefaultPositionUnit);
         expect(finalExternalPositionUnit).to.be.closeTo(expectedExternalPositionUnit, 1);
       });
@@ -1004,21 +992,15 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         const finalBaseBalance = (await perpLeverageModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
 
         const basePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
-        const baseTokenSoldNotional = preciseMul(basePositionUnit, subjectQuantity);
+        const baseTokenSoldNotional = preciseMul(basePositionUnit, quantityNetFees);
         const expectedBaseBalance = initialBaseBalance.sub(baseTokenSoldNotional);
 
         expect(finalBaseBalance).eq(expectedBaseBalance);
       });
 
       it("should get required component redemption units correctly", async () => {
-        const issueQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-          subjectSetToken,
-          subjectQuantity,
-          false
-        ))[0];
-
-        const externalPositionUnit = preciseDiv(usdcTransferOutQuantity, subjectQuantity);
-        const feeAdjustedTransferOut = preciseMul(issueQuantityWithFees, externalPositionUnit);
+        const externalPositionUnit = preciseDiv(usdcTransferOutQuantity, quantityNetFees);
+        const feeAdjustedTransferOut = preciseMul(quantityNetFees, externalPositionUnit);
 
         const [components, equityFlows, debtFlows] = await slippageIssuanceModule
           .callStatic
@@ -1089,7 +1071,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
             realizedPnlUSDC
           } = await calculateRedemptionData(
             subjectSetToken,
-            subjectQuantity,
+            quantityNetFees,
             usdcTransferOutQuantity)
           );
         });
@@ -1185,6 +1167,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       describe("when redeeming after a liquidation", async () => {
         beforeEach(async () => {
           subjectQuantity = ether(1);
+          quantityNetFees = calculateQuantityNetFees(subjectQuantity, issueFee, redeemFee, false);
 
           // Calculated leverage = ~8.5X = 8_654_438_822_995_683_587
           await leverUp(
@@ -1222,21 +1205,20 @@ describe("PerpV2LeverageSlippageIssuance", () => {
 
           const usdcTransferOutQuantity = await calculateUSDCTransferOut(
             setToken,
-            subjectQuantity,
+            quantityNetFees,
             perpLeverageModule,
             perpSetup
           );
 
           const {
             feeAdjustedTransferOutUSDC,
-            redeemQuantityWithFees
           } = await calculateRedemptionData(
             subjectSetToken,
-            subjectQuantity,
+            quantityNetFees,
             usdcTransferOutQuantity
           );
 
-          const expectedTotalSupply = initialTotalSupply.sub(redeemQuantityWithFees);
+          const expectedTotalSupply = initialTotalSupply.sub(quantityNetFees);
           const expectedCollateralBalance = toUSDCDecimals(initialCollateralBalance)
             .sub(feeAdjustedTransferOutUSDC)
             .add(owedRealizedPnlUSDC);
@@ -1287,12 +1269,6 @@ describe("PerpV2LeverageSlippageIssuance", () => {
         // collateralBalance =  10050000000000000000
         // owedRealizedPnl =   -31795534271984084912
         it("should redeem without transferring any usdc (because account worth 0)", async () => {
-          const redeemQuantityWithFees = (await slippageIssuanceModule.calculateTotalFees(
-            subjectSetToken,
-            subjectQuantity,
-            false
-          ))[0];
-
           const initialRedeemerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
           const initialTotalSupply = await setToken.totalSupply();
 
@@ -1301,7 +1277,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
           const finalRedeemerUSDCBalance = await usdc.balanceOf(subjectCaller.address);
           const finalTotalSupply = await setToken.totalSupply();
 
-          const expectedTotalSupply = initialTotalSupply.sub(redeemQuantityWithFees);
+          const expectedTotalSupply = initialTotalSupply.sub(quantityNetFees);
 
           expect(finalTotalSupply).eq(expectedTotalSupply);
           expect(finalRedeemerUSDCBalance).eq(initialRedeemerUSDCBalance);
