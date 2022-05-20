@@ -40,6 +40,8 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
 
     constructor(IController _controller) public DebtIssuanceModule(_controller) {}
 
+    // TODO: Override issue and redeem?
+
     /* ============ External Functions ============ */
 
     /**
@@ -76,8 +78,6 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
 
         address hookContract = _callManagerPreIssueHooks(_setToken, _setQuantity, msg.sender, _to);
 
-        _callModulePreIssueHooks(_setToken, _setQuantity);
-
         bool isIssue = true;
 
         (
@@ -85,6 +85,8 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
             uint256 managerFee,
             uint256 protocolFee
         ) = calculateTotalFees(_setToken, _setQuantity, isIssue);
+
+        _callModulePreIssueHooks(_setToken, quantityWithFees);
 
         // Scoping logic to avoid stack too deep errors
         {
@@ -148,11 +150,6 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
     {
         _validateInputs(_setQuantity, _checkedComponents, _minTokenAmountsOut);
 
-        _callModulePreRedeemHooks(_setToken, _setQuantity);
-
-        // Place burn after pre-redeem hooks because burning tokens may lead to false accounting of synced positions
-        _setToken.burn(msg.sender, _setQuantity);
-
         bool isIssue = false;
 
         (
@@ -160,6 +157,11 @@ contract SlippageIssuanceModule is DebtIssuanceModule {
             uint256 managerFee,
             uint256 protocolFee
         ) = calculateTotalFees(_setToken, _setQuantity, isIssue);
+
+        _callModulePreRedeemHooks(_setToken, quantityNetFees);
+
+        // Place burn after pre-redeem hooks because burning tokens may lead to false accounting of synced positions
+        _setToken.burn(msg.sender, _setQuantity);
 
         (
             address[] memory components,
