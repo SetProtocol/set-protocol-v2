@@ -324,12 +324,34 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         );
       });
 
-      it("should not update the USDC defaultPositionUnit", async () => {
+      it("should NOT update the USDC defaultPositionUnit", async () => {
         const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
         await subject();
         const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
 
         expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
+      });
+
+      it("should NOT update the USDC defaultPositionUnit", async () => {
+        const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+        await subject();
+        const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);;
+
+        expect(finalDefaultPositionUnit).to.eq(initialDefaultPositionUnit);
+      });
+
+      it("should NOT update the virtual quote token position unit", async () => {
+        const totalSupply = await setToken.totalSupply();
+        const initialBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+        const initialBasePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+
+        await subject();
+
+        const newTotalSupply = await setToken.totalSupply();
+        const finalBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+        const finalBasePositionUnit = preciseDiv(finalBaseBalance, newTotalSupply);
+
+        expect(initialBasePositionUnit).to.eq(finalBasePositionUnit);
       });
 
       it("should have updated the USDC externalPositionUnit", async () => {
@@ -539,12 +561,34 @@ describe("PerpV2BasisTradingSlippageIssuance", () => {
         );
       });
 
-      it("should not update the USDC defaultPositionUnit", async () => {
+      it("should NOT update the USDC defaultPositionUnit", async () => {
         const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
         await subject();
         const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
 
         expect(initialDefaultPositionUnit).eq(finalDefaultPositionUnit);
+      });
+
+      it("should NOT update the USDC defaultPositionUnit", async () => {
+        const initialDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);
+        await subject();
+        const finalDefaultPositionUnit = await setToken.getDefaultPositionRealUnit(usdc.address);;
+
+        expect(finalDefaultPositionUnit).to.eq(initialDefaultPositionUnit);
+      });
+
+      it("should NOT update the virtual quote token position unit", async () => {
+        const totalSupply = await setToken.totalSupply();
+        const initialBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+        const initialBasePositionUnit = preciseDiv(initialBaseBalance, totalSupply);
+
+        await subject();
+
+        const newTotalSupply = await setToken.totalSupply();
+        const finalBaseBalance = (await perpBasisTradingModule.getPositionNotionalInfo(subjectSetToken))[0].baseBalance;
+        const finalBasePositionUnit = preciseDiv(finalBaseBalance, newTotalSupply);
+
+        expect(initialBasePositionUnit).to.eq(finalBasePositionUnit);
       });
 
       it("should update the USDC externalPositionUnit", async () => {
