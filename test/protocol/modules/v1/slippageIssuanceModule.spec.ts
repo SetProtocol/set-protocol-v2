@@ -826,7 +826,7 @@ describe("SlippageIssuanceModule", () => {
 
         await setup.weth.approve(slippageIssuance.address, equityFlows[0].mul(ether(1.005)));
 
-        await slippageIssuance.issue(setToken.address, ether(1), owner.address);
+        await slippageIssuance.issueWithSlippage(setToken.address, ether(1), [], [], owner.address);
 
         await setup.dai.approve(slippageIssuance.address, ether(100.5));
 
@@ -1146,7 +1146,7 @@ describe("SlippageIssuanceModule", () => {
       });
     });
 
-    describe.only("#issue", async () => {
+    describe("#issue", async () => {
       let subjectSetToken: Address;
       let subjectQuantity: BigNumber;
       let subjectTo: Address;
@@ -1166,7 +1166,7 @@ describe("SlippageIssuanceModule", () => {
       });
     });
 
-    describe.only("#redeem", async () => {
+    describe("#redeem", async () => {
       let subjectSetToken: Address;
       let subjectQuantity: BigNumber;
       let subjectTo: Address;

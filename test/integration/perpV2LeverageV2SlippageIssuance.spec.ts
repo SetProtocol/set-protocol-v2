@@ -349,7 +349,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       beforeEach(async () => {
         // Issue 1 SetToken
         issueQuantity = ether(1);
-        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        await slippageIssuanceModule.issueWithSlippage(setToken.address, issueQuantity, [], [], owner.address);
 
         depositQuantityUnit = usdcDefaultPositionUnit;
         await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
@@ -830,7 +830,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       beforeEach(async () => {
         // Issue 1 SetToken
         issueQuantity = ether(1);
-        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        await slippageIssuanceModule.issueWithSlippage(setToken.address, issueQuantity, [], [], owner.address);
 
         depositQuantityUnit = usdcUnits(10);
         await perpLeverageModule.deposit(setToken.address, depositQuantityUnit);
@@ -978,7 +978,7 @@ describe("PerpV2LeverageSlippageIssuance", () => {
       beforeEach(async () => {
         // Issue 2 SetTokens
         issueQuantity = ether(2);
-        await slippageIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        await slippageIssuanceModule.issueWithSlippage(setToken.address, issueQuantity, [], [], owner.address);
 
         // Deposit entire default position
         depositQuantityUnit = usdcDefaultPositionUnit;
