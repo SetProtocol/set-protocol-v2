@@ -3409,6 +3409,25 @@ describe("AaveLeverageModule", () => {
       return setToken.removeModule(subjectModule);
     }
 
+    describe("When an EOA is registered as a module", () => {
+      cacheBeforeEach(async () => {
+        await setup.controller
+          .addModule(owner.address);
+        await setToken
+          .addModule(owner.address);
+        await setToken.connect(owner.wallet).initializeModule();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("function call to a non-contract account");
+      });
+    });
+
+    it("should remove the Module on the SetToken", async () => {
+      await subject();
+      const isModuleEnabled = await setToken.isInitializedModule(aaveLeverageModule.address);
+      expect(isModuleEnabled).to.be.false;
+    });
+
     it("should remove the Module on the SetToken", async () => {
       await subject();
       const isModuleEnabled = await setToken.isInitializedModule(aaveLeverageModule.address);
