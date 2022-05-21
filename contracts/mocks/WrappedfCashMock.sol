@@ -43,8 +43,8 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     bool private revertDecodedID;
 
-    uint256 private redeemTokenReturned;
-    uint256 private mintTokenSpent;
+    uint256 public redeemTokenReturned;
+    uint256 public mintTokenSpent;
 
     address internal constant ETH_ADDRESS = address(0);
 
@@ -96,7 +96,13 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     ) external override {
         _burn(msg.sender, amount);
         uint256 assetTokenAmount = redeemTokenReturned == 0 ? amount : redeemTokenReturned;
-        assetToken.transfer(receiver, assetTokenAmount);
+        console.log("Returning assetToken amount");
+        console.logUint(assetTokenAmount);
+        console.logUint(amount);
+        console.logUint(redeemTokenReturned);
+        console.logAddress(address(this));
+        console.logUint(assetToken.balanceOf(address(this)));
+        require(assetToken.transfer(receiver, assetTokenAmount), "WrappedfCashMock: Transfer failed");
     }
 
     function redeemToUnderlying(

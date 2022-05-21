@@ -34,6 +34,7 @@ import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 
 
+
 /**
  * @title NotionalTradeModule
  * @author Set Protocol
@@ -249,7 +250,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
         for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).unregisterFromIssuanceModule(setToken) {} catch {}
+            if(modules[i].isContract()){
+                try IDebtIssuanceModule(modules[i]).unregisterFromIssuanceModule(setToken) {} catch {}
+            }
         }
     }
 
