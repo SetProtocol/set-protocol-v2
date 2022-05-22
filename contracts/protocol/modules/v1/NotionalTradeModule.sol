@@ -166,6 +166,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         onlyManagerAndValidSet(_setToken)
         returns(uint256)
     {
+        require(_setToken.isComponent(address(_sendToken)), "Send token must be an index component");
 
         IWrappedfCashComplete wrappedfCash = _deployWrappedfCash(_currencyId, _maturity);
         return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), _mintAmount, _maxSendAmount);
@@ -194,8 +195,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         onlyManagerAndValidSet(_setToken)
         returns(uint256)
     {
-
         IWrappedfCashComplete wrappedfCash = _getWrappedfCash(_currencyId, _maturity);
+        require(_setToken.isComponent(address(wrappedfCash)), "FCash to redeem must be an index component");
+
         return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), _redeemAmount, _minReceiveAmount);
     }
 
