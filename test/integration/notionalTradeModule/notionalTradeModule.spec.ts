@@ -279,14 +279,8 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   caller = manager.wallet;
                 });
 
-                [
-                  "buying",
-                  "selling"
-                ].forEach(tradeDirection => {
-                  [
-                    "underlyingToken",
-                    "assetToken"
-                  ].forEach(tokenType => {
+                ["buying", "selling"].forEach(tradeDirection => {
+                  ["underlyingToken", "assetToken"].forEach(tokenType => {
                     describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                       let sendTokenType: string;
                       let receiveTokenType: string;
@@ -606,10 +600,12 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                   const revertReason =
                                     sendTokenType == "underlyingToken" && assetTokenName == "cDai"
                                       ? "Dai/insufficient-balance"
-                                      : sendTokenType == "underlyingToken" &&
+                                      : sendTokenType == "assetToken" && assetTokenName == "cDai"
+                                        ? "0x11"
+                                        : sendTokenType == "underlyingToken" &&
                                         assetTokenName == "cEth"
-                                        ? "Insufficient cash"
-                                        : "ERC20";
+                                          ? "Insufficient cash"
+                                          : "ERC20";
                                   await expect(subject()).to.be.revertedWith(revertReason);
                                 });
                               });
@@ -632,9 +628,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           .setRedeemToUnderlying(subjectSetToken, toUnderlying);
                         outputToken = redeemToken == "underlying" ? underlyingToken : assetToken;
                       });
-                      [
-                        "issue", "redeem", "manualTrigger"
-                      ].forEach(triggerAction => {
+                      ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
                         describe(`When hook is triggered by ${triggerAction}`, () => {
                           let subjectSetToken: string;
                           let subjectReceiver: string;

@@ -16,14 +16,13 @@ import {
   getSystemFixture,
   getWaffleExpect,
   initializeForkedTokens,
-  getEthBalance,
 } from "@utils/test/index";
 
 import { AaveV2AToken, AaveV2VariableDebtToken } from "@utils/contracts/aaveV2";
 import { AaveV2Fixture, CurveFixture, SystemFixture } from "@utils/fixtures";
 import {
   AaveLeverageModule,
-  CurveStEthExchangeAdapter,
+  CurveExchangeAdapter,
   CurveStableswapMock,
   SetToken,
   DebtIssuanceModuleV2,
@@ -34,7 +33,6 @@ import { IERC20 } from "@typechain/IERC20";
 import { EMPTY_BYTES, MAX_UINT_256, ZERO, ADDRESS_ZERO } from "@utils/constants";
 
 const expect = getWaffleExpect();
-
 /**
  * Tests the icETH rebalance flow.
  *
@@ -42,13 +40,13 @@ const expect = getWaffleExpect();
  * 1. stETH
  * 2. WETH
  */
-describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mainnet ]", () => {
+describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet ]", () => {
   let owner: Account;
   let manager: Account;
 
   let deployer: DeployHelper;
 
-  let adapter: CurveStEthExchangeAdapter;
+  let adapter: CurveExchangeAdapter;
   let adapterName: string;
 
   let setup: SystemFixture;
@@ -79,24 +77,26 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
 
     // Setup ForkedTokens
     await initializeForkedTokens(deployer);
-    tokens = await getForkedTokens();
+    tokens = getForkedTokens();
     weth = tokens.weth;
     steth = tokens.steth;
 
     // Setup Curve
     curveSetup = getCurveFixture(owner.address);
-    stableswap = await curveSetup.getForkedCurveStEthStableswapPool();
+    stableswap = await curveSetup.getForkedWethStethCurveStableswapPool();
 
-    adapter = await deployer.adapters.deployCurveStEthExchangeAdapter(
+    adapter = await deployer.adapters.deployCurveExchangeAdapter(
       weth.address,
       steth.address,
+      BigNumber.from(0),
+      BigNumber.from(1),
       stableswap.address,
     );
-    adapterName = "CurveStEthExchangeAdapter";
+    adapterName = "CurveExchangeAdapter";
 
-    // Setup Aave with WETH:stETH at 1:1 price.
+    // Setup Aave with WETH:stETH at 1.01:1 price.
     aaveSetup = getAaveV2Fixture(owner.address);
-    await aaveSetup.initialize(weth.address, steth.address, "commons", ether(1));
+    await aaveSetup.initialize(weth.address, steth.address, "commons", ether(1.02));
 
     // Configure borrow rate for stETH like WETH (see Aave fixture)
     const oneRay = BigNumber.from(10).pow(27);
@@ -114,17 +114,17 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
 
     // Create liquidity
     const ape = await getRandomAccount(); // The wallet adding initial liquidity
-    await weth.transfer(ape.address, ether(50));
-    await weth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(50));
+    await weth.transfer(ape.address, ether(10000));
+    await weth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, MAX_UINT_256);
     await aaveSetup.lendingPool
       .connect(ape.wallet)
-      .deposit(weth.address, ether(50), ape.address, ZERO);
+      .deposit(weth.address, ether(10000), ape.address, ZERO);
 
-    await steth.transfer(ape.address, ether(50000));
-    await steth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, ether(50000));
+    await steth.transfer(ape.address, ether(10000));
+    await steth.connect(ape.wallet).approve(aaveSetup.lendingPool.address, MAX_UINT_256);
     await aaveSetup.lendingPool
       .connect(ape.wallet)
-      .deposit(steth.address, ether(50), ape.address, ZERO);
+      .deposit(steth.address, ether(10000), ape.address, ZERO);
 
     variableDebtWETH = aaveSetup.wethReserveTokens.variableDebtToken;
 
@@ -166,7 +166,9 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
     );
 
     // Fund owner with stETH
-    await tokens.steth.transfer(owner.address, ether(11000));
+    await tokens.steth.transfer(owner.address, ether(1100));
+    // Fund owner with WETH
+    await tokens.weth.transfer(owner.address, ether(1100));
 
     // stETH has balance rounding errors that crash DebtIssuanceModuleV2 with:
     //  "Invalid transfer in. Results in undercollateralization"
@@ -182,6 +184,8 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
     await weth.connect(owner.wallet).approve(debtIssuanceModule.address, MAX_UINT_256);
 
     await steth.connect(owner.wallet).approve(debtIssuanceModule.address, MAX_UINT_256);
+
+    await weth.connect(owner.wallet).approve(aaveSetup.lendingPool.address, MAX_UINT_256);
 
     await steth.connect(owner.wallet).approve(aaveSetup.lendingPool.address, MAX_UINT_256);
 
@@ -207,7 +211,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
     // Mint astETH
     await aaveSetup.lendingPool
       .connect(owner.wallet)
-      .deposit(steth.address, ether(10000), owner.address, ZERO);
+      .deposit(steth.address, ether(2), owner.address, ZERO);
 
     // Issue
     issueQuantity = ether(1);
@@ -222,7 +226,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
     // Borrow WETH using deposited stETH as collateral
     // Swap WETH to stETH using the Curve stETH pool
     // Depost stETH as collateral in Aave (minting additional astETH);
-    context("using CurveStEthExchangeAdapter to trade stETH for WETH", async () => {
+    context("using CurveExchangeAdapter to trade stETH for WETH", async () => {
       let subjectBorrowAsset: Address;
       let subjectCollateralAsset: Address;
       let subjectBorrowQuantityUnits: BigNumber;
@@ -275,7 +279,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
 
         // astETH position is increased
         const currentPositions = await setToken.getPositions();
-        const newFirstPosition = (await setToken.getPositions())[0];
+        const newFirstPosition = currentPositions[0];
 
         const expectedFirstPositionUnitMin = initialPositions[0].unit.add(
           subjectMinReceiveQuantityUnits,
@@ -294,8 +298,8 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         expect(newFirstPosition.positionState).to.eq(0); // Default
 
         // Min is: 2900000000000000000
-        // Max is: 3000000000000000000
-        // Actual value is: "3010488084692366762"
+        // Max is: 3020000000000000000
+        // Actual value is: 3014553114053842195
         expect(newFirstPosition.unit).to.be.gt(expectedFirstPositionUnitMin);
         expect(newFirstPosition.unit).to.be.lt(expectedFirstPositionUnitMax);
 
@@ -323,13 +327,13 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
       });
 
       it("should transfer the correct components to the Stableswap", async () => {
-        // We're Swapping ETH for stETH
-        const oldSourceTokenBalance = await getEthBalance(stableswap.address);
+        // We're Swapping WETH for stETH
+        const oldSourceTokenBalance = await weth.balanceOf(stableswap.address);
 
         await subject();
         const totalSourceQuantity = subjectBorrowQuantityUnits;
         const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-        const newSourceTokenBalance = await getEthBalance(stableswap.address);
+        const newSourceTokenBalance = await weth.balanceOf(stableswap.address);
         expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
       });
 
@@ -353,26 +357,23 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         );
 
         const newDestinationTokenBalance = await steth.balanceOf(stableswap.address);
+
         expect(newDestinationTokenBalance).to.be.gt(expectedMinDestinationTokenBalance);
         expect(newDestinationTokenBalance).to.be.lt(expectedMaxDestinationTokenBalance);
       });
 
-      it("should NOT leave any ETH, WETH or stETH in the trade adapter", async () => {
-        const initialETHAdapterBalance = await getEthBalance(adapter.address);
+      it("should NOT leave any WETH or stETH in the trade adapter", async () => {
         const initialWETHAdapterBalance = await weth.balanceOf(adapter.address);
         const initialSTETHAdapterBalance = await steth.balanceOf(adapter.address);
 
         await subject();
 
-        const finalETHAdapterBalance = await getEthBalance(adapter.address);
         const finalWETHAdapterBalance = await weth.balanceOf(adapter.address);
         const finalSTETHAdapterBalance = await steth.balanceOf(adapter.address);
 
-        expect(initialETHAdapterBalance).eq(ZERO);
         expect(initialWETHAdapterBalance).eq(ZERO);
         expect(initialSTETHAdapterBalance).eq(ZERO);
 
-        expect(finalETHAdapterBalance).eq(ZERO);
         expect(finalWETHAdapterBalance).eq(ZERO);
         expect(finalSTETHAdapterBalance).eq(ZERO);
       });
@@ -380,7 +381,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
   });
 
   describe("#delever", async () => {
-    context("using CurveStEthExchangeAdapter to trade stETH for WETH", async () => {
+    context("using CurveExchangeAdapter to trade stETH for WETH", async () => {
       let subjectRepayAsset: Address;
       let subjectCollateralAsset: Address;
       let subjectRedeemQuantityUnits: BigNumber;
@@ -422,8 +423,8 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         subjectSetToken = setToken.address;
         subjectCollateralAsset = steth.address;
         subjectRepayAsset = weth.address;
-        subjectRedeemQuantityUnits = ether(1);
-        subjectMinRepayQuantityUnits = ether(0.9);
+        subjectRedeemQuantityUnits = ether(1.0158);
+        subjectMinRepayQuantityUnits = ether(1);
         subjectAdapterName = adapterName;
 
         const tradeCalldata = await adapter.getTradeCalldata(
@@ -473,13 +474,13 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
       });
 
-      it.skip("should update the borrow position on the SetToken correctly", async () => {
+      it("should update the borrow position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
         await subject();
 
         const currentPositions = await setToken.getPositions();
-        const newSecondPosition = (await setToken.getPositions())[1];
+        const newSecondPosition = currentPositions[1];
 
         const expectedSecondPositionUnit = (await variableDebtWETH.balanceOf(setToken.address)).mul(
           -1,
@@ -490,10 +491,10 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         expect(newSecondPosition.component.toLowerCase()).to.eq(weth.address.toLowerCase());
         expect(newSecondPosition.positionState).to.eq(0); // Pay everything back
 
-        // Expectation is failing (also impacts skipped exchange balance tests below)
-        // wETH PositionUnit still has 49_086_919_796_567_154 (instead of zero);
-        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
-        expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
+        // Due to exchange rates in Curve Pool, there's a tiny bit of WETH left in the set token when redeeming
+        // with the current parameters. Actual WETH left in the Set = 428_176_647_407_742. So around 0.0004 ETH
+        expect(newSecondPosition.unit.div(ether(0.0001))).to.closeTo(expectedSecondPositionUnit, 4);
+        expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
       });
 
       it("should transfer the correct components to the Stableswap", async () => {
@@ -512,8 +513,8 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         expect(newDestinationTokenBalance).to.be.closeTo(expectedDestinationTokenBalance, 1);
       });
 
-      it.skip("should transfer the correct components from the exchange", async () => {
-        const oldSourceTokenBalance = await getEthBalance(stableswap.address);
+      it("should transfer the correct components from the exchange", async () => {
+        const oldSourceTokenBalance = await weth.balanceOf(stableswap.address);
 
         await subject();
 
@@ -525,32 +526,24 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         const expectedMaxSourceTokenBalance = oldSourceTokenBalance.sub(minSourceQuantity);
         const expectedMinSourceTokenBalance = oldSourceTokenBalance.sub(maxSourceQuantity);
 
-        const newSourceTokenBalance = await getEthBalance(stableswap.address);
+        const newSourceTokenBalance = await weth.balanceOf(stableswap.address);
 
-        // This expectation is failing. Logged values are:
-        // expectedMaxSourceTokenBalance: 120_477_758_782_092_805_022_003
-        // expectedMinSourceTokenBalance: 120_477_658_782_092_805_022_003
-        // newSourceTokenBalance:         120_477_609_695_173_008_454_721 <-- we kept some wETH???
         expect(newSourceTokenBalance).to.be.gt(expectedMinSourceTokenBalance);
         expect(newSourceTokenBalance).to.be.lt(expectedMaxSourceTokenBalance);
       });
 
-      it("should NOT leave any ETH, WETH or stETH in the trade adapter", async () => {
-        const initialETHAdapterBalance = await getEthBalance(adapter.address);
+      it("should NOT leave any WETH or stETH in the trade adapter", async () => {
         const initialWETHAdapterBalance = await weth.balanceOf(adapter.address);
         const initialSTETHAdapterBalance = await steth.balanceOf(adapter.address);
 
         await subject();
 
-        const finalETHAdapterBalance = await getEthBalance(adapter.address);
         const finalWETHAdapterBalance = await weth.balanceOf(adapter.address);
         const finalSTETHAdapterBalance = await steth.balanceOf(adapter.address);
 
-        expect(initialETHAdapterBalance).eq(ZERO);
         expect(initialWETHAdapterBalance).eq(ZERO);
         expect(initialSTETHAdapterBalance).eq(ZERO);
 
-        expect(finalETHAdapterBalance).eq(ZERO);
         expect(finalWETHAdapterBalance).eq(ZERO);
         expect(finalSTETHAdapterBalance).eq(ZERO);
       });

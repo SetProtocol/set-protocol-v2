@@ -15,9 +15,10 @@
 pragma solidity 0.6.10;
 
 /**
- * Curve StableSwap pool for stETH.
+ * Curve StableSwap ERC20 <-> ERC20 pool.
  */
-interface IStableSwapStEth {
+interface IStableSwapPool {
+
     function exchange(
         int128 i,
         int128 j,
