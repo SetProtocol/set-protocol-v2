@@ -23,8 +23,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TokenType, IWrappedfCash } from "../interfaces/IWrappedFCash.sol";
 
-import "hardhat/console.sol";
-
 // mock class using BasicToken
 contract WrappedfCashMock is ERC20, IWrappedfCash {
 
@@ -96,12 +94,6 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     ) external override {
         _burn(msg.sender, amount);
         uint256 assetTokenAmount = redeemTokenReturned == 0 ? amount : redeemTokenReturned;
-        console.log("Returning assetToken amount");
-        console.logUint(assetTokenAmount);
-        console.logUint(amount);
-        console.logUint(redeemTokenReturned);
-        console.logAddress(address(this));
-        console.logUint(assetToken.balanceOf(address(this)));
         require(assetToken.transfer(receiver, assetTokenAmount), "WrappedfCashMock: Transfer failed");
     }
 

@@ -661,8 +661,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         uint256 setTotalSupply = setToken.totalSupply();
 
-        // This reverts if i try to trade a token that is not a registered component. (I.e. I just sent a lot of sendToken to the contract manually and then try to trade it.
-        // TODO: Review if this needs to be addressed
         (uint256 currentSendTokenBalance,,) = setToken.calculateAndEditDefaultPosition(
             sendToken,
             setTotalSupply,
