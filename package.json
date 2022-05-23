@@ -105,11 +105,16 @@
     "web3": "^1.2.9"
   },
   "dependencies": {
+    "@uniswap/v3-core": "1.0.1",
     "@uniswap/v3-sdk": "^3.5.1",
     "ethers": "^5.5.2",
-    "fs-extra": "^5.0.0",
+    "fs-extra": "^9.0.0",
     "jsbi": "^3.2.5",
     "module-alias": "^2.2.2",
+    "notional-solidity-sdk": "https://github.com/ckoopmann/notional-solidity-sdk.git#77aa2f8fd8a72b8f5865e561f2d39d4606c3740c",
+    "wrapped-fcash": "https://github.com/ckoopmann/wrapped-fcash.git#6b7d870c9b750aa343f0405f3543c9bbb0e3cdfc",
+    "openzeppelin-contracts-V4": "npm:@openzeppelin/contracts@4.5",
+    "@openzeppelin-upgradeable/contracts": "npm:@openzeppelin/contracts-upgradeable@4.5.2",
     "replace-in-file": "^6.1.0"
   },
   "peerDependencies": {

@@ -13,6 +13,7 @@ import {
   GeneralIndexModule,
   GovernanceModule,
   IssuanceModule,
+  NotionalTradeModule,
   PerpV2LeverageModuleV2,
   PerpV2BasisTradingModule,
   SingleIndexModule,
@@ -38,6 +39,7 @@ import { SlippageIssuanceModule__factory } from "../../typechain/factories/Slipp
 import { GeneralIndexModule__factory } from "../../typechain/factories/GeneralIndexModule__factory";
 import { GovernanceModule__factory } from "../../typechain/factories/GovernanceModule__factory";
 import { IssuanceModule__factory } from "../../typechain/factories/IssuanceModule__factory";
+import { NotionalTradeModule__factory } from "../../typechain/factories/NotionalTradeModule__factory";
 import { PerpV2LeverageModuleV2__factory } from "../../typechain/factories/PerpV2LeverageModuleV2__factory";
 import { PerpV2BasisTradingModule__factory } from "../../typechain/factories/PerpV2BasisTradingModule__factory";
 import { SingleIndexModule__factory } from "../../typechain/factories/SingleIndexModule__factory";
@@ -151,39 +153,34 @@ export default class DeployModules {
     cEth: Address,
     weth: Address,
     libraryName: string,
-    libraryAddress: Address
+    libraryAddress: Address,
   ): Promise<CompoundLeverageModule> {
     return await new CompoundLeverageModule__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner
-    ).deploy(
-      controller,
-      compToken,
-      comptroller,
-      cEth,
-      weth,
-    );
+      this._deployerSigner,
+    ).deploy(controller, compToken, comptroller, cEth, weth);
   }
 
   public async deployAaveLeverageModule(
     controller: Address,
     lendingPoolAddressesProvider: Address,
     libraryName: string,
-    libraryAddress: Address
+    libraryAddress: Address,
   ): Promise<AaveLeverageModule> {
     return await new AaveLeverageModule__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
       },
-      this._deployerSigner
-    ).deploy(
-      controller,
-      lendingPoolAddressesProvider
-    );
+      this._deployerSigner,
+    ).deploy(controller, lendingPoolAddressesProvider);
+  }
+
+  public async deployNotionalTradeModule(controller: Address, wrappedfCashFactory: Address, weth: Address): Promise<NotionalTradeModule> {
+    return await new NotionalTradeModule__factory(this._deployerSigner).deploy(controller, wrappedfCashFactory, weth);
   }
 
   public async deployWrapModuleV2(controller: Address, weth: Address): Promise<WrapModuleV2> {

@@ -43,7 +43,7 @@ interface ICErc20 is IERC20 {
 
     function exchangeRateStored() external view returns (uint256);
 
-    function underlying() external returns (address);
+    function underlying() external view returns (address);
 
     /**
      * Sender supplies assets into the market and receives cTokens in exchange
