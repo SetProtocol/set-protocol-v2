@@ -637,7 +637,6 @@ describe("NotionalTradeModule", () => {
                     ["buying", "selling"].forEach(tradeDirection => {
                       ["underlyingToken", "assetToken"].forEach(tokenType => {
                         describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
-                          let sendTokenType: string;
                           let receiveTokenType: string;
                           let otherToken: IERC20;
                           beforeEach(async () => {
@@ -645,7 +644,6 @@ describe("NotionalTradeModule", () => {
 
                             otherToken = tokenType == "assetToken" ? assetToken : underlyingToken;
                             sendToken = tradeDirection == "buying" ? otherToken : wrappedfCashMock;
-                            sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
                             receiveTokenType =
                               tradeDirection == "selling" ? tokenType : "wrappedFCash";
                             subjectSendToken = sendToken.address;
@@ -771,332 +769,297 @@ describe("NotionalTradeModule", () => {
                               expect(sendTokenPositionAfter).to.be.gt(0);
                               expect(await setToken.isComponent(sendToken.address)).to.be.true;
                             });
-
-                            if (tradeDirection == "buying") {
-                              it("setToken should receive receiver token", async () => {
-                                const receiveTokenBalanceBefore = await receiveToken.balanceOf(
-                                  setToken.address,
-                                );
-                                await subject();
-                                const receiveTokenBalanceAfter = await receiveToken.balanceOf(
-                                  setToken.address,
-                                );
-                                expect(
-                                  receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
-                                ).to.be.gte(subjectMinReceiveQuantity);
-                              });
-                              describe("When sendToken is neither underlying nor asset token", () => {
+                            ["higher", "equal", "less"].forEach(relativeAmount => {
+                              describe(`when amount of send token spent is ${relativeAmount} than/to registered position`, () => {
                                 beforeEach(async () => {
-                                  subjectSendToken = ethers.constants.AddressZero;
-                                  await setToken
-                                    .connect(owner.wallet)
-                                    .addComponent(subjectSendToken);
+                                  if (relativeAmount == "higher") {
+                                    await wrappedfCashMock.setRedeemTokenReturned(
+                                      subjectSendQuantity,
+                                    );
+                                    const additionalAmount = subjectSendQuantity;
+                                    await sendToken.transfer(setToken.address, additionalAmount);
+
+                                    const sendTokenPosition = await setToken.getTotalComponentRealUnits(
+                                      sendToken.address,
+                                    );
+                                    const sendTokenBalance = await sendToken.balanceOf(
+                                      setToken.address,
+                                    );
+
+                                    expect(
+                                      sendTokenBalance.eq(sendTokenPosition.add(additionalAmount)),
+                                    );
+                                    subjectSendQuantity = sendTokenPosition.add(
+                                      additionalAmount.div(2),
+                                    );
+                                  }
+                                  if (relativeAmount == "equal") {
+                                    const sendTokenPosition = await setToken.getTotalComponentRealUnits(
+                                      sendToken.address,
+                                    );
+                                    const sendTokenBalance = await sendToken.balanceOf(
+                                      setToken.address,
+                                    );
+                                    expect(sendTokenBalance.eq(sendTokenPosition));
+                                  }
+                                  if (relativeAmount == "less") {
+                                    const sendTokenPosition = await setToken.getTotalComponentRealUnits(
+                                      sendToken.address,
+                                    );
+                                    subjectSendQuantity = sendTokenPosition.div(2);
+                                    subjectMinReceiveQuantity = subjectSendQuantity;
+                                  }
                                 });
-                                it("should revert", async () => {
-                                  await expect(subject()).to.be.revertedWith(
-                                    "Token is neither asset nor underlying token",
-                                  );
-                                });
-                              });
 
-                              describe("When receiveAmount is 0", () => {
-                                beforeEach(async () => {
-                                  subjectMinReceiveQuantity = BigNumber.from(0);
-                                });
-                                it("should not revert", async () => {
-                                  await subject();
-                                });
-                              });
+                                if (tradeDirection == "buying") {
+                                  it("setToken should receive receiver token", async () => {
+                                    const receiveTokenBalanceBefore = await receiveToken.balanceOf(
+                                      setToken.address,
+                                    );
+                                    await subject();
+                                    const receiveTokenBalanceAfter = await receiveToken.balanceOf(
+                                      setToken.address,
+                                    );
+                                    expect(
+                                      receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
+                                    ).to.be.gte(subjectMinReceiveQuantity);
+                                  });
+                                  describe("When sendToken is neither underlying nor asset token", () => {
+                                    beforeEach(async () => {
+                                      subjectSendToken = ethers.constants.AddressZero;
+                                      await setToken
+                                        .connect(owner.wallet)
+                                        .addComponent(subjectSendToken);
+                                    });
+                                    it("should revert", async () => {
+                                      await expect(subject()).to.be.revertedWith(
+                                        "Token is neither asset nor underlying token",
+                                      );
+                                    });
+                                  });
 
-                              describe(`when too much ${tokenType} is spent`, () => {
-                                beforeEach(async () => {
-                                  const oldSubjectSendQuantity = subjectSendQuantity;
+                                  describe("When receiveAmount is 0", () => {
+                                    beforeEach(async () => {
+                                      subjectMinReceiveQuantity = BigNumber.from(0);
+                                    });
+                                    it("should not revert", async () => {
+                                      await subject();
+                                    });
+                                  });
 
-                                  // Execute trade where we are spending much less than approved to create left-over allowance
-                                  subjectSendQuantity = subjectSendQuantity.mul(3).div(2);
-                                  await wrappedfCashMock.setMintTokenSpent(1);
-                                  await subject();
+                                  describe(`when too much ${tokenType} is spent`, () => {
+                                    beforeEach(async () => {
+                                      const oldSubjectSendQuantity = subjectSendQuantity;
 
-                                  const spendAmount = oldSubjectSendQuantity.mul(5).div(4);
-                                  const allowance = await sendToken.allowance(
-                                    setToken.address,
-                                    wrappedfCashMock.address,
-                                  );
-                                  expect(allowance).to.be.gte(spendAmount);
-                                  await wrappedfCashMock.setMintTokenSpent(spendAmount);
+                                      // Execute trade where we are spending much less than approved to create left-over allowance
+                                      subjectSendQuantity = subjectSendQuantity.mul(3).div(2);
+                                      await wrappedfCashMock.setMintTokenSpent(1);
+                                      await subject();
 
-                                  subjectSendQuantity = oldSubjectSendQuantity;
-                                });
-                                it("should revert", async () => {
-                                  await expect(subject()).to.be.revertedWith("Overspent");
-                                });
-                              });
+                                      const spendAmount = oldSubjectSendQuantity.mul(5).div(4);
+                                      const allowance = await sendToken.allowance(
+                                        setToken.address,
+                                        wrappedfCashMock.address,
+                                      );
+                                      expect(allowance).to.be.gte(spendAmount);
+                                      await wrappedfCashMock.setMintTokenSpent(spendAmount);
 
-                              describe("when swap fails due to insufficient allowance", () => {
-                                beforeEach(async () => {
-                                  await wrappedfCashMock.setMintTokenSpent(
-                                    subjectSendQuantity.mul(2),
-                                  );
-                                });
-                                it("should revert", async () => {
-                                  const revertMessage =
-                                    tokenType == "assetToken"
-                                      ? "WrappedfCashMock: Transfer failed"
-                                      : underlyingTokenName == "dai"
-                                        ? "ERC20: transfer amount exceeds allowance"
-                                        : "Address: low-level call with value failed";
-                                  await expect(subject()).to.be.revertedWith(revertMessage);
-                                });
-                              });
-                            } else {
-                              describe("When wrappedFCash is not deployed for given parameters", () => {
-                                beforeEach(async () => {
-                                  subjectCurrencyId = 10;
-                                });
-                                it("should revert", async () => {
-                                  await expect(subject()).to.be.revertedWith(
-                                    "WrappedfCash not deployed for given parameters",
-                                  );
-                                });
-                              });
+                                      subjectSendQuantity = oldSubjectSendQuantity;
+                                    });
+                                    it("should revert", async () => {
+                                      await expect(subject()).to.be.revertedWith("Overspent");
+                                    });
+                                  });
 
-                              describe("When receiveToken is neither underlying nor asset token", () => {
-                                beforeEach(async () => {
-                                  subjectReceiveToken = ethers.constants.AddressZero;
-                                });
-                                it("should revert", async () => {
-                                  await expect(subject()).to.be.revertedWith(
-                                    "Token is neither asset nor underlying token",
-                                  );
-                                });
-                              });
-
-                              describe("When sendAmount is 0", () => {
-                                beforeEach(async () => {
-                                  subjectSendQuantity = BigNumber.from(0);
-                                });
-                                it("should not revert", async () => {
-                                  await subject();
-                                });
-                              });
-                              describe(`when too little ${tokenType} is returned`, () => {
-                                beforeEach(async () => {
-                                  await wrappedfCashMock.setRedeemTokenReturned(
-                                    subjectMinReceiveQuantity.div(2),
-                                  );
-                                });
-                                afterEach(async () => {
-                                  await wrappedfCashMock.setRedeemTokenReturned(0);
-                                });
-                                it("should revert", async () => {
-                                  await expect(subject()).to.be.revertedWith(
-                                    "Not enough received amount",
-                                  );
-                                });
-                              });
-                            }
-                            it("setToken should receive receiver token", async () => {
-                              const receiveTokenBalanceBefore = await receiveToken.balanceOf(
-                                setToken.address,
-                              );
-                              await subject();
-                              const receiveTokenBalanceAfter = await receiveToken.balanceOf(
-                                setToken.address,
-                              );
-                              expect(
-                                receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
-                              ).to.be.gte(subjectMinReceiveQuantity);
-                            });
-
-                            it("setTokens sendToken balance should be adjusted accordingly", async () => {
-                              const sendTokenBalanceBefore = await sendToken.balanceOf(
-                                setToken.address,
-                              );
-                              await subject();
-                              const sendTokenBalanceAfter = await sendToken.balanceOf(
-                                setToken.address,
-                              );
-                              if (tradeDirection == "selling") {
-                                expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
-                                  subjectSendQuantity,
-                                );
-                              } else {
-                                expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.be.lte(
-                                  subjectSendQuantity,
-                                );
-                              }
-                            });
-
-                            it("should not revert when executing trade twice", async () => {
-                              await subject();
-                              await subject();
-                            });
-
-                            it("should return spent / received amount of non-fcash-token", async () => {
-                              const otherTokenBalanceBefore = await otherToken.balanceOf(
-                                setToken.address,
-                              );
-                              const result = await subjectCall();
-                              await subject();
-                              const otherTokenBalanceAfter = await otherToken.balanceOf(
-                                setToken.address,
-                              );
-
-                              let expectedResult;
-                              if (tradeDirection == "selling") {
-                                expectedResult = otherTokenBalanceAfter.sub(
-                                  otherTokenBalanceBefore,
-                                );
-                              } else {
-                                expectedResult = otherTokenBalanceBefore.sub(
-                                  otherTokenBalanceAfter,
-                                );
-                              }
-
-                              // TODO: Review why there is some deviation
-                              const allowedDeviationPercent = 1;
-                              expect(result).to.be.gte(
-                                expectedResult.mul(100 - allowedDeviationPercent).div(100),
-                              );
-                              expect(result).to.be.lte(
-                                expectedResult.mul(100 + allowedDeviationPercent).div(100),
-                              );
-                            });
-
-                            it("should adjust the components position of the receiveToken correctly", async () => {
-                              const positionBefore = await setToken.getDefaultPositionRealUnit(
-                                receiveToken.address,
-                              );
-                              const tradeAmount = await subjectCall();
-                              const receiveTokenAmount =
-                                tradeDirection == "buying"
-                                  ? subjectMinReceiveQuantity
-                                  : tradeAmount;
-                              await subject();
-                              const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                receiveToken.address,
-                              );
-
-                              const positionChange = positionAfter.sub(positionBefore);
-                              const totalSetSupplyWei = await setToken.totalSupply();
-                              const totalSetSupplyEther = totalSetSupplyWei.div(
-                                BigNumber.from(10).pow(18),
-                              );
-
-                              let receiveTokenAmountNormalized;
-                              if (receiveTokenType == "underlyingToken") {
-                                receiveTokenAmountNormalized = receiveTokenAmount.div(
-                                  totalSetSupplyEther,
-                                );
-                              } else {
-                                receiveTokenAmountNormalized = BigNumber.from(
-                                  Math.floor(
-                                    receiveTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() /
-                                      10,
-                                  ),
-                                );
-                              }
-
-                              if (receiveTokenType == "underlyingToken") {
-                                // TODO: Review why there is some deviation
-                                const allowedDeviationPercent = 1;
-                                expect(receiveTokenAmountNormalized).to.be.gte(
-                                  positionChange.mul(100 - allowedDeviationPercent).div(100),
-                                );
-                                expect(receiveTokenAmountNormalized).to.be.lte(
-                                  positionChange.mul(100 + allowedDeviationPercent).div(100),
-                                );
-                              } else {
-                                expect(receiveTokenAmountNormalized).to.eq(positionChange);
-                              }
-                            });
-
-                            it("should adjust the components position of the sendToken correctly", async () => {
-                              const positionBefore = await setToken.getDefaultPositionRealUnit(
-                                sendToken.address,
-                              );
-                              const tradeAmount = await subjectCall();
-                              const sendTokenAmount =
-                                tradeDirection == "selling" ? subjectSendQuantity : tradeAmount;
-                              await subject();
-                              const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                sendToken.address,
-                              );
-
-                              const positionChange = positionBefore.sub(positionAfter);
-                              const totalSetSupplyWei = await setToken.totalSupply();
-                              const totalSetSupplyEther = totalSetSupplyWei.div(
-                                BigNumber.from(10).pow(18),
-                              );
-
-                              let sendTokenAmountNormalized;
-                              if (sendTokenType == "underlyingToken") {
-                                sendTokenAmountNormalized = sendTokenAmount.div(
-                                  totalSetSupplyEther,
-                                );
-                              } else {
-                                sendTokenAmountNormalized = BigNumber.from(
-                                  // TODO: Why do we have to use round here and floor with the receive token ?
-                                  Math.round(
-                                    sendTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() /
-                                      10,
-                                  ),
-                                );
-                              }
-
-                              expect(sendTokenAmountNormalized).to.closeTo(
-                                positionChange,
-                                positionChange.div(10 ** 6).toNumber(),
-                              );
-                            });
-
-                            describe("when amount of send token spent is higher than registered position", () => {
-                              beforeEach(async () => {
-                                await wrappedfCashMock.setRedeemTokenReturned(subjectSendQuantity);
-                                const additionalAmount = subjectSendQuantity.div(2);
-                                await sendToken.transfer(setToken.address, additionalAmount);
-
-                                const sendTokenPosition = await setToken.getTotalComponentRealUnits(
-                                  sendToken.address,
-                                );
-                                const sendTokenBalance = await sendToken.balanceOf(
-                                  setToken.address,
-                                );
-
-                                expect(sendTokenBalance.gt(sendTokenPosition));
-
-                                subjectSendQuantity = sendTokenBalance;
-                              });
-                              it("setToken should receive receiver token", async () => {
-                                const receiveTokenBalanceBefore = await receiveToken.balanceOf(
-                                  setToken.address,
-                                );
-                                await subject();
-                                const receiveTokenBalanceAfter = await receiveToken.balanceOf(
-                                  setToken.address,
-                                );
-                                expect(
-                                  receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
-                                ).to.be.gte(subjectMinReceiveQuantity);
-                              });
-
-                              it("setTokens sendToken balance should be adjusted accordingly", async () => {
-                                const sendTokenBalanceBefore = await sendToken.balanceOf(
-                                  setToken.address,
-                                );
-                                await subject();
-                                const sendTokenBalanceAfter = await sendToken.balanceOf(
-                                  setToken.address,
-                                );
-                                if (tradeDirection == "selling") {
-                                  expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
-                                    subjectSendQuantity,
-                                  );
+                                  describe("when swap fails due to insufficient allowance", () => {
+                                    beforeEach(async () => {
+                                      await wrappedfCashMock.setMintTokenSpent(
+                                        subjectSendQuantity.mul(2),
+                                      );
+                                    });
+                                    it("should revert", async () => {
+                                      const revertMessage =
+                                        tokenType == "assetToken"
+                                          ? "WrappedfCashMock: Transfer failed"
+                                          : underlyingTokenName == "dai"
+                                            ? "ERC20: transfer amount exceeds allowance"
+                                            : "Address: low-level call with value failed";
+                                      await expect(subject()).to.be.revertedWith(revertMessage);
+                                    });
+                                  });
                                 } else {
-                                  expect(
-                                    sendTokenBalanceBefore.sub(sendTokenBalanceAfter),
-                                  ).to.be.lte(subjectSendQuantity);
+                                  describe("When wrappedFCash is not deployed for given parameters", () => {
+                                    beforeEach(async () => {
+                                      subjectCurrencyId = 10;
+                                    });
+                                    it("should revert", async () => {
+                                      await expect(subject()).to.be.revertedWith(
+                                        "WrappedfCash not deployed for given parameters",
+                                      );
+                                    });
+                                  });
+
+                                  describe("When receiveToken is neither underlying nor asset token", () => {
+                                    beforeEach(async () => {
+                                      subjectReceiveToken = ethers.constants.AddressZero;
+                                    });
+                                    it("should revert", async () => {
+                                      await expect(subject()).to.be.revertedWith(
+                                        "Token is neither asset nor underlying token",
+                                      );
+                                    });
+                                  });
+
+                                  describe("When sendAmount is 0", () => {
+                                    beforeEach(async () => {
+                                      subjectSendQuantity = BigNumber.from(0);
+                                    });
+                                    it("should not revert", async () => {
+                                      await subject();
+                                    });
+                                  });
+                                  describe(`when too little ${tokenType} is returned`, () => {
+                                    beforeEach(async () => {
+                                      await wrappedfCashMock.setRedeemTokenReturned(
+                                        subjectMinReceiveQuantity.div(2),
+                                      );
+                                    });
+                                    afterEach(async () => {
+                                      await wrappedfCashMock.setRedeemTokenReturned(0);
+                                    });
+                                    it("should revert", async () => {
+                                      await expect(subject()).to.be.revertedWith(
+                                        "Not enough received amount",
+                                      );
+                                    });
+                                  });
                                 }
+                                it("setToken should receive receiver token", async () => {
+                                  const receiveTokenBalanceBefore = await receiveToken.balanceOf(
+                                    setToken.address,
+                                  );
+                                  await subject();
+                                  const receiveTokenBalanceAfter = await receiveToken.balanceOf(
+                                    setToken.address,
+                                  );
+                                  expect(
+                                    receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
+                                  ).to.be.gte(subjectMinReceiveQuantity);
+                                });
+
+                                it("setTokens sendToken balance should be adjusted accordingly", async () => {
+                                  const sendTokenBalanceBefore = await sendToken.balanceOf(
+                                    setToken.address,
+                                  );
+                                  await subject();
+                                  const sendTokenBalanceAfter = await sendToken.balanceOf(
+                                    setToken.address,
+                                  );
+                                  if (tradeDirection == "selling") {
+                                    expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
+                                      subjectSendQuantity,
+                                    );
+                                  } else {
+                                    expect(
+                                      sendTokenBalanceBefore.sub(sendTokenBalanceAfter),
+                                    ).to.be.lte(subjectSendQuantity);
+                                  }
+                                });
+
+                                if (relativeAmount != "higher") {
+                                  it("should not revert when executing trade twice", async () => {
+                                    await subject();
+                                    await subject();
+                                  });
+                                }
+
+                                it("should return spent / received amount of non-fcash-token", async () => {
+                                  const otherTokenBalanceBefore = await otherToken.balanceOf(
+                                    setToken.address,
+                                  );
+                                  const result = await subjectCall();
+                                  await subject();
+                                  const otherTokenBalanceAfter = await otherToken.balanceOf(
+                                    setToken.address,
+                                  );
+
+                                  let expectedResult;
+                                  if (tradeDirection == "selling") {
+                                    expectedResult = otherTokenBalanceAfter.sub(
+                                      otherTokenBalanceBefore,
+                                    );
+                                  } else {
+                                    expectedResult = otherTokenBalanceBefore.sub(
+                                      otherTokenBalanceAfter,
+                                    );
+                                  }
+
+                                  expect(result).to.eq(expectedResult);
+                                });
+
+                                it("should adjust the components position of the receiveToken correctly", async () => {
+                                  const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                    receiveToken.address,
+                                  );
+                                  const tradeAmount = await subjectCall();
+                                  const receiveTokenAmount =
+                                    tradeDirection == "buying"
+                                      ? subjectMinReceiveQuantity
+                                      : tradeAmount;
+                                  await subject();
+                                  const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                    receiveToken.address,
+                                  );
+
+                                  const positionChange = positionAfter.sub(positionBefore);
+                                  const totalSetSupplyWei = await setToken.totalSupply();
+                                  const totalSetSupplyEther = totalSetSupplyWei.div(
+                                    BigNumber.from(10).pow(18),
+                                  );
+
+                                  let receiveTokenAmountNormalized;
+                                  if (receiveTokenType == "underlyingToken") {
+                                    receiveTokenAmountNormalized = receiveTokenAmount.div(
+                                      totalSetSupplyEther,
+                                    );
+                                  } else {
+                                    receiveTokenAmountNormalized = BigNumber.from(
+                                      Math.floor(
+                                        receiveTokenAmount
+                                          .mul(10)
+                                          .div(totalSetSupplyEther)
+                                          .toNumber() / 10,
+                                      ),
+                                    );
+                                  }
+
+                                  expect(receiveTokenAmountNormalized).to.eq(positionChange);
+                                });
+
+                                it("should adjust the components position of the sendToken correctly", async () => {
+                                  const positionBefore = await setToken.getTotalComponentRealUnits(
+                                    sendToken.address,
+                                  );
+                                  const tradeAmount = await subjectCall();
+                                  let expectedPositionChange = (tradeDirection == "selling"
+                                    ? subjectSendQuantity
+                                    : tradeAmount
+                                  )
+                                    .mul(BigNumber.from(10).pow(18))
+                                    .div(await setToken.totalSupply());
+
+                                  if (expectedPositionChange.gt(positionBefore)) {
+                                    expectedPositionChange = positionBefore;
+                                  }
+
+                                  await subject();
+                                  const positionAfter = await setToken.getTotalComponentRealUnits(
+                                    sendToken.address,
+                                  );
+                                  const positionChange = positionBefore.sub(positionAfter);
+
+                                  expect(positionChange).to.eq(expectedPositionChange);
+                                });
                               });
                             });
                           });
@@ -1153,7 +1116,7 @@ describe("NotionalTradeModule", () => {
                           // Make sure set token was added to set
                           expect(wrappedfCashMockPositionAfter).to.be.gt(0);
                         });
-                        ["underlying", "asset"].forEach(redeemToken => {
+                        ["asset", "underlying"].forEach(redeemToken => {
                           describe(`when redeeming to ${redeemToken}`, () => {
                             let outputToken: IERC20;
                             beforeEach(async () => {
