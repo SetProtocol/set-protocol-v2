@@ -22,7 +22,7 @@ import {
   ManagerIssuanceHookMock,
   NotionalTradeModule,
   WrappedfCash,
-  WrappedfCashFactory,
+  WrappedfCashFactoryExperimental,
 } from "@utils/contracts";
 
 import { IERC20 } from "@typechain/IERC20";
@@ -96,7 +96,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
           let underlyingTokenAmount: BigNumber;
           let fCashAmount: BigNumber;
           let snapshotId: string;
-          let wrappedFCashFactory: WrappedfCashFactory;
+          let wrappedFCashFactory: WrappedfCashFactoryExperimental;
 
           before(async () => {
             wrappedFCashFactory = await deployWrappedfCashFactory(

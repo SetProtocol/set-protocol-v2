@@ -127,7 +127,7 @@ export { WrapV2AdapterMock } from "../../typechain/WrapV2AdapterMock";
 export { WrapModule } from "../../typechain/WrapModule";
 export { WrapModuleV2 } from "../../typechain/WrapModuleV2";
 export { WrappedfCash } from "../../typechain/WrappedfCash";
-export { WrappedfCashFactory } from "../../typechain/WrappedfCashFactory";
+export { WrappedfCashFactoryExperimental } from "../../typechain/WrappedfCashFactoryExperimental";
 export { WrappedfCashMock } from "../../typechain/WrappedfCashMock";
 export { WrappedfCashFactoryMock } from "../../typechain/WrappedfCashFactoryMock";
 export { YearnWrapV2Adapter } from "../../typechain/YearnWrapV2Adapter";
