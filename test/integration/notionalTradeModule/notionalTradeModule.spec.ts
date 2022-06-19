@@ -138,7 +138,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               );
               await setup.controller.addModule(debtIssuanceModule.address);
 
-              const decodedIdGasLimit = 10**6;
+              const decodedIdGasLimit = 10 ** 6;
 
               // Deploy NotionalTradeModule
               notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
@@ -604,11 +604,11 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                     sendTokenType == "underlyingToken" && assetTokenName == "cDai"
                                       ? "Dai/insufficient-balance"
                                       : sendTokenType == "assetToken" && assetTokenName == "cDai"
-                                      ? "0x11"
-                                      : sendTokenType == "underlyingToken" &&
+                                        ? "0x11"
+                                        : sendTokenType == "underlyingToken" &&
                                         assetTokenName == "cEth"
-                                      ? "Insufficient cash"
-                                      : "ERC20";
+                                          ? "Insufficient cash"
+                                          : "ERC20";
                                   await expect(subject()).to.be.revertedWith(revertReason);
                                 });
                               });
@@ -776,8 +776,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                     await wrappedFCashInstance.balanceOf(setToken.address)
                                   ).div(10);
 
-                                  console.log("redeemAmount", redeemAmount);
-
                                   await notionalTradeModule
                                     .connect(manager.wallet)
                                     .redeemFCashPosition(
@@ -788,18 +786,13 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                       assetToken.address,
                                       1,
                                     );
-
-                                  const components = await setToken.getComponents();
-                                  console.log("Components", components);
                                 });
                                 it("should not waste excessive gas", async () => {
                                   // Test case to reproduce an issue where a reverting call to the cEth fallback function wasted a lot of gas.
-
                                   const tx = await subject();
                                   const receipt = await tx.wait();
-                                  console.log("gasUsed", receipt.gasUsed.toString());
-                                    const maxGasUsage = 5*10**6;
-                                    expect(receipt.gasUsed).to.lte(maxGasUsage);
+                                  const maxGasUsage = 5 * 10 ** 6;
+                                  expect(receipt.gasUsed).to.lte(maxGasUsage);
                                 });
                               });
                             } else {
