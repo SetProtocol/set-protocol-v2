@@ -525,8 +525,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             _maxAssetAmount,
             uint88(_fCashAmount),
             address(_setToken),
-            minImpliedRate,
-            _fromUnderlying
+            minImpliedRate
         );
         _setToken.invoke(address(_fCashPosition), 0, mintCallData);
     }
