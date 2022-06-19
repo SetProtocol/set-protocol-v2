@@ -121,6 +121,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     IWrappedfCashFactory public immutable wrappedfCashFactory;
     IERC20 public immutable weth;
 
+    uint256 public decodedIdGasLimit;
+
     /* ============ Constructor ============ */
 
     /**
@@ -131,14 +133,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     constructor(
         IController _controller,
         IWrappedfCashFactory _wrappedfCashFactory,
-        IERC20 _weth
-
+        IERC20 _weth,
+        uint256 _decodedIdGasLimit
     )
         public
         ModuleBase(_controller)
     {
         wrappedfCashFactory = _wrappedfCashFactory;
         weth = _weth;
+        decodedIdGasLimit = _decodedIdGasLimit;
     }
 
     /* ============ External Functions ============ */
@@ -269,6 +272,14 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
 
         _debtIssuanceModule.registerToIssuanceModule(_setToken);
+    }
+
+    /**
+     * @dev GOVERNANCE ONLY: Update gas limit of call to getDecodedID in _isWrappedFCash
+     * @param _decodedIdGasLimit   New gas limit for call to getDecodedID
+     */
+    function updateDecodedIdGasLimit(uint256 _decodedIdGasLimit) external onlyOwner {
+        decodedIdGasLimit = _decodedIdGasLimit;
     }
 
     /**
@@ -652,7 +663,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             return false;
         }
 
-        try IWrappedfCash(_fCashPosition).getDecodedID() returns(uint16 _currencyId, uint40 _maturity){
+        // Added this gas limit, since the fallback funciton on cEth consumes an extremely high amount of gas
+        try IWrappedfCash(_fCashPosition).getDecodedID{gas: decodedIdGasLimit}() returns(uint16 _currencyId, uint40 _maturity){
             try wrappedfCashFactory.computeAddress(_currencyId, _maturity) returns(address _computedAddress){
                 return _fCashPosition == _computedAddress;
             } catch {

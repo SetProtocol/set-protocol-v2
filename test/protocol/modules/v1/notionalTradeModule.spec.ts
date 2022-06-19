@@ -79,10 +79,12 @@ describe("NotionalTradeModule", () => {
     describe("#constructor", async () => {
       let subjectController: Address;
       let subjectWrappedfCashFactory: Address;
+      let subjectDecodedIdGasLimit: number;
 
       beforeEach(async () => {
         subjectController = setup.controller.address;
         subjectWrappedfCashFactory = wrappedfCashFactoryMock.address;
+        subjectDecodedIdGasLimit = 10 ** 6;
       });
 
       async function subject(): Promise<NotionalTradeModule> {
@@ -90,6 +92,7 @@ describe("NotionalTradeModule", () => {
           subjectController,
           subjectWrappedfCashFactory,
           setup.weth.address,
+          subjectDecodedIdGasLimit,
         );
       }
 
@@ -99,15 +102,24 @@ describe("NotionalTradeModule", () => {
         const controller = await notionalTradeModule.controller();
         expect(controller).to.eq(subjectController);
       });
+
+      it("should set the decodedIdGasLimit", async () => {
+        const notionalTradeModule = await subject();
+
+        const decodedIdGasLimit = await notionalTradeModule.decodedIdGasLimit();
+        expect(decodedIdGasLimit).to.eq(subjectDecodedIdGasLimit);
+      });
     });
 
     describe("When notional module is deployed", async () => {
       let notionalTradeModule: NotionalTradeModule;
       beforeEach(async () => {
+        const decodedIdGaslimit = 10 ** 6;
         notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
           setup.controller.address,
           wrappedfCashFactoryMock.address,
           setup.weth.address,
+          decodedIdGaslimit,
         );
         await setup.controller.addModule(notionalTradeModule.address);
 
@@ -214,6 +226,25 @@ describe("NotionalTradeModule", () => {
                 await debtIssuanceModule.issue(setToken.address, initialSetBalance, owner.address);
               });
 
+              describe("#updateDecodedIdGaslimit", async () => {
+                let caller: SignerWithAddress;
+                let subjectDecodedIdGasLimit: number;
+
+                beforeEach(async () => {
+                  caller = owner.wallet;
+                  subjectDecodedIdGasLimit = 10 ** 5;
+                });
+                const subject = () => {
+                  return notionalTradeModule
+                    .connect(caller)
+                    .updateDecodedIdGasLimit(subjectDecodedIdGasLimit);
+                };
+                it("adjusts gas limit correctly", async () => {
+                  await subject();
+                  const decodedIdGasLimit = await notionalTradeModule.decodedIdGasLimit();
+                  expect(decodedIdGasLimit).to.eq(subjectDecodedIdGasLimit);
+                });
+              });
               describe("#updateAnySetAllowed", async () => {
                 let caller: SignerWithAddress;
                 let subjectStatus: boolean;

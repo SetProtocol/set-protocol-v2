@@ -138,11 +138,14 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               );
               await setup.controller.addModule(debtIssuanceModule.address);
 
+              const decodedIdGasLimit = 10**6;
+
               // Deploy NotionalTradeModule
               notionalTradeModule = await deployer.modules.deployNotionalTradeModule(
                 setup.controller.address,
                 wrappedFCashFactory.address,
                 tokens.weth.address,
+                decodedIdGasLimit,
               );
               await setup.controller.addModule(notionalTradeModule.address);
 
@@ -601,11 +604,11 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                     sendTokenType == "underlyingToken" && assetTokenName == "cDai"
                                       ? "Dai/insufficient-balance"
                                       : sendTokenType == "assetToken" && assetTokenName == "cDai"
-                                        ? "0x11"
-                                        : sendTokenType == "underlyingToken" &&
+                                      ? "0x11"
+                                      : sendTokenType == "underlyingToken" &&
                                         assetTokenName == "cEth"
-                                          ? "Insufficient cash"
-                                          : "ERC20";
+                                      ? "Insufficient cash"
+                                      : "ERC20";
                                   await expect(subject()).to.be.revertedWith(revertReason);
                                 });
                               });
@@ -766,7 +769,40 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                               await network.provider.send("evm_revert", [snapshotId]);
                             });
 
-                            if (triggerAction != "manualTrigger") {
+                            if (triggerAction == "manualTrigger") {
+                              describe("When a part of the fCash was redeemed for asset tokens", () => {
+                                beforeEach(async () => {
+                                  const redeemAmount = (
+                                    await wrappedFCashInstance.balanceOf(setToken.address)
+                                  ).div(10);
+
+                                  console.log("redeemAmount", redeemAmount);
+
+                                  await notionalTradeModule
+                                    .connect(manager.wallet)
+                                    .redeemFCashPosition(
+                                      setToken.address,
+                                      currencyId,
+                                      maturity,
+                                      redeemAmount,
+                                      assetToken.address,
+                                      1,
+                                    );
+
+                                  const components = await setToken.getComponents();
+                                  console.log("Components", components);
+                                });
+                                it("should not waste excessive gas", async () => {
+                                  // Test case to reproduce an issue where a reverting call to the cEth fallback function wasted a lot of gas.
+
+                                  const tx = await subject();
+                                  const receipt = await tx.wait();
+                                  console.log("gasUsed", receipt.gasUsed.toString());
+                                    const maxGasUsage = 5*10**6;
+                                    expect(receipt.gasUsed).to.lte(maxGasUsage);
+                                });
+                              });
+                            } else {
                               it("callers token balance is adjusted in the correct direction", async () => {
                                 const outputTokenBalanceBefore = await outputToken.balanceOf(
                                   caller.address,
@@ -804,7 +840,9 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 subjectSetToken,
                               );
 
-                              await subject();
+                              const tx = await subject();
+                              const receipt = await tx.wait();
+                              console.log("gasUsed", receipt.gasUsed.toString());
 
                               // Check that fcash balance is 0 after
                               const fCashBalanceAfter = await wrappedFCashInstance.balanceOf(
