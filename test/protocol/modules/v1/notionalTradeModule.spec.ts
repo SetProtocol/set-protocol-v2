@@ -812,6 +812,23 @@ describe("NotionalTradeModule", () => {
                                 });
 
                                 if (tradeDirection == "buying") {
+                                  describe("When fCash wrapper uses less than maximum allowed amount", () => {
+                                    beforeEach(async () => {
+                                      await wrappedfCashMock.setMintTokenSpent(100);
+                                    });
+                                    afterEach(async () => {
+                                      await wrappedfCashMock.setMintTokenSpent(0);
+                                    });
+                                    it("Should leave no left-over allowance", async () => {
+                                      await subject();
+                                      const allowance = await sendToken.allowance(
+                                        setToken.address,
+                                        wrappedfCashMock.address,
+                                      );
+                                      expect(allowance).to.eq(0);
+                                    });
+                                  });
+
                                   it("setToken should receive receiver token", async () => {
                                     const receiveTokenBalanceBefore = await receiveToken.balanceOf(
                                       setToken.address,
@@ -851,10 +868,22 @@ describe("NotionalTradeModule", () => {
                                     beforeEach(async () => {
                                       const oldSubjectSendQuantity = subjectSendQuantity;
 
-                                      // Execute trade where we are spending much less than approved to create left-over allowance
-                                      subjectSendQuantity = subjectSendQuantity.mul(3).div(2);
-                                      await wrappedfCashMock.setMintTokenSpent(1);
-                                      await subject();
+                                      const funder = await deployer.mocks.deployForceFunderMock();
+                                      await funder.fund(setToken.address, { value: ether(10) }); // Gas money
+
+                                      await network.provider.request({
+                                        method: "hardhat_impersonateAccount",
+                                        params: [setToken.address],
+                                      });
+                                      const setTokenSigner = await ethers.getSigner(
+                                        setToken.address,
+                                      );
+                                      await sendToken
+                                        .connect(setTokenSigner)
+                                        .approve(
+                                          wrappedfCashMock.address,
+                                          ethers.constants.MaxUint256,
+                                        );
 
                                       const spendAmount = oldSubjectSendQuantity.mul(5).div(4);
                                       const allowance = await sendToken.allowance(

@@ -447,6 +447,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         );
 
         require(sentAmount <= _maxSendAmount, "Overspent");
+
+        _resetAllowance(_setToken, _fCashPosition, _sendToken);
         emit FCashMinted(_setToken, _fCashPosition, _sendToken, _fCashAmount, sentAmount);
     }
 
@@ -503,6 +505,21 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             _setToken.invoke(address(_sendToken), 0, approveCallData);
         }
     }
+
+    /**
+     * @dev Resets allowance to zero to avoid residual allowances
+     */
+    function _resetAllowance(
+        ISetToken _setToken,
+        IWrappedfCashComplete _fCashPosition,
+        IERC20 _sendToken
+    )
+    internal
+    {
+        bytes memory approveCallData = abi.encodeWithSelector(_sendToken.approve.selector, address(_fCashPosition), 0);
+        _setToken.invoke(address(_sendToken), 0, approveCallData);
+    }
+
 
     /**
      * @dev Invokes the wrappedFCash token's mint function from the setToken
