@@ -563,8 +563,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     )
     internal
     {
-        uint32 minImpliedRate = 0;
-
         bytes4 functionSelector = 
             _fromUnderlying ? _fCashPosition.mintViaUnderlying.selector : _fCashPosition.mintViaAsset.selector;
         bytes memory mintCallData = abi.encodeWithSelector(
@@ -572,7 +570,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             _maxAssetAmount,
             uint88(_fCashAmount),
             address(_setToken),
-            minImpliedRate
+            0
         );
         _setToken.invoke(address(_fCashPosition), 0, mintCallData);
     }
@@ -588,15 +586,13 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     )
     internal
     {
-        uint32 maxImpliedRate = type(uint32).max;
-
         bytes4 functionSelector =
             _toUnderlying ? _fCashPosition.redeemToUnderlying.selector : _fCashPosition.redeemToAsset.selector;
         bytes memory redeemCallData = abi.encodeWithSelector(
             functionSelector,
             _fCashAmount,
             address(_setToken),
-            maxImpliedRate
+            type(uint32).max
         );
         _setToken.invoke(address(_fCashPosition), 0, redeemCallData);
     }
