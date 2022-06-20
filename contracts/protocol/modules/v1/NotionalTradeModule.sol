@@ -645,6 +645,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     returns(address[] memory fCashPositions)
     {
         ISetToken.Position[] memory positions = _setToken.getPositions();
+        address[] memory temp = new address[](positions.length);
         uint positionsLength = positions.length;
         uint numFCashPositions;
 
@@ -653,22 +654,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             if(positions[i].unit > 0) {
                 address component = positions[i].component;
                 if(_isWrappedFCash(component)) {
+                    temp[numFCashPositions] = component;
                     numFCashPositions++;
                 }
             }
         }
 
         fCashPositions = new address[](numFCashPositions);
-
-        uint j;
-        for(uint256 i = 0; i < positionsLength; i++) {
-            if(positions[i].unit > 0) {
-                address component = positions[i].component;
-                if(_isWrappedFCash(component)) {
-                    fCashPositions[j] = component;
-                    j++;
-                }
-            }
+        for(uint256 i = 0; i < numFCashPositions; i++) {
+            fCashPositions[i] = temp[i];
         }
     }
 
