@@ -28,7 +28,7 @@ import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
-import { IWrappedfCash, IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
+import { IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
 import { IWrappedfCashFactory } from "../../../interfaces/IWrappedFCashFactory.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
@@ -239,8 +239,10 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         // Try if register exists on any of the modules including the debt issuance module
         address[] memory modules = _setToken.getModules();
-        for(uint256 i = 0; i < modules.length; i++) {
-            try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
+        for(uint256 i = 0; i < modules.length; ++i) {
+            if(modules[i].isContract()){
+                try IDebtIssuanceModule(modules[i]).registerToIssuanceModule(_setToken) {} catch {}
+            }
         }
     }
 
@@ -257,7 +259,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
-        for(uint256 i = 0; i < modules.length; i++) {
+        for(uint256 i = 0; i < modules.length; ++i) {
             if(modules[i].isContract()){
                 try IDebtIssuanceModule(modules[i]).unregisterFromIssuanceModule(setToken) {} catch {}
             }
@@ -417,7 +419,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
         bool toUnderlying = redeemToUnderlying[_setToken];
 
-        for(uint256 i = 0; i < positionsLength; i++) {
+        for(uint256 i = 0; i < positionsLength; ++i) {
             // Check that the given position is an equity position
             if(positions[i].unit > 0) {
                 address component = positions[i].component;
@@ -643,7 +645,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         uint positionsLength = positions.length;
         uint numFCashPositions;
 
-        for(uint256 i = 0; i < positionsLength; i++) {
+        for(uint256 i = 0; i < positionsLength; ++i) {
             // Check that the given position is an equity position
             if(positions[i].unit > 0) {
                 address component = positions[i].component;
@@ -655,7 +657,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
 
         fCashPositions = new address[](numFCashPositions);
-        for(uint256 i = 0; i < numFCashPositions; i++) {
+        for(uint256 i = 0; i < numFCashPositions; ++i) {
             fCashPositions[i] = temp[i];
         }
     }
@@ -671,7 +673,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         }
 
         // Added this gas limit, since the fallback funciton on cEth consumes an extremely high amount of gas
-        try IWrappedfCash(_fCashPosition).getDecodedID{gas: decodedIdGasLimit}() returns(uint16 _currencyId, uint40 _maturity){
+        try IWrappedfCashComplete(_fCashPosition).getDecodedID{gas: decodedIdGasLimit}() returns(uint16 _currencyId, uint40 _maturity){
             try wrappedfCashFactory.computeAddress(_currencyId, _maturity) returns(address _computedAddress){
                 return _fCashPosition == _computedAddress;
             } catch {
