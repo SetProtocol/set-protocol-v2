@@ -244,7 +244,77 @@ describe("NotionalTradeModule", () => {
                   const decodedIdGasLimit = await notionalTradeModule.decodedIdGasLimit();
                   expect(decodedIdGasLimit).to.eq(subjectDecodedIdGasLimit);
                 });
+
+                describe("when the caller is not the owner", async () => {
+                  beforeEach(async () => {
+                    caller = manager.wallet;
+                  });
+                  it("should revert", async () => {
+                    await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+                  });
+                });
               });
+
+              describe("#updateRedemptionHookDisabled", async () => {
+                let caller: SignerWithAddress;
+                let subjectIsDisabled: boolean;
+
+                beforeEach(async () => {
+                  caller = manager.wallet;
+                  subjectIsDisabled = true;
+                });
+                const subject = () => {
+                  return notionalTradeModule
+                    .connect(caller)
+                    .updateRedemptionHookDisabled(setToken.address, subjectIsDisabled);
+                };
+
+                describe("when disabling previously enabled token", () => {
+                  beforeEach(async () => {
+                    const isDisabled = await notionalTradeModule.redemptionHookDisabled(
+                      setToken.address,
+                    );
+                    expect(isDisabled).to.eq(false);
+                  });
+                  it("adjusts state corectly", async () => {
+                    await subject();
+                    const isDisabled = await notionalTradeModule.redemptionHookDisabled(
+                      setToken.address,
+                    );
+                    expect(isDisabled).to.eq(subjectIsDisabled);
+                  });
+                });
+
+                describe("when enabling previously disabled token", () => {
+                  beforeEach(async () => {
+                    await notionalTradeModule
+                      .connect(manager.wallet)
+                      .updateRedemptionHookDisabled(setToken.address, true);
+                    const isDisabled = await notionalTradeModule.redemptionHookDisabled(
+                      setToken.address,
+                    );
+                    expect(isDisabled).to.eq(true);
+                    subjectIsDisabled = false;
+                  });
+                  it("adjusts state corectly", async () => {
+                    await subject();
+                    const isDisabled = await notionalTradeModule.redemptionHookDisabled(
+                      setToken.address,
+                    );
+                    expect(isDisabled).to.eq(subjectIsDisabled);
+                  });
+                });
+
+                describe("when the caller is not the manager", async () => {
+                  beforeEach(async () => {
+                    caller = owner.wallet;
+                  });
+                  it("should revert", async () => {
+                    await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+                  });
+                });
+              });
+
               describe("#updateAnySetAllowed", async () => {
                 let caller: SignerWithAddress;
                 let subjectStatus: boolean;
@@ -1326,6 +1396,47 @@ describe("NotionalTradeModule", () => {
                                     beforeEach(async () => {
                                       await wrappedfCashMock.setMatured(true);
                                     });
+
+                                    if (triggerAction != "manualTrigger") {
+                                      describe("when automatic redemption has been disabled", () => {
+                                        beforeEach(async () => {
+                                          if (triggerAction == "issue") {
+                                            const underlyingTokenAmount = ethers.utils.parseEther(
+                                              "2.1",
+                                            );
+                                            const fCashAmount = ethers.utils.parseUnits("2", 8);
+                                            await mintWrappedFCash(
+                                              caller,
+                                              underlyingToken,
+                                              underlyingTokenAmount,
+                                              fCashAmount,
+                                              assetToken as any,
+                                              wrappedfCashMock as any,
+                                              true,
+                                            );
+                                            await wrappedfCashMock
+                                              .connect(caller)
+                                              .approve(
+                                                debtIssuanceModule.address,
+                                                ethers.constants.MaxUint256,
+                                              );
+                                          }
+                                          await notionalTradeModule
+                                            .connect(manager.wallet)
+                                            .updateRedemptionHookDisabled(setToken.address, true);
+                                        });
+                                        it("fCash position remains the same", async () => {
+                                          const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                            wrappedfCashMock.address,
+                                          );
+                                          await subject();
+                                          const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                            wrappedfCashMock.address,
+                                          );
+                                          expect(positionAfter).to.eq(positionBefore);
+                                        });
+                                      });
+                                    }
 
                                     if (["issue", "redeem"].includes(triggerAction)) {
                                       it(`should adjust ${redeemToken} balance correctly`, async () => {

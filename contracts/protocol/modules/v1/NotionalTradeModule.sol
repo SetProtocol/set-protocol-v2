@@ -108,6 +108,9 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /* ============ State Variables ============ */
 
+    // Mapping to save set tokens for which automatic redeeming of underlying tokens upon maturity has been disabled
+    mapping(ISetToken => bool) public redemptionHookDisabled;
+
     // Mapping for a set token, wether or not to redeem to underlying upon reaching maturity
     mapping(ISetToken => bool) public redeemToUnderlying;
 
@@ -129,6 +132,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @dev Instantiate addresses
      * @param _controller                       Address of controller contract
      * @param _wrappedfCashFactory              Address of fCash wrapper factory used to check and deploy wrappers
+     * @param _decodedIdGasLimit                Gas limit for call to getDecodedID
      */
     constructor(
         IController _controller,
@@ -206,7 +210,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /**
      * @dev CALLABLE BY ANYBODY: Redeem all matured fCash positions of given setToken
-     * Redeem all fCash positions that have reached maturity for their asset token (cToken)
+     * Redeem all fCash positions that have reached maturity for their asset token (cToken) or underlyintToken if configured accordingly by the manager.
      * This will update the set tokens components and positions (removes matured fCash positions and creates / increases positions of the asset token).
      * @param _setToken                     Instance of the SetToken
      */
@@ -244,13 +248,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /**
-     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Redeems any matured positions
+     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Redeems any matured positions unless this function is disabled by the manager.
      */
     function removeModule() external override onlyValidAndInitializedSet(ISetToken(msg.sender)) {
         ISetToken setToken = ISetToken(msg.sender);
 
         // Redeem matured positions prior to any removal action
-        _redeemMaturedPositions(setToken);
+        if(!redemptionHookDisabled[setToken]) {
+            _redeemMaturedPositions(setToken);
+        }
 
         // Try if unregister exists on any of the modules
         address[] memory modules = setToken.getModules();
@@ -272,6 +278,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
 
         _debtIssuanceModule.registerToIssuanceModule(_setToken);
+    }
+
+    /**
+     * @dev MANAGER ONLY: Dis-/Enable automatic redemption of matured positions
+     * @param _setToken             Instance of the SetToken
+     * @param _isDisabled           Bool indicating wether to disable 
+     */
+    function updateRedemptionHookDisabled(ISetToken _setToken, bool _isDisabled) external onlyManagerAndValidSet(_setToken) {
+        redemptionHookDisabled[_setToken] = _isDisabled;
     }
 
     /**
@@ -315,18 +330,22 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /**
      * @dev Hook called once before setToken issuance
-     * @dev Ensures that no matured fCash positions are in the set when it is issued
+     * @dev Ensures that no matured fCash positions are in the set when it is issued unless automatic redemption is disabled
      */
     function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenAmount */) external override onlyModule(_setToken) {
-        _redeemMaturedPositions(_setToken);
+        if(!redemptionHookDisabled[_setToken]) {
+            _redeemMaturedPositions(_setToken);
+        }
     }
 
     /**
      * @dev Hook called once before setToken redemption
-     * @dev Ensures that no matured fCash positions are in the set when it is redeemed
+     * @dev Ensures that no matured fCash positions are in the set when it is redeemed unless automatic redemption is disabled
      */
     function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenAmount */) external override onlyModule(_setToken) {
-        _redeemMaturedPositions(_setToken);
+        if(!redemptionHookDisabled[_setToken]) {
+            _redeemMaturedPositions(_setToken);
+        }
     }
 
 
