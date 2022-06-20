@@ -44,9 +44,6 @@ import { ModuleBase } from "../../lib/ModuleBase.sol";
 contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using Address for address;
 
-    // This value has to be the same as the one used in wrapped-fcash Constants
-    address internal constant ETH_ADDRESS = address(0);
-
     /* ============ Events ============ */
 
     /**
@@ -427,8 +424,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
                 if(_isWrappedFCash(component)) {
                     IWrappedfCashComplete fCashPosition = IWrappedfCashComplete(component);
                     if(fCashPosition.hasMatured()) {
-                        (IERC20 receiveToken,) = fCashPosition.getToken(toUnderlying);
-                        if(address(receiveToken) == ETH_ADDRESS) {
+                        (IERC20 receiveToken, bool isEth) = fCashPosition.getToken(toUnderlying);
+                        if(isEth) {
                             receiveToken = weth;
                         }
                         uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
@@ -623,13 +620,14 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     function _getUnderlyingAndAssetTokens(IWrappedfCashComplete _fCashPosition)
     internal
     view
-    returns(IERC20 underlyingToken, IERC20 assetToken)
+    returns(IERC20, IERC20)
     {
-        (underlyingToken,) = _fCashPosition.getUnderlyingToken();
-        if(address(underlyingToken) == ETH_ADDRESS) {
+        (IERC20 underlyingToken, bool isEth) = _fCashPosition.getToken(true);
+        if(isEth) {
             underlyingToken = weth;
         }
-        (assetToken,,) = _fCashPosition.getAssetToken();
+        (IERC20 assetToken, ) = _fCashPosition.getToken(false);
+        return(underlyingToken, assetToken);
     }
 
     /**
