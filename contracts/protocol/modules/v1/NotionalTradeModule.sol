@@ -172,9 +172,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         returns(uint256)
     {
         require(_setToken.isComponent(address(_sendToken)), "Send token must be an index component");
+        require(
+            _setToken.hasSufficientDefaultUnits(_sendToken, _maxSendAmount),
+            "Insufficient sendToken position"
+        );
+
+        (uint256 totalMintAmount, uint256 totalMaxSendAmount) = _calculateTotalAmounts(_setToken, _mintAmount, _maxSendAmount);
 
         IWrappedfCashComplete wrappedfCash = _deployWrappedfCash(_currencyId, _maturity);
-        return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), _mintAmount, _maxSendAmount);
+        return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), totalMintAmount, totalMaxSendAmount);
     }
 
     /**
@@ -207,8 +213,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             _setToken.hasSufficientDefaultUnits(address(wrappedfCash), _redeemAmount),
             "Insufficient fCash position"
         );
-
-
         (uint256 totalRedeemAmount, uint256 totalMinReceiveAmount) = _calculateTotalAmounts(_setToken, _redeemAmount, _minReceiveAmount);
 
         return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), totalRedeemAmount, totalMinReceiveAmount);
