@@ -734,14 +734,12 @@ describe("NotionalTradeModule", () => {
                       subjectMaturity = maturity;
                     });
 
-                    ["buying", "selling"].forEach(tradeDirection => {
-                      ["underlyingToken", "assetToken"].forEach(tokenType => {
+                    ["selling"].forEach(tradeDirection => {
+                      ["assetToken", "underlyingToken"].forEach(tokenType => {
                         describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                           let receiveTokenType: string;
                           let otherToken: IERC20;
                           beforeEach(async () => {
-                            const fTokenQuantity = ethers.utils.parseUnits("1", 8);
-
                             otherToken = tokenType == "assetToken" ? assetToken : underlyingToken;
                             sendToken = tradeDirection == "buying" ? otherToken : wrappedfCashMock;
                             receiveTokenType =
@@ -752,13 +750,16 @@ describe("NotionalTradeModule", () => {
                               tradeDirection == "buying" ? wrappedfCashMock : otherToken;
                             subjectReceiveToken = receiveToken.address;
 
-                            subjectMinReceiveQuantity = fTokenQuantity;
-                            subjectSendQuantity = fTokenQuantity;
+                            subjectSendQuantity = BigNumber.from(10000);
+                            subjectMinReceiveQuantity = BigNumber.from(10000);
 
                             await sendToken.transfer(setToken.address, subjectSendQuantity.mul(2));
                             await receiveToken.transfer(
                               wrappedfCashMock.address,
-                              subjectMinReceiveQuantity.mul(2),
+                              subjectMinReceiveQuantity
+                                .mul(await setToken.totalSupply())
+                                .div(BigNumber.from(10).pow(18))
+                                .mul(2),
                             );
                             expect(
                               await receiveToken.balanceOf(wrappedfCashMock.address),
@@ -868,18 +869,28 @@ describe("NotionalTradeModule", () => {
                               expect(sendTokenBalanceAfter).to.be.gte(subjectSendQuantity);
                               expect(sendTokenPositionAfter).to.be.gt(0);
                               expect(await setToken.isComponent(sendToken.address)).to.be.true;
+                              subjectMinReceiveQuantity = BigNumber.from(10000);
                             });
-                            ["higher", "equal", "less"].forEach(relativeAmount => {
+                            ["less", "equal", "higher"].forEach(relativeAmount => {
                               describe(`when amount of send token spent is ${relativeAmount} than/to registered position`, () => {
                                 beforeEach(async () => {
+                                  const sendTokenPosition = await setToken.getDefaultPositionRealUnit(
+                                    sendToken.address,
+                                  );
+                                  await wrappedfCashMock.setRedeemTokenReturned(
+                                    subjectMinReceiveQuantity
+                                      .mul(await setToken.totalSupply())
+                                      .div(BigNumber.from(10).pow(18)),
+                                  );
+
                                   if (relativeAmount == "higher") {
-                                    await wrappedfCashMock.setRedeemTokenReturned(
-                                      subjectSendQuantity,
+                                    const sendTokenBalanceBefore = await sendToken.balanceOf(
+                                      setToken.address,
                                     );
-                                    const additionalAmount = subjectSendQuantity;
+                                    const additionalAmount = sendTokenBalanceBefore.div(10);
                                     await sendToken.transfer(setToken.address, additionalAmount);
 
-                                    const sendTokenPosition = await setToken.getTotalComponentRealUnits(
+                                    const sendTokenTotalPosition = await setToken.getTotalComponentRealUnits(
                                       sendToken.address,
                                     );
                                     const sendTokenBalance = await sendToken.balanceOf(
@@ -887,48 +898,184 @@ describe("NotionalTradeModule", () => {
                                     );
 
                                     expect(
-                                      sendTokenBalance.eq(sendTokenPosition.add(additionalAmount)),
+                                      sendTokenBalance.eq(
+                                        sendTokenTotalPosition.add(additionalAmount),
+                                      ),
+                                    );
+                                    const sendTokenPosition = await setToken.getDefaultPositionRealUnit(
+                                      sendToken.address,
                                     );
                                     subjectSendQuantity = sendTokenPosition.add(
-                                      additionalAmount.div(2),
+                                      sendTokenPosition.div(11),
                                     );
                                   }
                                   if (relativeAmount == "equal") {
-                                    const sendTokenPosition = await setToken.getTotalComponentRealUnits(
-                                      sendToken.address,
-                                    );
-                                    const sendTokenBalance = await sendToken.balanceOf(
-                                      setToken.address,
-                                    );
-                                    expect(sendTokenBalance.eq(sendTokenPosition));
+                                    subjectSendQuantity = sendTokenPosition;
                                   }
                                   if (relativeAmount == "less") {
-                                    const sendTokenPosition = await setToken.getTotalComponentRealUnits(
-                                      sendToken.address,
-                                    );
                                     subjectSendQuantity = sendTokenPosition.div(2);
-                                    subjectMinReceiveQuantity = subjectSendQuantity;
                                   }
                                 });
 
-                                if (tradeDirection == "buying") {
-                                  describe("When fCash wrapper uses less than maximum allowed amount", () => {
-                                    beforeEach(async () => {
-                                      await wrappedfCashMock.setMintTokenSpent(100);
-                                    });
-                                    afterEach(async () => {
-                                      await wrappedfCashMock.setMintTokenSpent(0);
-                                    });
-                                    it("Should leave no left-over allowance", async () => {
-                                      await subject();
-                                      const allowance = await sendToken.allowance(
-                                        setToken.address,
-                                        wrappedfCashMock.address,
-                                      );
-                                      expect(allowance).to.eq(0);
-                                    });
+                                if (relativeAmount == "higher") {
+                                  it("should revert", async () => {
+                                    await expect(subject()).to.be.revertedWith(
+                                      "Insufficient fCash position",
+                                    );
                                   });
+                                } else {
+                                  if (tradeDirection == "buying") {
+                                    describe("When fCash wrapper uses less than maximum allowed amount", () => {
+                                      beforeEach(async () => {
+                                        await wrappedfCashMock.setMintTokenSpent(100);
+                                      });
+                                      afterEach(async () => {
+                                        await wrappedfCashMock.setMintTokenSpent(0);
+                                      });
+                                      it("Should leave no left-over allowance", async () => {
+                                        await subject();
+                                        const allowance = await sendToken.allowance(
+                                          setToken.address,
+                                          wrappedfCashMock.address,
+                                        );
+                                        expect(allowance).to.eq(0);
+                                      });
+                                    });
 
+                                    it("setToken should receive receiver token", async () => {
+                                      const receiveTokenBalanceBefore = await receiveToken.balanceOf(
+                                        setToken.address,
+                                      );
+                                      await subject();
+                                      const receiveTokenBalanceAfter = await receiveToken.balanceOf(
+                                        setToken.address,
+                                      );
+                                      expect(
+                                        receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
+                                      ).to.be.gte(subjectMinReceiveQuantity);
+                                    });
+                                    describe("When sendToken is neither underlying nor asset token", () => {
+                                      beforeEach(async () => {
+                                        subjectSendToken = ethers.constants.AddressZero;
+                                        await setToken
+                                          .connect(owner.wallet)
+                                          .addComponent(subjectSendToken);
+                                      });
+                                      it("should revert", async () => {
+                                        await expect(subject()).to.be.revertedWith(
+                                          "Token is neither asset nor underlying token",
+                                        );
+                                      });
+                                    });
+
+                                    describe("When receiveAmount is 0", () => {
+                                      beforeEach(async () => {
+                                        subjectMinReceiveQuantity = BigNumber.from(0);
+                                      });
+                                      it("should not revert", async () => {
+                                        await subject();
+                                      });
+                                    });
+
+                                    describe(`when too much ${tokenType} is spent`, () => {
+                                      beforeEach(async () => {
+                                        const oldSubjectSendQuantity = subjectSendQuantity;
+
+                                        const funder = await deployer.mocks.deployForceFunderMock();
+                                        await funder.fund(setToken.address, { value: ether(10) }); // Gas money
+
+                                        await network.provider.request({
+                                          method: "hardhat_impersonateAccount",
+                                          params: [setToken.address],
+                                        });
+                                        const setTokenSigner = await ethers.getSigner(
+                                          setToken.address,
+                                        );
+                                        await sendToken
+                                          .connect(setTokenSigner)
+                                          .approve(
+                                            wrappedfCashMock.address,
+                                            ethers.constants.MaxUint256,
+                                          );
+
+                                        const spendAmount = oldSubjectSendQuantity.mul(5).div(4);
+                                        const allowance = await sendToken.allowance(
+                                          setToken.address,
+                                          wrappedfCashMock.address,
+                                        );
+                                        expect(allowance).to.be.gte(spendAmount);
+                                        await wrappedfCashMock.setMintTokenSpent(spendAmount);
+
+                                        subjectSendQuantity = oldSubjectSendQuantity;
+                                      });
+                                      it("should revert", async () => {
+                                        await expect(subject()).to.be.revertedWith("Overspent");
+                                      });
+                                    });
+
+                                    describe("when swap fails due to insufficient allowance", () => {
+                                      beforeEach(async () => {
+                                        await wrappedfCashMock.setMintTokenSpent(
+                                          subjectSendQuantity.mul(2),
+                                        );
+                                      });
+                                      it("should revert", async () => {
+                                        const revertMessage =
+                                          tokenType == "assetToken"
+                                            ? "WrappedfCashMock: Transfer failed"
+                                            : underlyingTokenName == "dai"
+                                              ? "ERC20: transfer amount exceeds allowance"
+                                              : "Address: low-level call with value failed";
+                                        await expect(subject()).to.be.revertedWith(revertMessage);
+                                      });
+                                    });
+                                  } else {
+                                    describe("When wrappedFCash is not deployed for given parameters", () => {
+                                      beforeEach(async () => {
+                                        subjectCurrencyId = 10;
+                                      });
+                                      it("should revert", async () => {
+                                        await expect(subject()).to.be.revertedWith(
+                                          "WrappedfCash not deployed for given parameters",
+                                        );
+                                      });
+                                    });
+
+                                    describe("When receiveToken is neither underlying nor asset token", () => {
+                                      beforeEach(async () => {
+                                        subjectReceiveToken = ethers.constants.AddressZero;
+                                      });
+                                      it("should revert", async () => {
+                                        await expect(subject()).to.be.revertedWith(
+                                          "Token is neither asset nor underlying token",
+                                        );
+                                      });
+                                    });
+
+                                    describe("When sendAmount is 0", () => {
+                                      beforeEach(async () => {
+                                        subjectSendQuantity = BigNumber.from(0);
+                                      });
+                                      it("should not revert", async () => {
+                                        await subject();
+                                      });
+                                    });
+                                    describe(`when too little ${tokenType} is returned`, () => {
+                                      beforeEach(async () => {
+                                        await wrappedfCashMock.setRedeemTokenReturned(
+                                          subjectMinReceiveQuantity.div(2),
+                                        );
+                                      });
+                                      afterEach(async () => {
+                                        await wrappedfCashMock.setRedeemTokenReturned(0);
+                                      });
+                                      it("should revert", async () => {
+                                        await expect(subject()).to.be.revertedWith(
+                                          "Not enough received amount",
+                                        );
+                                      });
+                                    });
+                                  }
                                   it("setToken should receive receiver token", async () => {
                                     const receiveTokenBalanceBefore = await receiveToken.balanceOf(
                                       setToken.address,
@@ -941,254 +1088,123 @@ describe("NotionalTradeModule", () => {
                                       receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
                                     ).to.be.gte(subjectMinReceiveQuantity);
                                   });
-                                  describe("When sendToken is neither underlying nor asset token", () => {
-                                    beforeEach(async () => {
-                                      subjectSendToken = ethers.constants.AddressZero;
-                                      await setToken
-                                        .connect(owner.wallet)
-                                        .addComponent(subjectSendToken);
-                                    });
-                                    it("should revert", async () => {
-                                      await expect(subject()).to.be.revertedWith(
-                                        "Token is neither asset nor underlying token",
+
+                                  it("setTokens sendToken balance should be adjusted accordingly", async () => {
+                                    const sendTokenBalanceBefore = await sendToken.balanceOf(
+                                      setToken.address,
+                                    );
+                                    await subject();
+                                    const sendTokenBalanceAfter = await sendToken.balanceOf(
+                                      setToken.address,
+                                    );
+                                    if (tradeDirection == "selling") {
+                                      expect(
+                                        sendTokenBalanceBefore.sub(sendTokenBalanceAfter),
+                                      ).to.eq(
+                                        subjectSendQuantity
+                                          .mul(await setToken.totalSupply())
+                                          .div(BigNumber.from(10).pow(18)),
                                       );
-                                    });
+                                    } else {
+                                      expect(
+                                        sendTokenBalanceBefore.sub(sendTokenBalanceAfter),
+                                      ).to.be.lte(
+                                        subjectSendQuantity
+                                          .mul(await setToken.totalSupply())
+                                          .div(BigNumber.from(10).pow(18)),
+                                      );
+                                    }
                                   });
 
-                                  describe("When receiveAmount is 0", () => {
-                                    beforeEach(async () => {
-                                      subjectMinReceiveQuantity = BigNumber.from(0);
-                                    });
-                                    it("should not revert", async () => {
+                                  if (relativeAmount == "less") {
+                                    it("should not revert when executing trade twice", async () => {
+                                      await subject();
                                       await subject();
                                     });
+                                  }
+
+                                  it("should return spent / received amount of non-fcash-token", async () => {
+                                    const otherTokenBalanceBefore = await otherToken.balanceOf(
+                                      setToken.address,
+                                    );
+                                    const result = await subjectCall();
+                                    await subject();
+                                    const otherTokenBalanceAfter = await otherToken.balanceOf(
+                                      setToken.address,
+                                    );
+
+                                    let expectedResult;
+                                    if (tradeDirection == "selling") {
+                                      expectedResult = otherTokenBalanceAfter.sub(
+                                        otherTokenBalanceBefore,
+                                      );
+                                    } else {
+                                      expectedResult = otherTokenBalanceBefore.sub(
+                                        otherTokenBalanceAfter,
+                                      );
+                                    }
+
+                                    expect(result).to.eq(expectedResult);
                                   });
 
-                                  describe(`when too much ${tokenType} is spent`, () => {
-                                    beforeEach(async () => {
-                                      const oldSubjectSendQuantity = subjectSendQuantity;
+                                  it("should adjust the components position of the receiveToken correctly", async () => {
+                                    const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                      receiveToken.address,
+                                    );
+                                    const tradeAmount = await subjectCall();
+                                    const receiveTokenAmount =
+                                      tradeDirection == "buying"
+                                        ? subjectMinReceiveQuantity
+                                        : tradeAmount;
+                                    await subject();
+                                    const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                      receiveToken.address,
+                                    );
 
-                                      const funder = await deployer.mocks.deployForceFunderMock();
-                                      await funder.fund(setToken.address, { value: ether(10) }); // Gas money
+                                    const positionChange = positionAfter.sub(positionBefore);
+                                    const totalSetSupplyWei = await setToken.totalSupply();
+                                    const totalSetSupplyEther = totalSetSupplyWei.div(
+                                      BigNumber.from(10).pow(18),
+                                    );
 
-                                      await network.provider.request({
-                                        method: "hardhat_impersonateAccount",
-                                        params: [setToken.address],
-                                      });
-                                      const setTokenSigner = await ethers.getSigner(
-                                        setToken.address,
+                                    let receiveTokenAmountNormalized;
+                                    if (receiveTokenType == "underlyingToken") {
+                                      receiveTokenAmountNormalized = receiveTokenAmount.div(
+                                        totalSetSupplyEther,
                                       );
-                                      await sendToken
-                                        .connect(setTokenSigner)
-                                        .approve(
-                                          wrappedfCashMock.address,
-                                          ethers.constants.MaxUint256,
-                                        );
-
-                                      const spendAmount = oldSubjectSendQuantity.mul(5).div(4);
-                                      const allowance = await sendToken.allowance(
-                                        setToken.address,
-                                        wrappedfCashMock.address,
+                                    } else {
+                                      receiveTokenAmountNormalized = BigNumber.from(
+                                        Math.floor(
+                                          receiveTokenAmount
+                                            .mul(10)
+                                            .div(totalSetSupplyEther)
+                                            .toNumber() / 10,
+                                        ),
                                       );
-                                      expect(allowance).to.be.gte(spendAmount);
-                                      await wrappedfCashMock.setMintTokenSpent(spendAmount);
+                                    }
 
-                                      subjectSendQuantity = oldSubjectSendQuantity;
-                                    });
-                                    it("should revert", async () => {
-                                      await expect(subject()).to.be.revertedWith("Overspent");
-                                    });
+                                    expect(receiveTokenAmountNormalized).to.eq(positionChange);
                                   });
 
-                                  describe("when swap fails due to insufficient allowance", () => {
-                                    beforeEach(async () => {
-                                      await wrappedfCashMock.setMintTokenSpent(
-                                        subjectSendQuantity.mul(2),
-                                      );
-                                    });
-                                    it("should revert", async () => {
-                                      const revertMessage =
-                                        tokenType == "assetToken"
-                                          ? "WrappedfCashMock: Transfer failed"
-                                          : underlyingTokenName == "dai"
-                                            ? "ERC20: transfer amount exceeds allowance"
-                                            : "Address: low-level call with value failed";
-                                      await expect(subject()).to.be.revertedWith(revertMessage);
-                                    });
-                                  });
-                                } else {
-                                  describe("When wrappedFCash is not deployed for given parameters", () => {
-                                    beforeEach(async () => {
-                                      subjectCurrencyId = 10;
-                                    });
-                                    it("should revert", async () => {
-                                      await expect(subject()).to.be.revertedWith(
-                                        "WrappedfCash not deployed for given parameters",
-                                      );
-                                    });
-                                  });
+                                  it("should adjust the components position of the sendToken correctly", async () => {
+                                    const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                      sendToken.address,
+                                    );
+                                    const tradeAmount = await subjectCall();
+                                    const expectedPositionChange =
+                                      tradeDirection == "selling"
+                                        ? subjectSendQuantity
+                                        : tradeAmount;
 
-                                  describe("When receiveToken is neither underlying nor asset token", () => {
-                                    beforeEach(async () => {
-                                      subjectReceiveToken = ethers.constants.AddressZero;
-                                    });
-                                    it("should revert", async () => {
-                                      await expect(subject()).to.be.revertedWith(
-                                        "Token is neither asset nor underlying token",
-                                      );
-                                    });
-                                  });
+                                    await subject();
+                                    const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                      sendToken.address,
+                                    );
+                                    const positionChange = positionBefore.sub(positionAfter);
 
-                                  describe("When sendAmount is 0", () => {
-                                    beforeEach(async () => {
-                                      subjectSendQuantity = BigNumber.from(0);
-                                    });
-                                    it("should not revert", async () => {
-                                      await subject();
-                                    });
-                                  });
-                                  describe(`when too little ${tokenType} is returned`, () => {
-                                    beforeEach(async () => {
-                                      await wrappedfCashMock.setRedeemTokenReturned(
-                                        subjectMinReceiveQuantity.div(2),
-                                      );
-                                    });
-                                    afterEach(async () => {
-                                      await wrappedfCashMock.setRedeemTokenReturned(0);
-                                    });
-                                    it("should revert", async () => {
-                                      await expect(subject()).to.be.revertedWith(
-                                        "Not enough received amount",
-                                      );
-                                    });
+                                    expect(positionChange).to.eq(expectedPositionChange);
                                   });
                                 }
-                                it("setToken should receive receiver token", async () => {
-                                  const receiveTokenBalanceBefore = await receiveToken.balanceOf(
-                                    setToken.address,
-                                  );
-                                  await subject();
-                                  const receiveTokenBalanceAfter = await receiveToken.balanceOf(
-                                    setToken.address,
-                                  );
-                                  expect(
-                                    receiveTokenBalanceAfter.sub(receiveTokenBalanceBefore),
-                                  ).to.be.gte(subjectMinReceiveQuantity);
-                                });
-
-                                it("setTokens sendToken balance should be adjusted accordingly", async () => {
-                                  const sendTokenBalanceBefore = await sendToken.balanceOf(
-                                    setToken.address,
-                                  );
-                                  await subject();
-                                  const sendTokenBalanceAfter = await sendToken.balanceOf(
-                                    setToken.address,
-                                  );
-                                  if (tradeDirection == "selling") {
-                                    expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
-                                      subjectSendQuantity,
-                                    );
-                                  } else {
-                                    expect(
-                                      sendTokenBalanceBefore.sub(sendTokenBalanceAfter),
-                                    ).to.be.lte(subjectSendQuantity);
-                                  }
-                                });
-
-                                if (relativeAmount != "higher") {
-                                  it("should not revert when executing trade twice", async () => {
-                                    await subject();
-                                    await subject();
-                                  });
-                                }
-
-                                it("should return spent / received amount of non-fcash-token", async () => {
-                                  const otherTokenBalanceBefore = await otherToken.balanceOf(
-                                    setToken.address,
-                                  );
-                                  const result = await subjectCall();
-                                  await subject();
-                                  const otherTokenBalanceAfter = await otherToken.balanceOf(
-                                    setToken.address,
-                                  );
-
-                                  let expectedResult;
-                                  if (tradeDirection == "selling") {
-                                    expectedResult = otherTokenBalanceAfter.sub(
-                                      otherTokenBalanceBefore,
-                                    );
-                                  } else {
-                                    expectedResult = otherTokenBalanceBefore.sub(
-                                      otherTokenBalanceAfter,
-                                    );
-                                  }
-
-                                  expect(result).to.eq(expectedResult);
-                                });
-
-                                it("should adjust the components position of the receiveToken correctly", async () => {
-                                  const positionBefore = await setToken.getDefaultPositionRealUnit(
-                                    receiveToken.address,
-                                  );
-                                  const tradeAmount = await subjectCall();
-                                  const receiveTokenAmount =
-                                    tradeDirection == "buying"
-                                      ? subjectMinReceiveQuantity
-                                      : tradeAmount;
-                                  await subject();
-                                  const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                    receiveToken.address,
-                                  );
-
-                                  const positionChange = positionAfter.sub(positionBefore);
-                                  const totalSetSupplyWei = await setToken.totalSupply();
-                                  const totalSetSupplyEther = totalSetSupplyWei.div(
-                                    BigNumber.from(10).pow(18),
-                                  );
-
-                                  let receiveTokenAmountNormalized;
-                                  if (receiveTokenType == "underlyingToken") {
-                                    receiveTokenAmountNormalized = receiveTokenAmount.div(
-                                      totalSetSupplyEther,
-                                    );
-                                  } else {
-                                    receiveTokenAmountNormalized = BigNumber.from(
-                                      Math.floor(
-                                        receiveTokenAmount
-                                          .mul(10)
-                                          .div(totalSetSupplyEther)
-                                          .toNumber() / 10,
-                                      ),
-                                    );
-                                  }
-
-                                  expect(receiveTokenAmountNormalized).to.eq(positionChange);
-                                });
-
-                                it("should adjust the components position of the sendToken correctly", async () => {
-                                  const positionBefore = await setToken.getTotalComponentRealUnits(
-                                    sendToken.address,
-                                  );
-                                  const tradeAmount = await subjectCall();
-                                  let expectedPositionChange = (tradeDirection == "selling"
-                                    ? subjectSendQuantity
-                                    : tradeAmount
-                                  )
-                                    .mul(BigNumber.from(10).pow(18))
-                                    .div(await setToken.totalSupply());
-
-                                  if (expectedPositionChange.gt(positionBefore)) {
-                                    expectedPositionChange = positionBefore;
-                                  }
-
-                                  await subject();
-                                  const positionAfter = await setToken.getTotalComponentRealUnits(
-                                    sendToken.address,
-                                  );
-                                  const positionChange = positionBefore.sub(positionAfter);
-
-                                  expect(positionChange).to.eq(expectedPositionChange);
-                                });
                               });
                             });
                           });
@@ -1202,7 +1218,7 @@ describe("NotionalTradeModule", () => {
                       let caller: SignerWithAddress;
                       beforeEach(() => {
                         subjectSetToken = setToken.address;
-                        subjectAmount = ethers.utils.parseUnits("1", 8);
+                        subjectAmount = ethers.utils.parseEther("1");
                         caller = owner.wallet;
                         subjectReceiver = caller.address;
                       });
@@ -1245,7 +1261,7 @@ describe("NotionalTradeModule", () => {
                           // Make sure set token was added to set
                           expect(wrappedfCashMockPositionAfter).to.be.gt(0);
                         });
-                        ["asset", "underlying"].forEach(redeemToken => {
+                        ["assetToken", "underlyingToken"].forEach(redeemToken => {
                           describe(`when redeeming to ${redeemToken}`, () => {
                             let outputToken: IERC20;
                             beforeEach(async () => {
@@ -1256,108 +1272,35 @@ describe("NotionalTradeModule", () => {
                               outputToken =
                                 redeemToken == "underlying" ? underlyingToken : assetToken;
                             });
-                            ["issue", "redeem", "removeModule", "manualTrigger"].forEach(triggerAction => {
-                              describe(`When hook is triggered by ${triggerAction}`, () => {
-                                beforeEach(async () => {
-                                  const underlyingTokenAmount = ethers.utils.parseEther("2.1");
-                                  const fCashAmount = ethers.utils.parseUnits("2", 8);
-
-                                  await assetToken.connect(owner.wallet).mint(ether(1));
-                                  const assetTokenBalance = await assetToken.balanceOf(
-                                    owner.address,
-                                  );
-                                  await assetToken
-                                    .connect(owner.wallet)
-                                    .transfer(wrappedfCashMock.address, assetTokenBalance);
-
-                                  const redemptionAssetAmount = assetTokenBalance.div(2);
-                                  await wrappedfCashMock.setRedeemTokenReturned(
-                                    redemptionAssetAmount,
-                                  );
-
-                                  if (triggerAction == "redeem") {
-                                    await underlyingToken
-                                      .connect(owner.wallet)
-                                      .approve(
-                                        wrappedfCashMock.address,
-                                        ethers.constants.MaxUint256,
-                                      );
-                                    await mintWrappedFCash(
-                                      owner.wallet,
-                                      underlyingToken,
-                                      underlyingTokenAmount,
-                                      fCashAmount,
-                                      assetToken as any,
-                                      wrappedfCashMock as any,
-                                      true,
-                                    );
-                                    await wrappedfCashMock
-                                      .connect(owner.wallet)
-                                      .approve(
-                                        debtIssuanceModule.address,
-                                        ethers.constants.MaxUint256,
-                                      );
-                                    await debtIssuanceModule
-                                      .connect(owner.wallet)
-                                      .issue(subjectSetToken, subjectAmount, caller.address);
-                                    await setToken
-                                      .connect(caller)
-                                      .approve(debtIssuanceModule.address, subjectAmount);
-                                  } else if (triggerAction == "issue") {
-                                    await underlyingToken.transfer(
-                                      caller.address,
-                                      underlyingTokenAmount,
-                                    );
-
-                                    if (redeemToken == "underlying") {
-                                      await underlyingToken
-                                        .connect(caller)
-                                        .approve(
-                                          debtIssuanceModule.address,
-                                          ethers.constants.MaxUint256,
-                                        );
-                                    } else {
-                                      await underlyingToken
-                                        .connect(caller)
-                                        .approve(assetToken.address, ethers.constants.MaxUint256);
-                                      await assetToken.connect(caller).mint(underlyingTokenAmount);
-                                      await assetToken
-                                        .connect(caller)
-                                        .approve(
-                                          debtIssuanceModule.address,
-                                          ethers.constants.MaxUint256,
-                                        );
-                                    }
-                                  }
-                                });
-
-                                const subject = () => {
-                                  if (triggerAction == "issue") {
-                                    return debtIssuanceModule
-                                      .connect(caller)
-                                      .issue(subjectSetToken, subjectAmount, subjectReceiver);
-                                  } else if (triggerAction == "redeem") {
-                                    return debtIssuanceModule
-                                      .connect(caller)
-                                      .redeem(subjectSetToken, subjectAmount, subjectReceiver);
-                                  } else if (triggerAction == "removeModule") {
-                                    return setToken
-                                      .connect(manager.wallet)
-                                      .removeModule(notionalTradeModule.address);
-                                  } else {
-                                    return notionalTradeModule
-                                      .connect(caller)
-                                      .redeemMaturedPositions(subjectSetToken);
-                                  }
-                                };
-
-                                describe("When component has not matured yet", () => {
+                            ["issue", "redeem", "removeModule", "manualTrigger"].forEach(
+                              triggerAction => {
+                                describe(`When hook is triggered by ${triggerAction}`, () => {
                                   beforeEach(async () => {
-                                    if (triggerAction == "issue") {
-                                      const underlyingTokenAmount = ethers.utils.parseEther("2.1");
-                                      const fCashAmount = ethers.utils.parseUnits("2", 8);
+                                    const fCashAmount = ethers.utils.parseUnits("20", 8);
+                                    const underlyingTokenAmount = ethers.utils.parseEther("21");
+
+                                    await assetToken.connect(owner.wallet).mint(ether(1));
+                                    const assetTokenBalance = await assetToken.balanceOf(
+                                      owner.address,
+                                    );
+                                    await assetToken
+                                      .connect(owner.wallet)
+                                      .transfer(wrappedfCashMock.address, assetTokenBalance);
+
+                                    const redemptionAssetAmount = assetTokenBalance.div(2);
+                                    await wrappedfCashMock.setRedeemTokenReturned(
+                                      redemptionAssetAmount,
+                                    );
+
+                                    if (triggerAction == "redeem") {
+                                      await underlyingToken
+                                        .connect(owner.wallet)
+                                        .approve(
+                                          wrappedfCashMock.address,
+                                          ethers.constants.MaxUint256,
+                                        );
                                       await mintWrappedFCash(
-                                        caller,
+                                        owner.wallet,
                                         underlyingToken,
                                         underlyingTokenAmount,
                                         fCashAmount,
@@ -1366,230 +1309,136 @@ describe("NotionalTradeModule", () => {
                                         true,
                                       );
                                       await wrappedfCashMock
-                                        .connect(caller)
+                                        .connect(owner.wallet)
                                         .approve(
                                           debtIssuanceModule.address,
                                           ethers.constants.MaxUint256,
                                         );
+                                      await debtIssuanceModule
+                                        .connect(owner.wallet)
+                                        .issue(subjectSetToken, subjectAmount, caller.address);
+                                      await setToken
+                                        .connect(caller)
+                                        .approve(debtIssuanceModule.address, subjectAmount);
+                                    } else if (triggerAction == "issue") {
+                                      await underlyingToken.transfer(
+                                        caller.address,
+                                        underlyingTokenAmount,
+                                      );
+
+                                      if (redeemToken == "underlying") {
+                                        await underlyingToken
+                                          .connect(caller)
+                                          .approve(
+                                            debtIssuanceModule.address,
+                                            ethers.constants.MaxUint256,
+                                          );
+                                      } else {
+                                        await underlyingToken
+                                          .connect(caller)
+                                          .approve(assetToken.address, ethers.constants.MaxUint256);
+                                        await assetToken
+                                          .connect(caller)
+                                          .mint(underlyingTokenAmount);
+                                        await assetToken
+                                          .connect(caller)
+                                          .approve(
+                                            debtIssuanceModule.address,
+                                            ethers.constants.MaxUint256,
+                                          );
+                                      }
                                     }
-                                    expect(await wrappedfCashMock.hasMatured()).to.be.false;
-                                  });
-                                  it("fCash position remains the same", async () => {
-                                    const positionBefore = await setToken.getDefaultPositionRealUnit(
-                                      wrappedfCashMock.address,
-                                    );
-                                    await subject();
-                                    const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                      wrappedfCashMock.address,
-                                    );
-                                    expect(positionAfter).to.eq(positionBefore);
-                                  });
-                                });
-
-                                describe("When component has matured", () => {
-                                  beforeEach(async () => {
-                                    await wrappedfCashMock.setMatured(true);
                                   });
 
-                                  if (triggerAction != "manualTrigger") {
-                                    describe("when automatic redemption has been disabled", () => {
-                                      beforeEach(async () => {
-                                        if (triggerAction == "issue") {
-                                          const underlyingTokenAmount = ethers.utils.parseEther(
-                                            "2.1",
-                                          );
-                                          const fCashAmount = ethers.utils.parseUnits("2", 8);
-                                          await mintWrappedFCash(
-                                            caller,
-                                            underlyingToken,
-                                            underlyingTokenAmount,
-                                            fCashAmount,
-                                            assetToken as any,
-                                            wrappedfCashMock as any,
-                                            true,
-                                          );
-                                          await wrappedfCashMock
-                                            .connect(caller)
-                                            .approve(
-                                              debtIssuanceModule.address,
-                                              ethers.constants.MaxUint256,
-                                            );
-                                        }
-                                        await notionalTradeModule
-                                          .connect(manager.wallet)
-                                          .updateRedemptionHookDisabled(setToken.address, true);
-                                      });
-                                      it("fCash position remains the same", async () => {
-                                        const positionBefore = await setToken.getDefaultPositionRealUnit(
-                                          wrappedfCashMock.address,
-                                        );
-                                        await subject();
-                                        const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                          wrappedfCashMock.address,
-                                        );
-                                        expect(positionAfter).to.eq(positionBefore);
-                                      });
-                                    });
-                                  }
+                                  const subject = () => {
+                                    if (triggerAction == "issue") {
+                                      return debtIssuanceModule
+                                        .connect(caller)
+                                        .issue(subjectSetToken, subjectAmount, subjectReceiver);
+                                    } else if (triggerAction == "redeem") {
+                                      return debtIssuanceModule
+                                        .connect(caller)
+                                        .redeem(subjectSetToken, subjectAmount, subjectReceiver);
+                                    } else if (triggerAction == "removeModule") {
+                                      return setToken
+                                        .connect(manager.wallet)
+                                        .removeModule(notionalTradeModule.address);
+                                    } else {
+                                      return notionalTradeModule
+                                        .connect(caller)
+                                        .redeemMaturedPositions(subjectSetToken);
+                                    }
+                                  };
 
-                                  if (["issue", "redeem"].includes(triggerAction)) {
-                                    it(`should adjust ${redeemToken} balance correctly`, async () => {
-                                      const outputTokenBalanceBefore = await outputToken.balanceOf(
-                                        caller.address,
-                                      );
-                                      await subject();
-                                      const outputTokenBalanceAfter = await outputToken.balanceOf(
-                                        caller.address,
-                                      );
-                                      const amountAssetTokenTransfered =
-                                        triggerAction == "redeem"
-                                          ? outputTokenBalanceAfter.sub(outputTokenBalanceBefore)
-                                          : outputTokenBalanceBefore.sub(outputTokenBalanceAfter);
-
-                                      expect(amountAssetTokenTransfered).to.be.gt(0);
-                                    });
-
-                                    it("should issue correct amount of set tokens", async () => {
-                                      const setTokenBalanceBefore = await setToken.balanceOf(
-                                        caller.address,
-                                      );
-                                      await subject();
-                                      const setTokenBalanceAfter = await setToken.balanceOf(
-                                        caller.address,
-                                      );
-                                      const expectedBalanceChange =
-                                        triggerAction == "issue"
-                                          ? subjectAmount
-                                          : subjectAmount.mul(-1);
-                                      expect(setTokenBalanceAfter.sub(setTokenBalanceBefore)).to.eq(
-                                        expectedBalanceChange,
-                                      );
-                                    });
-                                  }
-
-                                  it("Removes wrappedFCash from component list", async () => {
-                                    expect(await setToken.isComponent(wrappedfCashMock.address)).to
-                                      .be.true;
-                                    await subject();
-                                    expect(await setToken.isComponent(wrappedfCashMock.address)).to
-                                      .be.false;
-                                  });
-
-                                  it("Removes wrappedFCash from the list of registered fCashPositions", async () => {
-                                    await subject();
-                                    const fCashPositions = await notionalTradeModule.getFCashPositions(
-                                      subjectSetToken,
-                                    );
-                                    expect(fCashPositions).to.not.include(wrappedfCashMock.address);
-                                  });
-
-                                  it(`Adds ${redeemToken} token to component list`, async () => {
-                                    expect(await setToken.isComponent(outputToken.address)).to.be
-                                      .false;
-                                    await subject();
-                                    expect(await setToken.isComponent(outputToken.address)).to.be
-                                      .true;
-                                  });
-
-                                  it("Afterwards setToken should have no fCash balance anymore", async () => {
-                                    const balanceBefore = await wrappedfCashMock.balanceOf(
-                                      subjectSetToken,
-                                    );
-                                    expect(balanceBefore).to.be.gt(0);
-                                    await subject();
-                                    const balanceAfter = await wrappedfCashMock.balanceOf(
-                                      subjectSetToken,
-                                    );
-                                    expect(balanceAfter).to.eq(0);
-                                  });
-
-                                  it(`Afterwards setToken should have received ${redeemToken} token`, async () => {
-                                    const balanceBefore = await outputToken.balanceOf(
-                                      subjectSetToken,
-                                    );
-                                    await subject();
-                                    const balanceAfter = await outputToken.balanceOf(
-                                      subjectSetToken,
-                                    );
-                                    expect(balanceAfter.sub(balanceBefore)).to.be.gt(0);
-                                  });
-
-                                  it(`Afterwards setToken should have positive ${redeemToken} position`, async () => {
-                                    const positionBefore = await setToken.getDefaultPositionRealUnit(
-                                      outputToken.address,
-                                    );
-                                    await subject();
-                                    const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                      outputToken.address,
-                                    );
-                                    expect(positionAfter.sub(positionBefore)).to.be.gt(0);
-                                  });
-
-                                  describe("When positions have been redeemed already", () => {
+                                  describe("When component has not matured yet", () => {
                                     beforeEach(async () => {
-                                      await notionalTradeModule.redeemMaturedPositions(
-                                        setToken.address,
-                                      );
+                                      if (triggerAction == "issue") {
+                                        const underlyingTokenAmount = ethers.utils.parseEther(
+                                          "2.1",
+                                        );
+                                        const fCashAmount = ethers.utils.parseUnits("2", 8);
+                                        await mintWrappedFCash(
+                                          caller,
+                                          underlyingToken,
+                                          underlyingTokenAmount,
+                                          fCashAmount,
+                                          assetToken as any,
+                                          wrappedfCashMock as any,
+                                          true,
+                                        );
+                                        await wrappedfCashMock
+                                          .connect(caller)
+                                          .approve(
+                                            debtIssuanceModule.address,
+                                            ethers.constants.MaxUint256,
+                                          );
+                                      }
+                                      expect(await wrappedfCashMock.hasMatured()).to.be.false;
                                     });
-                                    it("should not revert", async () => {
+                                    it("fCash position remains the same", async () => {
+                                      const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                        wrappedfCashMock.address,
+                                      );
                                       await subject();
+                                      const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                        wrappedfCashMock.address,
+                                      );
+                                      expect(positionAfter).to.eq(positionBefore);
                                     });
                                   });
 
-                                  describe("When positions have been redeemed already", () => {
+                                  describe("When component has matured", () => {
                                     beforeEach(async () => {
-                                      await notionalTradeModule.redeemMaturedPositions(
-                                        setToken.address,
-                                      );
+                                      await wrappedfCashMock.setMatured(true);
                                     });
-                                    it("should not revert", async () => {
-                                      await subject();
-                                    });
-                                  });
 
-                                  if (triggerAction == "manualTrigger") {
-                                    [
-                                      "wrong currencyId",
-                                      "wrong maturity",
-                                      "reverted getDecodedID",
-                                      "reverted computeAddress",
-                                      "negative unit",
-                                    ].forEach(reason => {
-                                      describe(`When the wrappedFCash position is not recognized as such because of ${reason}`, () => {
+                                    if (triggerAction != "manualTrigger") {
+                                      describe("when automatic redemption has been disabled", () => {
                                         beforeEach(async () => {
-                                          if (reason == "wrong currencyId") {
-                                            await wrappedfCashMock.initialize(420, maturity);
-                                          } else if (reason == "wrong maturity") {
-                                            await wrappedfCashMock.initialize(currencyId, 420);
-                                          } else if (reason == "reverted getDecodedID") {
-                                            await wrappedfCashMock.setRevertDecodedID(true);
-                                          } else if (reason == "reverted computeAddress") {
-                                            await wrappedfCashFactoryMock.setRevertComputeAddress(
+                                          if (triggerAction == "issue") {
+                                            const underlyingTokenAmount = ethers.utils.parseEther(
+                                              "2.1",
+                                            );
+                                            const fCashAmount = ethers.utils.parseUnits("2", 8);
+                                            await mintWrappedFCash(
+                                              caller,
+                                              underlyingToken,
+                                              underlyingTokenAmount,
+                                              fCashAmount,
+                                              assetToken as any,
+                                              wrappedfCashMock as any,
                                               true,
                                             );
-                                          } else if (reason == "negative unit") {
-                                            await setToken
-                                              .connect(owner.wallet)
-                                              .editDefaultPositionUnit(
-                                                wrappedfCashMock.address,
-                                                -420,
-                                              );
-                                            const externalPositionModule = await getRandomAddress();
-                                            await setToken
-                                              .connect(owner.wallet)
-                                              .addExternalPositionModule(
-                                                wrappedfCashMock.address,
-                                                externalPositionModule,
-                                              );
-                                            // Have to add it back in as an external position to get a negative unit
-                                            await setToken
-                                              .connect(owner.wallet)
-                                              .editExternalPositionUnit(
-                                                wrappedfCashMock.address,
-                                                externalPositionModule,
-                                                -420,
+                                            await wrappedfCashMock
+                                              .connect(caller)
+                                              .approve(
+                                                debtIssuanceModule.address,
+                                                ethers.constants.MaxUint256,
                                               );
                                           }
+                                          await notionalTradeModule
+                                            .connect(manager.wallet)
+                                            .updateRedemptionHookDisabled(setToken.address, true);
                                         });
                                         it("fCash position remains the same", async () => {
                                           const positionBefore = await setToken.getDefaultPositionRealUnit(
@@ -1602,44 +1451,219 @@ describe("NotionalTradeModule", () => {
                                           expect(positionAfter).to.eq(positionBefore);
                                         });
                                       });
+                                    }
+
+                                    if (["issue", "redeem"].includes(triggerAction)) {
+                                      it(`should adjust ${redeemToken} balance correctly`, async () => {
+                                        const outputTokenBalanceBefore = await outputToken.balanceOf(
+                                          caller.address,
+                                        );
+                                        await subject();
+                                        const outputTokenBalanceAfter = await outputToken.balanceOf(
+                                          caller.address,
+                                        );
+                                        const amountAssetTokenTransfered =
+                                          triggerAction == "redeem"
+                                            ? outputTokenBalanceAfter.sub(outputTokenBalanceBefore)
+                                            : outputTokenBalanceBefore.sub(outputTokenBalanceAfter);
+
+                                        expect(amountAssetTokenTransfered).to.be.gt(0);
+                                      });
+
+                                      it("should issue correct amount of set tokens", async () => {
+                                        const setTokenBalanceBefore = await setToken.balanceOf(
+                                          caller.address,
+                                        );
+                                        await subject();
+                                        const setTokenBalanceAfter = await setToken.balanceOf(
+                                          caller.address,
+                                        );
+                                        const expectedBalanceChange =
+                                          triggerAction == "issue"
+                                            ? subjectAmount
+                                            : subjectAmount.mul(-1);
+                                        expect(
+                                          setTokenBalanceAfter.sub(setTokenBalanceBefore),
+                                        ).to.eq(expectedBalanceChange);
+                                      });
+                                    }
+
+                                    it("Removes wrappedFCash from component list", async () => {
+                                      expect(await setToken.isComponent(wrappedfCashMock.address))
+                                        .to.be.true;
+                                      await subject();
+                                      expect(await setToken.isComponent(wrappedfCashMock.address))
+                                        .to.be.false;
                                     });
 
-                                    describe("When setToken contains an additional position that is not a smart contract", () => {
+                                    it("Removes wrappedFCash from the list of registered fCashPositions", async () => {
+                                      await subject();
+                                      const fCashPositions = await notionalTradeModule.getFCashPositions(
+                                        subjectSetToken,
+                                      );
+                                      expect(fCashPositions).to.not.include(
+                                        wrappedfCashMock.address,
+                                      );
+                                    });
+
+                                    it(`Adds ${redeemToken} token to component list`, async () => {
+                                      expect(await setToken.isComponent(outputToken.address)).to.be
+                                        .false;
+                                      await subject();
+                                      expect(await setToken.isComponent(outputToken.address)).to.be
+                                        .true;
+                                    });
+
+                                    it("Afterwards setToken should have no fCash balance anymore", async () => {
+                                      const balanceBefore = await wrappedfCashMock.balanceOf(
+                                        subjectSetToken,
+                                      );
+                                      expect(balanceBefore).to.be.gt(0);
+                                      await subject();
+                                      const balanceAfter = await wrappedfCashMock.balanceOf(
+                                        subjectSetToken,
+                                      );
+                                      expect(balanceAfter).to.eq(0);
+                                    });
+
+                                    it(`Afterwards setToken should have received ${redeemToken} token`, async () => {
+                                      const balanceBefore = await outputToken.balanceOf(
+                                        subjectSetToken,
+                                      );
+                                      await subject();
+                                      const balanceAfter = await outputToken.balanceOf(
+                                        subjectSetToken,
+                                      );
+                                      expect(balanceAfter.sub(balanceBefore)).to.be.gt(0);
+                                    });
+
+                                    it(`Afterwards setToken should have positive ${redeemToken} position`, async () => {
+                                      const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                        outputToken.address,
+                                      );
+                                      await subject();
+                                      const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                        outputToken.address,
+                                      );
+                                      expect(positionAfter.sub(positionBefore)).to.be.gt(0);
+                                    });
+
+                                    describe("When positions have been redeemed already", () => {
                                       beforeEach(async () => {
-                                        const nonContractComponent = await getRandomAddress();
-                                        await setToken
-                                          .connect(owner.wallet)
-                                          .addComponent(nonContractComponent);
-                                        await setToken
-                                          .connect(owner.wallet)
-                                          .editDefaultPositionUnit(nonContractComponent, 420);
+                                        await notionalTradeModule.redeemMaturedPositions(
+                                          setToken.address,
+                                        );
                                       });
-                                      it(`Afterwards setToken should have received ${redeemToken} token`, async () => {
-                                        const balanceBefore = await outputToken.balanceOf(
-                                          subjectSetToken,
-                                        );
+                                      it("should not revert", async () => {
                                         await subject();
-                                        const balanceAfter = await outputToken.balanceOf(
-                                          subjectSetToken,
-                                        );
-                                        expect(balanceAfter.sub(balanceBefore)).to.be.gt(0);
-                                      });
-
-                                      it(`Afterwards setToken should have positive ${redeemToken} position`, async () => {
-                                        const positionBefore = await setToken.getDefaultPositionRealUnit(
-                                          outputToken.address,
-                                        );
-                                        await subject();
-                                        const positionAfter = await setToken.getDefaultPositionRealUnit(
-                                          outputToken.address,
-                                        );
-                                        expect(positionAfter.sub(positionBefore)).to.be.gt(0);
                                       });
                                     });
-                                  }
+
+                                    describe("When positions have been redeemed already", () => {
+                                      beforeEach(async () => {
+                                        await notionalTradeModule.redeemMaturedPositions(
+                                          setToken.address,
+                                        );
+                                      });
+                                      it("should not revert", async () => {
+                                        await subject();
+                                      });
+                                    });
+
+                                    if (triggerAction == "manualTrigger") {
+                                      [
+                                        "wrong currencyId",
+                                        "wrong maturity",
+                                        "reverted getDecodedID",
+                                        "reverted computeAddress",
+                                        "negative unit",
+                                      ].forEach(reason => {
+                                        describe(`When the wrappedFCash position is not recognized as such because of ${reason}`, () => {
+                                          beforeEach(async () => {
+                                            if (reason == "wrong currencyId") {
+                                              await wrappedfCashMock.initialize(420, maturity);
+                                            } else if (reason == "wrong maturity") {
+                                              await wrappedfCashMock.initialize(currencyId, 420);
+                                            } else if (reason == "reverted getDecodedID") {
+                                              await wrappedfCashMock.setRevertDecodedID(true);
+                                            } else if (reason == "reverted computeAddress") {
+                                              await wrappedfCashFactoryMock.setRevertComputeAddress(
+                                                true,
+                                              );
+                                            } else if (reason == "negative unit") {
+                                              await setToken
+                                                .connect(owner.wallet)
+                                                .editDefaultPositionUnit(
+                                                  wrappedfCashMock.address,
+                                                  -420,
+                                                );
+                                              const externalPositionModule = await getRandomAddress();
+                                              await setToken
+                                                .connect(owner.wallet)
+                                                .addExternalPositionModule(
+                                                  wrappedfCashMock.address,
+                                                  externalPositionModule,
+                                                );
+                                              // Have to add it back in as an external position to get a negative unit
+                                              await setToken
+                                                .connect(owner.wallet)
+                                                .editExternalPositionUnit(
+                                                  wrappedfCashMock.address,
+                                                  externalPositionModule,
+                                                  -420,
+                                                );
+                                            }
+                                          });
+                                          it("fCash position remains the same", async () => {
+                                            const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                              wrappedfCashMock.address,
+                                            );
+                                            await subject();
+                                            const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                              wrappedfCashMock.address,
+                                            );
+                                            expect(positionAfter).to.eq(positionBefore);
+                                          });
+                                        });
+                                      });
+
+                                      describe("When setToken contains an additional position that is not a smart contract", () => {
+                                        beforeEach(async () => {
+                                          const nonContractComponent = await getRandomAddress();
+                                          await setToken
+                                            .connect(owner.wallet)
+                                            .addComponent(nonContractComponent);
+                                          await setToken
+                                            .connect(owner.wallet)
+                                            .editDefaultPositionUnit(nonContractComponent, 420);
+                                        });
+                                        it(`Afterwards setToken should have received ${redeemToken} token`, async () => {
+                                          const balanceBefore = await outputToken.balanceOf(
+                                            subjectSetToken,
+                                          );
+                                          await subject();
+                                          const balanceAfter = await outputToken.balanceOf(
+                                            subjectSetToken,
+                                          );
+                                          expect(balanceAfter.sub(balanceBefore)).to.be.gt(0);
+                                        });
+
+                                        it(`Afterwards setToken should have positive ${redeemToken} position`, async () => {
+                                          const positionBefore = await setToken.getDefaultPositionRealUnit(
+                                            outputToken.address,
+                                          );
+                                          await subject();
+                                          const positionAfter = await setToken.getDefaultPositionRealUnit(
+                                            outputToken.address,
+                                          );
+                                          expect(positionAfter.sub(positionBefore)).to.be.gt(0);
+                                        });
+                                      });
+                                    }
+                                  });
                                 });
-                              });
-                            });
+                              },
+                            );
                           });
                         });
                       });

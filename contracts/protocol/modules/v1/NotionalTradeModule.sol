@@ -32,6 +32,7 @@ import { IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
 import { IWrappedfCashFactory } from "../../../interfaces/IWrappedFCashFactory.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
+import { Position } from "../../lib/Position.sol";
 
 
 
@@ -202,7 +203,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         IWrappedfCashComplete wrappedfCash = _getWrappedfCash(_currencyId, _maturity);
         require(_setToken.isComponent(address(wrappedfCash)), "FCash to redeem must be an index component");
 
-        return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), _redeemAmount, _minReceiveAmount);
+        require(
+            _setToken.hasSufficientDefaultUnits(address(wrappedfCash), _redeemAmount),
+            "Insufficient fCash position"
+        );
+
+
+        (uint256 totalRedeemAmount, uint256 totalMinReceiveAmount) = _calculateTotalAmounts(_setToken, _redeemAmount, _minReceiveAmount);
+
+        return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), totalRedeemAmount, totalMinReceiveAmount);
     }
 
     /**
@@ -409,6 +418,26 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /**
+     * Create and return TradeInfo struct
+     *
+     */
+    function _calculateTotalAmounts(
+        ISetToken _setToken,
+        uint256 _fCashAmount,
+        uint256 _paymentTokenAmount
+    )
+        internal
+        view
+        returns (uint256, uint256)
+    {
+        uint256 setTotalSupply = _setToken.totalSupply();
+        uint256 totalfCashAmount = Position.getDefaultTotalNotional(setTotalSupply, _fCashAmount);
+        uint256 totalpaymentTokenAmount = Position.getDefaultTotalNotional(setTotalSupply, _paymentTokenAmount);
+
+        return (totalfCashAmount, totalpaymentTokenAmount);
+    }
+
+    /**
      * @dev Redeem all matured fCash positions for the given SetToken
      */
     function _redeemMaturedPositions(ISetToken _setToken)
@@ -430,8 +459,11 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
                         if(isEth) {
                             receiveToken = weth;
                         }
-                        uint256 fCashBalance = fCashPosition.balanceOf(address(_setToken));
-                        _redeemFCashPosition(_setToken, fCashPosition, receiveToken, fCashBalance, 0);
+
+                        uint256 setTotalSupply = _setToken.totalSupply();
+                        uint256 totalfCashAmount = Position.getDefaultTotalNotional(setTotalSupply, uint256(positions[i].unit));
+
+                        _redeemFCashPosition(_setToken, fCashPosition, receiveToken, totalfCashAmount, 0);
                     }
                 }
             }
