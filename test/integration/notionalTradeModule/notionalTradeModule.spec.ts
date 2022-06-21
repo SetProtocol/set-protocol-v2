@@ -7,6 +7,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { Account, ForkedTokens } from "@utils/test/types";
 import DeployHelper from "@utils/deploys";
 import { ether } from "@utils/index";
+import { convertNotionalToPosition, convertPositionToNotional } from "@utils/test";
 import {
   getAccounts,
   getForkedTokens,
@@ -286,7 +287,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   ["underlyingToken", "assetToken"].forEach(tokenType => {
                     describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
                       let sendTokenType: string;
-                      let receiveTokenType: string;
                       let otherToken: IERC20;
                       let subjectCurrencyId: number;
                       let subjectMaturity: BigNumber;
@@ -297,12 +297,14 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           "1",
                           await underlyingToken.decimals(),
                         );
-                        const fTokenQuantity = ethers.utils.parseUnits("1", 8);
+                        const fTokenQuantity = await convertNotionalToPosition(
+                          ethers.utils.parseUnits("1", 8),
+                          setToken,
+                        );
 
                         otherToken = tokenType == "assetToken" ? assetToken : underlyingToken;
                         sendToken = tradeDirection == "buying" ? otherToken : wrappedFCashInstance;
                         sendTokenType = tradeDirection == "buying" ? tokenType : "wrappedFCash";
-                        receiveTokenType = tradeDirection == "selling" ? tokenType : "wrappedFCash";
                         subjectSendToken = sendToken.address;
 
                         receiveToken =
@@ -331,15 +333,15 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                             const assetTokenBalanceAfter = await otherToken.balanceOf(
                               owner.address,
                             );
-                            subjectSendQuantity = assetTokenBalanceAfter.sub(
-                              assetTokenBalanceBefore,
+                            subjectSendQuantity = await convertNotionalToPosition(
+                              assetTokenBalanceAfter.sub(assetTokenBalanceBefore),
+                              setToken,
                             );
                           } else {
-                            subjectSendQuantity = underlyingTokenQuantity;
+                            subjectSendQuantity = underlyingTokenQuantity
+                              .mul(BigNumber.from(10).pow(18))
+                              .div(await setToken.totalSupply());
                           }
-                          // Apparently it is not possible to trade tokens that are not a set component
-                          // Also sending extra tokens to the trade module might break it
-                          // TODO: Review
                           await notionalTradeModule
                             .connect(manager.wallet)
                             .redeemFCashPosition(
@@ -353,11 +355,14 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         } else {
                           subjectSendQuantity = fTokenQuantity;
                           if (tokenType == "assetToken") {
-                            subjectMinReceiveQuantity = ethers.utils.parseUnits("0.4", 8);
+                            subjectMinReceiveQuantity = await convertNotionalToPosition(
+                              ethers.utils.parseUnits("0.4", 8),
+                              setToken,
+                            );
                           } else {
-                            subjectMinReceiveQuantity = ethers.utils.parseUnits(
-                              "0.9",
-                              await underlyingToken.decimals(),
+                            subjectMinReceiveQuantity = await convertNotionalToPosition(
+                              ethers.utils.parseUnits("0.9", await underlyingToken.decimals()),
+                              setToken,
                             );
                           }
                         }
@@ -465,13 +470,18 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                               const sendTokenBalanceAfter = await sendToken.balanceOf(
                                 setToken.address,
                               );
+
+                              const expectedPositionChange = await convertPositionToNotional(
+                                subjectSendQuantity,
+                                setToken,
+                              );
                               if (tradeDirection == "selling") {
                                 expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
-                                  subjectSendQuantity,
+                                  expectedPositionChange,
                                 );
                               } else {
                                 expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.be.lte(
-                                  subjectSendQuantity,
+                                  expectedPositionChange,
                                 );
                               }
                             });
@@ -512,44 +522,24 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 receiveToken.address,
                               );
                               const tradeAmount = await subjectCall();
-                              const receiveTokenAmount =
-                                tradeDirection == "buying"
-                                  ? subjectMinReceiveQuantity
-                                  : tradeAmount;
                               await subject();
                               const positionAfter = await setToken.getDefaultPositionRealUnit(
                                 receiveToken.address,
                               );
 
                               const positionChange = positionAfter.sub(positionBefore);
-                              const totalSetSupplyWei = await setToken.totalSupply();
-                              const totalSetSupplyEther = totalSetSupplyWei.div(
-                                BigNumber.from(10).pow(18),
-                              );
 
-                              let receiveTokenAmountNormalized;
-                              if (receiveTokenType == "underlyingToken") {
-                                receiveTokenAmountNormalized = receiveTokenAmount.div(
-                                  totalSetSupplyEther,
-                                );
-                              } else {
-                                const precision = 10 ** 3;
-                                receiveTokenAmountNormalized = BigNumber.from(
-                                  Math.floor(
-                                    receiveTokenAmount
-                                      .mul(precision)
-                                      .div(totalSetSupplyEther)
-                                      .toNumber() / precision,
-                                  ),
-                                );
-                              }
+                              const expectedPositionChange =
+                                tradeDirection == "buying"
+                                  ? subjectMinReceiveQuantity
+                                  : await convertNotionalToPosition(tradeAmount, setToken);
 
                               // TODO: Review why there is some deviation
-                              const allowedDeviation = receiveTokenAmountNormalized.div(10000);
-                              expect(receiveTokenAmountNormalized).to.be.gte(
+                              const allowedDeviation = expectedPositionChange.div(10000);
+                              expect(expectedPositionChange).to.be.gte(
                                 positionChange.sub(allowedDeviation),
                               );
-                              expect(receiveTokenAmountNormalized).to.be.lte(
+                              expect(expectedPositionChange).to.be.lte(
                                 positionChange.add(allowedDeviation),
                               );
                             });
@@ -559,36 +549,19 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 sendToken.address,
                               );
                               const tradeAmount = await subjectCall();
-                              const sendTokenAmount =
-                                tradeDirection == "selling" ? subjectSendQuantity : tradeAmount;
+                              const expectedPositionChange =
+                                tradeDirection == "selling"
+                                  ? subjectSendQuantity
+                                  : await convertNotionalToPosition(tradeAmount, setToken);
                               await subject();
                               const positionAfter = await setToken.getDefaultPositionRealUnit(
                                 sendToken.address,
                               );
 
                               const positionChange = positionBefore.sub(positionAfter);
-                              const totalSetSupplyWei = await setToken.totalSupply();
-                              const totalSetSupplyEther = totalSetSupplyWei.div(
-                                BigNumber.from(10).pow(18),
-                              );
-
-                              let sendTokenAmountNormalized;
-                              if (sendTokenType == "underlyingToken") {
-                                sendTokenAmountNormalized = sendTokenAmount.div(
-                                  totalSetSupplyEther,
-                                );
-                              } else {
-                                sendTokenAmountNormalized = BigNumber.from(
-                                  // TODO: Why do we have to use round here and floor with the receive token ?
-                                  Math.round(
-                                    sendTokenAmount.mul(10).div(totalSetSupplyEther).toNumber() /
-                                      10,
-                                  ),
-                                );
-                              }
 
                               // TODO: Returned trade amount seems to be slighly off / or one of the calculations above has a rounding error. Review
-                              expect(sendTokenAmountNormalized).to.closeTo(
+                              expect(expectedPositionChange).to.closeTo(
                                 positionChange,
                                 Math.max(positionChange.div(10 ** 6).toNumber(), 1),
                               );
@@ -597,7 +570,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                             if (tradeDirection == "buying") {
                               describe("When sendQuantity is too low", () => {
                                 beforeEach(() => {
-                                  subjectSendQuantity = BigNumber.from(1000);
+                                  subjectSendQuantity = BigNumber.from(10);
                                 });
                                 it("should revert", async () => {
                                   const revertReason =
@@ -772,9 +745,12 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                             if (triggerAction == "manualTrigger") {
                               describe("When a part of the fCash was redeemed for asset tokens", () => {
                                 beforeEach(async () => {
-                                  const redeemAmount = (
-                                    await wrappedFCashInstance.balanceOf(setToken.address)
-                                  ).div(10);
+                                  const redeemAmount = await convertNotionalToPosition(
+                                    (await wrappedFCashInstance.balanceOf(setToken.address)).div(
+                                      10,
+                                    ),
+                                    setToken,
+                                  );
 
                                   await notionalTradeModule
                                     .connect(manager.wallet)
@@ -833,9 +809,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 subjectSetToken,
                               );
 
-                              const tx = await subject();
-                              const receipt = await tx.wait();
-                              console.log("gasUsed", receipt.gasUsed.toString());
+                              await subject();
 
                               // Check that fcash balance is 0 after
                               const fCashBalanceAfter = await wrappedFCashInstance.balanceOf(
