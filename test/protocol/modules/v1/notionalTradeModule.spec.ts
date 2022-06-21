@@ -23,6 +23,8 @@ import {
   getRandomAddress,
   getSystemFixture,
   getWaffleExpect,
+  convertPositionToNotional,
+  convertNotionalToPosition,
 } from "@utils/test/index";
 import { CompoundFixture, SystemFixture } from "@utils/fixtures";
 import { ADDRESS_ZERO } from "@utils/constants";
@@ -737,13 +739,10 @@ describe("NotionalTradeModule", () => {
                     ["buying", "selling"].forEach(tradeDirection => {
                       ["underlyingToken", "assetToken"].forEach(tokenType => {
                         describe(`When ${tradeDirection} fCash for ${tokenType}`, () => {
-                          let receiveTokenType: string;
                           let otherToken: IERC20;
                           beforeEach(async () => {
                             otherToken = tokenType == "assetToken" ? assetToken : underlyingToken;
                             sendToken = tradeDirection == "buying" ? otherToken : wrappedfCashMock;
-                            receiveTokenType =
-                              tradeDirection == "selling" ? tokenType : "wrappedFCash";
                             subjectSendToken = sendToken.address;
 
                             receiveToken =
@@ -756,10 +755,10 @@ describe("NotionalTradeModule", () => {
                             await sendToken.transfer(setToken.address, subjectSendQuantity.mul(2));
                             await receiveToken.transfer(
                               wrappedfCashMock.address,
-                              subjectMinReceiveQuantity
-                                .mul(await setToken.totalSupply())
-                                .div(BigNumber.from(10).pow(18))
-                                .mul(2),
+                              await convertPositionToNotional(
+                                subjectMinReceiveQuantity.mul(2),
+                                setToken,
+                              ),
                             );
                             expect(
                               await receiveToken.balanceOf(wrappedfCashMock.address),
@@ -845,10 +844,10 @@ describe("NotionalTradeModule", () => {
                                 setToken.address,
                               );
 
-                              const setTokenSupply = await setToken.totalSupply();
-                              const sendTokenPositionToSet = sendTokenBalanceBefore
-                                .mul(BigNumber.from(10).pow(18))
-                                .div(setTokenSupply);
+                              const sendTokenPositionToSet = await convertNotionalToPosition(
+                                sendTokenBalanceBefore,
+                                setToken,
+                              );
 
                               await setup.controller.connect(owner.wallet).addModule(owner.address);
                               await setToken.connect(manager.wallet).addModule(owner.address);
@@ -878,9 +877,10 @@ describe("NotionalTradeModule", () => {
                                     sendToken.address,
                                   );
                                   await wrappedfCashMock.setRedeemTokenReturned(
-                                    subjectMinReceiveQuantity
-                                      .mul(await setToken.totalSupply())
-                                      .div(BigNumber.from(10).pow(18)),
+                                    await convertPositionToNotional(
+                                      subjectMinReceiveQuantity,
+                                      setToken,
+                                    ),
                                   );
 
                                   if (relativeAmount == "higher") {
@@ -1001,11 +1001,10 @@ describe("NotionalTradeModule", () => {
                                               ethers.constants.MaxUint256,
                                             );
 
-                                          const spendAmount = oldSubjectSendQuantity
-                                            .mul(5)
-                                            .div(4)
-                                            .mul(await setToken.totalSupply())
-                                            .div(BigNumber.from(10).pow(18));
+                                          const spendAmount = await convertPositionToNotional(
+                                            oldSubjectSendQuantity.mul(5).div(4),
+                                            setToken,
+                                          );
                                           const allowance = await sendToken.allowance(
                                             setToken.address,
                                             wrappedfCashMock.address,
@@ -1023,10 +1022,10 @@ describe("NotionalTradeModule", () => {
                                       describe("when swap fails due to insufficient allowance", () => {
                                         beforeEach(async () => {
                                           await wrappedfCashMock.setMintTokenSpent(
-                                            subjectSendQuantity
-                                              .mul(2)
-                                              .mul(await setToken.totalSupply())
-                                              .div(BigNumber.from(10).pow(18)),
+                                            await convertPositionToNotional(
+                                              subjectSendQuantity.mul(2),
+                                              setToken,
+                                            ),
                                           );
                                         });
                                         it("should revert", async () => {
@@ -1112,17 +1111,19 @@ describe("NotionalTradeModule", () => {
                                       expect(
                                         sendTokenBalanceBefore.sub(sendTokenBalanceAfter),
                                       ).to.eq(
-                                        subjectSendQuantity
-                                          .mul(await setToken.totalSupply())
-                                          .div(BigNumber.from(10).pow(18)),
+                                        await convertPositionToNotional(
+                                          subjectSendQuantity,
+                                          setToken,
+                                        ),
                                       );
                                     } else {
                                       expect(
                                         sendTokenBalanceBefore.sub(sendTokenBalanceAfter),
                                       ).to.be.lte(
-                                        subjectSendQuantity
-                                          .mul(await setToken.totalSupply())
-                                          .div(BigNumber.from(10).pow(18)),
+                                        await convertPositionToNotional(
+                                          subjectSendQuantity,
+                                          setToken,
+                                        ),
                                       );
                                     }
                                   });
@@ -1169,27 +1170,13 @@ describe("NotionalTradeModule", () => {
                                     );
 
                                     const positionChange = positionAfter.sub(positionBefore);
-                                    const totalSetSupplyWei = await setToken.totalSupply();
-                                    const totalSetSupplyEther = totalSetSupplyWei.div(
-                                      BigNumber.from(10).pow(18),
-                                    );
 
                                     let expectedPositionChange;
                                     if (tradeDirection == "selling") {
-                                      if (receiveTokenType == "underlyingToken") {
-                                        expectedPositionChange = tradeAmount.div(
-                                          totalSetSupplyEther,
-                                        );
-                                      } else {
-                                        expectedPositionChange = BigNumber.from(
-                                          Math.floor(
-                                            tradeAmount
-                                              .mul(10)
-                                              .div(totalSetSupplyEther)
-                                              .toNumber() / 10,
-                                          ),
-                                        );
-                                      }
+                                      expectedPositionChange = await convertNotionalToPosition(
+                                        tradeAmount,
+                                        setToken,
+                                      );
                                     } else {
                                       expectedPositionChange = subjectMinReceiveQuantity;
                                     }
@@ -1205,9 +1192,7 @@ describe("NotionalTradeModule", () => {
                                     const expectedPositionChange =
                                       tradeDirection == "selling"
                                         ? subjectSendQuantity
-                                        : tradeAmount
-                                          .mul(BigNumber.from(10).pow(18))
-                                          .div(await setToken.totalSupply());
+                                        : await convertNotionalToPosition(tradeAmount, setToken);
 
                                     await subject();
                                     const positionAfter = await setToken.getDefaultPositionRealUnit(
@@ -1237,7 +1222,6 @@ describe("NotionalTradeModule", () => {
                       });
                       describe("When wrappedFCash is a registered component", () => {
                         beforeEach(async () => {
-                          const setTokenSupply = await setToken.totalSupply();
                           const fCashAmount = ethers.utils.parseUnits("10", 8);
                           await wrappedfCashMock.mintViaUnderlying(
                             0,
@@ -1262,9 +1246,8 @@ describe("NotionalTradeModule", () => {
                           expect(await setToken.isComponent(wrappedfCashMock.address)).to.be.true;
                           expect(wrappedfCashMockBalanceAfter).to.be.gte(fCashAmount);
 
-                          const fCashPositionToSet = setTokenFCashBalance
-                            .mul(BigNumber.from(10).pow(18))
-                            .div(setTokenSupply);
+                          const fCashPositionToSet = await convertNotionalToPosition(setTokenFCashBalance, setToken);
+
                           await setToken
                             .connect(owner.wallet)
                             .editDefaultPositionUnit(wrappedfCashMock.address, fCashPositionToSet);
@@ -1274,7 +1257,7 @@ describe("NotionalTradeModule", () => {
                           // Make sure set token was added to set
                           expect(wrappedfCashMockPositionAfter).to.be.gt(0);
                         });
-                        ["assetToken", "underlyingToken"].forEach(redeemToken => {
+                        ["underlyingToken", "assetToken"].forEach(redeemToken => {
                           describe(`when redeeming to ${redeemToken}`, () => {
                             let outputToken: IERC20;
                             beforeEach(async () => {
