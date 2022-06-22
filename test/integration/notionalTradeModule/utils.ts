@@ -8,11 +8,8 @@ import { ICEth } from "@typechain/ICEth";
 import DeployHelper from "@utils/deploys";
 import { NUpgradeableBeacon__factory } from "@typechain/factories/NUpgradeableBeacon__factory";
 
-const ROUTER_ADDRESS = "0x1344A36A1B56144C3Bc62E7757377D288fDE0369";
+const NEW_ROUTER_ADDRESS = "0x16eD130F7A6dcAc7e3B0617A7bafa4b470189962";
 export const NOTIONAL_PROXY_ADDRESS = "0x1344A36A1B56144C3Bc62E7757377D288fDE0369";
-const batchActionArtifact = require("../../../external/abi/notional/BatchAction.json");
-const erc1155ActionArtifact = require("../../../external/abi/notional/ERC1155Action.json");
-const routerArtifact = require("../../../external/abi/notional/Router.json");
 
 const cEthAddress = "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5";
 
@@ -25,62 +22,30 @@ async function impersonateAccount(address: string) {
 }
 
 export async function upgradeNotionalProxy(signer: Signer) {
-  // Create these three contract factories
-  const routerFactory = new ethers.ContractFactory(
-    routerArtifact["abi"],
-    routerArtifact["bytecode"],
-    signer,
-  );
-  const erc1155ActionFactory = new ethers.ContractFactory(
-    erc1155ActionArtifact["abi"],
-    erc1155ActionArtifact["bytecode"],
-    signer,
-  );
-  const batchActionFactory = new ethers.ContractFactory(
-    batchActionArtifact["abi"],
-    batchActionArtifact["bytecode"],
-    signer,
-  );
-
-  // Get the current router to get current contract addresses (same as notional contract, just different abi)
-  const router = (await ethers.getContractAt(routerArtifact["abi"], ROUTER_ADDRESS)) as any;
-
   // This is the notional contract w/ notional abi
   const notional = (await ethers.getContractAt(
     "INotionalProxy",
     NOTIONAL_PROXY_ADDRESS,
   )) as INotionalProxy;
 
-  // Deploy the new upgraded contracts
-  const batchAction = await batchActionFactory.deploy();
-  const erc1155Action = await erc1155ActionFactory.deploy();
-
-  // Get the current router args and replace upgraded addresses
-  const routerArgs = await Promise.all([
-    router.GOVERNANCE(),
-    router.VIEWS(),
-    router.INITIALIZE_MARKET(),
-    router.NTOKEN_ACTIONS(),
-    batchAction.address, // upgraded
-    router.ACCOUNT_ACTION(),
-    erc1155Action.address, // upgraded
-    router.LIQUIDATE_CURRENCY(),
-    router.LIQUIDATE_FCASH(),
-    router.cETH(),
-    router.TREASURY(),
-    router.CALCULATION_VIEWS(),
-  ]);
-
-  // Deploy a new router
-  const newRouter = await routerFactory.deploy(...routerArgs);
-  // Get the owner contract
   const notionalOwner = await impersonateAccount(await notional.owner());
-  // Upgrade the system to the new router
 
-  const fundingValue = ethers.utils.parseEther("1");
+  const fundingValue = ethers.utils.parseEther("10");
   await signer.sendTransaction({ to: await notionalOwner.getAddress(), value: fundingValue });
 
-  await notional.connect(notionalOwner).upgradeTo(newRouter.address);
+  await notional.connect(notionalOwner).upgradeTo(NEW_ROUTER_ADDRESS);
+  await notional
+    .connect(notionalOwner)
+    .updateAssetRate(1, "0x8E3D447eBE244db6D28E2303bCa86Ef3033CFAd6");
+  await notional
+    .connect(notionalOwner)
+    .updateAssetRate(2, "0x719993E82974f5b5eA0c5ebA25c260CD5AF78E00");
+  await notional
+    .connect(notionalOwner)
+    .updateAssetRate(3, "0x612741825ACedC6F88D8709319fe65bCB015C693");
+  await notional
+    .connect(notionalOwner)
+    .updateAssetRate(4, "0x39D9590721331B13C8e9A42941a2B961B513E69d");
 }
 
 export async function getCurrencyIdAndMaturity(underlyingAddress: string, maturityIndex: number) {

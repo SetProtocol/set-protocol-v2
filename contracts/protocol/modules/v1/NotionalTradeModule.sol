@@ -35,6 +35,8 @@ import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import { Position } from "../../lib/Position.sol";
 
+import "hardhat/console.sol";
+
 
 
 /**
@@ -231,7 +233,10 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         require(totalMinMintAmount <= uint256(totalMintAmount), "Insufficient mint amount");
  
         uint256 sendAmount = _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), uint256(totalMintAmount), totalSendAmount, isUnderlying);
-        require(sendAmount == _sendAmount, "Incorrect send amount");
+        console.log("sendAmount");
+        console.logUint(sendAmount);
+        console.logUint(totalSendAmount);
+        require(sendAmount == totalSendAmount, "Incorrect send amount");
         return sendAmount;
     }
 
