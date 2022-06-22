@@ -30,6 +30,7 @@ import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
 import { IWrappedfCashComplete } from "../../../interfaces/IWrappedFCash.sol";
 import { IWrappedfCashFactory } from "../../../interfaces/IWrappedFCashFactory.sol";
+import { INotionalV2 } from "../../../interfaces/external/INotionalV2.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 import { Position } from "../../lib/Position.sol";
@@ -121,6 +122,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     // Factory that is used to deploy and check fCash wrapper contracts
     IWrappedfCashFactory public immutable wrappedfCashFactory;
     IERC20 public immutable weth;
+    INotionalV2 public immutable notionalV2;
 
     uint256 public decodedIdGasLimit;
 
@@ -130,12 +132,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @dev Instantiate addresses
      * @param _controller                       Address of controller contract
      * @param _wrappedfCashFactory              Address of fCash wrapper factory used to check and deploy wrappers
+     * @param _weth                             Weth token address
+     * @param _notionalV2                       Address of the notionalV2 proxy contract
      * @param _decodedIdGasLimit                Gas limit for call to getDecodedID
      */
     constructor(
         IController _controller,
         IWrappedfCashFactory _wrappedfCashFactory,
         IERC20 _weth,
+        INotionalV2 _notionalV2,
         uint256 _decodedIdGasLimit
     )
         public
@@ -143,6 +148,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     {
         wrappedfCashFactory = _wrappedfCashFactory;
         weth = _weth;
+        notionalV2 = _notionalV2;
         decodedIdGasLimit = _decodedIdGasLimit;
     }
 
@@ -158,7 +164,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @param _sendToken                  Token to mint from, must be either the underlying or the asset token.
      * @param _maxSendAmount              Maximum amount to spend
      */
-    function mintFCashPosition(
+    function mintFixedFCashForToken(
         ISetToken _setToken,
         uint16 _currencyId,
         uint40 _maturity,
@@ -180,20 +186,66 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         (uint256 totalMintAmount, uint256 totalMaxSendAmount) = _calculateTotalAmounts(_setToken, _mintAmount, _maxSendAmount);
 
         IWrappedfCashComplete wrappedfCash = _deployWrappedfCash(_currencyId, _maturity);
-        return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), totalMintAmount, totalMaxSendAmount);
+        bool isUnderlying = _isUnderlying(wrappedfCash, IERC20(_sendToken));
+
+        uint256 sendAmount = _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), totalMintAmount, totalMaxSendAmount, isUnderlying);
+        require(sendAmount <= totalMaxSendAmount, "Overspent");
+        return sendAmount;
     }
 
     /**
-     * @dev MANAGER ONLY: Trades out of an existing fCash position.
+     * @dev MANAGER ONLY: Mints a fixed amount of input tokens worth of fCash
+     * @param _setToken                   Instance of the SetToken
+     * @param _currencyId                 CurrencyId of the fCash token as defined by the notional protocol. 
+     * @param _maturity                   Maturity of the fCash token as defined by the notional protocol.
+     * @param _minMintAmount              Minimum amount of fCash token to mint
+     * @param _sendToken                  Token to mint from, must be either the underlying or the asset token.
+     * @param _sendAmount                 Amount of input/asset tokens to convert to fCash
+     */
+    function mintFCashForFixedToken(
+        ISetToken _setToken,
+        uint16 _currencyId,
+        uint40 _maturity,
+        uint256 _minMintAmount,
+        address _sendToken,
+        uint256 _sendAmount
+    )
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+        returns(uint256)
+    {
+        require(_setToken.isComponent(address(_sendToken)), "Send token must be an index component");
+        require(
+            _setToken.hasSufficientDefaultUnits(_sendToken, _sendAmount),
+            "Insufficient sendToken position"
+        );
+
+        (uint256 totalMinMintAmount, uint256 totalSendAmount) = _calculateTotalAmounts(_setToken, _minMintAmount, _sendAmount);
+
+        IWrappedfCashComplete wrappedfCash = _deployWrappedfCash(_currencyId, _maturity);
+
+        bool isUnderlying = _isUnderlying(wrappedfCash, IERC20(_sendToken));
+
+        (uint88 totalMintAmount,,) = notionalV2.getfCashLendFromDeposit(_currencyId, totalSendAmount, _maturity, 0, block.timestamp, isUnderlying);
+        require(totalMinMintAmount <= uint256(totalMintAmount), "Insufficient mint amount");
+ 
+        uint256 sendAmount = _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), uint256(totalMintAmount), totalSendAmount, isUnderlying);
+        require(sendAmount == _sendAmount, "Incorrect send amount");
+        return sendAmount;
+    }
+
+    /**
+     * @dev MANAGER ONLY: Redeems a fixed amount of fCash position for a minimum position of receiving token
      * Will revert if no wrapper for the selected fCash token was deployed
      * @param _setToken                   Instance of the SetToken
      * @param _currencyId                 CurrencyId of the fCash token as defined by the notional protocol. 
      * @param _maturity                   Maturity of the fCash token as defined by the notional protocol.
-     * @param _redeemAmount               Amount of fCash token to redeem 
+     * @param _redeemAmount               Amount of fCash token to redeem  per Set Token
      * @param _receiveToken               Token to redeem into, must be either asset or underlying token of the fCash token
-     * @param _minReceiveAmount           Minimum amount of receive token to receive
+     * @param _minReceiveAmount           Minimum amount of receive token to receive per Set Token
      */
-    function redeemFCashPosition(
+    function redeemFixedFCashForToken(
         ISetToken _setToken,
         uint16 _currencyId,
         uint40 _maturity,
@@ -404,6 +456,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /* ============ Internal Functions ============ */
 
+
     /**
      * @dev Deploy wrapper if it does not exist yet and return address
      */
@@ -422,7 +475,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /**
-     * Create and return TradeInfo struct
+     * @dev Calculate total amounts to to trade based on positional amounts and set tokens total supply
      *
      */
     function _calculateTotalAmounts(
@@ -485,22 +538,20 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         IWrappedfCashComplete _fCashPosition,
         IERC20 _sendToken,
         uint256 _fCashAmount,
-        uint256 _maxSendAmount
+        uint256 _maxSendAmount,
+        bool _fromUnderlying
     )
     internal
     returns(uint256 sentAmount)
     {
         if(_fCashAmount == 0) return 0;
 
-        bool fromUnderlying = _isUnderlying(_fCashPosition, _sendToken);
-
-
         _approve(_setToken, _fCashPosition, _sendToken, _maxSendAmount);
 
         uint256 preTradeSendTokenBalance = _sendToken.balanceOf(address(_setToken));
         uint256 preTradeReceiveTokenBalance = _fCashPosition.balanceOf(address(_setToken));
 
-        _mint(_setToken, _fCashPosition, _maxSendAmount, _fCashAmount, fromUnderlying);
+        _mint(_setToken, _fCashPosition, _maxSendAmount, _fCashAmount, _fromUnderlying);
 
 
         (sentAmount,) = _updateSetTokenPositions(
@@ -511,7 +562,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             preTradeReceiveTokenBalance
         );
 
-        require(sentAmount <= _maxSendAmount, "Overspent");
 
         _resetAllowance(_setToken, _fCashPosition, _sendToken);
         emit FCashMinted(_setToken, _fCashPosition, _sendToken, _fCashAmount, sentAmount);

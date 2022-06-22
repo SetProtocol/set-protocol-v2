@@ -94,6 +94,7 @@ describe("NotionalTradeModule", () => {
           subjectController,
           subjectWrappedfCashFactory,
           setup.weth.address,
+          ADDRESS_ZERO,
           subjectDecodedIdGasLimit,
         );
       }
@@ -121,6 +122,7 @@ describe("NotionalTradeModule", () => {
           setup.controller.address,
           wrappedfCashFactoryMock.address,
           setup.weth.address,
+          ADDRESS_ZERO,
           decodedIdGaslimit,
         );
         await setup.controller.addModule(notionalTradeModule.address);
@@ -136,7 +138,7 @@ describe("NotionalTradeModule", () => {
         );
       });
 
-      ["dai", "weth"].forEach(underlyingTokenName => {
+      ["dai"].forEach(underlyingTokenName => {
         describe(`When underlying token is ${underlyingTokenName}`, () => {
           let assetToken: CERc20;
           let underlyingToken: StandardTokenMock;
@@ -717,7 +719,7 @@ describe("NotionalTradeModule", () => {
                       });
                     });
                   });
-                  describe("#redeem/mintFCashPosition", () => {
+                  describe("#redeem/mintFixedFCashForToken", () => {
                     let receiveToken: IERC20;
                     let sendToken: IERC20;
                     let subjectSetToken: string;
@@ -769,7 +771,7 @@ describe("NotionalTradeModule", () => {
                             if (tradeDirection == "buying") {
                               return notionalTradeModule
                                 .connect(caller)
-                                .mintFCashPosition(
+                                .mintFixedFCashForToken(
                                   subjectSetToken,
                                   subjectCurrencyId,
                                   subjectMaturity,
@@ -780,7 +782,7 @@ describe("NotionalTradeModule", () => {
                             } else {
                               return notionalTradeModule
                                 .connect(caller)
-                                .redeemFCashPosition(
+                                .redeemFixedFCashForToken(
                                   subjectSetToken,
                                   subjectCurrencyId,
                                   subjectMaturity,
@@ -795,7 +797,7 @@ describe("NotionalTradeModule", () => {
                             if (tradeDirection == "buying") {
                               return notionalTradeModule
                                 .connect(caller)
-                                .callStatic.mintFCashPosition(
+                                .callStatic.mintFixedFCashForToken(
                                   subjectSetToken,
                                   subjectCurrencyId,
                                   subjectMaturity,
@@ -806,7 +808,7 @@ describe("NotionalTradeModule", () => {
                             } else {
                               return notionalTradeModule
                                 .connect(caller)
-                                .callStatic.redeemFCashPosition(
+                                .callStatic.redeemFixedFCashForToken(
                                   subjectSetToken,
                                   subjectCurrencyId,
                                   subjectMaturity,
@@ -1246,7 +1248,10 @@ describe("NotionalTradeModule", () => {
                           expect(await setToken.isComponent(wrappedfCashMock.address)).to.be.true;
                           expect(wrappedfCashMockBalanceAfter).to.be.gte(fCashAmount);
 
-                          const fCashPositionToSet = await convertNotionalToPosition(setTokenFCashBalance, setToken);
+                          const fCashPositionToSet = await convertNotionalToPosition(
+                            setTokenFCashBalance,
+                            setToken,
+                          );
 
                           await setToken
                             .connect(owner.wallet)

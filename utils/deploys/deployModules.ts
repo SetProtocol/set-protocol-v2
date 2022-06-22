@@ -186,12 +186,14 @@ export default class DeployModules {
     controller: Address,
     wrappedfCashFactory: Address,
     weth: Address,
+    notionalV2: Address,
     decodedIdGasLimit: BigNumber | number,
   ): Promise<NotionalTradeModule> {
     return await new NotionalTradeModule__factory(this._deployerSigner).deploy(
       controller,
       wrappedfCashFactory,
       weth,
+      notionalV2,
       decodedIdGasLimit,
     );
   }

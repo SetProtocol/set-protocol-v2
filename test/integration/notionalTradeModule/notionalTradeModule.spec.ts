@@ -36,6 +36,7 @@ import {
   deployWrappedfCashFactory,
   getCurrencyIdAndMaturity,
   mintWrappedFCash,
+  NOTIONAL_PROXY_ADDRESS,
 } from "./utils";
 
 const expect = getWaffleExpect();
@@ -146,6 +147,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                 setup.controller.address,
                 wrappedFCashFactory.address,
                 tokens.weth.address,
+                NOTIONAL_PROXY_ADDRESS,
                 decodedIdGasLimit,
               );
               await setup.controller.addModule(notionalTradeModule.address);
@@ -268,7 +270,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   .connect(owner.wallet)
                   .issue(setToken.address, setAmount, owner.address);
               });
-              describe("#mint/redeemFCashPosition", () => {
+              describe("#mint/redeemFixedFCashForToken", () => {
                 let receiveToken: IERC20;
                 let sendToken: IERC20;
                 let subjectSetToken: string;
@@ -344,7 +346,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           }
                           await notionalTradeModule
                             .connect(manager.wallet)
-                            .redeemFCashPosition(
+                            .redeemFixedFCashForToken(
                               setToken.address,
                               subjectCurrencyId,
                               subjectMaturity,
@@ -372,7 +374,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         if (tradeDirection == "buying") {
                           return notionalTradeModule
                             .connect(caller)
-                            .mintFCashPosition(
+                            .mintFixedFCashForToken(
                               subjectSetToken,
                               subjectCurrencyId,
                               subjectMaturity,
@@ -383,7 +385,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         } else {
                           return notionalTradeModule
                             .connect(caller)
-                            .redeemFCashPosition(
+                            .redeemFixedFCashForToken(
                               subjectSetToken,
                               subjectCurrencyId,
                               subjectMaturity,
@@ -398,7 +400,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         if (tradeDirection == "buying") {
                           return notionalTradeModule
                             .connect(caller)
-                            .callStatic.mintFCashPosition(
+                            .callStatic.mintFixedFCashForToken(
                               subjectSetToken,
                               subjectCurrencyId,
                               subjectMaturity,
@@ -409,7 +411,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         } else {
                           return notionalTradeModule
                             .connect(caller)
-                            .callStatic.redeemFCashPosition(
+                            .callStatic.redeemFixedFCashForToken(
                               subjectSetToken,
                               subjectCurrencyId,
                               subjectMaturity,
@@ -754,7 +756,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
                                   await notionalTradeModule
                                     .connect(manager.wallet)
-                                    .redeemFCashPosition(
+                                    .redeemFixedFCashForToken(
                                       setToken.address,
                                       currencyId,
                                       maturity,
