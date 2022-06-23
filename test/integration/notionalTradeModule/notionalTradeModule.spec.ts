@@ -43,8 +43,8 @@ const expect = getWaffleExpect();
 
 const tokenAddresses: Record<string, string> = {
   cDai: "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
-  // cUsdc: "0x39AA39c021dfbaE8faC545936693aC917d5E7563",
-  // cEth: "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5",
+  cUsdc: "0x39AA39c021dfbaE8faC545936693aC917d5E7563",
+  cEth: "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5",
 };
 
 const underlyingTokens: Record<string, string> = {
@@ -270,8 +270,8 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   .connect(owner.wallet)
                   .issue(setToken.address, setAmount, owner.address);
               });
-              ["buying"].forEach(tradeDirection => {
-                const fixedSides = tradeDirection == "buying" ? ["inputToken"] : ["fCash"];
+              ["buying", "selling"].forEach(tradeDirection => {
+                const fixedSides = tradeDirection == "buying" ? ["inputToken", "fCash"] : ["fCash"];
                 fixedSides.forEach(fixedSide => {
                   const functionName =
                     tradeDirection == "buying"
@@ -421,7 +421,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                         };
 
                         const subjectCall = () => {
-                          if (tradeDirection == "buying") {
+                          if (functionName == "mintFixedFCashForToken") {
                             return notionalTradeModule
                               .connect(caller)
                               .callStatic.mintFixedFCashForToken(
@@ -432,7 +432,20 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 subjectSendToken,
                                 subjectSendQuantity,
                               );
-                          } else {
+                          }
+                          if (functionName == "mintFCashForFixedToken") {
+                            return notionalTradeModule
+                              .connect(caller)
+                              .callStatic.mintFCashForFixedToken(
+                                subjectSetToken,
+                                subjectCurrencyId,
+                                subjectMaturity,
+                                subjectMinReceiveQuantity,
+                                subjectSendToken,
+                                subjectSendQuantity,
+                              );
+                          }
+                          if (functionName == "redeemFixedFCashForToken") {
                             return notionalTradeModule
                               .connect(caller)
                               .callStatic.redeemFixedFCashForToken(
@@ -444,6 +457,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 subjectMinReceiveQuantity,
                               );
                           }
+                          throw Error(`Invalid function name: ${functionName}`);
                         };
 
                         ["new", "existing"].forEach(wrapperType => {
@@ -561,13 +575,21 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                     : await convertNotionalToPosition(tradeAmount, setToken);
 
                                 // TODO: Review why there is some deviation
-                                const allowedDeviation = expectedPositionChange.div(10000);
-                                expect(expectedPositionChange).to.be.gte(
-                                  positionChange.sub(allowedDeviation),
-                                );
-                                expect(expectedPositionChange).to.be.lte(
-                                  positionChange.add(allowedDeviation),
-                                );
+                                if (fixedSide == "fCash") {
+                                  const allowedDeviationPercent = 1;
+                                  expect(positionChange).to.be.gte(
+                                    expectedPositionChange
+                                      .mul(100 - allowedDeviationPercent)
+                                      .div(100),
+                                  );
+                                  expect(positionChange).to.be.lte(
+                                    expectedPositionChange
+                                      .mul(100 + allowedDeviationPercent)
+                                      .div(100),
+                                  );
+                                } else {
+                                  expect(positionChange).to.be.gte(expectedPositionChange);
+                                }
                               });
 
                               it("should adjust the components position of the sendToken correctly", async () => {
@@ -576,9 +598,9 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 );
                                 const tradeAmount = await subjectCall();
                                 const expectedPositionChange =
-                                  tradeDirection == "selling"
-                                    ? subjectSendQuantity
-                                    : await convertNotionalToPosition(tradeAmount, setToken);
+                                  tradeDirection == "buying" && fixedSide == "fCash"
+                                    ? await convertNotionalToPosition(tradeAmount, setToken)
+                                    : subjectSendQuantity;
                                 await subject();
                                 const positionAfter = await setToken.getDefaultPositionRealUnit(
                                   sendToken.address,
@@ -596,18 +618,21 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                               if (tradeDirection == "buying") {
                                 describe("When sendQuantity is too low", () => {
                                   beforeEach(() => {
-                                    subjectSendQuantity = BigNumber.from(10);
+                                    subjectSendQuantity = subjectSendQuantity.div(1000);
                                   });
                                   it("should revert", async () => {
                                     const revertReason =
-                                      sendTokenType == "underlyingToken" && assetTokenName == "cDai"
-                                        ? "Dai/insufficient-balance"
-                                        : sendTokenType == "assetToken" && assetTokenName == "cDai"
-                                          ? "0x11"
-                                          : sendTokenType == "underlyingToken" &&
+                                      tradeDirection == "buying" && fixedSide == "inputToken"
+                                        ? "Insufficient mint amount"
+                                        : sendTokenType == "underlyingToken" &&
+                                          assetTokenName == "cDai"
+                                          ? "Dai/insufficient-balance"
+                                          : sendTokenType == "assetToken" && assetTokenName == "cDai"
+                                            ? "0x11"
+                                            : sendTokenType == "underlyingToken" &&
                                           assetTokenName == "cEth"
-                                            ? "Insufficient cash"
-                                            : "ERC20";
+                                              ? "Insufficient cash"
+                                              : "ERC20";
                                     await expect(subject()).to.be.revertedWith(revertReason);
                                   });
                                 });
@@ -622,15 +647,15 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               });
 
               describe("#moduleIssue/RedeemHook", () => {
-                [].forEach(redeemToken => {
+                ["underlyingToken", "assetToken"].forEach(redeemToken => {
                   describe(`when redeeming to ${redeemToken}`, () => {
                     let outputToken: IERC20;
                     beforeEach(async () => {
-                      const toUnderlying = redeemToken == "underlying";
+                      const toUnderlying = redeemToken == "underlyingToken";
                       await notionalTradeModule
                         .connect(manager.wallet)
                         .setRedeemToUnderlying(setToken.address, toUnderlying);
-                      outputToken = redeemToken == "underlying" ? underlyingToken : assetToken;
+                      outputToken = redeemToken == "underlyingToken" ? underlyingToken : assetToken;
                     });
                     ["issue", "redeem", "manualTrigger"].forEach(triggerAction => {
                       describe(`When hook is triggered by ${triggerAction}`, () => {
@@ -643,13 +668,13 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                           subjectAmount = ethers.utils.parseEther("1");
                           caller = owner.wallet;
                           subjectReceiver = caller.address;
+                          const underlyingTokenAmount = ethers.utils.parseUnits(
+                            "2.1",
+                            await underlyingToken.decimals(),
+                          );
+                          const fCashAmount = ethers.utils.parseUnits("2", 8);
 
                           if (triggerAction == "redeem") {
-                            const underlyingTokenAmount = ethers.utils.parseUnits(
-                              "2.1",
-                              await underlyingToken.decimals(),
-                            );
-                            const fCashAmount = ethers.utils.parseUnits("2", 8);
                             await underlyingToken.transfer(owner.address, underlyingTokenAmount);
                             await mintWrappedFCash(
                               owner.wallet,
@@ -667,7 +692,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                               .connect(caller)
                               .approve(debtIssuanceModule.address, subjectAmount);
                           } else if (triggerAction == "issue") {
-                            if (redeemToken == "asset") {
+                            if (redeemToken == "assetToken") {
                               if (assetTokenName == "cEth") {
                                 assetToken = assetToken as ICEth;
                                 await assetToken
