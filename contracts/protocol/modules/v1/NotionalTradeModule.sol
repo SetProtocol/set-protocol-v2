@@ -188,13 +188,11 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         IWrappedfCashComplete wrappedfCash = _deployWrappedfCash(_currencyId, _maturity);
         bool isUnderlying = _isUnderlying(wrappedfCash, IERC20(_sendToken));
 
-        uint256 sendAmount = _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), totalMintAmount, totalMaxSendAmount, isUnderlying);
-        require(sendAmount <= totalMaxSendAmount, "Overspent");
-        return sendAmount;
+        return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), totalMintAmount, totalMaxSendAmount, isUnderlying);
     }
 
     /**
-     * @dev MANAGER ONLY: Mints a fixed amount of input tokens worth of fCash
+     * @dev MANAGER ONLY: Mints a fixed amount of send tokens worth of fCash
      * @param _setToken                   Instance of the SetToken
      * @param _currencyId                 CurrencyId of the fCash token as defined by the notional protocol. 
      * @param _maturity                   Maturity of the fCash token as defined by the notional protocol.
@@ -230,9 +228,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         (uint88 totalMintAmount,,) = notionalV2.getfCashLendFromDeposit(_currencyId, totalSendAmount, _maturity, 0, block.timestamp, isUnderlying);
         require(totalMinMintAmount <= uint256(totalMintAmount), "Insufficient mint amount");
  
-        uint256 sendAmount = _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), uint256(totalMintAmount), totalSendAmount, isUnderlying);
-        require(sendAmount <= totalSendAmount, "Overspent");
-        return sendAmount;
+        return _mintFCashPosition(_setToken, wrappedfCash, IERC20(_sendToken), uint256(totalMintAmount), totalSendAmount, isUnderlying);
     }
 
     /**
@@ -266,9 +262,51 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             "Insufficient fCash position"
         );
         (uint256 totalRedeemAmount, uint256 totalMinReceiveAmount) = _calculateTotalAmounts(_setToken, _redeemAmount, _minReceiveAmount);
+        bool isUnderlying = _isUnderlying(wrappedfCash, IERC20(_receiveToken));
 
-        return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), totalRedeemAmount, totalMinReceiveAmount);
+        return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), totalRedeemAmount, totalMinReceiveAmount, isUnderlying);
     }
+
+
+    /**
+     * @dev MANAGER ONLY: Redeems the required amount of the fCash position to receive a fixed amount of receive tokens
+     * Will revert if no wrapper for the selected fCash token was deployed
+     * @param _setToken                   Instance of the SetToken
+     * @param _currencyId                 CurrencyId of the fCash token as defined by the notional protocol. 
+     * @param _maturity                   Maturity of the fCash token as defined by the notional protocol.
+     * @param _maxRedeemAmount            Maximum amount of fCash to redeem
+     * @param _receiveToken               Token to redeem into, must be either asset or underlying token of the fCash token
+     * @param _receiveAmount              Amount of receive tokens to receive
+     */
+    function redeemFCashForFixedToken(
+        ISetToken _setToken,
+        uint16 _currencyId,
+        uint40 _maturity,
+        uint256 _maxRedeemAmount,
+        address _receiveToken,
+        uint256 _receiveAmount
+    )
+        external
+        nonReentrant
+        onlyManagerAndValidSet(_setToken)
+        returns(uint256)
+    {
+        IWrappedfCashComplete wrappedfCash = _getWrappedfCash(_currencyId, _maturity);
+        require(_setToken.isComponent(address(wrappedfCash)), "FCash to redeem must be an index component");
+
+        require(
+            _setToken.hasSufficientDefaultUnits(address(wrappedfCash), _maxRedeemAmount),
+            "Insufficient fCash position"
+        );
+        (uint256 totalMaxRedeemAmount, uint256 totalReceiveAmount) = _calculateTotalAmounts(_setToken, _maxRedeemAmount, _receiveAmount);
+
+        bool isUnderlying = _isUnderlying(wrappedfCash, IERC20(_receiveToken));
+        (uint88 totalRedeemAmount,,) = notionalV2.getfCashBorrowFromPrincipal(_currencyId, totalReceiveAmount, _maturity, 0, block.timestamp, isUnderlying);
+        require(totalMaxRedeemAmount >= uint256(totalRedeemAmount), "Excessive redeem amount");
+
+        return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), totalRedeemAmount, totalReceiveAmount, isUnderlying);
+    }
+
 
     /**
      * @dev CALLABLE BY ANYBODY: Redeem all matured fCash positions of given setToken
@@ -520,7 +558,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
                         uint256 setTotalSupply = _setToken.totalSupply();
                         uint256 totalfCashAmount = Position.getDefaultTotalNotional(setTotalSupply, uint256(positions[i].unit));
 
-                        _redeemFCashPosition(_setToken, fCashPosition, receiveToken, totalfCashAmount, 0);
+                        _redeemFCashPosition(_setToken, fCashPosition, receiveToken, totalfCashAmount, 0, toUnderlying);
                     }
                 }
             }
@@ -561,6 +599,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             address(_fCashPosition),
             preTradeReceiveTokenBalance
         );
+        require(sentAmount <= _maxSendAmount, "Overspent");
 
 
         _resetAllowance(_setToken, _fCashPosition, _sendToken);
@@ -576,18 +615,18 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         IWrappedfCashComplete _fCashPosition,
         IERC20 _receiveToken,
         uint256 _fCashAmount,
-        uint256 _minReceiveAmount
+        uint256 _minReceiveAmount,
+        bool _toUnderlying
     )
     internal
     returns(uint256 receivedAmount)
     {
         if(_fCashAmount == 0) return 0;
 
-        bool toUnderlying = _isUnderlying(_fCashPosition, _receiveToken);
         uint256 preTradeReceiveTokenBalance = _receiveToken.balanceOf(address(_setToken));
         uint256 preTradeSendTokenBalance = _fCashPosition.balanceOf(address(_setToken));
 
-        _redeem(_setToken, _fCashPosition, _fCashAmount, toUnderlying);
+        _redeem(_setToken, _fCashPosition, _fCashAmount, _toUnderlying);
 
 
         (, receivedAmount) = _updateSetTokenPositions(

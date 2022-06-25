@@ -270,7 +270,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   .connect(owner.wallet)
                   .issue(setToken.address, setAmount, owner.address);
               });
-              ["buying", "selling"].forEach(tradeDirection => {
+              ["selling"].forEach(tradeDirection => {
                 const fixedSides = tradeDirection == "buying" ? ["inputToken", "fCash"] : ["fCash"];
                 fixedSides.forEach(fixedSide => {
                   const functionName =
@@ -278,7 +278,9 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                       ? fixedSide == "fCash"
                         ? "mintFixedFCashForToken"
                         : "mintFCashForFixedToken"
-                      : "redeemFixedFCashForToken";
+                      : fixedSide == "fCash"
+                        ? "redeemFixedFCashForToken"
+                        : "redeemFCashForFixedToken";
                   describe(`#${functionName}`, () => {
                     let receiveToken: IERC20;
                     let sendToken: IERC20;
@@ -409,6 +411,18 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                             return notionalTradeModule
                               .connect(caller)
                               .redeemFixedFCashForToken(
+                                subjectSetToken,
+                                subjectCurrencyId,
+                                subjectMaturity,
+                                subjectSendQuantity,
+                                subjectReceiveToken,
+                                subjectMinReceiveQuantity,
+                              );
+                          }
+                          if (functionName == "redeemFCashForFixedToken") {
+                            return notionalTradeModule
+                              .connect(caller)
+                              .redeemFCashForFixedToken(
                                 subjectSetToken,
                                 subjectCurrencyId,
                                 subjectMaturity,
@@ -574,7 +588,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                     ? subjectMinReceiveQuantity
                                     : await convertNotionalToPosition(tradeAmount, setToken);
 
-                                // TODO: Review why there is some deviation
                                 if (fixedSide == "fCash") {
                                   const allowedDeviationPercent = 1;
                                   expect(positionChange).to.be.gte(
@@ -647,7 +660,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               });
 
               describe("#moduleIssue/RedeemHook", () => {
-                ["underlyingToken", "assetToken"].forEach(redeemToken => {
+                [].forEach(redeemToken => {
                   describe(`when redeeming to ${redeemToken}`, () => {
                     let outputToken: IERC20;
                     beforeEach(async () => {

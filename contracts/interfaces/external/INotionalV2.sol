@@ -16,6 +16,19 @@ interface INotionalV2 {
         uint8 marketIndex,
         bytes32 encodedTrade
     );
+
+    function getfCashBorrowFromPrincipal(
+        uint16 currencyId,
+        uint256 borrowedAmountExternal,
+        uint256 maturity,
+        uint32 maxBorrowRate,
+        uint256 blockTime,
+        bool useUnderlying
+    ) external view returns (
+        uint88 fCashDebt,
+        uint8 marketIndex,
+        bytes32 encodedTrade
+    );
 }
 
 
