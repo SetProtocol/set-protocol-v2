@@ -270,7 +270,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   .connect(owner.wallet)
                   .issue(setToken.address, setAmount, owner.address);
               });
-              ["selling"].forEach(tradeDirection => {
+              ["buying", "selling"].forEach(tradeDirection => {
                 const fixedSides = tradeDirection == "buying" ? ["inputToken", "fCash"] : ["fCash"];
                 fixedSides.forEach(fixedSide => {
                   const functionName =
@@ -660,7 +660,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
               });
 
               describe("#moduleIssue/RedeemHook", () => {
-                [].forEach(redeemToken => {
+                ["underlyingToken", "assetToken"].forEach(redeemToken => {
                   describe(`when redeeming to ${redeemToken}`, () => {
                     let outputToken: IERC20;
                     beforeEach(async () => {
