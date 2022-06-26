@@ -271,8 +271,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                   .issue(setToken.address, setAmount, owner.address);
               });
               ["buying", "selling"].forEach(tradeDirection => {
-                const fixedSides = tradeDirection == "buying" ? ["inputToken", "fCash"] : ["fCash"];
-                fixedSides.forEach(fixedSide => {
+                ["inputToken", "fCash"].forEach(fixedSide => {
                   const functionName =
                     tradeDirection == "buying"
                       ? fixedSide == "fCash"
@@ -471,6 +470,18 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 subjectMinReceiveQuantity,
                               );
                           }
+                          if (functionName == "redeemFCashForFixedToken") {
+                            return notionalTradeModule
+                              .connect(caller)
+                              .callStatic.redeemFCashForFixedToken(
+                                subjectSetToken,
+                                subjectCurrencyId,
+                                subjectMaturity,
+                                subjectSendQuantity,
+                                subjectReceiveToken,
+                                subjectMinReceiveQuantity,
+                              );
+                          }
                           throw Error(`Invalid function name: ${functionName}`);
                         };
 
@@ -529,7 +540,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                   subjectSendQuantity,
                                   setToken,
                                 );
-                                if (tradeDirection == "selling") {
+                                if (functionName == "redeemFixedFCashForToken") {
                                   expect(sendTokenBalanceBefore.sub(sendTokenBalanceAfter)).to.eq(
                                     expectedPositionChange,
                                   );
@@ -590,6 +601,10 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
                                 if (fixedSide == "fCash") {
                                   const allowedDeviationPercent = 1;
+                                  console.log({
+                                    positionChange: positionChange.toString(),
+                                    expectedPositionChange: expectedPositionChange.toString(),
+                                  });
                                   expect(positionChange).to.be.gte(
                                     expectedPositionChange
                                       .mul(100 - allowedDeviationPercent)
@@ -621,11 +636,14 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
                                 const positionChange = positionBefore.sub(positionAfter);
 
-                                // TODO: Returned trade amount seems to be slighly off / or one of the calculations above has a rounding error. Review
-                                expect(expectedPositionChange).to.closeTo(
-                                  positionChange,
-                                  Math.max(positionChange.div(10 ** 6).toNumber(), 1),
-                                );
+                                if (functionName == "redeemFCashForFixedToken") {
+                                  expect(positionChange).to.be.lte(expectedPositionChange);
+                                } else {
+                                  expect(positionChange).to.closeTo(
+                                    expectedPositionChange,
+                                    Math.max(positionChange.div(10 ** 6).toNumber(), 1),
+                                  );
+                                }
                               });
 
                               if (tradeDirection == "buying") {

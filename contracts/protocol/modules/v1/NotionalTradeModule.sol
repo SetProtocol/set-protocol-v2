@@ -126,6 +126,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     uint256 public decodedIdGasLimit;
 
+    uint256 public constant maxReceiveAmountDeviation = 1 ether / 10**4;
+
     /* ============ Constructor ============ */
 
     /**
@@ -303,6 +305,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         bool isUnderlying = _isUnderlying(wrappedfCash, IERC20(_receiveToken));
         (uint88 totalRedeemAmount,,) = notionalV2.getfCashBorrowFromPrincipal(_currencyId, totalReceiveAmount, _maturity, 0, block.timestamp, isUnderlying);
         require(totalMaxRedeemAmount >= uint256(totalRedeemAmount), "Excessive redeem amount");
+
+        totalReceiveAmount = totalReceiveAmount.sub(totalReceiveAmount.mul(maxReceiveAmountDeviation).div(1 ether));
 
         return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), totalRedeemAmount, totalReceiveAmount, isUnderlying);
     }
