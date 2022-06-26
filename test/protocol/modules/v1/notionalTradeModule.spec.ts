@@ -7,6 +7,7 @@ import { Account } from "@utils/test/types";
 import {
   ManagerIssuanceHookMock,
   NotionalTradeModule,
+  NotionalV2Mock,
   DebtIssuanceModule,
   DebtIssuanceMock,
   SetToken,
@@ -63,11 +64,13 @@ describe("NotionalTradeModule", () => {
     usdc = setup.usdc;
   });
 
-  describe("when factory mock is deployed", async () => {
+  describe("when notionalV2 / factory mocks are deployed", async () => {
     let wrappedfCashFactoryMock: WrappedfCashFactoryMock;
+    let notionalV2Mock: NotionalV2Mock;
     let snapshotId: number;
     before(async () => {
       wrappedfCashFactoryMock = await deployer.mocks.deployWrappedfCashFactoryMock();
+      notionalV2Mock = await deployer.mocks.deployNotionalV2Mock();
     });
 
     beforeEach(async () => {
@@ -94,7 +97,7 @@ describe("NotionalTradeModule", () => {
           subjectController,
           subjectWrappedfCashFactory,
           setup.weth.address,
-          ADDRESS_ZERO,
+          notionalV2Mock.address,
           subjectDecodedIdGasLimit,
         );
       }
@@ -122,7 +125,7 @@ describe("NotionalTradeModule", () => {
           setup.controller.address,
           wrappedfCashFactoryMock.address,
           setup.weth.address,
-          ADDRESS_ZERO,
+          notionalV2Mock.address,
           decodedIdGaslimit,
         );
         await setup.controller.addModule(notionalTradeModule.address);
