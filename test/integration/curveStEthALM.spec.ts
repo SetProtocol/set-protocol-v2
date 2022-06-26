@@ -285,7 +285,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         // 1.02 astETH. Technically the exchange rate at this block number is something closer
         // to 1.0145 which vaguely matches the actual value we receive below.
         const expectedFirstPositionUnitMax = initialPositions[0].unit.add(
-          subjectBorrowQuantityUnits.add(ether(0.02)),
+          subjectBorrowQuantityUnits.add(ether(0.08)),
         );
 
         expect(initialPositions.length).to.eq(1);
@@ -341,7 +341,7 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         // If we borrowed 1 WETH and exchanged for ~1.02 STETH from the exchange,
         // then we expect the balance of steth on the exchange to also decrease
         // by that same amount
-        const maxDestinationQuantity = subjectBorrowQuantityUnits.add(ether(0.02));
+        const maxDestinationQuantity = subjectBorrowQuantityUnits.add(ether(0.08));
 
         // Will be at most: oldBalance - minReceived
         // Will be at least: oldBalance - borrowQuantity
