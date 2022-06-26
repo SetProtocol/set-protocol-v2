@@ -19,21 +19,20 @@ import {
 import { SystemFixture } from "@utils/fixtures";
 import {
   SetToken,
+  IERC20Metadata,
   DebtIssuanceModuleV2,
   ManagerIssuanceHookMock,
   NotionalTradeModule,
-  WrappedfCash,
-  WrappedfCashFactory,
+  IWrappedfCashComplete,
+  IWrappedfCashFactory,
 } from "@utils/contracts";
 
 import { IERC20 } from "@typechain/IERC20";
-import { IERC20Metadata } from "@typechain/IERC20Metadata";
 import { ICErc20 } from "@typechain/ICErc20";
 import { ICEth } from "@typechain/ICEth";
 import {
   upgradeNotionalProxy,
   deployWrappedfCashInstance,
-  deployWrappedfCashFactory,
   getCurrencyIdAndMaturity,
   mintWrappedFCash,
   NOTIONAL_PROXY_ADDRESS,
@@ -52,6 +51,8 @@ const underlyingTokens: Record<string, string> = {
   cUsdc: "usdc",
   cEth: "weth",
 };
+
+const wrappedFCashFactoryAddress = "0x5D051DeB5db151C2172dCdCCD42e6A2953E27261";
 
 describe("Notional trade module integration [ @forked-mainnet ]", () => {
   let owner: Account;
@@ -92,20 +93,19 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
         });
 
         describe("When WrappedfCash is deployed", () => {
-          let wrappedFCashInstance: WrappedfCash;
+          let wrappedFCashInstance: IWrappedfCashComplete;
           let currencyId: number;
           let maturity: BigNumber;
           let underlyingTokenAmount: BigNumber;
           let fCashAmount: BigNumber;
           let snapshotId: string;
-          let wrappedFCashFactory: WrappedfCashFactory;
+          let wrappedFCashFactory: IWrappedfCashFactory;
 
           before(async () => {
-            wrappedFCashFactory = await deployWrappedfCashFactory(
-              deployer,
-              owner.wallet,
-              tokens.weth.address,
-            );
+            wrappedFCashFactory = (await ethers.getContractAt(
+              "IWrappedfCashFactory",
+              wrappedFCashFactoryAddress,
+            )) as IWrappedfCashFactory;
             ({ currencyId, maturity } = await getCurrencyIdAndMaturity(assetTokenAddress, 0));
             wrappedFCashInstance = await deployWrappedfCashInstance(
               wrappedFCashFactory,
@@ -580,7 +580,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                   );
                                 }
 
-                                // TODO: Review why there is some deviation
                                 const allowedDeviationPercent = 1;
                                 expect(result).to.be.gte(
                                   expectedResult.mul(100 - allowedDeviationPercent).div(100),
@@ -617,10 +616,6 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
                                 if (fixedSide == "fCash") {
                                   const allowedDeviationPercent = 1;
-                                  console.log({
-                                    positionChange: positionChange.toString(),
-                                    expectedPositionChange: expectedPositionChange.toString(),
-                                  });
                                   expect(positionChange).to.be.gte(
                                     expectedPositionChange
                                       .mul(100 - allowedDeviationPercent)

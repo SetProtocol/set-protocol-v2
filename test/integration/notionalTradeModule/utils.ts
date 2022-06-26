@@ -1,12 +1,10 @@
 import { ethers, network } from "hardhat";
 import { BigNumber, Signer } from "ethers";
-import { INotionalProxy, WrappedfCash, WrappedfCashFactory } from "@utils/contracts";
+import { INotionalV2Complete, IWrappedfCashComplete, IWrappedfCashFactory } from "@utils/contracts";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { IERC20 } from "@typechain/IERC20";
 import { ICErc20 } from "@typechain/ICErc20";
 import { ICEth } from "@typechain/ICEth";
-import DeployHelper from "@utils/deploys";
-import { NUpgradeableBeacon__factory } from "@typechain/factories/NUpgradeableBeacon__factory";
 
 const NEW_ROUTER_ADDRESS = "0x16eD130F7A6dcAc7e3B0617A7bafa4b470189962";
 export const NOTIONAL_PROXY_ADDRESS = "0x1344A36A1B56144C3Bc62E7757377D288fDE0369";
@@ -24,9 +22,9 @@ async function impersonateAccount(address: string) {
 export async function upgradeNotionalProxy(signer: Signer) {
   // This is the notional contract w/ notional abi
   const notional = (await ethers.getContractAt(
-    "INotionalProxy",
+    "INotionalV2Complete",
     NOTIONAL_PROXY_ADDRESS,
-  )) as INotionalProxy;
+  )) as INotionalV2Complete;
 
   const notionalOwner = await impersonateAccount(await notional.owner());
 
@@ -50,9 +48,9 @@ export async function upgradeNotionalProxy(signer: Signer) {
 
 export async function getCurrencyIdAndMaturity(underlyingAddress: string, maturityIndex: number) {
   const notionalProxy = (await ethers.getContractAt(
-    "INotionalProxy",
+    "INotionalV2Complete",
     NOTIONAL_PROXY_ADDRESS,
-  )) as INotionalProxy;
+  )) as INotionalV2Complete;
   const currencyId = await notionalProxy.getCurrencyId(underlyingAddress);
   const activeMarkets = await notionalProxy.getActiveMarkets(currencyId);
   const maturity = activeMarkets[maturityIndex].maturity;
@@ -60,7 +58,7 @@ export async function getCurrencyIdAndMaturity(underlyingAddress: string, maturi
 }
 
 export async function deployWrappedfCashInstance(
-  wrappedfCashFactory: WrappedfCashFactory,
+  wrappedfCashFactory: IWrappedfCashFactory,
   currencyId: number,
   maturity: BigNumber,
 ) {
@@ -70,27 +68,12 @@ export async function deployWrappedfCashInstance(
   );
   await wrappedfCashFactory.deployWrapper(currencyId, maturity);
   const wrappedFCashInstance = (await ethers.getContractAt(
-    "WrappedfCash",
+    "IWrappedfCashComplete",
     wrappeFCashAddress,
-  )) as WrappedfCash;
+  )) as IWrappedfCashComplete;
   return wrappedFCashInstance;
 }
 
-export async function deployWrappedfCashFactory(deployer: DeployHelper, owner: SignerWithAddress, wethAddress: string) {
-  const wrappedfCashImplementation = await deployer.external.deployWrappedfCash(
-    NOTIONAL_PROXY_ADDRESS,
-    wethAddress,
-  );
-
-  const wrappedfCashBeacon = await new NUpgradeableBeacon__factory(owner).deploy(
-    wrappedfCashImplementation.address,
-  );
-
-  const wrappedfCashFactory = await deployer.external.deployWrappedfCashFactory(
-    wrappedfCashBeacon.address,
-  );
-  return wrappedfCashFactory;
-}
 
 export async function mintWrappedFCash(
   signer: SignerWithAddress,
@@ -98,7 +81,7 @@ export async function mintWrappedFCash(
   underlyingTokenAmount: BigNumber,
   fCashAmount: BigNumber,
   assetToken: ICErc20 | ICEth,
-  wrappedFCashInstance: WrappedfCash,
+  wrappedFCashInstance: IWrappedfCashComplete,
   useUnderlying: boolean = false,
   receiver: string | undefined = undefined,
   minImpliedRate: number | BigNumber = 0,
