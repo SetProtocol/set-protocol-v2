@@ -288,6 +288,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                     let subjectSendQuantity: BigNumber;
                     let subjectReceiveToken: string;
                     let subjectMinReceiveQuantity: BigNumber;
+                    let subjectMaxReceiveAmountDeviation: BigNumber;
                     let caller: SignerWithAddress;
 
                     beforeEach(async () => {
@@ -311,6 +312,11 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                             ethers.utils.parseUnits("1", 8),
                             setToken,
                           );
+
+                          if (functionName == "redeemFCashForFixedToken") {
+                            // Allow 1 basispoints in inacuracy of the notional calculation method
+                            subjectMaxReceiveAmountDeviation = ethers.utils.parseEther("0.0001");
+                          }
 
                           otherToken = tokenType == "assetToken" ? assetToken : underlyingToken;
                           sendToken =
@@ -428,6 +434,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 subjectSendQuantity,
                                 subjectReceiveToken,
                                 subjectMinReceiveQuantity,
+                                subjectMaxReceiveAmountDeviation,
                               );
                           }
                           throw Error(`Invalid function name: ${functionName}`);
@@ -480,6 +487,7 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
                                 subjectSendQuantity,
                                 subjectReceiveToken,
                                 subjectMinReceiveQuantity,
+                                subjectMaxReceiveAmountDeviation,
                               );
                           }
                           throw Error(`Invalid function name: ${functionName}`);
@@ -594,10 +602,18 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
 
                                 const positionChange = positionAfter.sub(positionBefore);
 
-                                const expectedPositionChange =
+                                let expectedPositionChange =
                                   tradeDirection == "buying"
                                     ? subjectMinReceiveQuantity
                                     : await convertNotionalToPosition(tradeAmount, setToken);
+
+                                if (functionName == "redeemFCashForFixedToken") {
+                                  expectedPositionChange = expectedPositionChange.sub(
+                                    expectedPositionChange
+                                      .mul(subjectMaxReceiveAmountDeviation)
+                                      .div(ethers.constants.WeiPerEther),
+                                  );
+                                }
 
                                 if (fixedSide == "fCash") {
                                   const allowedDeviationPercent = 1;

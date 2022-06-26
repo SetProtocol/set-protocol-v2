@@ -126,7 +126,6 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     uint256 public decodedIdGasLimit;
 
-    uint256 public constant maxReceiveAmountDeviation = 1 ether / 10**4;
 
     /* ============ Constructor ============ */
 
@@ -279,6 +278,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @param _maxRedeemAmount            Maximum amount of fCash to redeem
      * @param _receiveToken               Token to redeem into, must be either asset or underlying token of the fCash token
      * @param _receiveAmount              Amount of receive tokens to receive
+     * @param _maxReceiveAmountDeviation  Relative deviation in 18 decimals to allow between the specified receive amount and actual.
      */
     function redeemFCashForFixedToken(
         ISetToken _setToken,
@@ -286,7 +286,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         uint40 _maturity,
         uint256 _maxRedeemAmount,
         address _receiveToken,
-        uint256 _receiveAmount
+        uint256 _receiveAmount,
+        uint256 _maxReceiveAmountDeviation
     )
         external
         nonReentrant
@@ -306,7 +307,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         (uint88 totalRedeemAmount,,) = notionalV2.getfCashBorrowFromPrincipal(_currencyId, totalReceiveAmount, _maturity, 0, block.timestamp, isUnderlying);
         require(totalMaxRedeemAmount >= uint256(totalRedeemAmount), "Excessive redeem amount");
 
-        totalReceiveAmount = totalReceiveAmount.sub(totalReceiveAmount.mul(maxReceiveAmountDeviation).div(1 ether));
+        // This tolerance is necessary to account for rouding / approximation error in getfCashBorrowFromPrincipal
+        totalReceiveAmount = totalReceiveAmount.sub(totalReceiveAmount.mul(_maxReceiveAmountDeviation).div(1 ether));
 
         return _redeemFCashPosition(_setToken, wrappedfCash, IERC20(_receiveToken), totalRedeemAmount, totalReceiveAmount, isUnderlying);
     }
