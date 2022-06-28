@@ -698,7 +698,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         bytes memory mintCallData = abi.encodeWithSelector(
             functionSelector,
             _maxAssetAmount,
-            uint88(_fCashAmount),
+            _safeUint88(_fCashAmount),
             address(_setToken),
             0
         );
@@ -846,4 +846,13 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
             currentReceiveTokenBalance.sub(preTradeReceiveTokenBalance)
         );
     }
+
+    /**
+     * @dev Safe downcast from uint256 to uint88
+     */
+    function _safeUint88(uint256 x) internal view returns (uint88) {
+        require(x <= uint256(type(uint88).max), "Uint88 downcast: overflow");
+        return uint88(x);
+    }
+
 }

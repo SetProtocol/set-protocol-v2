@@ -1029,6 +1029,24 @@ describe("NotionalTradeModule", () => {
                                       await expect(subject()).to.be.revertedWith(revertReason);
                                     });
                                   } else {
+                                    if (functionName == "mintFixedFCashForToken") {
+                                      describe("When fCash amount exceeds max uint88", () => {
+                                        beforeEach(async () => {
+                                          const fCashNotional = BigNumber.from(2).pow(89);
+                                          subjectMinReceiveQuantity = await convertNotionalToPosition(
+                                            fCashNotional,
+                                            setToken,
+                                          );
+                                          subjectSendQuantity = subjectSendQuantity.sub(1);
+                                        });
+                                        it("should revert", async () => {
+                                          await expect(subject()).to.be.revertedWith(
+                                            "Uint88 downcast: overflow",
+                                          );
+                                        });
+                                      });
+                                    }
+
                                     if (functionName == "redeemFCashForFixedToken") {
                                       describe("When estimated fcash amount exceeds specified max limit", () => {
                                         beforeEach(async () => {
@@ -1045,7 +1063,9 @@ describe("NotionalTradeModule", () => {
                                     if (functionName == "mintFCashForFixedToken") {
                                       describe("When estimated fcash amount is lower then specified min value", () => {
                                         beforeEach(async () => {
-                                          subjectMinReceiveQuantity = subjectMinReceiveQuantity.add(1);
+                                          subjectMinReceiveQuantity = subjectMinReceiveQuantity.add(
+                                            1,
+                                          );
                                         });
                                         it("should revert", async () => {
                                           await expect(subject()).to.be.revertedWith(
