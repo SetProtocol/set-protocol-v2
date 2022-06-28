@@ -422,8 +422,8 @@ describe("CurveStEthExchangeAdapter AaveLeverageModule integration [ @forked-mai
         subjectSetToken = setToken.address;
         subjectCollateralAsset = steth.address;
         subjectRepayAsset = weth.address;
-        subjectRedeemQuantityUnits = ether(1);
-        subjectMinRepayQuantityUnits = ether(0.9);
+        subjectRedeemQuantityUnits = ether(1.06645);
+        subjectMinRepayQuantityUnits = ether(1);
         subjectAdapterName = adapterName;
 
         const tradeCalldata = await adapter.getTradeCalldata(
