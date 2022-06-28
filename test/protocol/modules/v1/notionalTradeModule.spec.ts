@@ -84,20 +84,24 @@ describe("NotionalTradeModule", () => {
     describe("#constructor", async () => {
       let subjectController: Address;
       let subjectWrappedfCashFactory: Address;
+      let subjectWeth: Address;
+      let subjectNotionalV2: Address;
       let subjectDecodedIdGasLimit: number;
 
       beforeEach(async () => {
         subjectController = setup.controller.address;
         subjectWrappedfCashFactory = wrappedfCashFactoryMock.address;
         subjectDecodedIdGasLimit = 10 ** 6;
+        subjectNotionalV2 = notionalV2Mock.address;
+        subjectWeth = setup.weth.address;
       });
 
       async function subject(): Promise<NotionalTradeModule> {
         return deployer.modules.deployNotionalTradeModule(
           subjectController,
           subjectWrappedfCashFactory,
-          setup.weth.address,
-          notionalV2Mock.address,
+          subjectWeth,
+          subjectNotionalV2,
           subjectDecodedIdGasLimit,
         );
       }
@@ -114,6 +118,36 @@ describe("NotionalTradeModule", () => {
 
         const decodedIdGasLimit = await notionalTradeModule.decodedIdGasLimit();
         expect(decodedIdGasLimit).to.eq(subjectDecodedIdGasLimit);
+      });
+
+      describe("when wrappedFCashFactory is zero address", () => {
+        beforeEach(async () => {
+          subjectWrappedfCashFactory = ADDRESS_ZERO;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("WrappedfCashFactory address cannot be zero");
+        });
+      });
+
+      describe("when NotionalV2 is zero address", () => {
+        beforeEach(async () => {
+          subjectNotionalV2 = ADDRESS_ZERO;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("NotionalV2 address cannot be zero");
+        });
+      });
+
+      describe("when Weth is zero address", () => {
+        beforeEach(async () => {
+          subjectWeth = ADDRESS_ZERO;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Weth address cannot be zero");
+        });
       });
     });
 
@@ -671,10 +705,10 @@ describe("NotionalTradeModule", () => {
                     });
                   });
 
-                  describe("#getFCashPositions", () => {
+                  describe("#getFCashComponents", () => {
                     let subjectSetToken: string;
                     const subject = () => {
-                      return notionalTradeModule.getFCashPositions(subjectSetToken);
+                      return notionalTradeModule.getFCashComponents(subjectSetToken);
                     };
                     beforeEach(async () => {
                       subjectSetToken = setToken.address;
@@ -692,8 +726,8 @@ describe("NotionalTradeModule", () => {
                       });
 
                       it("should return the correct fCash positions", async () => {
-                        const fCashPositions = await subject();
-                        expect(fCashPositions).to.deep.eq([wrappedfCashMock.address]);
+                        const fCashComponents = await subject();
+                        expect(fCashComponents).to.deep.eq([wrappedfCashMock.address]);
                       });
                       describe("When the unit is negative", () => {
                         beforeEach(async () => {
@@ -716,8 +750,8 @@ describe("NotionalTradeModule", () => {
                             );
                         });
                         it("should not return the fCash component", async () => {
-                          const fCashPositions = await subject();
-                          expect(fCashPositions).to.deep.eq([]);
+                          const fCashComponents = await subject();
+                          expect(fCashComponents).to.deep.eq([]);
                         });
                       });
                     });
@@ -1659,12 +1693,12 @@ describe("NotionalTradeModule", () => {
                                           .to.be.false;
                                       });
 
-                                      it("Removes wrappedFCash from the list of registered fCashPositions", async () => {
+                                      it("Removes wrappedFCash from the list of registered fCashComponents", async () => {
                                         await subject();
-                                        const fCashPositions = await notionalTradeModule.getFCashPositions(
+                                        const fCashComponents = await notionalTradeModule.getFCashComponents(
                                           subjectSetToken,
                                         );
-                                        expect(fCashPositions).to.not.include(
+                                        expect(fCashComponents).to.not.include(
                                           wrappedfCashMock.address,
                                         );
                                       });

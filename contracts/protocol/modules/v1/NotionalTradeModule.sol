@@ -20,7 +20,6 @@ pragma solidity 0.6.10;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC777 } from "@openzeppelin/contracts/token/ERC777/IERC777.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
@@ -110,7 +109,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     // Mapping to save set tokens for which automatic redeeming of underlying tokens upon maturity has been disabled
     mapping(ISetToken => bool) public redemptionHookDisabled;
 
-    // Mapping for a set token, wether or not to redeem to underlying upon reaching maturity
+    // Mapping for a set token, whether or not to redeem to underlying upon reaching maturity
     mapping(ISetToken => bool) public redeemToUnderlying;
 
     // Mapping of SetToken to boolean indicating if SetToken is on allow list. Updateable by governance
@@ -147,9 +146,15 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         public
         ModuleBase(_controller)
     {
+        require(address(_wrappedfCashFactory) != address(0), "WrappedfCashFactory address cannot be zero");
         wrappedfCashFactory = _wrappedfCashFactory;
+
+        require(address(_weth) != address(0), "Weth address cannot be zero");
         weth = _weth;
+
+        require(address(_notionalV2) != address(0), "NotionalV2 address cannot be zero");
         notionalV2 = _notionalV2;
+
         decodedIdGasLimit = _decodedIdGasLimit;
     }
 
@@ -164,6 +169,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @param _mintAmount                 Amount of fCash token to mint 
      * @param _sendToken                  Token to mint from, must be either the underlying or the asset token.
      * @param _maxSendAmount              Maximum amount to spend
+     * @return Amount of sendToken spent
      */
     function mintFixedFCashForToken(
         ISetToken _setToken,
@@ -178,7 +184,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         onlyManagerAndValidSet(_setToken)
         returns(uint256)
     {
-        require(_setToken.isComponent(address(_sendToken)), "Send token must be an index component");
+        require(_setToken.isComponent(_sendToken), "Send token must be an index component");
         require(
             _setToken.hasSufficientDefaultUnits(_sendToken, _maxSendAmount),
             "Insufficient sendToken position"
@@ -200,6 +206,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @param _minMintAmount              Minimum amount of fCash token to mint
      * @param _sendToken                  Token to mint from, must be either the underlying or the asset token.
      * @param _sendAmount                 Amount of input/asset tokens to convert to fCash
+     * @return Amount of sendToken spent
      */
     function mintFCashForFixedToken(
         ISetToken _setToken,
@@ -214,7 +221,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
         onlyManagerAndValidSet(_setToken)
         returns(uint256)
     {
-        require(_setToken.isComponent(address(_sendToken)), "Send token must be an index component");
+        require(_setToken.isComponent(_sendToken), "Send token must be an index component");
         require(
             _setToken.hasSufficientDefaultUnits(_sendToken, _sendAmount),
             "Insufficient sendToken position"
@@ -241,6 +248,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @param _redeemAmount               Amount of fCash token to redeem  per Set Token
      * @param _receiveToken               Token to redeem into, must be either asset or underlying token of the fCash token
      * @param _minReceiveAmount           Minimum amount of receive token to receive per Set Token
+     * @return Amount of receiveToken received
      */
     function redeemFixedFCashForToken(
         ISetToken _setToken,
@@ -279,6 +287,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @param _receiveToken               Token to redeem into, must be either asset or underlying token of the fCash token
      * @param _receiveAmount              Amount of receive tokens to receive
      * @param _maxReceiveAmountDeviation  Relative deviation in 18 decimals to allow between the specified receive amount and actual.
+     * @return Amount of receiveToken received
      */
     function redeemFCashForFixedToken(
         ISetToken _setToken,
@@ -320,13 +329,12 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * This will update the set tokens components and positions (removes matured fCash positions and creates / increases positions of the asset token).
      * @param _setToken                     Instance of the SetToken
      */
-    function redeemMaturedPositions(ISetToken _setToken) public nonReentrant onlyValidAndInitializedSet(_setToken) {
+    function redeemMaturedPositions(ISetToken _setToken) external nonReentrant onlyValidAndInitializedSet(_setToken) {
         _redeemMaturedPositions(_setToken);
     }
 
     /**
-     * @dev MANGER ONLY: Initialize given SetToken with initial list of registered fCash positions
-     * Redeem all fCash positions that have reached maturity for their asset token (cToken)
+     * @dev MANAGER ONLY: Initialize given SetToken with initial list of registered fCash positions
      * @param _setToken                     Instance of the SetToken
      */
     function initialize(
@@ -402,18 +410,19 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
      * @param _decodedIdGasLimit   New gas limit for call to getDecodedID
      */
     function updateDecodedIdGasLimit(uint256 _decodedIdGasLimit) external onlyOwner {
+        require(_decodedIdGasLimit != 0, "DecodedIdGasLimit cannot be zero");
         decodedIdGasLimit = _decodedIdGasLimit;
     }
 
     /**
      * @dev GOVERNANCE ONLY: Enable/disable ability of a SetToken to initialize this module. Only callable by governance.
      * @param _setToken             Instance of the SetToken
-     * @param _status               Bool indicating if _setToken is allowed to initialize this module
+     * @param _isAllowed            Bool indicating if _setToken is allowed to initialize this module
      */
-    function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
+    function updateAllowedSetToken(ISetToken _setToken, bool _isAllowed) external onlyOwner {
         require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "Invalid SetToken");
-        allowedSetTokens[_setToken] = _status;
-        emit SetTokenStatusUpdated(_setToken, _status);
+        allowedSetTokens[_setToken] = _isAllowed;
+        emit SetTokenStatusUpdated(_setToken, _isAllowed);
     }
 
     /**
@@ -439,6 +448,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Hook called once before setToken issuance
      * @dev Ensures that no matured fCash positions are in the set when it is issued unless automatic redemption is disabled
+     * @param _setToken             Instance of the SetToken
      */
     function moduleIssueHook(ISetToken _setToken, uint256 /* _setTokenAmount */) external override onlyModule(_setToken) {
         if(!redemptionHookDisabled[_setToken]) {
@@ -449,6 +459,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Hook called once before setToken redemption
      * @dev Ensures that no matured fCash positions are in the set when it is redeemed unless automatic redemption is disabled
+     * @param _setToken             Instance of the SetToken
      */
     function moduleRedeemHook(ISetToken _setToken, uint256 /* _setTokenAmount */) external override onlyModule(_setToken) {
         if(!redemptionHookDisabled[_setToken]) {
@@ -460,24 +471,26 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Hook called once for each component upon setToken issuance
      * @dev Empty method added to satisfy IModuleIssuanceHook interface
+     * @param _setToken             Instance of the SetToken
      */
     function componentIssueHook(
         ISetToken _setToken,
-        uint256 _setTokenAmount,
-        IERC20 _component,
-        bool _isEquity
+        uint256 /* _setTokenAmount */,
+        IERC20 /* _component */,
+        bool /* _isEquity */
     ) external override onlyModule(_setToken) {
     }
 
     /**
      * @dev Hook called once for each component upon setToken redemption
      * @dev Empty method added to satisfy IModuleIssuanceHook interface
+     * @param _setToken             Instance of the SetToken
      */
     function componentRedeemHook(
         ISetToken _setToken,
-        uint256 _setTokenAmount,
-        IERC20 _component,
-        bool _isEquity
+        uint256 /* _setTokenAmount */,
+        IERC20 /* _component */,
+        bool /* _isEquity */
     ) external override onlyModule(_setToken) {
     }
 
@@ -487,15 +500,35 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /* ============ External Getter Functions ============ */
 
     /**
-     * @dev Get array of registered fCash positions
+     * @dev Get array of registered fCash components
      * @param _setToken             Instance of the SetToken
+     * @return fCashComponents      Array of addresses that correspond to components that are wrapped fCash tokens
      */
-    function getFCashPositions(ISetToken _setToken)
+    function getFCashComponents(ISetToken _setToken)
     external
     view
-    returns(address[] memory positions)
+    returns(address[] memory fCashComponents)
     {
-        return _getFCashPositions(_setToken);
+        ISetToken.Position[] memory positions = _setToken.getPositions();
+        address[] memory temp = new address[](positions.length);
+        uint positionsLength = positions.length;
+        uint numFCashPositions;
+
+        for(uint256 i = 0; i < positionsLength; ++i) {
+            // Check that the given position is an equity position
+            if(positions[i].unit > 0) {
+                address component = positions[i].component;
+                if(_isWrappedFCash(component)) {
+                    temp[numFCashPositions] = component;
+                    ++numFCashPositions;
+                }
+            }
+        }
+
+        fCashComponents = new address[](numFCashPositions);
+        for(uint256 i = 0; i < numFCashPositions; ++i) {
+            fCashComponents[i] = temp[i];
+        }
     }
 
     /* ============ Internal Functions ============ */
@@ -574,8 +607,8 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
 
     /**
-     * @dev Redeem a given fCash position from the specified send token (either underlying or asset token)
-     * @dev Alo adjust the components / position of the set token accordingly
+     * @dev Mint a given fCash position from the specified send token (either underlying or asset token)
+     * @dev Will adjust the components / position of the set token accordingly
      */
     function _mintFCashPosition(
         ISetToken _setToken,
@@ -614,7 +647,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
 
     /**
      * @dev Redeem a given fCash position for the specified receive token (either underlying or asset token)
-     * @dev Alo adjust the components / position of the set token accordingly
+     * @dev Will adjust the components / position of the set token accordingly
      */
     function _redeemFCashPosition(
         ISetToken _setToken,
@@ -764,39 +797,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     }
 
     /**
-     * @dev Returns an array with fcash position addresses for given set token
-     */
-    function _getFCashPositions(ISetToken _setToken)
-    internal
-    view
-    returns(address[] memory fCashPositions)
-    {
-        ISetToken.Position[] memory positions = _setToken.getPositions();
-        address[] memory temp = new address[](positions.length);
-        uint positionsLength = positions.length;
-        uint numFCashPositions;
-
-        for(uint256 i = 0; i < positionsLength; ++i) {
-            // Check that the given position is an equity position
-            if(positions[i].unit > 0) {
-                address component = positions[i].component;
-                if(_isWrappedFCash(component)) {
-                    temp[numFCashPositions] = component;
-                    numFCashPositions++;
-                }
-            }
-        }
-
-        fCashPositions = new address[](numFCashPositions);
-        for(uint256 i = 0; i < numFCashPositions; ++i) {
-            fCashPositions[i] = temp[i];
-        }
-    }
-
-
-
-    /**
-     * @dev Checks if a given address is an fCash position that was deployed from the factory
+     * @dev Checks if a given address is a fCash position that was deployed from the factory
      */
     function _isWrappedFCash(address _fCashPosition) internal view returns(bool){
         if(!_fCashPosition.isContract()) {
