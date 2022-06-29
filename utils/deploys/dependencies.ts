@@ -124,6 +124,11 @@ export default {
     42: "0x4e67bf5bD28Dd4b570FBAFe11D0633eCbA2754Ec",
   },
 
+  VELODROME_ROUTER: {
+    10: "0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9",
+    42: "",
+  },
+
   // Governance
 
   AAVE_PROTO_GOVERNANCE: {

@@ -202,6 +202,12 @@ import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/Pe
 import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
 import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
 import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
+import { VelodromeFactory } from "@typechain/VelodromeFactory";
+import { VelodromeRouter } from "@typechain/VelodromeRouter";
+import { VelodromePair } from "@typechain/VelodromePair";
+import { VelodromeFactory__factory } from "@typechain/factories/VelodromeFactory__factory";
+import { VelodromeRouter__factory } from "@typechain/factories/VelodromeRouter__factory";
+import { VelodromePair__factory } from "@typechain/factories/VelodromePair__factory";
 
 
 export default class DeployExternalContracts {
@@ -739,5 +745,22 @@ export default class DeployExternalContracts {
 
   public async getVToken(token: Address): Promise<PerpV2BaseToken> {
     return await new PerpV2BaseToken__factory(this._deployerSigner).attach(token);
+  }
+
+  // Velodrome
+  public async deployVelodromeFactory(): Promise<VelodromeFactory> {
+    return await new VelodromeFactory__factory(this._deployerSigner).deploy();
+  }
+
+  public async deployVelodromeRouter(_factory: Address, _weth: Address): Promise<VelodromeRouter> {
+    return await new VelodromeRouter__factory(this._deployerSigner).deploy(_factory, _weth);
+  }
+
+  public async deployVelodromePair(): Promise<VelodromePair> {
+    return await new VelodromePair__factory(this._deployerSigner).deploy();
+  }
+
+  public getForkedVelodromeRouter(_mainnetRouter: Address): VelodromeRouter {
+    return VelodromeRouter__factory.connect(_mainnetRouter, this._deployerSigner);
   }
 }

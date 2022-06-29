@@ -76,7 +76,8 @@ contract VelodromeExchangeAdapter {
         (
             IVelodromeRouter.route[] memory routes
         ) = abi.decode(_data, (IVelodromeRouter.route[]));
-
+        
+        require(routes.length > 0, "empty routes");
         require(_sourceToken == routes[0].from, "Source token path mismatch");
         require(_destinationToken == routes[routes.length - 1].to, "Destination token path mismatch");
 
@@ -115,6 +116,7 @@ contract VelodromeExchangeAdapter {
         pure
         returns (bytes memory)
     {
+        require(_routes.length > 0, "empty routes");
         return abi.encode(_routes);
     }
 } 

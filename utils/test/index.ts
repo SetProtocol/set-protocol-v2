@@ -15,6 +15,7 @@ import {
   PerpV2Fixture
 } from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
+import { VelodromeFixture } from "@utils/fixtures/velodromeFixture";
 
 // Hardhat-Provider Aware Exports
 const provider = ethers.provider;
@@ -27,6 +28,7 @@ export const getCurveFixture = (ownerAddress: Address) => new CurveFixture(provi
 export const getCompoundFixture = (ownerAddress: Address) => new CompoundFixture(provider, ownerAddress);
 export const getKyberV3DMMFixture = (ownerAddress: Address) => new KyberV3DMMFixture(provider, ownerAddress);
 export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(provider, ownerAddress);
+export const getVelodromeFixture = (ownerAddress: Address) => new VelodromeFixture(provider, ownerAddress);
 export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
 export const getUniswapV3Fixture = (ownerAddress: Address) => new UniswapV3Fixture(provider, ownerAddress);
 export const getPerpV2Fixture = (ownerAddress: Address) => new PerpV2Fixture(provider, ownerAddress);

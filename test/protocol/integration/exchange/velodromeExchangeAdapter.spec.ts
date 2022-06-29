@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber, ethers } from "ethers";
+import { BigNumber } from "ethers";
 import { utils } from "ethers";
 
 import { Address, Bytes } from "@utils/types";
@@ -15,18 +15,19 @@ import {
   getSystemFixture,
   getWaffleExpect,
   getLastBlockTimestamp,
+  getVelodromeFixture,
 } from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
-import { IVelodromeRouter__factory } from "@typechain/factories/IVelodromeRouter__factory";
+import { VelodromeFixture } from "@utils/fixtures/velodromeFixture";
+import { ethers } from "hardhat";
 
 const expect = getWaffleExpect();
 describe("VelodromeExchangeAdapter", () => {
-  const velodromRouterAddress = ethers.Wallet.createRandom().address;
-
   let owner: Account;
   let mockSetToken: Account;
   let deployer: DeployHelper;
   let setup: SystemFixture;
+  let velodromeSetup: VelodromeFixture;
   let velodromeExchangeAdapter: VelodromeExchangeAdapter;
 
   before(async () => {
@@ -36,8 +37,11 @@ describe("VelodromeExchangeAdapter", () => {
     setup = getSystemFixture(owner.address);
     await setup.initialize();
 
+    velodromeSetup = getVelodromeFixture(owner.address);
+    await velodromeSetup.initialize(owner, setup.weth.address);
+
     velodromeExchangeAdapter = await deployer.adapters.deployVelodromeExchangeAdapter(
-      velodromRouterAddress,
+      velodromeSetup.router.address,
     );
   });
 
@@ -47,7 +51,7 @@ describe("VelodromeExchangeAdapter", () => {
     let subjectVelodromeRouter: Address;
 
     beforeEach(async () => {
-      subjectVelodromeRouter = velodromRouterAddress;
+      subjectVelodromeRouter = velodromeSetup.router.address;
     });
 
     async function subject(): Promise<any> {
@@ -58,7 +62,7 @@ describe("VelodromeExchangeAdapter", () => {
       const deployedVelodromeV2ExchangeAdapter = await subject();
 
       const actualRouterAddress = await deployedVelodromeV2ExchangeAdapter.router();
-      expect(actualRouterAddress).to.eq(velodromRouterAddress);
+      expect(actualRouterAddress).to.eq(velodromeSetup.router.address);
     });
   });
 
@@ -70,7 +74,7 @@ describe("VelodromeExchangeAdapter", () => {
     it("should return the correct spender address", async () => {
       const spender = await subject();
 
-      expect(spender).to.eq(velodromRouterAddress);
+      expect(spender).to.eq(velodromeSetup.router.address);
     });
   });
 
@@ -111,35 +115,71 @@ describe("VelodromeExchangeAdapter", () => {
       );
     }
 
-    it("should return the correct trade calldata", async () => {
-      subjectData = await velodromeExchangeAdapter.generateDataParam([
-        {
-          from: sourceAddress,
-          to: destinationAddress,
-          stable: false,
-        },
-      ]);
-      const calldata = await subject();
-      const callTimestamp = await getLastBlockTimestamp();
-      const expectedCallData = IVelodromeRouter__factory.createInterface().encodeFunctionData(
-        "swapExactTokensForTokens",
-        [
-          sourceQuantity,
-          destinationQuantity,
-          [{ from: sourceAddress, to: destinationAddress, stable: false }],
-          subjectMockSetToken,
-          callTimestamp,
-        ],
-      );
-      expect(JSON.stringify(calldata)).to.eq(
-        JSON.stringify([velodromRouterAddress, ZERO, expectedCallData]),
-      );
+    describe("wbtc -> dai", async () => {
+      it("should return the correct data param", async () => {
+        subjectData = await velodromeExchangeAdapter.generateDataParam([
+          {
+            from: sourceAddress,
+            to: destinationAddress,
+            stable: false,
+          },
+        ]);
+        expect(subjectData).to.eq(
+          ethers.utils.defaultAbiCoder.encode(
+            ["tuple(address,address,bool)[]"],
+            [[[sourceAddress, destinationAddress, false]]],
+          ),
+        );
+      });
+
+      it("should return the correct trade calldata", async () => {
+        subjectData = await velodromeExchangeAdapter.generateDataParam([
+          {
+            from: sourceAddress,
+            to: destinationAddress,
+            stable: false,
+          },
+        ]);
+        const calldata = await subject();
+        const callTimestamp = await getLastBlockTimestamp();
+        const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
+          "swapExactTokensForTokens",
+          [
+            sourceQuantity,
+            destinationQuantity,
+            [{ from: sourceAddress, to: destinationAddress, stable: false }],
+            subjectMockSetToken,
+            callTimestamp,
+          ],
+        );
+        expect(JSON.stringify(calldata)).to.eq(
+          JSON.stringify([velodromeSetup.router.address, ZERO, expectedCallData]),
+        );
+      });
     });
 
-    describe("when passed in custom path to trade data", async () => {
+    describe("wbtc -> weth -> dai", async () => {
       beforeEach(async () => {
         const path = [sourceAddress, setup.weth.address, destinationAddress];
         subjectData = utils.defaultAbiCoder.encode(["address[]"], [path]);
+      });
+
+      it("should return the correct data param", async () => {
+        subjectData = await velodromeExchangeAdapter.generateDataParam([
+          { from: sourceAddress, to: setup.weth.address, stable: false },
+          { from: setup.weth.address, to: destinationAddress, stable: false },
+        ]);
+        expect(subjectData).to.eq(
+          ethers.utils.defaultAbiCoder.encode(
+            ["tuple(address,address,bool)[]"],
+            [
+              [
+                [sourceAddress, setup.weth.address, false],
+                [setup.weth.address, destinationAddress, false],
+              ],
+            ],
+          ),
+        );
       });
 
       it("should return the correct trade calldata", async () => {
@@ -149,7 +189,7 @@ describe("VelodromeExchangeAdapter", () => {
         ]);
         const calldata = await subject();
         const callTimestamp = await getLastBlockTimestamp();
-        const expectedCallData = IVelodromeRouter__factory.createInterface().encodeFunctionData(
+        const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
           "swapExactTokensForTokens",
           [
             sourceQuantity,
@@ -163,7 +203,7 @@ describe("VelodromeExchangeAdapter", () => {
           ],
         );
         expect(JSON.stringify(calldata)).to.eq(
-          JSON.stringify([velodromRouterAddress, ZERO, expectedCallData]),
+          JSON.stringify([velodromeSetup.router.address, ZERO, expectedCallData]),
         );
       });
     });
