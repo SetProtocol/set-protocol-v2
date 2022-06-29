@@ -170,13 +170,16 @@ describe("Velodrome TradeModule Integration [@optimism]", () => {
         subjectMinDestinationQuantity = destinationTokenQuantity.sub(usdc(1));
         subjectAdapterName = velodromeAdapterName;
 
-        subjectData = await velodromeExchangeAdapter.generateDataParam([
-          {
-            from: subjectSourceToken,
-            to: subjectDestinationToken,
-            stable: false,
-          },
-        ]);
+        subjectData = await velodromeExchangeAdapter.generateDataParam(
+          [
+            {
+              from: subjectSourceToken,
+              to: subjectDestinationToken,
+              stable: false,
+            },
+          ],
+          ethers.constants.MaxUint256,
+        );
 
         subjectCaller = manager;
       });

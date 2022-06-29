@@ -117,31 +117,37 @@ describe("VelodromeExchangeAdapter", () => {
 
     describe("wbtc -> dai", async () => {
       it("should return the correct data param", async () => {
-        subjectData = await velodromeExchangeAdapter.generateDataParam([
-          {
-            from: sourceAddress,
-            to: destinationAddress,
-            stable: false,
-          },
-        ]);
+        subjectData = await velodromeExchangeAdapter.generateDataParam(
+          [
+            {
+              from: sourceAddress,
+              to: destinationAddress,
+              stable: false,
+            },
+          ],
+          ethers.constants.MaxUint256,
+        );
         expect(subjectData).to.eq(
           ethers.utils.defaultAbiCoder.encode(
-            ["tuple(address,address,bool)[]"],
-            [[[sourceAddress, destinationAddress, false]]],
+            ["tuple(address,address,bool)[]", "uint256"],
+            [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
           ),
         );
       });
 
       it("should return the correct trade calldata", async () => {
-        subjectData = await velodromeExchangeAdapter.generateDataParam([
-          {
-            from: sourceAddress,
-            to: destinationAddress,
-            stable: false,
-          },
-        ]);
-        const calldata = await subject();
         const callTimestamp = await getLastBlockTimestamp();
+        subjectData = await velodromeExchangeAdapter.generateDataParam(
+          [
+            {
+              from: sourceAddress,
+              to: destinationAddress,
+              stable: false,
+            },
+          ],
+          callTimestamp,
+        );
+        const calldata = await subject();
         const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
           "swapExactTokensForTokens",
           [
@@ -165,30 +171,37 @@ describe("VelodromeExchangeAdapter", () => {
       });
 
       it("should return the correct data param", async () => {
-        subjectData = await velodromeExchangeAdapter.generateDataParam([
-          { from: sourceAddress, to: setup.weth.address, stable: false },
-          { from: setup.weth.address, to: destinationAddress, stable: false },
-        ]);
+        subjectData = await velodromeExchangeAdapter.generateDataParam(
+          [
+            { from: sourceAddress, to: setup.weth.address, stable: false },
+            { from: setup.weth.address, to: destinationAddress, stable: false },
+          ],
+          ethers.constants.MaxUint256,
+        );
         expect(subjectData).to.eq(
           ethers.utils.defaultAbiCoder.encode(
-            ["tuple(address,address,bool)[]"],
+            ["tuple(address,address,bool)[]", "uint256"],
             [
               [
                 [sourceAddress, setup.weth.address, false],
                 [setup.weth.address, destinationAddress, false],
               ],
+              ethers.constants.MaxUint256,
             ],
           ),
         );
       });
 
       it("should return the correct trade calldata", async () => {
-        subjectData = await velodromeExchangeAdapter.generateDataParam([
-          { from: sourceAddress, to: setup.weth.address, stable: false },
-          { from: setup.weth.address, to: destinationAddress, stable: false },
-        ]);
-        const calldata = await subject();
         const callTimestamp = await getLastBlockTimestamp();
+        subjectData = await velodromeExchangeAdapter.generateDataParam(
+          [
+            { from: sourceAddress, to: setup.weth.address, stable: false },
+            { from: setup.weth.address, to: destinationAddress, stable: false },
+          ],
+          callTimestamp,
+        );
+        const calldata = await subject();
         const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
           "swapExactTokensForTokens",
           [

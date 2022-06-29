@@ -74,8 +74,9 @@ contract VelodromeExchangeAdapter {
         returns (address, uint256, bytes memory)
     {   
         (
-            IVelodromeRouter.route[] memory routes
-        ) = abi.decode(_data, (IVelodromeRouter.route[]));
+            IVelodromeRouter.route[] memory routes,
+            uint256 deadline
+        ) = abi.decode(_data, (IVelodromeRouter.route[], uint256));
         
         require(routes.length > 0, "empty routes");
         require(_sourceToken == routes[0].from, "Source token path mismatch");
@@ -87,7 +88,7 @@ contract VelodromeExchangeAdapter {
             _minDestinationQuantity,
             routes,
             _destinationAddress,
-            block.timestamp
+            deadline
         );
         return (router, 0, callData);
     }
@@ -109,14 +110,15 @@ contract VelodromeExchangeAdapter {
      * Generate data parameter to be passed to `getTradeCallData`. Returns encoded trade routes.
      *
      * @param _routes          array of routes for Velodrome Router
-     * @return bytes                Data parameter to be passed to `getTradeCallData`
+     * @param _deadline        block timestamp of trade deadline
+     * @return bytes           Data parameter to be passed to `getTradeCallData`
      */
-    function generateDataParam(IVelodromeRouter.route[] calldata _routes)
+    function generateDataParam(IVelodromeRouter.route[] calldata _routes, uint256 _deadline)
         external
         pure
         returns (bytes memory)
     {
         require(_routes.length > 0, "empty routes");
-        return abi.encode(_routes);
+        return abi.encode(_routes, _deadline);
     }
 } 
