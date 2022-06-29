@@ -109,6 +109,7 @@ export { Uni } from "../../typechain/Uni";
 export { UniswapPairPriceAdapter } from "../../typechain/UniswapPairPriceAdapter";
 export { UniswapV2AmmAdapter } from "../../typechain/UniswapV2AmmAdapter";
 export { UniswapV2ExchangeAdapter } from "../../typechain/UniswapV2ExchangeAdapter";
+export { VelodromeExchangeAdapter } from "../../typechain/VelodromeExchangeAdapter";
 export { UniswapV2ExchangeAdapterV2 } from "../../typechain/UniswapV2ExchangeAdapterV2";
 export { UniswapV2IndexExchangeAdapter } from "../../typechain/UniswapV2IndexExchangeAdapter";
 export { UniswapV3IndexExchangeAdapter } from "../../typechain/UniswapV3IndexExchangeAdapter";
