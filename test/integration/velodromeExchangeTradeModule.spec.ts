@@ -36,6 +36,18 @@ describe("Velodrome TradeModule Integration [@optimism]", () => {
   let tradeModule: TradeModule;
 
   before(async () => {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking: {
+            jsonRpcUrl: `https://opt-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_TOKEN}`,
+            blockNumber: 13454300,
+          },
+        },
+      ],
+    });
+
     [owner, manager] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -59,6 +71,13 @@ describe("Velodrome TradeModule Integration [@optimism]", () => {
       velodromeAdapterName,
       velodromeExchangeAdapter.address,
     );
+  });
+
+  after(async () => {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [],
+    });
   });
 
   describe("#trade", function () {
