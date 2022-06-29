@@ -6,12 +6,11 @@ import { ethers, network } from "hardhat";
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import {
-  IERC20,
-  IERC20__factory,
-  IVelodromeRouter,
+  SetToken,
+  TradeModule,
+  ManagerIssuanceHookMock,
   VelodromeExchangeAdapter,
-} from "@typechain/index";
-import { SetToken, TradeModule, ManagerIssuanceHookMock } from "@utils/contracts";
+} from "@utils/contracts";
 import { ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import { ether, usdc } from "@utils/index";
@@ -19,6 +18,9 @@ import { cacheBeforeEach, getAccounts, getSystemFixture, getWaffleExpect } from 
 
 import { SystemFixture } from "@utils/fixtures";
 import { parseUnits } from "ethers/lib/utils";
+import { IVelodromeRouter } from "@typechain/IVelodromeRouter";
+import { IERC20 } from "@typechain/IERC20";
+import { IERC20__factory } from "@typechain/factories/IERC20__factory";
 
 const expect = getWaffleExpect();
 
