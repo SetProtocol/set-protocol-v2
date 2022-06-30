@@ -54,7 +54,7 @@ describe("VelodromeExchangeAdapter", () => {
 
   addSnapshotBeforeRestoreAfterEach();
 
-  describe("constructor", async () => {
+  describe("#constructor", async () => {
     let subjectVelodromeRouter: Address;
 
     beforeEach(async () => {
@@ -73,7 +73,7 @@ describe("VelodromeExchangeAdapter", () => {
     });
   });
 
-  describe("getSpender", async () => {
+  describe("#getSpender", async () => {
     async function subject(): Promise<any> {
       return await velodromeExchangeAdapter.getSpender();
     }
@@ -85,7 +85,7 @@ describe("VelodromeExchangeAdapter", () => {
     });
   });
 
-  describe("generateDataParam", async () => {
+  describe("#generateDataParam", async () => {
     let subjectData: Bytes;
 
     it("should revert with empty routes when no routes passed in", async () => {
@@ -151,7 +151,7 @@ describe("VelodromeExchangeAdapter", () => {
     });
   });
 
-  describe("getTradeCalldata", async () => {
+  describe("#getTradeCalldata", async () => {
     let subjectMockSetToken: Address;
     let subjectSourceToken: Address;
     let subjectDestinationToken: Address;
