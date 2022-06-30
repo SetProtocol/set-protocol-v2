@@ -12,10 +12,10 @@ import {
   UniswapFixture,
   YearnFixture,
   UniswapV3Fixture,
-  PerpV2Fixture
+  PerpV2Fixture,
+  VelodromeFixture
 } from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
-import { VelodromeFixture } from "@utils/fixtures/velodromeFixture";
 
 // Hardhat-Provider Aware Exports
 const provider = ethers.provider;

@@ -1,8 +1,7 @@
 import "module-alias/register";
 
+import { ethers } from "hardhat";
 import { BigNumber } from "ethers";
-import { utils } from "ethers";
-
 import { Address, Bytes } from "@utils/types";
 import { Account } from "@utils/test/types";
 import { ZERO } from "@utils/constants";
@@ -17,9 +16,7 @@ import {
   getLastBlockTimestamp,
   getVelodromeFixture,
 } from "@utils/test/index";
-import { SystemFixture } from "@utils/fixtures";
-import { VelodromeFixture } from "@utils/fixtures/velodromeFixture";
-import { ethers } from "hardhat";
+import { SystemFixture, VelodromeFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 describe("VelodromeExchangeAdapter", () => {
@@ -29,6 +26,11 @@ describe("VelodromeExchangeAdapter", () => {
   let setup: SystemFixture;
   let velodromeSetup: VelodromeFixture;
   let velodromeExchangeAdapter: VelodromeExchangeAdapter;
+
+  let sourceAddress: Address; // wbtc
+  let destinationAddress: Address; // dai
+  let sourceQuantity: BigNumber;
+  let destinationQuantity: BigNumber;
 
   before(async () => {
     [owner, mockSetToken] = await getAccounts();
@@ -43,6 +45,11 @@ describe("VelodromeExchangeAdapter", () => {
     velodromeExchangeAdapter = await deployer.adapters.deployVelodromeExchangeAdapter(
       velodromeSetup.router.address,
     );
+
+    sourceAddress = setup.wbtc.address; // WBTC Address
+    sourceQuantity = BigNumber.from(100000000); // Trade 1 WBTC
+    destinationAddress = setup.dai.address; // DAI Address
+    destinationQuantity = ether(30000); // Receive at least 30k DAI
   });
 
   addSnapshotBeforeRestoreAfterEach();
@@ -78,12 +85,73 @@ describe("VelodromeExchangeAdapter", () => {
     });
   });
 
-  describe("generateDataParam / getTradeCalldata", async () => {
-    let sourceAddress: Address;
-    let destinationAddress: Address;
-    let sourceQuantity: BigNumber;
-    let destinationQuantity: BigNumber;
+  describe("generateDataParam", async () => {
+    let subjectData: Bytes;
 
+    it("should revert with empty routes when no routes passed in", async () => {
+      await expect(
+        velodromeExchangeAdapter.generateDataParam([], ethers.constants.MaxUint256),
+      ).to.revertedWith("empty routes");
+    });
+
+    it("should revert with invalid deadline when invalid deadline passed in", async () => {
+      await expect(
+        velodromeExchangeAdapter.generateDataParam(
+          [
+            {
+              from: sourceAddress,
+              to: destinationAddress,
+              stable: false,
+            },
+          ],
+          0,
+        ),
+      ).to.revertedWith("invalid deadline");
+    });
+
+    it("should return the correct data param for wbtc -> dai", async () => {
+      subjectData = await velodromeExchangeAdapter.generateDataParam(
+        [
+          {
+            from: sourceAddress,
+            to: destinationAddress,
+            stable: false,
+          },
+        ],
+        ethers.constants.MaxUint256,
+      );
+      expect(subjectData).to.eq(
+        ethers.utils.defaultAbiCoder.encode(
+          ["tuple(address,address,bool)[]", "uint256"],
+          [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
+        ),
+      );
+    });
+
+    it("should return the correct data param for wbtc -> weth -> dai", async () => {
+      subjectData = await velodromeExchangeAdapter.generateDataParam(
+        [
+          { from: sourceAddress, to: setup.weth.address, stable: false },
+          { from: setup.weth.address, to: destinationAddress, stable: false },
+        ],
+        ethers.constants.MaxUint256,
+      );
+      expect(subjectData).to.eq(
+        ethers.utils.defaultAbiCoder.encode(
+          ["tuple(address,address,bool)[]", "uint256"],
+          [
+            [
+              [sourceAddress, setup.weth.address, false],
+              [setup.weth.address, destinationAddress, false],
+            ],
+            ethers.constants.MaxUint256,
+          ],
+        ),
+      );
+    });
+  });
+
+  describe("getTradeCalldata", async () => {
     let subjectMockSetToken: Address;
     let subjectSourceToken: Address;
     let subjectDestinationToken: Address;
@@ -92,11 +160,6 @@ describe("VelodromeExchangeAdapter", () => {
     let subjectData: Bytes;
 
     beforeEach(async () => {
-      sourceAddress = setup.wbtc.address; // WBTC Address
-      sourceQuantity = BigNumber.from(100000000); // Trade 1 WBTC
-      destinationAddress = setup.dai.address; // DAI Address
-      destinationQuantity = ether(30000); // Receive at least 30k DAI
-
       subjectSourceToken = sourceAddress;
       subjectDestinationToken = destinationAddress;
       subjectMockSetToken = mockSetToken.address;
@@ -115,188 +178,124 @@ describe("VelodromeExchangeAdapter", () => {
       );
     }
 
-    describe("should check parameters", () => {
-      it("should check params of generateDataParam", async () => {
-        await expect(
-          velodromeExchangeAdapter.generateDataParam([], ethers.constants.MaxUint256),
-        ).to.revertedWith("empty routes");
-        await expect(
-          velodromeExchangeAdapter.generateDataParam(
-            [
-              {
-                from: sourceAddress,
-                to: destinationAddress,
-                stable: false,
-              },
-            ],
-            0,
+    it("should revert with empty routes when no routes passed in", async () => {
+      await expect(
+        velodromeExchangeAdapter.getTradeCalldata(
+          subjectSourceToken,
+          subjectDestinationToken,
+          subjectMockSetToken,
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
+          ethers.utils.defaultAbiCoder.encode(
+            ["tuple(address,address,bool)[]", "uint256"],
+            [[], ethers.constants.MaxUint256],
           ),
-        ).to.revertedWith("invalid deadline");
-      });
-
-      it("should check params of getTradeCalldata", async () => {
-        await expect(
-          velodromeExchangeAdapter.getTradeCalldata(
-            subjectSourceToken,
-            subjectDestinationToken,
-            subjectMockSetToken,
-            subjectSourceQuantity,
-            subjectMinDestinationQuantity,
-            ethers.utils.defaultAbiCoder.encode(
-              ["tuple(address,address,bool)[]", "uint256"],
-              [[], ethers.constants.MaxUint256],
-            ),
-          ),
-        ).to.revertedWith("empty routes");
-
-        await expect(
-          velodromeExchangeAdapter.getTradeCalldata(
-            subjectDestinationToken,
-            subjectDestinationToken,
-            subjectMockSetToken,
-            subjectSourceQuantity,
-            subjectMinDestinationQuantity,
-            ethers.utils.defaultAbiCoder.encode(
-              ["tuple(address,address,bool)[]", "uint256"],
-              [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
-            ),
-          ),
-        ).to.revertedWith("Source token path mismatch");
-
-        await expect(
-          velodromeExchangeAdapter.getTradeCalldata(
-            subjectSourceToken,
-            subjectSourceToken,
-            subjectMockSetToken,
-            subjectSourceQuantity,
-            subjectMinDestinationQuantity,
-            ethers.utils.defaultAbiCoder.encode(
-              ["tuple(address,address,bool)[]", "uint256"],
-              [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
-            ),
-          ),
-        ).to.revertedWith("Destination token path mismatch");
-
-        await expect(
-          velodromeExchangeAdapter.getTradeCalldata(
-            subjectSourceToken,
-            subjectDestinationToken,
-            subjectMockSetToken,
-            subjectSourceQuantity,
-            subjectMinDestinationQuantity,
-            ethers.utils.defaultAbiCoder.encode(
-              ["tuple(address,address,bool)[]", "uint256"],
-              [[[sourceAddress, destinationAddress, false]], 0],
-            ),
-          ),
-        ).to.revertedWith("invalid deadline");
-      });
+        ),
+      ).to.revertedWith("empty routes");
     });
 
-    describe("wbtc -> dai", async () => {
-      it("should return the correct data param", async () => {
-        subjectData = await velodromeExchangeAdapter.generateDataParam(
-          [
-            {
-              from: sourceAddress,
-              to: destinationAddress,
-              stable: false,
-            },
-          ],
-          ethers.constants.MaxUint256,
-        );
-        expect(subjectData).to.eq(
+    it("should revert with source token path mismatch", async () => {
+      await expect(
+        velodromeExchangeAdapter.getTradeCalldata(
+          subjectDestinationToken,
+          subjectDestinationToken,
+          subjectMockSetToken,
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
           ethers.utils.defaultAbiCoder.encode(
             ["tuple(address,address,bool)[]", "uint256"],
             [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
           ),
-        );
-      });
-
-      it("should return the correct trade calldata", async () => {
-        const callTimestamp = await getLastBlockTimestamp();
-        subjectData = await velodromeExchangeAdapter.generateDataParam(
-          [
-            {
-              from: sourceAddress,
-              to: destinationAddress,
-              stable: false,
-            },
-          ],
-          callTimestamp,
-        );
-        const calldata = await subject();
-        const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
-          "swapExactTokensForTokens",
-          [
-            sourceQuantity,
-            destinationQuantity,
-            [{ from: sourceAddress, to: destinationAddress, stable: false }],
-            subjectMockSetToken,
-            callTimestamp,
-          ],
-        );
-        expect(JSON.stringify(calldata)).to.eq(
-          JSON.stringify([velodromeSetup.router.address, ZERO, expectedCallData]),
-        );
-      });
+        ),
+      ).to.revertedWith("Source token path mismatch");
     });
 
-    describe("wbtc -> weth -> dai", async () => {
-      beforeEach(async () => {
-        const path = [sourceAddress, setup.weth.address, destinationAddress];
-        subjectData = utils.defaultAbiCoder.encode(["address[]"], [path]);
-      });
-
-      it("should return the correct data param", async () => {
-        subjectData = await velodromeExchangeAdapter.generateDataParam(
-          [
-            { from: sourceAddress, to: setup.weth.address, stable: false },
-            { from: setup.weth.address, to: destinationAddress, stable: false },
-          ],
-          ethers.constants.MaxUint256,
-        );
-        expect(subjectData).to.eq(
+    it("should revert with destination token path mismatch", async () => {
+      await expect(
+        velodromeExchangeAdapter.getTradeCalldata(
+          subjectSourceToken,
+          subjectSourceToken,
+          subjectMockSetToken,
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
           ethers.utils.defaultAbiCoder.encode(
             ["tuple(address,address,bool)[]", "uint256"],
-            [
-              [
-                [sourceAddress, setup.weth.address, false],
-                [setup.weth.address, destinationAddress, false],
-              ],
-              ethers.constants.MaxUint256,
-            ],
+            [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
           ),
-        );
-      });
+        ),
+      ).to.revertedWith("Destination token path mismatch");
+    });
 
-      it("should return the correct trade calldata", async () => {
-        const callTimestamp = await getLastBlockTimestamp();
-        subjectData = await velodromeExchangeAdapter.generateDataParam(
+    it("should revert with invalid deadline when invalid deadline passed in", async () => {
+      await expect(
+        velodromeExchangeAdapter.getTradeCalldata(
+          subjectSourceToken,
+          subjectDestinationToken,
+          subjectMockSetToken,
+          subjectSourceQuantity,
+          subjectMinDestinationQuantity,
+          ethers.utils.defaultAbiCoder.encode(
+            ["tuple(address,address,bool)[]", "uint256"],
+            [[[sourceAddress, destinationAddress, false]], 0],
+          ),
+        ),
+      ).to.revertedWith("invalid deadline");
+    });
+
+    it("should return the correct trade calldata for wbtc -> dai", async () => {
+      const callTimestamp = await getLastBlockTimestamp();
+      subjectData = await velodromeExchangeAdapter.generateDataParam(
+        [
+          {
+            from: sourceAddress,
+            to: destinationAddress,
+            stable: false,
+          },
+        ],
+        callTimestamp,
+      );
+      const calldata = await subject();
+      const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
+        "swapExactTokensForTokens",
+        [
+          sourceQuantity,
+          destinationQuantity,
+          [{ from: sourceAddress, to: destinationAddress, stable: false }],
+          subjectMockSetToken,
+          callTimestamp,
+        ],
+      );
+      expect(JSON.stringify(calldata)).to.eq(
+        JSON.stringify([velodromeSetup.router.address, ZERO, expectedCallData]),
+      );
+    });
+
+    it("should return the correct trade calldata for wbtc -> wetb -> dai", async () => {
+      const callTimestamp = await getLastBlockTimestamp();
+      subjectData = await velodromeExchangeAdapter.generateDataParam(
+        [
+          { from: sourceAddress, to: setup.weth.address, stable: false },
+          { from: setup.weth.address, to: destinationAddress, stable: false },
+        ],
+        callTimestamp,
+      );
+      const calldata = await subject();
+      const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
+        "swapExactTokensForTokens",
+        [
+          sourceQuantity,
+          destinationQuantity,
           [
             { from: sourceAddress, to: setup.weth.address, stable: false },
             { from: setup.weth.address, to: destinationAddress, stable: false },
           ],
+          subjectMockSetToken,
           callTimestamp,
-        );
-        const calldata = await subject();
-        const expectedCallData = velodromeSetup.router.interface.encodeFunctionData(
-          "swapExactTokensForTokens",
-          [
-            sourceQuantity,
-            destinationQuantity,
-            [
-              { from: sourceAddress, to: setup.weth.address, stable: false },
-              { from: setup.weth.address, to: destinationAddress, stable: false },
-            ],
-            subjectMockSetToken,
-            callTimestamp,
-          ],
-        );
-        expect(JSON.stringify(calldata)).to.eq(
-          JSON.stringify([velodromeSetup.router.address, ZERO, expectedCallData]),
-        );
-      });
+        ],
+      );
+      expect(JSON.stringify(calldata)).to.eq(
+        JSON.stringify([velodromeSetup.router.address, ZERO, expectedCallData]),
+      );
     });
   });
 });

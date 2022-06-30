@@ -4,11 +4,11 @@ import { Address } from "../types";
 import { Account } from "../test/types";
 
 import dependencies from "../deploys/dependencies";
-import { Uni } from "@typechain/Uni";
-import { VelodromeFactory } from "@typechain/VelodromeFactory";
-import { VelodromePair } from "@typechain/VelodromePair";
-import { VelodromeRouter } from "@typechain/VelodromeRouter";
-import { VelodromePair__factory } from "@typechain/factories/VelodromePair__factory";
+import { Uni } from "../../typechain/Uni";
+import { VelodromeFactory } from "../../typechain/VelodromeFactory";
+import { VelodromePair } from "../../typechain/VelodromePair";
+import { VelodromeRouter } from "../../typechain/VelodromeRouter";
+import { VelodromePair__factory } from "../../typechain/factories/VelodromePair__factory";
 
 export class VelodromeFixture {
   private _deployer: DeployHelper;
