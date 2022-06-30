@@ -78,7 +78,7 @@ describe("VelodromeExchangeAdapter", () => {
     });
   });
 
-  describe("getTradeCalldata", async () => {
+  describe("generateDataParam / getTradeCalldata", async () => {
     let sourceAddress: Address;
     let destinationAddress: Address;
     let sourceQuantity: BigNumber;
@@ -114,6 +114,84 @@ describe("VelodromeExchangeAdapter", () => {
         subjectData,
       );
     }
+
+    describe("should check parameters", () => {
+      it("should check params of generateDataParam", async () => {
+        await expect(
+          velodromeExchangeAdapter.generateDataParam([], ethers.constants.MaxUint256),
+        ).to.revertedWith("empty routes");
+        await expect(
+          velodromeExchangeAdapter.generateDataParam(
+            [
+              {
+                from: sourceAddress,
+                to: destinationAddress,
+                stable: false,
+              },
+            ],
+            0,
+          ),
+        ).to.revertedWith("invalid deadline");
+      });
+
+      it("should check params of getTradeCalldata", async () => {
+        await expect(
+          velodromeExchangeAdapter.getTradeCalldata(
+            subjectSourceToken,
+            subjectDestinationToken,
+            subjectMockSetToken,
+            subjectSourceQuantity,
+            subjectMinDestinationQuantity,
+            ethers.utils.defaultAbiCoder.encode(
+              ["tuple(address,address,bool)[]", "uint256"],
+              [[], ethers.constants.MaxUint256],
+            ),
+          ),
+        ).to.revertedWith("empty routes");
+
+        await expect(
+          velodromeExchangeAdapter.getTradeCalldata(
+            subjectDestinationToken,
+            subjectDestinationToken,
+            subjectMockSetToken,
+            subjectSourceQuantity,
+            subjectMinDestinationQuantity,
+            ethers.utils.defaultAbiCoder.encode(
+              ["tuple(address,address,bool)[]", "uint256"],
+              [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
+            ),
+          ),
+        ).to.revertedWith("Source token path mismatch");
+
+        await expect(
+          velodromeExchangeAdapter.getTradeCalldata(
+            subjectSourceToken,
+            subjectSourceToken,
+            subjectMockSetToken,
+            subjectSourceQuantity,
+            subjectMinDestinationQuantity,
+            ethers.utils.defaultAbiCoder.encode(
+              ["tuple(address,address,bool)[]", "uint256"],
+              [[[sourceAddress, destinationAddress, false]], ethers.constants.MaxUint256],
+            ),
+          ),
+        ).to.revertedWith("Destination token path mismatch");
+
+        await expect(
+          velodromeExchangeAdapter.getTradeCalldata(
+            subjectSourceToken,
+            subjectDestinationToken,
+            subjectMockSetToken,
+            subjectSourceQuantity,
+            subjectMinDestinationQuantity,
+            ethers.utils.defaultAbiCoder.encode(
+              ["tuple(address,address,bool)[]", "uint256"],
+              [[[sourceAddress, destinationAddress, false]], 0],
+            ),
+          ),
+        ).to.revertedWith("invalid deadline");
+      });
+    });
 
     describe("wbtc -> dai", async () => {
       it("should return the correct data param", async () => {

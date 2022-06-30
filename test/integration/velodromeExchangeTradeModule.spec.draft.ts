@@ -21,6 +21,7 @@ import { parseUnits } from "ethers/lib/utils";
 import { IVelodromeRouter } from "@typechain/IVelodromeRouter";
 import { IERC20 } from "@typechain/IERC20";
 import { IERC20__factory } from "@typechain/factories/IERC20__factory";
+import dependencies from "@utils/deploys/dependencies";
 
 const expect = getWaffleExpect();
 
@@ -58,7 +59,7 @@ describe("Velodrome TradeModule Integration [@optimism]", () => {
 
     velodromeRouter = await ethers.getContractAt(
       "IVelodromeRouter",
-      "0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9",
+      dependencies.VELODROME_ROUTER[10],
     );
 
     velodromeExchangeAdapter = await deployer.adapters.deployVelodromeExchangeAdapter(

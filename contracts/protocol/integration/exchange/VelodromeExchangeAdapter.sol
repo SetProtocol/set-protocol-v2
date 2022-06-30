@@ -81,6 +81,7 @@ contract VelodromeExchangeAdapter {
         require(routes.length > 0, "empty routes");
         require(_sourceToken == routes[0].from, "Source token path mismatch");
         require(_destinationToken == routes[routes.length - 1].to, "Destination token path mismatch");
+        require(deadline >= block.timestamp, "invalid deadline");
 
         bytes memory callData = abi.encodeWithSelector(
             IVelodromeRouter.swapExactTokensForTokens.selector,
@@ -115,10 +116,11 @@ contract VelodromeExchangeAdapter {
      */
     function generateDataParam(IVelodromeRouter.route[] calldata _routes, uint256 _deadline)
         external
-        pure
+        view
         returns (bytes memory)
     {
         require(_routes.length > 0, "empty routes");
+        require(_deadline >= block.timestamp, "invalid deadline");
         return abi.encode(_routes, _deadline);
     }
 } 

@@ -300,8 +300,10 @@ export default class DeployAdapters {
   }
 
   public async deployVelodromeExchangeAdapter(
-    velodromRouter: Address,
+    velodromeRouter: Address,
   ): Promise<VelodromeExchangeAdapter> {
-    return await new VelodromeExchangeAdapter__factory(this._deployerSigner).deploy(velodromRouter);
+    return await new VelodromeExchangeAdapter__factory(this._deployerSigner).deploy(
+      velodromeRouter,
+    );
   }
 }

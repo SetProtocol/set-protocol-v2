@@ -202,13 +202,12 @@ import { PerpV2ClearingHouseConfig__factory } from "../../typechain/factories/Pe
 import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2InsuranceFund__factory";
 import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
 import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
-import { VelodromeFactory } from "@typechain/VelodromeFactory";
-import { VelodromeRouter } from "@typechain/VelodromeRouter";
-import { VelodromePair } from "@typechain/VelodromePair";
-import { VelodromeFactory__factory } from "@typechain/factories/VelodromeFactory__factory";
-import { VelodromeRouter__factory } from "@typechain/factories/VelodromeRouter__factory";
-import { VelodromePair__factory } from "@typechain/factories/VelodromePair__factory";
-
+import { VelodromeFactory__factory } from "../../typechain/factories/VelodromeFactory__factory";
+import { VelodromeRouter__factory } from "../../typechain/factories/VelodromeRouter__factory";
+import { VelodromePair__factory } from "../../typechain/factories/VelodromePair__factory";
+import { VelodromeFactory } from "../../typechain/VelodromeFactory";
+import { VelodromeRouter } from "../../typechain/VelodromeRouter";
+import { VelodromePair } from "../../typechain/VelodromePair";
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
