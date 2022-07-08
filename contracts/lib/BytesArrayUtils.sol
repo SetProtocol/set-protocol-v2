@@ -34,16 +34,16 @@ library BytesArrayUtils {
      * @return bool        Boolean value
      */
     function toBool(bytes memory _bytes, uint256 _start) internal pure returns (bool) {
-        require(_start + 1 >= _start, "toBool_overflow");
-        require(_bytes.length >= _start + 1, "toBool_outOfBounds");
+        require(_start != type(uint256).max, "toBool_overflow");
+        require(_bytes.length > _start, "toBool_outOfBounds");
         uint8 tempUint;
 
         assembly {
             tempUint := mload(add(add(_bytes, 0x1), _start))
         }
 
-        require(tempUint <= 1, "Invalid bool data");     // Should be either 0 or 1
+        require(tempUint < 2, "Invalid bool data");     // Should be either 0 or 1
 
-        return (tempUint == 0) ? false : true;
+        return tempUint != 0;
     }
 }
