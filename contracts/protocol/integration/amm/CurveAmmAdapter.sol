@@ -22,6 +22,7 @@ pragma experimental "ABIEncoderV2";
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 import "../../../interfaces/IAmmAdapter.sol";
 import "../../../interfaces/external/curve/ICurveMinter.sol";
@@ -36,6 +37,7 @@ import "../../../interfaces/external/curve/ICurveV2.sol";
  */
 contract CurveAmmAdapter is IAmmAdapter {
     using SafeMath for uint256;
+    using SafeERC20 for IERC20;
 
     /* ============ State Variables ============ */
 
@@ -72,7 +74,7 @@ contract CurveAmmAdapter is IAmmAdapter {
             coins.push(coin);
             coinIndex[coin] = i.add(1);
 
-            IERC20(coin).approve(address(_poolMinter), type(uint256).max);
+            IERC20(coin).safeApprove(address(_poolMinter), type(uint256).max);
         }
     }
 
@@ -86,7 +88,7 @@ contract CurveAmmAdapter is IAmmAdapter {
         require(coinCount == _amountsIn.length, "invalid amounts in");
 
         for (uint256 i = 0 ; i < coinCount ; ++i) {
-            IERC20(coins[i]).transferFrom(msg.sender, address(this), _amountsIn[i]);
+            IERC20(coins[i]).safeTransferFrom(msg.sender, address(this), _amountsIn[i]);
         }
 
         if (coinCount == 2) {
@@ -111,9 +113,9 @@ contract CurveAmmAdapter is IAmmAdapter {
         address _destination
     ) external {
         require(poolToken == _pool, "invalid pool address");
-        require(coinCount == _minAmountsOut.length, "invalid amounts in");
+        require(coinCount == _minAmountsOut.length, "invalid amounts out");
 
-        IERC20(_pool).transferFrom(msg.sender, address(this), _liquidity);
+        IERC20(_pool).safeTransferFrom(msg.sender, address(this), _liquidity);
 
         if (coinCount == 2) {
             ICurveMinter(poolMinter).remove_liquidity(_liquidity, [_minAmountsOut[0], _minAmountsOut[1]]);
@@ -136,17 +138,17 @@ contract CurveAmmAdapter is IAmmAdapter {
         address _pool,
         uint256 _liquidity,
         uint256 _coinIndex,
-        uint256 _mintTokenout,
+        uint256 _minTokenout,
         address _destination
     ) external {
         require(poolToken == _pool, "invalid pool address");
 
-        IERC20(_pool).transferFrom(msg.sender, address(this), _liquidity);
+        IERC20(_pool).safeTransferFrom(msg.sender, address(this), _liquidity);
 
         if (isCurveV1) {
-            ICurveV1(poolMinter).remove_liquidity_one_coin(_liquidity, int128(int256(_coinIndex)), _mintTokenout);
+            ICurveV1(poolMinter).remove_liquidity_one_coin(_liquidity, int128(int256(_coinIndex)), _minTokenout);
         } else {
-            ICurveV2(poolMinter).remove_liquidity_one_coin(_liquidity, _coinIndex, _mintTokenout);
+            ICurveV2(poolMinter).remove_liquidity_one_coin(_liquidity, _coinIndex, _minTokenout);
         }
 
         _transferToken(coins[_coinIndex], _destination);
@@ -307,7 +309,7 @@ contract CurveAmmAdapter is IAmmAdapter {
         data = abi.encodeWithSignature("removeLiquidityOneCoin(address,uint256,uint256,uint256,address)",
             _pool,
             _liquidity,
-            coinIndex[_component],
+            coinIndex[_component].sub(1),
             _minTokenOut,
             _setToken
         );
@@ -376,6 +378,6 @@ contract CurveAmmAdapter is IAmmAdapter {
         address token,
         address recipient
     ) internal {
-        IERC20(token).transfer(recipient, IERC20(token).balanceOf(address(this)));
+        IERC20(token).safeTransfer(recipient, IERC20(token).balanceOf(address(this)));
     }
 }
