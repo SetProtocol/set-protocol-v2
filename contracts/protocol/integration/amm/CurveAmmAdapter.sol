@@ -1,5 +1,5 @@
 /*
-    Copyright 2021 Set Labs Inc.
+    Copyright 2022 Set Labs Inc.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import "../../../interfaces/external/curve/ICurveV2.sol";
  * @title CurveAmmAdapter
  * @author deephil
  *
- * Adapter for Curve that encodes adding and removing liquidty
+ * Adapter for Curve that encodes functions for adding and removing liquidity
  */
 contract CurveAmmAdapter is IAmmAdapter {
     using SafeMath for uint256;
@@ -41,23 +41,43 @@ contract CurveAmmAdapter is IAmmAdapter {
 
     /* ============ State Variables ============ */
 
+    // Internal function string for add liquidity
+    string internal constant ADD_LIQUIDITY = "addLiquidity(address,uint256[],uint256,address)";
+    
+    // Internal function string for remove liquidity
+    string internal constant REMOVE_LIQUIDITY = "removeLiquidity(address,uint256,uint256[],address)";
+
+    // Internal function string for remove liquidity one coin
+    string internal constant REMOVE_LIQUIDITY_ONE_COIN = "removeLiquidityOneCoin(address,uint256,uint256,uint256,address)";
+
+    // Address of Curve Pool token contract (IERC20 interface)
     address public immutable poolToken;
+
+    // Address of Curve Pool minter contract
     address public immutable poolMinter;
+
+    // If Curve v1 or Curve v2.
+    // Curve v1 use `int128` for coin indexes, Curve v2 use `uint256` for coin indexes
     bool public immutable isCurveV1;
 
+    // Coin count of Curve Pool
     uint256 public immutable coinCount;
+
+    // Coin addresses of Curve Pool
     address[] public coins;
-    mapping(address => uint256) public coinIndex; // starts from 1
+
+    // Coin Index of Curve Pool (starts from 1)
+    mapping(address => uint256) public coinIndex;
 
     /* ============ Constructor ============ */
 
     /**
      * Set state variables
      *
-     * @param _poolToken          Address of Curve LP token
-     * @param _poolMinter         Address of Curve LP token minter
+     * @param _poolToken          Address of Curve Pool token
+     * @param _poolMinter         Address of Curve Pool token minter
      * @param _isCurveV1          curve v1 or v2
-     * @param _coinCount          Number of coins in Curve LP token
+     * @param _coinCount          Number of coins in Curve Pool token
      */
     constructor(
         address _poolToken,
@@ -184,7 +204,8 @@ contract CurveAmmAdapter is IAmmAdapter {
 
         target = address(this);
         value = 0;
-        data = abi.encodeWithSignature("addLiquidity(address,uint256[],uint256,address)",
+        data = abi.encodeWithSignature(
+            ADD_LIQUIDITY,
             _pool,
             maxTokensIn,
             _minLiquidity,
@@ -212,15 +233,12 @@ contract CurveAmmAdapter is IAmmAdapter {
         require(_maxTokenIn != 0, "invalid component amount");
         
         uint256[] memory amountsIn = new uint256[](coinCount);
-        for (uint256 i = 0 ; i < coinCount ; ++i) {
-            if (_component == coins[i]) {
-                amountsIn[i] = _maxTokenIn;
-            }
-        }
+        amountsIn[coinIndex[_component].sub(1)] = _maxTokenIn;
 
         target = address(this);
         value = 0;
-        data = abi.encodeWithSignature("addLiquidity(address,uint256[],uint256,address)",
+        data = abi.encodeWithSignature(
+            ADD_LIQUIDITY,
             _pool,
             amountsIn,
             _minLiquidity,
@@ -272,7 +290,8 @@ contract CurveAmmAdapter is IAmmAdapter {
 
         target = address(this);
         value = 0;
-        data = abi.encodeWithSignature("removeLiquidity(address,uint256,uint256[],address)",
+        data = abi.encodeWithSignature(
+            REMOVE_LIQUIDITY,
             _pool,
             _liquidity,
             minTokensOut,
@@ -306,7 +325,8 @@ contract CurveAmmAdapter is IAmmAdapter {
         
         target = address(this);
         value = 0;
-        data = abi.encodeWithSignature("removeLiquidityOneCoin(address,uint256,uint256,uint256,address)",
+        data = abi.encodeWithSignature(
+            REMOVE_LIQUIDITY_ONE_COIN,
             _pool,
             _liquidity,
             coinIndex[_component].sub(1),
@@ -363,7 +383,7 @@ contract CurveAmmAdapter is IAmmAdapter {
     /* ============ Internal Functions =================== */
 
     /**
-     * Returns the Curve LP token reserves in an expected order
+     * Returns the Curve Pool token reserves in an expected order
      */
     function _getReserves()
         internal

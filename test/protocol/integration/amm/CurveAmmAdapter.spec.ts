@@ -240,7 +240,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           subjectMinLiquidity = totalSupply.div(100);
         });
 
-        async function subject(): Promise<any> {
+        const subject = async () => {
           return await curveAmmAdapter.getProvideLiquidityCalldata(
             owner.address,
             subjectAmmPool,
@@ -248,7 +248,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectMaxTokensIn,
             subjectMinLiquidity,
           );
-        }
+        };
 
         it("should return the correct provide liquidity calldata", async () => {
           const calldata = await subject();
@@ -294,7 +294,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           subjectMinLiquidity = totalSupply.div(100);
         });
 
-        async function subject(): Promise<any> {
+        const subject = async () => {
           return await curveAmmAdapter.getProvideLiquiditySingleAssetCalldata(
             owner.address,
             subjectAmmPool,
@@ -302,7 +302,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectMaxTokenIn,
             subjectMinLiquidity,
           );
-        }
+        };
 
         it("should return the correct provide liquidity calldata", async () => {
           const calldata = await subject();
@@ -357,7 +357,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           );
         });
 
-        async function subject(): Promise<any> {
+        const subject = async () => {
           return await curveAmmAdapter.getRemoveLiquidityCalldata(
             owner.address,
             subjectAmmPool,
@@ -365,7 +365,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectMinTokensOut,
             subjectLiquidity,
           );
-        }
+        };
 
         it("should return the correct provide liquidity calldata", async () => {
           const calldata = await subject();
@@ -421,7 +421,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           subjectMinTokenOut = reserves[1].mul(subjectLiquidity).div(totalSupply);
         });
 
-        async function subject(): Promise<any> {
+        const subject = async () => {
           return await curveAmmAdapter.getRemoveLiquiditySingleAssetCalldata(
             owner.address,
             subjectAmmPool,
@@ -429,7 +429,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectMinTokenOut,
             subjectLiquidity,
           );
-        }
+        };
 
         it("should return the correct provide liquidity calldata", async () => {
           const calldata = await subject();
@@ -478,14 +478,14 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           }
         });
 
-        async function subject(): Promise<any> {
+        const subject = async () => {
           return await curveAmmAdapter.addLiquidity(
             subjectAmmPool,
             subjectMaxTokensIn,
             subjectMinLiquidity,
             owner.address,
           );
-        }
+        };
 
         it("should revert if invalid pool address", async () => {
           subjectAmmPool = ADDRESS_ZERO;
@@ -510,6 +510,12 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           for (let i = 0; i < coinCount; i++) {
             expect(await coins[i].balanceOf(owner.address)).to.lt(coinBalancesBefore[i]);
           }
+
+          // no tokens remain after transfer
+          expect(await poolToken.balanceOf(curveAmmAdapter.address)).to.equal(0);
+          for (let i = 0; i < coinCount; i++) {
+            expect(await coins[i].balanceOf(curveAmmAdapter.address)).to.equal(0);
+          }
         });
       });
 
@@ -526,14 +532,14 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           await poolToken.approve(curveAmmAdapter.address, subjectLiquidity);
         });
 
-        async function subject(): Promise<any> {
+        const subject = async () => {
           return await curveAmmAdapter.removeLiquidity(
             subjectAmmPool,
             subjectLiquidity,
             subjectMinAmountsOut,
             owner.address,
           );
-        }
+        };
 
         it("should revert if invalid pool address", async () => {
           subjectAmmPool = ADDRESS_ZERO;
@@ -558,6 +564,12 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           for (let i = 0; i < coinCount; i++) {
             expect(await coins[i].balanceOf(owner.address)).to.gt(coinBalancesBefore[i]);
           }
+
+          // no tokens remain after transfer
+          expect(await poolToken.balanceOf(curveAmmAdapter.address)).to.equal(0);
+          for (let i = 0; i < coinCount; i++) {
+            expect(await coins[i].balanceOf(curveAmmAdapter.address)).to.equal(0);
+          }
         });
       });
 
@@ -576,7 +588,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           await poolToken.approve(curveAmmAdapter.address, subjectLiquidity);
         });
 
-        async function subject(): Promise<any> {
+        const subject = async () => {
           return await curveAmmAdapter.removeLiquidityOneCoin(
             subjectAmmPool,
             subjectLiquidity,
@@ -584,7 +596,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectMinTokenOut,
             owner.address,
           );
-        }
+        };
 
         it("should revert if invalid pool address", async () => {
           subjectAmmPool = ADDRESS_ZERO;
@@ -607,6 +619,12 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             } else {
               expect(await coins[i].balanceOf(owner.address)).to.eq(coinBalancesBefore[i]);
             }
+          }
+
+          // no tokens remain after transfer
+          expect(await poolToken.balanceOf(curveAmmAdapter.address)).to.equal(0);
+          for (let i = 0; i < coinCount; i++) {
+            expect(await coins[i].balanceOf(curveAmmAdapter.address)).to.equal(0);
           }
         });
       });
