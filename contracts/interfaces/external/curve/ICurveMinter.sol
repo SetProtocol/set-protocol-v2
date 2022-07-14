@@ -23,4 +23,22 @@ interface ICurveMinter {
 
   function remove_liquidity(uint256 amount, uint256[4] calldata min_amounts)
     external;
+
+  function calc_token_amount(uint256[2] calldata amounts, bool is_deposit)
+    external view returns(uint256);
+  
+  function calc_token_amount(uint256[3] calldata amounts, bool is_deposit)
+    external view returns(uint256);
+  
+  function calc_token_amount(uint256[4] calldata amounts, bool is_deposit)
+    external view returns(uint256);
+
+  function calc_token_amount(uint256[2] calldata amounts, bool is_deposit, bool previous)
+    external view returns(uint256);
+  
+  function calc_token_amount(uint256[3] calldata amounts, bool is_deposit, bool previous)
+    external view returns(uint256);
+  
+  function calc_token_amount(uint256[4] calldata amounts, bool is_deposit, bool previous)
+    external view returns(uint256);
 }

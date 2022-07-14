@@ -338,13 +338,22 @@ contract CurveAmmAdapter is IAmmAdapter {
         view
         override
         returns (bool) {
-        if (poolToken != _pool || coinCount != _components.length) {
+        if (poolToken != _pool) {
             return false;
         }
-        
-        for (uint256 i = 0 ; i < coinCount ; ++i) {
-            if (coins[i] != _components[i]) {
+
+        if (_components.length == 1) {
+            if (coinIndex[_components[0]] == 0) {
                 return false;
+            }
+        } else {
+            if (coinCount != _components.length) {
+                return false;
+            }
+            for (uint256 i = 0 ; i < coinCount ; ++i) {
+                if (coins[i] != _components[i]) {
+                    return false;
+                }
             }
         }
 

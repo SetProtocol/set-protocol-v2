@@ -197,6 +197,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
 
         it("should return false if components count doesnt match", async () => {
           expect(await curveAmmAdapter.isValidPool(poolTokenAddress, [])).to.eq(false);
+          expect(await curveAmmAdapter.isValidPool(poolTokenAddress, [ADDRESS_ZERO])).to.eq(false);
         });
 
         it("should return false if components address doesn't match", async () => {
@@ -210,7 +211,14 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
         });
 
         it("should return true if correct pool & components address", async () => {
+          // addLiquidity / removeLiquidity
           expect(await curveAmmAdapter.isValidPool(poolTokenAddress, coinAddresses)).to.eq(true);
+          // removeLiquiditySingleAsset
+          for (let i = 0; i < coinCount; i++) {
+            expect(await curveAmmAdapter.isValidPool(poolTokenAddress, [coinAddresses[i]])).to.eq(
+              true,
+            );
+          }
         });
       });
 
