@@ -8,7 +8,7 @@ import {
 
 import { SystemFixture } from "@utils/fixtures";
 
-describe("UniswapV3AmmAdapter", () => {
+describe("ArrakisUniswapV3AmmAdapter", () => {
   let owner: Account;
   // let deployer: DeployHelper;
   let setup: SystemFixture;
