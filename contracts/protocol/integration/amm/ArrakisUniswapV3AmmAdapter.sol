@@ -40,7 +40,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
     address public immutable router;
 
     // UniswapV3 factory contract
-    IUniswapV3Factory public immutable uniV3factory;
+    IUniswapV3Factory public immutable uniV3Factory;
 
     // Internal function string for adding liquidity
     string internal constant ADD_LIQUIDITY =
@@ -59,7 +59,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
      */
     constructor(address _router, address _uniV3Factory) public {
         router = _router;
-        uniV3factory = IUniswapV3Factory(_uniV3Factory);
+        uniV3Factory = IUniswapV3Factory(_uniV3Factory);
     }
 
     /* ============ External Getter Functions ============ */
@@ -258,7 +258,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         // Make sure that the pool address returned by the factory 
         // matches uniswapV3 pool address stored in the provided arrakis pool
         if(
-            uniV3factory.getPool(_components[0], _components[1], uniFee) != address(uniV3PairPool)
+            uniV3Factory.getPool(_components[0], _components[1], uniFee) != address(uniV3PairPool)
         ) {
             return false;
         }
