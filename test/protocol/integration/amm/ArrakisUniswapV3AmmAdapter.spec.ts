@@ -1,5 +1,6 @@
 import "module-alias/register";
 import { Account } from "@utils/test/types";
+import { Address } from "@utils/types";
 import { AmmModule, ArrakisUniswapV3AmmAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -99,6 +100,23 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
 
       const actualUniV3FactoryAddress = await deployedArrakisUniswapV3AmmAdapter.uniV3Factory();
       expect(actualUniV3FactoryAddress).to.eq(uniswapV3Setup.factory.address);
+    });
+  });
+
+  describe("getSpenderAddress", async () => {
+    let poolAddress: Address;
+
+    before(async () => {
+      poolAddress = arrakisV1Setup.wethDaiPool.address;
+    });
+
+    async function subject(): Promise<any> {
+      return await arrakisUniswapV3AmmAdapter.getSpenderAddress(poolAddress);
+    }
+
+    it("should return the correct spender address", async () => {
+      const spender = await subject();
+      expect(spender).to.eq(arrakisV1Setup.router.address);
     });
   });
 
