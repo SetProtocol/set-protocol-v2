@@ -3,6 +3,7 @@ import { BigNumber, Signer } from "ethers";
 import {
   AaveGovernanceV2Adapter,
   AaveV2WrapV2Adapter,
+  ArrakisUniswapV3AmmAdapter,
   BalancerV1IndexExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveExchangeAdapter,
@@ -33,6 +34,7 @@ import { Address, Bytes } from "./../types";
 
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
 import { AaveV2WrapV2Adapter__factory } from "../../typechain/factories/AaveV2WrapV2Adapter__factory";
+import { ArrakisUniswapV3AmmAdapter__factory } from "../../typechain/factories/ArrakisUniswapV3AmmAdapter__factory";
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveExchangeAdapter__factory } from "../../typechain/factories/CurveExchangeAdapter__factory";
@@ -86,6 +88,13 @@ export default class DeployAdapters {
 
   public async deployUniswapV2AmmAdapter(uniswapV2Router: Address): Promise<UniswapV2AmmAdapter> {
     return await new UniswapV2AmmAdapter__factory(this._deployerSigner).deploy(uniswapV2Router);
+  }
+
+  public async deployArrakisUniswapV3AmmAdapter(
+    arrakisRouter: Address,
+    uniswapV3Factory: Address
+  ): Promise<ArrakisUniswapV3AmmAdapter> {
+    return await new ArrakisUniswapV3AmmAdapter__factory(this._deployerSigner).deploy(arrakisRouter, uniswapV3Factory);
   }
 
   public async deployUniswapV2ExchangeAdapter(

@@ -9,6 +9,7 @@ export { AddressArrayUtilsMock } from "../../typechain/AddressArrayUtilsMock";
 export { AirdropModule } from "../../typechain/AirdropModule";
 export { AmmAdapterMock } from "../../typechain/AmmAdapterMock";
 export { AmmModule } from "../../typechain/AmmModule";
+export { ArrakisUniswapV3AmmAdapter } from "../../typechain/ArrakisUniswapV3AmmAdapter";
 export { AssetLimitHook } from "../../typechain/AssetLimitHook";
 export { BalancerV1IndexExchangeAdapter } from "../../typechain/BalancerV1IndexExchangeAdapter";
 export { BasicIssuanceModule } from "../../typechain/BasicIssuanceModule";
