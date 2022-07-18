@@ -47,7 +47,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         "addLiquidity(address,uint256,uint256,uint256,uint256,address)";
     // Internal function string for removing liquidity
     string internal constant REMOVE_LIQUIDITY =
-        "removeLiquidity(IGUniPool,uint256,uint256,uint256,address)";
+        "removeLiquidity(address,uint256,uint256,uint256,address)";
 
     /* ============ Constructor ============ */
 
