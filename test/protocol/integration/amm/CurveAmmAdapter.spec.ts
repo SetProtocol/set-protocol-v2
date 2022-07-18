@@ -464,6 +464,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
         let subjectAmmPool: Address;
         let subjectMaxTokensIn: BigNumber[];
         let subjectMinLiquidity: BigNumber;
+        let subjectDestination: Address;
         let reserves: BigNumber[];
 
         beforeEach(async () => {
@@ -471,7 +472,8 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
 
           subjectAmmPool = poolTokenAddress;
           subjectMaxTokensIn = reserves.map(balance => balance.div(100));
-          subjectMinLiquidity = BigNumber.from(0);
+          subjectMinLiquidity = BigNumber.from(1);
+          subjectDestination = owner.address;
 
           for (let i = 0; i < coinCount; i++) {
             await coins[i].approve(curveAmmAdapter.address, subjectMaxTokensIn[i]);
@@ -483,7 +485,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectAmmPool,
             subjectMaxTokensIn,
             subjectMinLiquidity,
-            owner.address,
+            subjectDestination,
           );
         };
 
@@ -495,6 +497,21 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
         it("should revert if amounts length doesn't match", async () => {
           subjectMaxTokensIn = [];
           await expect(subject()).to.revertedWith("invalid amounts");
+        });
+
+        it("should revert if amounts are all zero", async () => {
+          subjectMaxTokensIn = subjectMaxTokensIn.map(() => BigNumber.from("0"));
+          await expect(subject()).to.revertedWith("invalid amounts");
+        });
+
+        it("should revert if zero min liquidity", async () => {
+          subjectMinLiquidity = BigNumber.from("0");
+          await expect(subject()).to.revertedWith("invalid min liquidity");
+        });
+
+        it("should revert if destinatination address is zero", async () => {
+          subjectDestination = ADDRESS_ZERO;
+          await expect(subject()).to.revertedWith("invalid destination");
         });
 
         it("should add liquidity and get LP token", async () => {
@@ -523,11 +540,13 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
         let subjectAmmPool: Address;
         let subjectLiquidity: BigNumber;
         let subjectMinAmountsOut: BigNumber[];
+        let subjectDestination: Address;
 
         beforeEach(async () => {
           subjectAmmPool = poolTokenAddress;
           subjectMinAmountsOut = Array(coinCount).fill(0);
           subjectLiquidity = await poolToken.balanceOf(owner.address);
+          subjectDestination = owner.address;
 
           await poolToken.approve(curveAmmAdapter.address, subjectLiquidity);
         });
@@ -537,7 +556,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectAmmPool,
             subjectLiquidity,
             subjectMinAmountsOut,
-            owner.address,
+            subjectDestination,
           );
         };
 
@@ -549,6 +568,11 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
         it("should revert if amounts length doesn't match", async () => {
           subjectMinAmountsOut = [];
           await expect(subject()).to.revertedWith("invalid amounts");
+        });
+
+        it("should revert if destinatination address is zero", async () => {
+          subjectDestination = ADDRESS_ZERO;
+          await expect(subject()).to.revertedWith("invalid destination");
         });
 
         it("should remove liquidity and get expect coins", async () => {
@@ -578,12 +602,14 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
         let subjectLiquidity: BigNumber;
         let subjectCoinIndex: number;
         let subjectMinTokenOut: BigNumber;
+        let subjectDestination: Address;
 
         beforeEach(async () => {
           subjectAmmPool = poolTokenAddress;
           subjectLiquidity = await poolToken.balanceOf(owner.address);
           subjectCoinIndex = 1;
           subjectMinTokenOut = BigNumber.from(0);
+          subjectDestination = owner.address;
 
           await poolToken.approve(curveAmmAdapter.address, subjectLiquidity);
         });
@@ -594,13 +620,18 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             subjectLiquidity,
             subjectCoinIndex,
             subjectMinTokenOut,
-            owner.address,
+            subjectDestination,
           );
         };
 
         it("should revert if invalid pool address", async () => {
           subjectAmmPool = ADDRESS_ZERO;
           await expect(subject()).to.revertedWith("invalid pool address");
+        });
+
+        it("should revert if destinatination address is zero", async () => {
+          subjectDestination = ADDRESS_ZERO;
+          await expect(subject()).to.revertedWith("invalid destination");
         });
 
         it("should remove liquidity and get exact one token out", async () => {

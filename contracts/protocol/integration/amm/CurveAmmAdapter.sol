@@ -106,10 +106,17 @@ contract CurveAmmAdapter is IAmmAdapter {
     ) external {
         require(poolToken == _pool, "invalid pool address");
         require(coinCount == _amountsIn.length, "invalid amounts in");
+        require(_minLiquidity != 0, "invalid min liquidity");
+        require(_destination != address(0), "invalid destination");
 
-        for (uint256 i = 0 ; i < coinCount ; ++i) {
+        bool isValidAmountsIn = false;
+        for (uint256 i = 0; i < coinCount; ++i) {
             IERC20(coins[i]).safeTransferFrom(msg.sender, address(this), _amountsIn[i]);
+            if (_amountsIn[i] > 0) {
+                isValidAmountsIn = true;
+            }
         }
+        require(isValidAmountsIn, "invalid amounts in");
 
         if (coinCount == 2) {
             ICurveMinter(poolMinter).add_liquidity([_amountsIn[0], _amountsIn[1]], _minLiquidity);
@@ -134,6 +141,7 @@ contract CurveAmmAdapter is IAmmAdapter {
     ) external {
         require(poolToken == _pool, "invalid pool address");
         require(coinCount == _minAmountsOut.length, "invalid amounts out");
+        require(_destination != address(0), "invalid destination");
 
         IERC20(_pool).safeTransferFrom(msg.sender, address(this), _liquidity);
 
@@ -162,6 +170,7 @@ contract CurveAmmAdapter is IAmmAdapter {
         address _destination
     ) external {
         require(poolToken == _pool, "invalid pool address");
+        require(_destination != address(0), "invalid destination");
 
         IERC20(_pool).safeTransferFrom(msg.sender, address(this), _liquidity);
 
