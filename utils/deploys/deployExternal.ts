@@ -206,10 +206,10 @@ import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchang
 import {
   GUniRouter,
   ArrakisFactoryV1,
-  GUniPool
+  ArrakisVaultV1
 } from "../contracts/arrakis";
 import { ArrakisFactoryV1__factory } from "../../typechain/factories/ArrakisFactoryV1__factory";
-import { GUniPool__factory } from "../../typechain/factories/GUniPool__factory";
+import { ArrakisVaultV1__factory } from "../../typechain/factories/ArrakisVaultV1__factory";
 import { GUniRouter__factory } from "../../typechain/factories/GUniRouter__factory";
 
 
@@ -759,7 +759,7 @@ export default class DeployExternalContracts {
     return await new GUniRouter__factory(this._deployerSigner).deploy(uniswapV3factory, weth);
   }
 
-  public async getGUniPoolInstance(pool: Address): Promise<GUniPool> {
-    return await new GUniPool__factory(this._deployerSigner).attach(pool);
+  public async getArrakisVaultV1Instance(pool: Address): Promise<ArrakisVaultV1> {
+    return await new ArrakisVaultV1__factory(this._deployerSigner).attach(pool);
   }
 }

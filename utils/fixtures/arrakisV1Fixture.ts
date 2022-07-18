@@ -7,7 +7,7 @@ import { Account } from "../test/types";
 import {
   ArrakisFactoryV1,
   GUniRouter,
-  GUniPool
+  ArrakisVaultV1
 } from "../contracts/arrakis";
 
 // import { UniswapV3Pool } from "../contracts/uniswapV3";
@@ -28,8 +28,8 @@ export class ArrakisV1Fixture {
   public factory: ArrakisFactoryV1;
   public router: GUniRouter;
 
-  public wethDaiPool: GUniPool;
-  public wethWbtcPool: GUniPool;
+  public wethDaiPool: ArrakisVaultV1;
+  public wethWbtcPool: ArrakisVaultV1;
 
   /**
    * Instantiates a new ArrakisFixture
@@ -77,7 +77,7 @@ export class ArrakisV1Fixture {
    * @param _token1         second token
    * @param _fee            fee tier of either 500, 3000, or 10000
    * @param _ratio          the initial price ratio of the pool equal to priceToken0 / priceToken1
-   * @returns               a new Arrakis GUniPool holding UniswapV3 position on given tokens
+   * @returns               a new Arrakis Vault holding UniswapV3 position on given tokens
    */
   public async createNewPair(
     _owner: Account,
@@ -86,7 +86,7 @@ export class ArrakisV1Fixture {
     _token1: Token,
     _fee: number,
     _ratio: number,
-  ): Promise<GUniPool> {
+  ): Promise<ArrakisVaultV1> {
     await _uniswapV3Setup.createNewPair(_token0, _token1, _fee, _ratio);
 
     const tickSpacing = _fee / 50;  // ticks can only be initialized if they are a multiple of fee / 50
@@ -107,6 +107,6 @@ export class ArrakisV1Fixture {
     ).wait();
 
     const poolAddress = txReceipt.events![2].args!.pool;
-    return this._deployer.external.getGUniPoolInstance(poolAddress);
+    return this._deployer.external.getArrakisVaultV1Instance(poolAddress);
   }
 }

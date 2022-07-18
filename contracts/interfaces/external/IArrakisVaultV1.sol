@@ -22,7 +22,7 @@ import {
     IUniswapV3Pool
 } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 
-interface IGUniPool {
+interface IArrakisVaultV1 {
     function mint(uint256 mintAmount, address receiver)
         external
         returns (
@@ -52,6 +52,11 @@ interface IGUniPool {
         external
         view
         returns (uint256 amount0, uint256 amount1);
+    
+    function getUnderlyingBalancesAtPrice(uint160 sqrtRatioX96)
+        external
+        view
+        returns (uint256 amount0Current, uint256 amount1Current);
 
     function getPositionID() external view returns (bytes32 positionID);
 
@@ -68,4 +73,14 @@ interface IGUniPool {
     function totalSupply() external view returns (uint256);
 
     function balanceOf(address account) external view returns (uint256);
+
+    function executiveRebalance(
+        int24 newLowerTick,
+        int24 newUpperTick,
+        uint160 swapThresholdPrice,
+        uint256 swapAmountBPS,
+        bool zeroForOne
+    ) external;
+
+    function withdrawManagerBalance() external;
 }
