@@ -1,4 +1,6 @@
 import "module-alias/register";
+import { BigNumber } from "ethers";
+import { ether } from "@utils/index";
 import { Account } from "@utils/test/types";
 import { Address } from "@utils/types";
 import { AmmModule, ArrakisUniswapV3AmmAdapter } from "@utils/contracts";
@@ -182,6 +184,60 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
       });
     });
 
+  });
+
+  describe("getProvideLiquiditySingleAssetCalldata", async () => {
+    let subjectAmmPool: Address;
+    let subjectComponent: Address;
+    let subjectMaxTokenIn: BigNumber;
+    let subjectMinLiquidity: BigNumber;
+
+    before(async () => {
+      subjectAmmPool = arrakisV1Setup.wethDaiPool.address;
+      subjectComponent = setup.weth.address;
+      subjectMaxTokenIn = ether(1);
+      subjectMinLiquidity = ether(1);
+    });
+
+    async function subject(): Promise<any> {
+      return await arrakisUniswapV3AmmAdapter.getProvideLiquiditySingleAssetCalldata(
+        owner.address,
+        subjectAmmPool,
+        subjectComponent,
+        subjectMaxTokenIn,
+        subjectMinLiquidity);
+    }
+
+    it("should revert", async () => {
+      await expect(subject()).to.be.revertedWith("Arrakis single asset addition is not supported");
+    });
+  });
+
+  describe("getRemoveLiquiditySingleAssetCalldata", async () => {
+    let subjectAmmPool: Address;
+    let subjectComponent: Address;
+    let subjectMinTokenOut: BigNumber;
+    let subjectLiquidity: BigNumber;
+
+    before(async () => {
+      subjectAmmPool = uniswapV3Setup.wethDaiPool.address;
+      subjectComponent = setup.weth.address;
+      subjectMinTokenOut = ether(1);
+      subjectLiquidity = ether(1);
+    });
+
+    async function subject(): Promise<any> {
+      return await arrakisUniswapV3AmmAdapter.getRemoveLiquiditySingleAssetCalldata(
+        owner.address,
+        subjectAmmPool,
+        subjectComponent,
+        subjectMinTokenOut,
+        subjectLiquidity);
+    }
+
+    it("should revert", async () => {
+      await expect(subject()).to.be.revertedWith("Arrakis single asset removal is not supported");
+    });
   });
 
 });

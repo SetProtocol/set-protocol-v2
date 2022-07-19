@@ -127,7 +127,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         override
         returns (address /*target*/, uint256 /*value*/, bytes memory /*data*/)
     {
-        revert("Uniswap V3 single asset addition is not supported");
+        revert("Arrakis single asset addition is not supported");
     }
 
     /**
@@ -188,7 +188,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         override
         returns (address /*target*/, uint256 /*value*/, bytes memory /*data*/)
     {
-        revert("Uniswap V3 single asset removal is not supported");
+        revert("Arrakis single asset removal is not supported");
     }
 
     /**
