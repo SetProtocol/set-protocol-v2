@@ -3,6 +3,9 @@ import { BigNumber } from "ethers";
 import { ether } from "@utils/index";
 import { Account } from "@utils/test/types";
 import { Address } from "@utils/types";
+import {
+  ZERO,
+} from "@utils/constants";
 import { AmmModule, ArrakisUniswapV3AmmAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
@@ -237,6 +240,115 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
 
     it("should revert", async () => {
       await expect(subject()).to.be.revertedWith("Arrakis single asset removal is not supported");
+    });
+  });
+
+  describe("getProvideLiquidityCalldata", async () => {
+    let subjectAmmPool: Address;
+    let subjectComponents: Address[];
+    let subjectMaxTokensIn: BigNumber[];
+    let subjectMinLiquidity: BigNumber;
+
+    beforeEach(async () => {
+      subjectAmmPool = arrakisV1Setup.wethDaiPool.address;
+      subjectComponents = [setup.weth.address, setup.dai.address];
+      subjectMaxTokensIn = [ether(1), ether(3000)];
+      const mintAmount = await arrakisV1Setup.wethDaiPool.getMintAmounts(subjectMaxTokensIn[0], subjectMaxTokensIn[1]);
+      subjectMinLiquidity = mintAmount[2];
+    });
+
+    async function subject(): Promise<any> {
+      return await arrakisUniswapV3AmmAdapter.getProvideLiquidityCalldata(
+        owner.address,
+        subjectAmmPool,
+        subjectComponents,
+        subjectMaxTokensIn,
+        subjectMinLiquidity);
+    }
+
+    it("should return the correct provide liquidity calldata", async () => {
+      const calldata = await subject();
+
+      // Determine how much of each token the _minLiquidity would return
+      const mintAmount = await arrakisV1Setup.wethDaiPool.getMintAmounts(subjectMaxTokensIn[0], subjectMaxTokensIn[1]);
+      const amountAMin = mintAmount[0];
+      const amountBMin = mintAmount[1];
+
+      const expectedCallData = arrakisV1Setup.router.interface.encodeFunctionData("addLiquidity", [
+        subjectAmmPool,
+        subjectMaxTokensIn[0],
+        subjectMaxTokensIn[1],
+        amountAMin,
+        amountBMin,
+        owner.address
+      ]);
+      expect(JSON.stringify(calldata)).to.eq(JSON.stringify([arrakisV1Setup.router.address, ZERO, expectedCallData]));
+    });
+
+    describe("when the either of the _maxTokensIn is zero", async () => {
+      beforeEach(async () => {
+        subjectMaxTokensIn = [ZERO, ether(3000)];
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Component quantity must be nonzero");
+      });
+    });
+
+    describe("when the _minLiquidity is too high", async () => {
+      beforeEach(async () => {
+        subjectMinLiquidity = subjectMinLiquidity.mul(2);
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("_minLiquidity is too high for input token limit");
+      });
+    });
+  });
+
+  describe("getRemoveLiquidityCalldata", async () => {
+    let subjectAmmPool: Address;
+    let subjectComponents: Address[];
+    let subjectMinTokensOut: BigNumber[];
+    let subjectLiquidity: BigNumber;
+
+    beforeEach(async () => {
+      subjectAmmPool = arrakisV1Setup.wethDaiPool.address;
+      subjectComponents = [setup.weth.address, setup.dai.address];
+      subjectLiquidity = await arrakisV1Setup.wethDaiPool.balanceOf(owner.address);
+      subjectMinTokensOut = [ether(1), ether(3000)];
+    });
+
+    async function subject(): Promise<any> {
+      return await arrakisUniswapV3AmmAdapter.getRemoveLiquidityCalldata(
+        owner.address,
+        subjectAmmPool,
+        subjectComponents,
+        subjectMinTokensOut,
+        subjectLiquidity);
+    }
+
+    it("should return the correct remove liquidity calldata", async () => {
+      const calldata = await subject();
+
+      const expectedCallData = arrakisV1Setup.router.interface.encodeFunctionData("removeLiquidity", [
+        subjectAmmPool,
+        subjectLiquidity,
+        subjectMinTokensOut[0],
+        subjectMinTokensOut[1],
+        owner.address
+      ]);
+      expect(JSON.stringify(calldata)).to.eq(JSON.stringify([arrakisV1Setup.router.address, ZERO, expectedCallData]));
+    });
+
+    describe("when the _liquidity is more than available", async () => {
+      beforeEach(async () => {
+        subjectLiquidity = (await arrakisV1Setup.wethDaiPool.balanceOf(owner.address)).add(ether(1));
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("_liquidity must be <= to current balance");
+      });
     });
   });
 
