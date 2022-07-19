@@ -120,4 +120,68 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
     });
   });
 
+  describe("isValidPool", async () => {
+    let subjectAmmPool: Address;
+    let subjectComponents: Address[];
+
+    beforeEach(async () => {
+      subjectAmmPool = arrakisV1Setup.wethDaiPool.address;
+      subjectComponents = [setup.weth.address, setup.dai.address];
+    });
+
+    async function subject(): Promise<any> {
+      return await arrakisUniswapV3AmmAdapter.isValidPool(subjectAmmPool, subjectComponents);
+    }
+
+    it("should be a valid pool", async () => {
+      const status = await subject();
+      expect(status).to.be.true;
+    });
+
+    describe("when the pool address is invalid", async () => {
+      beforeEach(async () => {
+        subjectAmmPool = setup.weth.address;
+      });
+
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
+    });
+
+    describe("when the components don't match", async () => {
+      beforeEach(async () => {
+        subjectComponents = [setup.weth.address, setup.wbtc.address];
+      });
+
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
+    });
+
+    describe("when the number of components is incorrect", async () => {
+      beforeEach(async () => {
+        subjectComponents = [setup.weth.address];
+      });
+
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
+    });
+
+    describe("when the pool address is not an ERC20", async () => {
+      beforeEach(async () => {
+        subjectAmmPool = uniswapV3Setup.wethDaiPool.address;
+      });
+
+      it("should be an invalid pool", async () => {
+        const status = await subject();
+        expect(status).to.be.false;
+      });
+    });
+
+  });
+
 });

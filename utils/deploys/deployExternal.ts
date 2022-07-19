@@ -759,6 +759,10 @@ export default class DeployExternalContracts {
     return await new GUniRouter__factory(this._deployerSigner).deploy(uniswapV3factory, weth);
   }
 
+  public async deployArrakisVaultV1(_gelato: Address, _arrakisTreasury: Address): Promise<ArrakisVaultV1> {
+    return await new ArrakisVaultV1__factory(this._deployerSigner).deploy(_gelato, _arrakisTreasury);
+  }
+
   public async getArrakisVaultV1Instance(pool: Address): Promise<ArrakisVaultV1> {
     return await new ArrakisVaultV1__factory(this._deployerSigner).attach(pool);
   }

@@ -1,5 +1,4 @@
 import DeployHelper from "../deploys";
-// import { MAX_UINT_256 } from "../constants";
 import { Signer, providers } from "ethers";
 import { Address } from "../types";
 import { Account } from "../test/types";
@@ -10,13 +9,9 @@ import {
   ArrakisVaultV1
 } from "../contracts/arrakis";
 
-// import { UniswapV3Pool } from "../contracts/uniswapV3";
 import { UniswapV3Fixture } from "@utils/fixtures";
-// import { UniswapV3Pool__factory } from "../../typechain/factories/UniswapV3Pool__factory";
-// import { ether } from "../index";
 import { StandardTokenMock } from "../../typechain/StandardTokenMock";
 import { WETH9 } from "../../typechain/WETH9";
-// import { parseEther } from "ethers/lib/utils";
 
 type Token = StandardTokenMock | WETH9;
 
@@ -62,7 +57,7 @@ export class ArrakisV1Fixture {
     _wbtcPrice: number,
     _dai: Token
   ): Promise<void> {
-    this.factory = await this._deployer.external.deployArrakisFactoryV1(_uniswapV3Setup.factory.address);
+    await this.deployVaultAndFactoryAndinitialize(_owner, _uniswapV3Setup);
     this.router = await this._deployer.external.deployGUniRouter(_uniswapV3Setup.factory.address, _weth.address);
 
     this.wethDaiPool = await this.createNewPair(_owner, _uniswapV3Setup,  _weth, _dai, 3000, _wethPrice);
@@ -70,9 +65,26 @@ export class ArrakisV1Fixture {
   }
 
   /**
+   * Creates and initializes a new arrakis factory
+   *
+   * @param _owner          the owner of the deployed Arrakis system
+   * @param _uniswapV3Setup uniswapV3Fixture
+   * @returns               a new Arrakis Vault holding UniswapV3 position on given tokens
+   */
+  public async deployVaultAndFactoryAndinitialize(
+    _owner: Account,
+    _uniswapV3Setup: UniswapV3Fixture
+  ): Promise<void> {
+    const vaultImplementation = await this._deployer.external.deployArrakisVaultV1(_owner.address, _owner.address);
+    this.factory = await this._deployer.external.deployArrakisFactoryV1(_uniswapV3Setup.factory.address);
+    await this.factory.initialize(vaultImplementation.address, _owner.address);
+  }
+
+  /**
    * Creates and initializes a new arrakis vault pool
    *
    * @param _owner          the owner of the deployed Arrakis system
+   * @param _uniswapV3Setup uniswapV3Fixture
    * @param _token0         first token
    * @param _token1         second token
    * @param _fee            fee tier of either 500, 3000, or 10000

@@ -231,7 +231,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
 
         // Make sure the tokens stored in the arrakis pools matches the
         // tokens provided in the components
-        if(
+        if (
             _components.length != 2 ||
             !(token0 == _components[0] || token0 == _components[1]) ||
             !(token1 == _components[0] || token1 == _components[1])
@@ -239,30 +239,12 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
             return false;
         }
 
-        // Attempt to get the UniswapV3 pool in the provided Arrakis pool
-        IUniswapV3Pool uniV3PairPool;
-        try IArrakisVaultV1(_pool).pool() returns (IUniswapV3Pool _uniV3PairPool) {
-            uniV3PairPool = _uniV3PairPool;
+        // Make sure the pool address follows IERC20 interface
+        try IArrakisVaultV1(_pool).totalSupply() returns (uint256 _totalSupply) {
         } catch {
             return false;
         }
-
-        // Attempt to get the UniswapV3 pool fee from the UniV3 pool stored in Arrakis pool
-        uint24 uniFee;
-        try uniV3PairPool.fee() returns (uint24 _uniFee) {
-            uniFee = _uniFee;
-        } catch {
-            return false;
-        }
-
-        // Make sure that the pool address returned by the factory 
-        // matches uniswapV3 pool address stored in the provided arrakis pool
-        if(
-            uniV3Factory.getPool(_components[0], _components[1], uniFee) != address(uniV3PairPool)
-        ) {
-            return false;
-        }
-
+        
         return true;
     }
 }
