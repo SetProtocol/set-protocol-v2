@@ -165,7 +165,7 @@ contract CurveAmmAdapter is IAmmAdapter {
             revert("curve supports 2/3/4 coins");
         }
 
-        for (uint256 i = 0 ; i < coinCount ; ++i) {
+        for (uint256 i = 0; i < coinCount; ++i) {
             _transferToken(coins[i], _destination);
         }
     }
@@ -302,7 +302,7 @@ contract CurveAmmAdapter is IAmmAdapter {
             // Check minTokensOut parameter
             uint256 totalSupply = IERC20(_pool).totalSupply();
             uint256[] memory reserves = _getReserves();
-            for (uint256 i = 0 ; i < coinCount ; ++i) {
+            for (uint256 i = 0; i < coinCount; ++i) {
                 uint256 reservesOwnedByLiquidity = reserves[i].mul(_liquidity).div(totalSupply);
                 require(minTokensOut[i] <= reservesOwnedByLiquidity, "amounts must be <= ownedTokens");
             }
@@ -390,7 +390,7 @@ contract CurveAmmAdapter is IAmmAdapter {
             if (coinCount != _components.length) {
                 return false;
             }
-            for (uint256 i = 0 ; i < coinCount ; ++i) {
+            for (uint256 i = 0; i < coinCount; ++i) {
                 if (coins[i] != _components[i]) {
                     return false;
                 }
@@ -412,7 +412,7 @@ contract CurveAmmAdapter is IAmmAdapter {
     {
         reserves = new uint256[](coinCount);
 
-        for (uint256 i = 0 ; i < coinCount ; ++i) {
+        for (uint256 i = 0; i < coinCount; ++i) {
             reserves[i] = ICurveMinter(poolMinter).balances(i);
         }
     }
