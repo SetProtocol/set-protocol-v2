@@ -565,6 +565,11 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           await expect(subject()).to.revertedWith("invalid pool address");
         });
 
+        it("should revert if zero liquidity", async () => {
+          subjectLiquidity = BigNumber.from(0);
+          await expect(subject()).to.revertedWith("invalid liquidity");
+        });
+
         it("should revert if amounts length doesn't match", async () => {
           subjectMinAmountsOut = [];
           await expect(subject()).to.revertedWith("invalid amounts");
@@ -608,7 +613,7 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
           subjectAmmPool = poolTokenAddress;
           subjectLiquidity = await poolToken.balanceOf(owner.address);
           subjectCoinIndex = 1;
-          subjectMinTokenOut = BigNumber.from(0);
+          subjectMinTokenOut = BigNumber.from(1);
           subjectDestination = owner.address;
 
           await poolToken.approve(curveAmmAdapter.address, subjectLiquidity);
@@ -627,6 +632,21 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
         it("should revert if invalid pool address", async () => {
           subjectAmmPool = ADDRESS_ZERO;
           await expect(subject()).to.revertedWith("invalid pool address");
+        });
+
+        it("should revert if zero liquidity", async () => {
+          subjectLiquidity = BigNumber.from(0);
+          await expect(subject()).to.revertedWith("invalid liquidity");
+        });
+
+        it("should revert if invalid coinIndex", async () => {
+          subjectCoinIndex = 4;
+          await expect(subject()).to.revertedWith("invalid coin index");
+        });
+
+        it("should revert if zero min token out", async () => {
+          subjectMinTokenOut = BigNumber.from(0);
+          await expect(subject()).to.revertedWith("invalid min token out");
         });
 
         it("should revert if destinatination address is zero", async () => {

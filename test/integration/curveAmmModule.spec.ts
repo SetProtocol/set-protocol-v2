@@ -13,10 +13,12 @@ import {
 } from "@utils/test/index";
 import { ether } from "@utils/index";
 import { SystemFixture } from "@utils/fixtures";
-import { BigNumber } from "ethers";
+import { BigNumber, BigNumberish } from "ethers";
 import { CurveAmmAdapter } from "../../typechain/CurveAmmAdapter";
 import { IERC20Metadata } from "../../typechain/IERC20Metadata";
 import { IERC20Metadata__factory } from "../../typechain/factories/IERC20Metadata__factory";
+import { ICurveMinter } from "../../typechain/ICurveMinter";
+import { ICurveMinter__factory } from "../../typechain/factories/ICurveMinter__factory";
 import { parseUnits } from "ethers/lib/utils";
 
 const expect = getWaffleExpect();
@@ -100,12 +102,14 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
   }) => {
     describe(scenarioName, () => {
       const coins: IERC20Metadata[] = [];
+      let poolMinter: ICurveMinter;
       let poolToken: IERC20Metadata;
       let curveAmmAdapter: CurveAmmAdapter;
       let curveAmmAdapterName: string;
       const coinBalances: BigNumber[] = [];
 
       before(async () => {
+        poolMinter = await ICurveMinter__factory.connect(poolMinterAddress, owner.wallet);
         // prepare lpToken / each coins from whales
         poolToken = await IERC20Metadata__factory.connect(poolTokenAddress, owner.wallet);
         await getTokenFromWhale(
@@ -161,94 +165,195 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
 
       addSnapshotBeforeRestoreAfterEach();
 
-      it.only("should transfer correct components and get LP tokens", async () => {
-        const balanceBefore = await poolToken.balanceOf(setToken.address);
+      describe("#addLiquidity", () => {
+        let subjectSetToken: Address;
+        let subjectAmmAdapterName: string;
+        let subjectPoolToken: Address;
+        let subjectMinLiquidity: BigNumber;
+        let subjectCoinAddresses: Address[];
+        let subjectCoinBalances: BigNumber[];
 
-        await ammModule
-          .connect(manager.wallet)
-          .addLiquidity(
-            setToken.address,
-            curveAmmAdapterName,
-            poolTokenAddress,
-            1,
-            coinAddresses,
-            coinBalances,
+        beforeEach(() => {
+          subjectSetToken = setToken.address;
+          subjectAmmAdapterName = curveAmmAdapterName;
+          subjectPoolToken = poolTokenAddress;
+          subjectMinLiquidity = BigNumber.from(1);
+          subjectCoinAddresses = coinAddresses;
+          subjectCoinBalances = coinBalances;
+        });
+
+        const subject = async () => {
+          await ammModule
+            .connect(manager.wallet)
+            .addLiquidity(
+              subjectSetToken,
+              subjectAmmAdapterName,
+              subjectPoolToken,
+              subjectMinLiquidity,
+              subjectCoinAddresses,
+              subjectCoinBalances,
+            );
+        };
+
+        const expectCloseTo = (a: BigNumber, b: BigNumber, delta: BigNumberish) => {
+          expect(a).to.gt(b.sub(delta));
+          expect(a).to.lt(b.add(delta));
+        };
+
+        it("should transfer correct components and get LP tokens", async () => {
+          const lpBalanceBefore = await poolToken.balanceOf(setToken.address);
+          for (let i = 0; i < coinCount; i++) {
+            expect(await coins[i].balanceOf(setToken.address)).to.eq(subjectCoinBalances[i]);
+          }
+
+          const expectedNewLpTokens =
+            coinCount === 2
+              ? await poolMinter["calc_token_amount(uint256[2],bool)"](
+                [coinBalances[0], coinBalances[1]],
+                true,
+              )
+              : coinCount === 3
+                ? await poolMinter["calc_token_amount(uint256[3],bool)"](
+                  [coinBalances[0], coinBalances[1], coinBalances[2]],
+                  true,
+                )
+                : coinCount === 4
+                  ? await poolMinter["calc_token_amount(uint256[4],bool)"](
+                    [coinBalances[0], coinBalances[1], coinBalances[2], coinBalances[3]],
+                    true,
+                  )
+                  : BigNumber.from(0);
+
+          await subject();
+
+          // `calc_token_amount` of `USDT/WBTC/WETH` pool return correct amount out for add_liquidity, but it doesn't return for `MIM/3CRV` pools.
+          // there is some external logic for fees, here we test actual output and expected output with 0.1% slippage
+          expectCloseTo(
+            (await poolToken.balanceOf(setToken.address)).sub(lpBalanceBefore),
+            expectedNewLpTokens,
+            expectedNewLpTokens.div(1000), // 0.1%
           );
-
-        expect(await poolToken.balanceOf(setToken.address)).to.gt(balanceBefore);
-      });
-
-      it.only("should transfer LP tokens and get component tokens", async () => {
-        await ammModule
-          .connect(manager.wallet)
-          .addLiquidity(
-            setToken.address,
-            curveAmmAdapterName,
-            poolTokenAddress,
-            1,
-            coinAddresses,
-            coinBalances,
-          );
-
-        const lpBalanceBefore = await poolToken.balanceOf(setToken.address);
-        for (let i = 0; i < coinCount; i++) {
-          expect(await coins[i].balanceOf(setToken.address)).to.eq(0);
-        }
-
-        await ammModule
-          .connect(manager.wallet)
-          .removeLiquidity(
-            setToken.address,
-            curveAmmAdapterName,
-            poolTokenAddress,
-            lpBalanceBefore,
-            coinAddresses,
-            Array(coinCount).fill(1),
-          );
-
-        expect(await poolToken.balanceOf(setToken.address)).to.eq(0);
-        for (let i = 0; i < coinCount; i++) {
-          expect(await coins[i].balanceOf(setToken.address)).to.gt(0);
-        }
-      });
-
-      it.only("should transfer LP tokens and get only one component token", async () => {
-        await ammModule
-          .connect(manager.wallet)
-          .addLiquidity(
-            setToken.address,
-            curveAmmAdapterName,
-            poolTokenAddress,
-            1,
-            coinAddresses,
-            coinBalances,
-          );
-
-        const lpBalanceBefore = await poolToken.balanceOf(setToken.address);
-        for (let i = 0; i < coinCount; i++) {
-          expect(await coins[i].balanceOf(setToken.address)).to.eq(0);
-        }
-
-        const withdrawCoin = coinAddresses[1];
-        await ammModule
-          .connect(manager.wallet)
-          .removeLiquiditySingleAsset(
-            setToken.address,
-            curveAmmAdapterName,
-            poolTokenAddress,
-            lpBalanceBefore,
-            withdrawCoin,
-            1,
-          );
-
-        expect(await poolToken.balanceOf(setToken.address)).to.eq(0);
-        for (let i = 0; i < coinCount; i++) {
-          if (coinAddresses[i] === withdrawCoin) {
-            expect(await coins[i].balanceOf(setToken.address)).to.gt(0);
-          } else {
+          for (let i = 0; i < coinCount; i++) {
             expect(await coins[i].balanceOf(setToken.address)).to.eq(0);
           }
-        }
+        });
+      });
+
+      describe("#removeLiquidity", () => {
+        let subjectSetToken: Address;
+        let subjectAmmAdapterName: string;
+        let subjectPoolToken: Address;
+        let subjectPoolTokenPositionUnits: BigNumber;
+        let subjectComponents: Address[];
+        let subjectMinComponentUnitsReceived: BigNumber[];
+
+        beforeEach(async () => {
+          await ammModule
+            .connect(manager.wallet)
+            .addLiquidity(
+              setToken.address,
+              curveAmmAdapterName,
+              poolTokenAddress,
+              1,
+              coinAddresses,
+              coinBalances,
+            );
+
+          subjectSetToken = setToken.address;
+          subjectAmmAdapterName = curveAmmAdapterName;
+          subjectPoolToken = poolTokenAddress;
+          subjectPoolTokenPositionUnits = await poolToken.balanceOf(setToken.address);
+          subjectComponents = coinAddresses;
+          subjectMinComponentUnitsReceived = Array(coinCount).fill(1);
+        });
+
+        const subject = async () => {
+          await ammModule
+            .connect(manager.wallet)
+            .removeLiquidity(
+              subjectSetToken,
+              subjectAmmAdapterName,
+              subjectPoolToken,
+              subjectPoolTokenPositionUnits,
+              subjectComponents,
+              subjectMinComponentUnitsReceived,
+            );
+        };
+
+        it("should transfer LP tokens and get component tokens", async () => {
+          const lpBalanceBefore = await poolToken.balanceOf(setToken.address);
+          for (let i = 0; i < coinCount; i++) {
+            expect(await coins[i].balanceOf(setToken.address)).to.eq(0);
+          }
+
+          await subject();
+
+          expect(await poolToken.balanceOf(setToken.address)).to.eq(
+            lpBalanceBefore.sub(subjectPoolTokenPositionUnits),
+          );
+          for (let i = 0; i < coinCount; i++) {
+            expect(await coins[i].balanceOf(setToken.address)).to.gt(0);
+          }
+        });
+      });
+
+      describe("removeLiquiditySingleAsset", () => {
+        let subjectSetToken: Address;
+        let subjectAmmAdapterName: string;
+        let subjectPoolToken: Address;
+        let subjectPoolTokenPositionUnits: BigNumber;
+        let subjectComponent: Address;
+        let subjectMinComponentUnitReceived: BigNumber;
+
+        beforeEach(async () => {
+          await ammModule
+            .connect(manager.wallet)
+            .addLiquidity(
+              setToken.address,
+              curveAmmAdapterName,
+              poolTokenAddress,
+              1,
+              coinAddresses,
+              coinBalances,
+            );
+
+          subjectSetToken = setToken.address;
+          subjectAmmAdapterName = curveAmmAdapterName;
+          subjectPoolToken = poolTokenAddress;
+          subjectPoolTokenPositionUnits = await poolToken.balanceOf(setToken.address);
+          subjectComponent = coinAddresses[1];
+          subjectMinComponentUnitReceived = BigNumber.from(1);
+        });
+
+        const subject = async () => {
+          await ammModule
+            .connect(manager.wallet)
+            .removeLiquiditySingleAsset(
+              subjectSetToken,
+              subjectAmmAdapterName,
+              subjectPoolToken,
+              subjectPoolTokenPositionUnits,
+              subjectComponent,
+              subjectMinComponentUnitReceived,
+            );
+        };
+
+        it("should transfer LP tokens and get only one component token", async () => {
+          for (let i = 0; i < coinCount; i++) {
+            expect(await coins[i].balanceOf(setToken.address)).to.eq(0);
+          }
+
+          await subject();
+
+          expect(await poolToken.balanceOf(setToken.address)).to.eq(0);
+          for (let i = 0; i < coinCount; i++) {
+            if (coinAddresses[i] === subjectComponent) {
+              expect(await coins[i].balanceOf(setToken.address)).to.gt(0);
+            } else {
+              expect(await coins[i].balanceOf(setToken.address)).to.eq(0);
+            }
+          }
+        });
       });
     });
   };

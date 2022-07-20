@@ -85,6 +85,10 @@ contract CurveAmmAdapter is IAmmAdapter {
         bool _isCurveV1,
         uint256 _coinCount
     ) public {
+        require(_poolToken != address(0), "_poolToken can't be zero address");
+        require(_poolMinter != address(0), "_poolMinter can't be zero address");
+        require(_coinCount >= 2 && _coinCount <= 4, "invalid coin count");
+
         poolToken = _poolToken;
         poolMinter = _poolMinter;
         isCurveV1 = _isCurveV1;
@@ -111,12 +115,15 @@ contract CurveAmmAdapter is IAmmAdapter {
 
         bool isValidAmountsIn = false;
         for (uint256 i = 0; i < coinCount; ++i) {
-            IERC20(coins[i]).safeTransferFrom(msg.sender, address(this), _amountsIn[i]);
             if (_amountsIn[i] > 0) {
                 isValidAmountsIn = true;
             }
         }
         require(isValidAmountsIn, "invalid amounts in");
+
+        for (uint256 i = 0; i < coinCount; ++i) {
+            IERC20(coins[i]).safeTransferFrom(msg.sender, address(this), _amountsIn[i]);
+        }
 
         if (coinCount == 2) {
             ICurveMinter(poolMinter).add_liquidity([_amountsIn[0], _amountsIn[1]], _minLiquidity);
@@ -140,6 +147,7 @@ contract CurveAmmAdapter is IAmmAdapter {
         address _destination
     ) external {
         require(poolToken == _pool, "invalid pool address");
+        require(_liquidity != 0, "invalid liquidity");
         require(coinCount == _minAmountsOut.length, "invalid amounts out");
         require(_destination != address(0), "invalid destination");
 
@@ -170,6 +178,9 @@ contract CurveAmmAdapter is IAmmAdapter {
         address _destination
     ) external {
         require(poolToken == _pool, "invalid pool address");
+        require(_liquidity != 0, "invalid liquidity");
+        require(_coinIndex < coinCount, "invalid coin index");
+        require(_minTokenout != 0, "invalid min token out");
         require(_destination != address(0), "invalid destination");
 
         IERC20(_pool).safeTransferFrom(msg.sender, address(this), _liquidity);
