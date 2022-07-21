@@ -18,12 +18,13 @@
 
 pragma solidity 0.6.10;
 
-import "../../../interfaces/IAmmAdapter.sol";
-import "../../../interfaces/external/IArrakisVaultV1.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+
+import "../../../interfaces/IAmmAdapter.sol";
+import "../../../interfaces/external/IArrakisVaultV1.sol";
 
 /**
  * @title UniswapV3AmmAdapter
@@ -58,6 +59,8 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
      * @param _uniV3Factory    Address of UniswapV3 Factory contract
      */
     constructor(address _router, address _uniV3Factory) public {
+        require(_router != address(0),"_router address must not be zero address");
+        require(_uniV3Factory != address(0),"_uniV3Factory address must not be zero address");
         router = _router;
         uniV3Factory = IUniswapV3Factory(_uniV3Factory);
     }
@@ -240,18 +243,23 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
             return false;
         }
 
-        // Make sure the tokens stored in the arrakis pools matches the
-        // tokens provided in the components
-        if (
-            _components.length != 2 ||
-            !(token0 == _components[0] || token0 == _components[1]) ||
-            !(token1 == _components[0] || token1 == _components[1])
-        ) {
+        // Make sure that components length is two
+        if (_components.length != 2) {
+            return false;
+        }
+
+        // Make sure that _components[0] is either of token0 or token1
+        if (!(_components[0] == token0 || _components[0] == token1) ) {
+            return false;
+        }
+
+        // Make sure that _components[1] is either of token0 or token1
+        if (!(_components[1] == token0 || _components[1] == token1) ) {
             return false;
         }
 
         // Make sure the pool address follows IERC20 interface
-        try IArrakisVaultV1(_pool).totalSupply() returns (uint256 _totalSupply) {
+        try IArrakisVaultV1(_pool).totalSupply() returns (uint256) {
         } catch {
             return false;
         }
