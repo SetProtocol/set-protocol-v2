@@ -1,5 +1,5 @@
 import DeployHelper from "../deploys";
-import { Signer, providers } from "ethers";
+import { Signer, providers, BigNumber } from "ethers";
 import { Address } from "../types";
 import { Account } from "../test/types";
 
@@ -120,5 +120,18 @@ export class ArrakisV1Fixture {
 
     const poolAddress = txReceipt.events![2].args!.pool;
     return this._deployer.external.getArrakisVaultV1Instance(poolAddress);
+  }
+
+  /**
+   * Sorts token amounts in order of token address
+   *
+   * @param _tokenOne     first token address
+   * @param _tokenTwo     second token address
+   * @param _amountOne    first token amount
+   * @param _amountTwo    second token amount
+   * @returns             amounts sorted in order of token address
+   */
+  public getOrderedAmount(_tokenOne: Address, _tokenTwo: Address, _amountOne: BigNumber, _amountTwo: BigNumber): [BigNumber, BigNumber, boolean] {
+    return _tokenOne.toLowerCase() < _tokenTwo.toLowerCase() ? [_amountOne, _amountTwo, false] : [_amountTwo, _amountOne, true];
   }
 }

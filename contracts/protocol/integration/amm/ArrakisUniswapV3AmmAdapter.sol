@@ -69,13 +69,14 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
      *
      * @param  _setToken                Address of the SetToken
      * @param  _pool                    Address of liquidity token
+     * @param  _components              Token address array required to remove liquidity
      * @param  _maxTokensIn             AmountsIn desired to add liquidity
      * @param  _minLiquidity            Min liquidity amount to add
      */
     function getProvideLiquidityCalldata(
         address _setToken,
         address _pool,
-        address[] calldata /*_components*/,
+        address[] calldata _components,
         uint256[] calldata _maxTokensIn,
         uint256 _minLiquidity
     )
@@ -85,6 +86,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         returns (address target, uint256 value, bytes memory data)
     {   
         address setToken = _setToken;
+        address[] memory components = _components;
         uint256[] memory maxTokensIn = _maxTokensIn;
         uint256 minLiquidity = _minLiquidity;
 
@@ -92,7 +94,10 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
 
         IArrakisVaultV1 arrakisVaultPool = IArrakisVaultV1(_pool);
 
-        (uint256 amountAMin, uint256 amountBMin, uint256 liquidityExpectedFromSuppliedTokens) = arrakisVaultPool.getMintAmounts(maxTokensIn[0], maxTokensIn[1]);
+        // Sort the amount in order of tokens stored in Arrakis Pool
+        (uint256 maxTokensInA, uint256 maxTokensInB) = _getOrderedAmount(components[0], components[1], maxTokensIn[0], maxTokensIn[1]);
+
+        (uint256 amountAMin, uint256 amountBMin, uint256 liquidityExpectedFromSuppliedTokens) = arrakisVaultPool.getMintAmounts(maxTokensInA, maxTokensInB);
         
         require(
             minLiquidity <= liquidityExpectedFromSuppliedTokens,
@@ -104,8 +109,8 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         data = abi.encodeWithSignature( 
             ADD_LIQUIDITY,
             arrakisVaultPool,
-            maxTokensIn[0],
-            maxTokensIn[1],
+            maxTokensInA,
+            maxTokensInB,
             amountAMin,
             amountBMin,
             setToken
@@ -135,13 +140,14 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
      *
      * @param  _setToken                Address of the SetToken
      * @param  _pool                    Address of liquidity token
+     * @param  _components              Token address array required to remove liquidity
      * @param  _minTokensOut            AmountsOut minimum to remove liquidity
      * @param  _liquidity               Liquidity amount to remove
      */
     function getRemoveLiquidityCalldata(
         address _setToken,
         address _pool,
-        address[] calldata /*_components*/,
+        address[] calldata _components,
         uint256[] calldata _minTokensOut,
         uint256 _liquidity
     )
@@ -151,6 +157,7 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         returns (address target, uint256 value, bytes memory data)
     {   
         address setToken = _setToken;
+        address[] memory components = _components;
         uint256[] memory minTokensOut = _minTokensOut;
         uint256 liquidity = _liquidity;
         IArrakisVaultV1 arrakisVaultPool = IArrakisVaultV1(_pool);
@@ -159,7 +166,11 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         uint256 setTokenLiquidityBalance = arrakisVaultPool.balanceOf(setToken);
         require(liquidity <= setTokenLiquidityBalance, "_liquidity must be <= to current balance");
 
-        // Checks for minTokensOut required?
+        // Checks for minTokensOut
+        require(minTokensOut[0] > 0 && minTokensOut[1] > 0, "Minimum quantity must be nonzero");
+
+        // Sort the amount in order of tokens stored in Arrakis Pool
+        (uint256 minTokensOutA, uint256 minTokensOutB) = _getOrderedAmount(components[0], components[1], minTokensOut[0], minTokensOut[1]);
 
         target = router;
         value = 0;
@@ -167,8 +178,8 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
             REMOVE_LIQUIDITY,
             arrakisVaultPool,
             liquidity,
-            minTokensOut[0],
-            minTokensOut[1],
+            minTokensOutA,
+            minTokensOutB,
             setToken
         );
     }
@@ -246,5 +257,17 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
         }
         
         return true;
+    }
+
+    /**
+     * Sorts the amount in order of tokens stored in Arrakis/UniswapV3 Pool
+     *
+     * @param  _token0        Address of token0
+     * @param  _token0        Address of token1
+     * @param  _amount0       Amount of token0
+     * @param  _token1        Amount of token1
+     */
+    function _getOrderedAmount(address _token0, address _token1, uint256 _amount0, uint256 _amount1) private pure returns(uint256, uint256) {
+        return _token0 < _token1 ? (_amount0, _amount1) : (_amount1, _amount0);
     }
 }

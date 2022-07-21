@@ -6,7 +6,7 @@ import { Address } from "@utils/types";
 import {
   ZERO,
 } from "@utils/constants";
-import { AmmModule, ArrakisUniswapV3AmmAdapter } from "@utils/contracts";
+import { ArrakisUniswapV3AmmAdapter } from "@utils/contracts";
 import DeployHelper from "@utils/deploys";
 import {
   addSnapshotBeforeRestoreAfterEach,
@@ -27,9 +27,7 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
   let setup: SystemFixture;
   let uniswapV3Setup: UniswapV3Fixture;
   let arrakisV1Setup: ArrakisV1Fixture;
-  let ammModule: AmmModule;
   let arrakisUniswapV3AmmAdapter: ArrakisUniswapV3AmmAdapter;
-  let arrakisUniswapV3AmmAdapterName: string;
 
   before(async () => {
     [
@@ -49,37 +47,13 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
       35000,
       setup.dai
     );
-    // await setup.weth.connect(owner.wallet)
-    //   .approve(uniswapV3Setup.router.address, MAX_UINT_256);
-    // await setup.dai.connect(owner.wallet)
-    //   .approve(uniswapV3Setup.router.address, MAX_UINT_256);
-    // await uniswapV3Setup.router.connect(owner.wallet).addLiquidity(
-    //   setup.weth.address,
-    //   setup.dai.address,
-    //   ether(200),
-    //   ether(600000),
-    //   ether(0),
-    //   ether(0),
-    //   owner.address,
-    //   MAX_UINT_256
-    // );
 
     arrakisV1Setup = getArrakisV1Fixture(owner.address);
     await arrakisV1Setup.initialize(owner, uniswapV3Setup, setup.weth, 2500, setup.wbtc, 35000, setup.dai);
 
-    ammModule = await deployer.modules.deployAmmModule(setup.controller.address);
-    await setup.controller.addModule(ammModule.address);
-
     arrakisUniswapV3AmmAdapter = await deployer.adapters.deployArrakisUniswapV3AmmAdapter(
       arrakisV1Setup.router.address,
       uniswapV3Setup.factory.address
-    );
-    arrakisUniswapV3AmmAdapterName = "ARRAKISUNISWAPV3AMM";
-
-    await setup.integrationRegistry.addIntegration(
-      ammModule.address,
-      arrakisUniswapV3AmmAdapterName,
-      arrakisUniswapV3AmmAdapter.address
     );
   });
 
@@ -253,7 +227,13 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
       subjectAmmPool = arrakisV1Setup.wethDaiPool.address;
       subjectComponents = [setup.weth.address, setup.dai.address];
       subjectMaxTokensIn = [ether(1), ether(3000)];
-      const mintAmount = await arrakisV1Setup.wethDaiPool.getMintAmounts(subjectMaxTokensIn[0], subjectMaxTokensIn[1]);
+      const orderedMaxTokensIn = arrakisV1Setup.getOrderedAmount(
+        setup.weth.address,
+        setup.dai.address,
+        subjectMaxTokensIn[0],
+        subjectMaxTokensIn[1]
+      );
+      const mintAmount = await arrakisV1Setup.wethDaiPool.getMintAmounts(orderedMaxTokensIn[0], orderedMaxTokensIn[1]);
       subjectMinLiquidity = mintAmount[2];
     });
 
@@ -270,14 +250,20 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
       const calldata = await subject();
 
       // Determine how much of each token the _minLiquidity would return
-      const mintAmount = await arrakisV1Setup.wethDaiPool.getMintAmounts(subjectMaxTokensIn[0], subjectMaxTokensIn[1]);
+      const orderedMaxTokensIn = arrakisV1Setup.getOrderedAmount(
+        setup.weth.address,
+        setup.dai.address,
+        subjectMaxTokensIn[0],
+        subjectMaxTokensIn[1]
+      );
+      const mintAmount = await arrakisV1Setup.wethDaiPool.getMintAmounts(orderedMaxTokensIn[0], orderedMaxTokensIn[1]);
       const amountAMin = mintAmount[0];
       const amountBMin = mintAmount[1];
 
       const expectedCallData = arrakisV1Setup.router.interface.encodeFunctionData("addLiquidity", [
         subjectAmmPool,
-        subjectMaxTokensIn[0],
-        subjectMaxTokensIn[1],
+        orderedMaxTokensIn[0],
+        orderedMaxTokensIn[1],
         amountAMin,
         amountBMin,
         owner.address
@@ -330,12 +316,17 @@ describe("ArrakisUniswapV3AmmAdapter", () => {
 
     it("should return the correct remove liquidity calldata", async () => {
       const calldata = await subject();
-
+      const orderedMinTokensOut = arrakisV1Setup.getOrderedAmount(
+        setup.weth.address,
+        setup.dai.address,
+        subjectMinTokensOut[0],
+        subjectMinTokensOut[1]
+      );
       const expectedCallData = arrakisV1Setup.router.interface.encodeFunctionData("removeLiquidity", [
         subjectAmmPool,
         subjectLiquidity,
-        subjectMinTokensOut[0],
-        subjectMinTokensOut[1],
+        orderedMinTokensOut[0],
+        orderedMinTokensOut[1],
         owner.address
       ]);
       expect(JSON.stringify(calldata)).to.eq(JSON.stringify([arrakisV1Setup.router.address, ZERO, expectedCallData]));
