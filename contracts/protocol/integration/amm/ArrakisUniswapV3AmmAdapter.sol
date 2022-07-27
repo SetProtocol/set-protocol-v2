@@ -271,9 +271,9 @@ contract ArrakisUniswapV3AmmAdapter is IAmmAdapter {
      * Sorts the amount in order of tokens stored in Arrakis/UniswapV3 Pool
      *
      * @param  _token0        Address of token0
-     * @param  _token0        Address of token1
+     * @param  _token1        Address of token1
      * @param  _amount0       Amount of token0
-     * @param  _token1        Amount of token1
+     * @param  _amount1       Amount of token1
      */
     function _getOrderedAmount(address _token0, address _token1, uint256 _amount0, uint256 _amount1) private pure returns(uint256, uint256) {
         return _token0 < _token1 ? (_amount0, _amount1) : (_amount1, _amount0);

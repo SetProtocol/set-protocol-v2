@@ -69,7 +69,7 @@ export class ArrakisV1Fixture {
    *
    * @param _owner          the owner of the deployed Arrakis system
    * @param _uniswapV3Setup uniswapV3Fixture
-   * @returns               a new Arrakis Vault holding UniswapV3 position on given tokens
+   * @returns               void promise
    */
   public async deployVaultAndFactoryAndinitialize(
     _owner: Account,
