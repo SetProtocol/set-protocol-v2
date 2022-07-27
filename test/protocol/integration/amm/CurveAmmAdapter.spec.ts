@@ -59,18 +59,6 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
   let ammModule: AmmModule;
 
   before(async () => {
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
-            blockNumber: 15118000,
-          },
-        },
-      ],
-    });
-
     [owner] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -79,13 +67,6 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
 
     ammModule = await deployer.modules.deployAmmModule(setup.controller.address);
     await setup.controller.addModule(ammModule.address);
-  });
-
-  after(async () => {
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [],
-    });
   });
 
   const runTestScenarioForCurveLP = ({

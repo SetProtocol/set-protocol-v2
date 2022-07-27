@@ -52,18 +52,6 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
   let ammModule: AmmModule;
 
   before(async () => {
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
-            blockNumber: 15118000,
-          },
-        },
-      ],
-    });
-
     [owner, manager] = await getAccounts();
 
     deployer = new DeployHelper(owner.wallet);
@@ -72,13 +60,6 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
 
     ammModule = await deployer.modules.deployAmmModule(setup.controller.address);
     await setup.controller.addModule(ammModule.address);
-  });
-
-  after(async () => {
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [],
-    });
   });
 
   const runTestScenarioForCurveLP = ({
@@ -206,30 +187,35 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
             expect(await coins[i].balanceOf(setToken.address)).to.eq(subjectCoinBalances[i]);
           }
 
-          const expectedNewLpTokens =
-            coinCount === 2
-              ? await poolMinter["calc_token_amount(uint256[2],bool)"](
+          let expectedNewLpTokens = BigNumber.from(0);
+          switch (coinCount) {
+            case 2:
+              expectedNewLpTokens = await poolMinter["calc_token_amount(uint256[2],bool)"](
                 [coinBalances[0], coinBalances[1]],
                 true,
-              )
-              : coinCount === 3
-                ? await poolMinter["calc_token_amount(uint256[3],bool)"](
-                  [coinBalances[0], coinBalances[1], coinBalances[2]],
-                  true,
-                )
-                : coinCount === 4
-                  ? await poolMinter["calc_token_amount(uint256[4],bool)"](
-                    [coinBalances[0], coinBalances[1], coinBalances[2], coinBalances[3]],
-                    true,
-                  )
-                  : BigNumber.from(0);
+              );
+              break;
+            case 3:
+              expectedNewLpTokens = await poolMinter["calc_token_amount(uint256[3],bool)"](
+                [coinBalances[0], coinBalances[1], coinBalances[2]],
+                true,
+              );
+              break;
+            case 4:
+              expectedNewLpTokens = await poolMinter["calc_token_amount(uint256[4],bool)"](
+                [coinBalances[0], coinBalances[1], coinBalances[2], coinBalances[3]],
+                true,
+              );
+              break;
+          }
 
           await subject();
 
           // `calc_token_amount` of `USDT/WBTC/WETH` pool return correct amount out for add_liquidity, but it doesn't return for `MIM/3CRV` pools.
           // there is some external logic for fees, here we test actual output and expected output with 0.1% slippage
+          const newLpTokens = (await poolToken.balanceOf(setToken.address)).sub(lpBalanceBefore);
           expectCloseTo(
-            (await poolToken.balanceOf(setToken.address)).sub(lpBalanceBefore),
+            newLpTokens,
             expectedNewLpTokens,
             expectedNewLpTokens.div(1000), // 0.1%
           );
