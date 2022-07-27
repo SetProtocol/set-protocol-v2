@@ -203,6 +203,15 @@ import { PerpV2InsuranceFund__factory } from "../../typechain/factories/PerpV2In
 import { PerpV2AccountBalance__factory } from "../../typechain/factories/PerpV2AccountBalance__factory";
 import { PerpV2Exchange__factory } from "../../typechain/factories/PerpV2Exchange__factory";
 
+import {
+  GUniRouter,
+  ArrakisFactoryV1,
+  ArrakisVaultV1
+} from "../contracts/arrakis";
+import { ArrakisFactoryV1__factory } from "../../typechain/factories/ArrakisFactoryV1__factory";
+import { ArrakisVaultV1__factory } from "../../typechain/factories/ArrakisVaultV1__factory";
+import { GUniRouter__factory } from "../../typechain/factories/GUniRouter__factory";
+
 
 export default class DeployExternalContracts {
   private _deployerSigner: Signer;
@@ -739,5 +748,22 @@ export default class DeployExternalContracts {
 
   public async getVToken(token: Address): Promise<PerpV2BaseToken> {
     return await new PerpV2BaseToken__factory(this._deployerSigner).attach(token);
+  }
+
+  // Arrakis/Gelato
+  public async deployArrakisFactoryV1(uniswapV3factory: Address): Promise<ArrakisFactoryV1> {
+    return await new ArrakisFactoryV1__factory(this._deployerSigner).deploy(uniswapV3factory);
+  }
+
+  public async deployGUniRouter(uniswapV3factory: Address, weth: Address): Promise<GUniRouter> {
+    return await new GUniRouter__factory(this._deployerSigner).deploy(uniswapV3factory, weth);
+  }
+
+  public async deployArrakisVaultV1(_gelato: Address, _arrakisTreasury: Address): Promise<ArrakisVaultV1> {
+    return await new ArrakisVaultV1__factory(this._deployerSigner).deploy(_gelato, _arrakisTreasury);
+  }
+
+  public async getArrakisVaultV1Instance(pool: Address): Promise<ArrakisVaultV1> {
+    return await new ArrakisVaultV1__factory(this._deployerSigner).attach(pool);
   }
 }
