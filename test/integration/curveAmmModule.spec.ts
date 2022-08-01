@@ -375,8 +375,8 @@ describe("CurveAmmAdapter [ @forked-mainnet ]", () => {
       poolTokenWhale: "0xfE4d9D4F102b40193EeD8aA6C52BD87a328177fc", // Curve USDT/WBTC/WETH whale
       coinWhales: [
         "0x5a52E96BAcdaBb82fd05763E25335261B270Efcb", // USDT whale
-        "0xf584F8728B874a6a5c7A8d4d387C9aae9172D621", // WBTC whale
-        "0x06920C9fC643De77B99cB7670A944AD31eaAA260", // WETH whale
+        "0x2FAF487A4414Fe77e2327F0bf4AE2a264a776AD2", // WBTC whale
+        "0x56178a0d5F301bAf6CF3e1Cd53d9863437345Bf9", // WETH whale
       ],
     },
   ];
