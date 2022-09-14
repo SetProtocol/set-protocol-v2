@@ -2,7 +2,12 @@
   "name": "@setprotocol/set-protocol-v2",
   "version": "0.11.0",
   "description": "",
-  "main": "dist",
+  "exports": {
+    "./utils/test": {
+      "import": "./dist/esm/utils/test/index.js",
+      "require": "./dist/utils/test/index.js"
+    }
+  },
   "files": [
     "artifacts",
     "dist",
@@ -45,7 +50,7 @@
     "test:fast": "NO_COMPILE=true TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost --no-compile",
     "test:fast:compile": "TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost",
     "transpile": "tsc",
-    "transpile:dist:latest": "tsc --project tsconfig.dist.json",
+    "transpile:dist:latest": "tsc --project tsconfig.dist.json && tsc -p tsconfig.dist.esm.json",
     "transpile:dist:hardhat": "tsc --project tsconfig.hardhat.json",
     "typechain": "npx hardhat typechain",
     "semantic-release": "semantic-release"
