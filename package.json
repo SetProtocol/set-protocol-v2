@@ -11,7 +11,8 @@
     "utils",
     "scripts",
     "typechain",
-    "tsconfig.json"
+    "tsconfig.json",
+    "hardhat.config.ts"
   ],
   "scripts": {
     "build": "yarn clean && yarn compile && yarn build:ts:latest",
