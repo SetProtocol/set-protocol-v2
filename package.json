@@ -3,9 +3,33 @@
   "version": "0.11.0",
   "description": "",
   "exports": {
+    "./tasks": {
+      "import": "./dist/esm/tasks/index.js",
+      "requre": "./dist/tasks/index.js"
+    },
+    "./typechain": {
+      "import": "./dist/esm/typechain/index.js",
+      "requre": "./dist/typechain/index.js"
+    },
     "./utils/test": {
       "import": "./dist/esm/utils/test/index.js",
       "require": "./dist/utils/test/index.js"
+    },
+    "./utils/common": {
+      "import": "./dist/esm/utils/common/index.js",
+      "require": "./dist/utils/common/index.js"
+    },
+    "./utils/contracts": {
+      "import": "./dist/esm/utils/contracts/index.js",
+      "require": "./dist/utils/contracts/index.js"
+    },
+    "./utils/deploys": {
+      "import": "./dist/esm/utils/deploys/index.js",
+      "require": "./dist/utils/deploys/index.js"
+    },
+    "./utils/tasks": {
+      "import": "./dist/esm/utils/tasks/index.js",
+      "require": "./dist/utils/tasks/index.js"
     }
   },
   "files": [

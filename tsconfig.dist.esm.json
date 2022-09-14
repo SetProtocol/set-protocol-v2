@@ -5,5 +5,8 @@
     "outDir": "dist/esm",
     "target": "esnext",
     "declarationDir": "dist/esm/types",
-  }
+  },
+  "exclude": [
+    "test/**/*.ts"
+  ]
 }
