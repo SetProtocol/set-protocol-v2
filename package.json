@@ -74,7 +74,8 @@
     "test:fast": "NO_COMPILE=true TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost --no-compile",
     "test:fast:compile": "TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost",
     "transpile": "tsc",
-    "transpile:dist:latest": "tsc --project tsconfig.dist.json && tsc -p tsconfig.dist.esm.json",
+    "transpile:dist:latest": "tsc --project tsconfig.dist.json && yarn transpile:dist:esm",
+    "transpile:dist:esm": "tsc -p tsconfig.dist.esm.json && echo >dist/esm/package.json \"{\\\"type\\\":\\\"module\\\"}\"",
     "transpile:dist:hardhat": "tsc --project tsconfig.hardhat.json",
     "typechain": "npx hardhat typechain",
     "semantic-release": "semantic-release"
