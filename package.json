@@ -5,11 +5,11 @@
   "exports": {
     "./tasks": {
       "import": "./dist/esm/tasks/index.js",
-      "requre": "./dist/tasks/index.js"
+      "require": "./dist/tasks/index.js"
     },
     "./typechain": {
       "import": "./dist/esm/typechain/index.js",
-      "requre": "./dist/typechain/index.js"
+      "require": "./dist/typechain/index.js"
     },
     "./utils/test": {
       "import": "./dist/esm/utils/test/index.js",
