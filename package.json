@@ -119,6 +119,7 @@
     "ethereum-waffle": "^3.4.0",
     "hardhat": "^2.6.4",
     "hardhat-contract-sizer": "^2.5.0",
+    "hardhat-deploy": "^0.11.15",
     "husky": "^4.2.5",
     "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",

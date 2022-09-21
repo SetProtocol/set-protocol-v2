@@ -8,6 +8,7 @@ import { privateKeys } from "./utils/wallets";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "solidity-coverage";
+import "hardhat-deploy";
 import "./tasks";
 
 const forkingConfig = {
