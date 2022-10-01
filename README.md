@@ -8,6 +8,8 @@
 # Set Protocol V2 Contract Repository
 
 ## Contracts
+Repo originally forked from [Set Protocol v2](https://github.com/SetProtocol/set-protocol-v2) with approval from Set Labs. This repo is intended to house both original code (including most of this README) *and* new code that extends the protocol. 
+
 [Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Hardhat](https://hardhat.org/) as a development environment for compiling, testing, and deploying our contracts.
 
 ## Development
@@ -97,36 +99,4 @@ The disclosure of security vulnerabilities helps us ensure the security of our u
 **How to report a security vulnerability?**
 
 If you believe you’ve found a security vulnerability in one of our contracts or platforms,
-send it to us by emailing [security@setprotocol.com](mailto:security@setprotocol.com).
-Please include the following details with your report:
-
-* A description of the location and potential impact of the vulnerability.
-
-* A detailed description of the steps required to reproduce the vulnerability.
-
-**Scope**
-
-Any vulnerability not previously disclosed by us or our independent auditors in their reports.
-
-**Guidelines**
-
-We require that all reporters:
-
-* Make every effort to avoid privacy violations, degradation of user experience,
-disruption to production systems, and destruction of data during security testing.
-
-* Use the identified communication channels to report vulnerability information to us.
-
-* Keep information about any vulnerabilities you’ve discovered confidential between yourself and
-Set until we’ve had 30 days to resolve the issue.
-
-If you follow these guidelines when reporting an issue to us, we commit to:
-
-* Not pursue or support any legal action related to your findings.
-
-* Work with you to understand and resolve the issue quickly
-(including an initial confirmation of your report within 72 hours of submission).
-
-* Grant a monetary reward based on the OWASP risk assessment methodology.
-
-[10]: https://semantic-release.gitbook.io/semantic-release/v/beta/
+please refer to our [ImmuneFi Bug Bounty](https://immunefi.com/bounty/indexcoop/). 
