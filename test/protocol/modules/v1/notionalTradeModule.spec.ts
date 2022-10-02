@@ -296,6 +296,15 @@ describe("NotionalTradeModule", () => {
                     await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
                   });
                 });
+
+                describe("when the new limit is zero", async () => {
+                  beforeEach(async () => {
+                    subjectDecodedIdGasLimit = 0;
+                  });
+                  it("should revert", async () => {
+                    await expect(subject()).to.be.revertedWith("DecodedIdGasLimit cannot be zero");
+                  });
+                });
               });
 
               describe("#updateAnySetAllowed", async () => {
