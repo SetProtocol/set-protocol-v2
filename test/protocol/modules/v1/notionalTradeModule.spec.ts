@@ -425,6 +425,21 @@ describe("NotionalTradeModule", () => {
                     expect(isModuleEnabled).to.eq(true);
                   });
 
+                  describe("when non contract module is added to integration registry", async () => {
+                    beforeEach(async () => {
+                      const nonContractModule = owner.address;
+                      await setup.controller.addModule(nonContractModule);
+                    });
+
+                    it("should enable the Module on the SetToken", async () => {
+                      await subject();
+                      const isModuleEnabled = await setToken.isInitializedModule(
+                        notionalTradeModule.address,
+                      );
+                      expect(isModuleEnabled).to.eq(true);
+                    });
+                  });
+
                   describe("when debt issuance module is not added to integration registry", async () => {
                     beforeEach(async () => {
                       await setup.integrationRegistry.removeIntegration(
