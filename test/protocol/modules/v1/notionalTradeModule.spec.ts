@@ -1478,7 +1478,7 @@ describe("NotionalTradeModule", () => {
                         describe(`when redeeming to ${redeemToken}`, () => {
                           let outputToken: IERC20;
                           beforeEach(async () => {
-                            const toUnderlying = redeemToken == "underlying";
+                            const toUnderlying = redeemToken == "underlyingToken";
                             await notionalTradeModule
                               .connect(manager.wallet)
                               .setRedeemToUnderlying(subjectSetToken, toUnderlying);
