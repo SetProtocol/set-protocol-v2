@@ -168,7 +168,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         } else {
             (token, /* */, /* */) = getAssetToken();
         }
-        isETH = address(token) == ETH_ADDRESS;
+        isETH = address(token) == address(weth);
     }
 
 
