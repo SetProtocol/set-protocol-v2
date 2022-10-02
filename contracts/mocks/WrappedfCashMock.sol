@@ -36,6 +36,7 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
     IERC20 private assetToken;
     int256 private assetPrecision;
     TokenType private tokenType;
+    bool private isEth;
 
     IERC20 private weth;
 
@@ -46,10 +47,11 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
 
     address internal constant ETH_ADDRESS = address(0);
 
-    constructor (IERC20 _assetToken, IERC20 _underlyingToken, IERC20 _weth) public ERC20("FCashMock", "FCM") {
+    constructor (IERC20 _assetToken, IERC20 _underlyingToken, IERC20 _weth, bool _isEth) public ERC20("FCashMock", "FCM") {
         assetToken = _assetToken;
         underlyingToken = _underlyingToken;
         weth = _weth;
+        isEth = _isEth;
     }
 
     function initialize(uint16 _currencyId, uint40 _maturity) external override {
@@ -162,13 +164,14 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         revertDecodedID = _revertDecodedID;
     }
 
-    function getToken(bool useUnderlying) public view override returns (IERC20 token, bool isETH) {
+    function getToken(bool useUnderlying) public view override returns (IERC20, bool) {
+        IERC20 token;
         if (useUnderlying) {
             (token, /* */) = getUnderlyingToken();
         } else {
             (token, /* */, /* */) = getAssetToken();
         }
-        isETH = address(token) == address(weth);
+        return(token, isEth);
     }
 
 

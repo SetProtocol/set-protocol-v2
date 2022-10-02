@@ -517,11 +517,13 @@ export default class DeployMocks {
     assetToken: Address,
     underlyingToken: Address,
     weth: Address,
+    isEth: boolean,
   ): Promise<WrappedfCashMock> {
     return await new WrappedfCashMock__factory(this._deployerSigner).deploy(
       assetToken,
       underlyingToken,
       weth,
+      isEth,
     );
   }
 

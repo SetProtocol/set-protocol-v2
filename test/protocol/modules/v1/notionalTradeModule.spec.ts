@@ -209,10 +209,12 @@ describe("NotionalTradeModule", () => {
                 underlyingToken.address == setup.weth.address
                   ? ADDRESS_ZERO
                   : underlyingToken.address;
+              const isEth = underlyingToken.address == setup.weth.address;
               wrappedfCashMock = await deployer.mocks.deployWrappedfCashMock(
                 assetToken.address,
                 underlyingAddress,
                 setup.weth.address,
+                isEth,
               );
               currencyId = 1;
               maturity = (await ethers.provider.getBlock("latest")).timestamp + 30 * 24 * 3600;
