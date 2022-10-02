@@ -164,14 +164,13 @@ contract WrappedfCashMock is ERC20, IWrappedfCash {
         revertDecodedID = _revertDecodedID;
     }
 
-    function getToken(bool useUnderlying) public view override returns (IERC20, bool) {
-        IERC20 token;
+    function getToken(bool useUnderlying) public view override returns (IERC20 token, bool _isEth) {
         if (useUnderlying) {
             (token, /* */) = getUnderlyingToken();
+            _isEth = isEth;
         } else {
             (token, /* */, /* */) = getAssetToken();
         }
-        return(token, isEth);
     }
 
 
