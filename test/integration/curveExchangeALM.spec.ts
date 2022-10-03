@@ -289,7 +289,7 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
         // 1.02 astETH. Technically the exchange rate at this block number is something closer
         // to 1.0145 which vaguely matches the actual value we receive below.
         const expectedFirstPositionUnitMax = initialPositions[0].unit.add(
-          subjectBorrowQuantityUnits.add(ether(0.02)),
+          subjectBorrowQuantityUnits.add(ether(0.07)),
         );
 
         expect(initialPositions.length).to.eq(1);
@@ -345,7 +345,7 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
         // If we borrowed 1 WETH and exchanged for ~1.02 STETH from the exchange,
         // then we expect the balance of steth on the exchange to also decrease
         // by that same amount
-        const maxDestinationQuantity = subjectBorrowQuantityUnits.add(ether(0.02));
+        const maxDestinationQuantity = subjectBorrowQuantityUnits.add(ether(0.08));
 
         // Will be at most: oldBalance - minReceived
         // Will be at least: oldBalance - borrowQuantity
@@ -400,12 +400,10 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
           steth.address,
           setToken.address,
           ether(1),
-          ether(0.9),
+          ether(1),
           EMPTY_BYTES,
         );
-
         const data = tradeCalldata[2];
-
         await aaveLeverageModule
           .connect(manager.wallet)
           .lever(
@@ -413,7 +411,7 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
             weth.address,
             steth.address,
             ether(1),
-            ether(0.9),
+            ether(1),
             adapterName,
             data,
           );
@@ -423,7 +421,8 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
         subjectSetToken = setToken.address;
         subjectCollateralAsset = steth.address;
         subjectRepayAsset = weth.address;
-        subjectRedeemQuantityUnits = ether(1.0158);
+
+        subjectRedeemQuantityUnits = ether(1.06645);
         subjectMinRepayQuantityUnits = ether(1);
         subjectAdapterName = adapterName;
 
@@ -492,7 +491,9 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
         expect(newSecondPosition.positionState).to.eq(0); // Pay everything back
 
         // Due to exchange rates in Curve Pool, there's a tiny bit of WETH left in the set token when redeeming
-        // with the current parameters. Actual WETH left in the Set = 428_176_647_407_742. So around 0.0004 ETH
+        // with the current parameters as they are not 1:1. Actual WETH left in the Set = 19_104_483_628_943.
+        // So around 0.000019 ETH
+        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit.add(BigNumber.from(19104483628943)));
         expect(newSecondPosition.unit.div(ether(0.0001))).to.closeTo(expectedSecondPositionUnit, 4);
         expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
       });

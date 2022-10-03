@@ -36,8 +36,6 @@ import { PriceOracleProxy__factory } from "../../typechain/factories/PriceOracle
 import { Unitroller__factory } from "../../typechain/factories/Unitroller__factory";
 import { WETH9__factory } from "../../typechain/factories/WETH9__factory";
 import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/WhitePaperInterestRateModel__factory";
-import { WrappedfCash__factory } from "../../typechain/factories/WrappedfCash__factory";
-import { WrappedfCashFactory__factory } from "../../typechain/factories/WrappedfCashFactory__factory";
 
 import {
   CurveDeposit,
@@ -70,11 +68,6 @@ import {
   UniswapV2Pair,
   UniswapV2Router02,
 } from "../contracts/uniswap";
-
-import {
-  WrappedfCash,
-  WrappedfCashFactory
-} from "../contracts/notional";
 
 import { StakingRewards__factory } from "../../typechain/factories/StakingRewards__factory";
 import { Uni__factory } from "../../typechain/factories/Uni__factory";
@@ -726,16 +719,6 @@ export default class DeployExternalContracts {
   public async deployPerpV2ClearingHouse(): Promise<PerpV2ClearingHouse> {
     return await new PerpV2ClearingHouse__factory(this._deployerSigner).deploy();
   }
-
-  // Notional
-  public async deployWrappedfCash(notionalProxy: Address, weth: Address): Promise<WrappedfCash> {
-    return await new WrappedfCash__factory(this._deployerSigner).deploy(notionalProxy, weth);
-  }
-
-  public async deployWrappedfCashFactory(beacon: Address): Promise<WrappedfCashFactory> {
-    return await new WrappedfCashFactory__factory(this._deployerSigner).deploy(beacon);
-  }
-
 
   public async getVToken(token: Address): Promise<PerpV2BaseToken> {
     return await new PerpV2BaseToken__factory(this._deployerSigner).attach(token);

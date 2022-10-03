@@ -48,7 +48,9 @@ export {
   getWaffleExpect,
   increaseTimeAsync,
   mineBlockAsync,
-  cacheBeforeEach
+  cacheBeforeEach,
+  convertNotionalToPosition,
+  convertPositionToNotional
 } from "./testingUtils";
 export {
   getRandomAddress
