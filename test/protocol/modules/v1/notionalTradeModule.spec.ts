@@ -1539,7 +1539,7 @@ describe("NotionalTradeModule", () => {
                                       underlyingTokenAmount,
                                     );
 
-                                    if (redeemToken == "underlying") {
+                                    if (redeemToken == "underlyingToken") {
                                       await underlyingToken
                                         .connect(caller)
                                         .approve(
