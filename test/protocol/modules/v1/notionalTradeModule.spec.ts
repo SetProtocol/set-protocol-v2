@@ -1483,7 +1483,7 @@ describe("NotionalTradeModule", () => {
                               .connect(manager.wallet)
                               .setRedeemToUnderlying(subjectSetToken, toUnderlying);
                             outputToken =
-                              redeemToken == "underlying" ? underlyingToken : assetToken;
+                              toUnderlying ? underlyingToken : assetToken;
                           });
                           ["issue", "redeem", "removeModule", "manualTrigger"].forEach(
                             triggerAction => {
