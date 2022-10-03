@@ -440,6 +440,7 @@ describe("NotionalTradeModule", () => {
                     beforeEach(async () => {
                       const nonContractModule = owner.address;
                       await setup.controller.addModule(nonContractModule);
+                      await setToken.connect(manager.wallet).addModule(nonContractModule);
                     });
 
                     it("should enable the Module on the SetToken", async () => {
