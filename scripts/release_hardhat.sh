@@ -3,7 +3,7 @@
 set -o errexit
 
 # Auto-publishes a specially built release to the @hardhat tag using version schema `x.x.x-hardhat.1`
-# which can be installed with `yarn add @setprotocol/set-protocol-v2@hardhat`
+# which can be installed with `yarn add @indexcoop/index-protocol@hardhat`
 # See scripts/prepublish_only.sh for details about this build.
 #
 # The `release_default...` branch config here is necessary to trick the semantic-release tool into publishing
