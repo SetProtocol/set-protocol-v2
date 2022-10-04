@@ -1,5 +1,5 @@
 {
-  "name": "@setprotocol/set-protocol-v2",
+  "name": "@indexcoop/index-protocol",
   "version": "0.11.0",
   "description": "",
   "main": "dist",
@@ -51,11 +51,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SetProtocol/set-protocol-v2.git"
+    "url": "https://github.com/IndexCoop/index-protocol.git"
   },
-  "author": "felix2feng",
+  "author": "IndexCoop",
   "license": "MIT",
-  "homepage": "https://github.com/SetProtocol",
+  "homepage": "https://indexcoop.com/",
   "resolutions": {
     "babel-code-frame/chalk": "4.1.0"
   },

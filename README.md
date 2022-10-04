@@ -8,7 +8,7 @@
 # Set Protocol V2 Contract Repository
 
 ## Contracts
-Repo originally forked from [Set Protocol v2](https://github.com/SetProtocol/set-protocol-v2) with approval from Set Labs. This repo is intended to house both original code (including most of this README) *and* new code that extends the protocol. 
+Repo originally forked from [Set Protocol v2](https://github.com/indexcoop/index-protocol) with approval from Set Labs. This repo is intended to house both original code (including most of this README) *and* new code that extends the protocol. 
 
 [Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Hardhat](https://hardhat.org/) as a development environment for compiling, testing, and deploying our contracts.
 
@@ -50,7 +50,7 @@ OR `yarn test:clean` if contracts have been typings need to be updated
 We publish our contracts as well as [hardhat][22] and [typechain][23] compilation artifacts to npm.
 
 ```
-npm install @setprotocol/set-protocol-v2
+npm install @indexcoop/index-protocol
 ```
 
 The distribution also comes with fixtures for mocking and testing SetProtocol's interactions with
@@ -59,8 +59,8 @@ other protocols including Uniswap, Balancer, Compound (and many more.) To use th
 #### Example Usage
 
 ```ts
-import { PerpV2Fixture } from "@setprotocol/set-protocol-v2/dist/utils/fixtures/PerpV2Fixture";
-import { getPerpV2Fixture } from "@setprotocol/set-protocol-v2/dist/utils/test";
+import { PerpV2Fixture } from "@indexcoop/index-protocol/dist/utils/fixtures/PerpV2Fixture";
+import { getPerpV2Fixture } from "@indexcoop/index-protocol/dist/utils/test";
 
 let perpSetup: PerpV2Fixture;
 perpSetup = getPerpV2Fixture(...);
