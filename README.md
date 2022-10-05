@@ -1,9 +1,5 @@
-<p align="center">
-  <a href="https://circleci.com/gh/IndexCoop/index-protocol/tree/master">
-    <img src="https://img.shields.io/circleci/project/github/IndexCoop/index-protocol/master.svg" />
-  </a>
-  <a href='https://coveralls.io/github/IndexCoop/index-protocol?branch=master'><img src='https://coveralls.io/repos/github/IndexCoop/index-protocol/badge.svg?branch=master' alt='Coverage Status' /></a>
-</p>
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/IndexCoop/index-protocol/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/IndexCoop/index-protocol/tree/master)
+[![Coverage Status](https://coveralls.io/repos/github/IndexCoop/index-protocol/badge.svg?branch=master)](https://coveralls.io/github/IndexCoop/index-protocol?branch=master)
 
 # Set Protocol V2 Contract Repository
 
