@@ -123,14 +123,6 @@ jobs:
           name: Publish "latest" release
           command: yarn publish:ci:latest
 
-  release_hardhat:
-    <<: *default_env
-    steps:
-      - setup_job
-      - run:
-          name: Publish "hardhat" release
-          command: yarn publish:ci:hardhat
-
 workflows:
   version: 2
   build-and-test:
@@ -149,12 +141,8 @@ workflows:
           requires:
             - coverage
 
-      # Publish `hardhat` before `latest` second so that repo's package version is set correctly on exit
-      - release_hardhat:
-          requires:
-            - checkout_and_compile
       - release_latest:
           requires:
-            - release_hardhat
+            - checkout_and_compile
 
 
