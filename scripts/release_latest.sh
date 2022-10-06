@@ -3,7 +3,7 @@
 set -o errexit
 
 # Auto-publishes `latest` from master, updates package version on github
-# Version format is `x.x.x` and installs with `yarn add @setprotocol/set-protocol-v2`
+# Version format is `x.x.x` and installs with `yarn add @indexcoop/index-protocol`
 # `package.json` version field is updated and pushed to Github
 echo '{
   "branches": [

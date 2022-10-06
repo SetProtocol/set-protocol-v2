@@ -1,6 +1,9 @@
 {
-  "name": "@setprotocol/set-protocol-v2",
-  "version": "0.11.0",
+  "name": "@indexcoop/index-protocol",
+  "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "",
   "exports": {
     "./tasks": {
@@ -82,11 +85,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SetProtocol/set-protocol-v2.git"
+    "url": "https://github.com/IndexCoop/index-protocol.git"
   },
-  "author": "felix2feng",
+  "author": "IndexCoop",
   "license": "MIT",
-  "homepage": "https://github.com/SetProtocol",
+  "homepage": "https://indexcoop.com/",
   "resolutions": {
     "babel-code-frame/chalk": "4.1.0"
   },
@@ -144,8 +147,6 @@
     "jsbi": "^3.2.5",
     "module-alias": "^2.2.2",
     "notional-solidity-sdk": "https://github.com/ckoopmann/notional-solidity-sdk.git#77aa2f8fd8a72b8f5865e561f2d39d4606c3740c",
-    "wrapped-fcash": "https://github.com/ckoopmann/wrapped-fcash.git#6b7d870c9b750aa343f0405f3543c9bbb0e3cdfc",
-    "openzeppelin-contracts-V4": "npm:@openzeppelin/contracts@4.5",
     "@openzeppelin-upgradeable/contracts": "npm:@openzeppelin/contracts-upgradeable@4.5.2",
     "replace-in-file": "^6.1.0"
   },

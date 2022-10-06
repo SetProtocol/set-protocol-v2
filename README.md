@@ -1,13 +1,11 @@
-<p align="center">
-  <a href="https://circleci.com/gh/SetProtocol/set-protocol-v2/tree/master">
-    <img src="https://img.shields.io/circleci/project/github/SetProtocol/set-protocol-v2/master.svg" />
-  </a>
-  <a href='https://coveralls.io/github/SetProtocol/set-protocol-v2?branch=master'><img src='https://coveralls.io/repos/github/SetProtocol/set-protocol-v2/badge.svg?branch=master&amp;t=4pzROZ' alt='Coverage Status' /></a>
-</p>
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/IndexCoop/index-protocol/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/IndexCoop/index-protocol/tree/master)
+[![Coverage Status](https://coveralls.io/repos/github/IndexCoop/index-protocol/badge.svg?branch=master)](https://coveralls.io/github/IndexCoop/index-protocol?branch=master)
 
 # Set Protocol V2 Contract Repository
 
 ## Contracts
+Repo originally forked from [Set Protocol v2](https://github.com/indexcoop/index-protocol) with approval from Set Labs. This repo is intended to house both original code (including most of this README) *and* new code that extends the protocol. 
+
 [Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Hardhat](https://hardhat.org/) as a development environment for compiling, testing, and deploying our contracts.
 
 ## Development
@@ -48,7 +46,7 @@ OR `yarn test:clean` if contracts have been typings need to be updated
 We publish our contracts as well as [hardhat][22] and [typechain][23] compilation artifacts to npm.
 
 ```
-npm install @setprotocol/set-protocol-v2
+npm install @indexcoop/index-protocol
 ```
 
 The distribution also comes with fixtures for mocking and testing SetProtocol's interactions with
@@ -57,8 +55,8 @@ other protocols including Uniswap, Balancer, Compound (and many more.) To use th
 #### Example Usage
 
 ```ts
-import { PerpV2Fixture } from "@setprotocol/set-protocol-v2/dist/utils/fixtures/PerpV2Fixture";
-import { getPerpV2Fixture } from "@setprotocol/set-protocol-v2/dist/utils/test";
+import { PerpV2Fixture } from "@indexcoop/index-protocol/dist/utils/fixtures/PerpV2Fixture";
+import { getPerpV2Fixture } from "@indexcoop/index-protocol/dist/utils/test";
 
 let perpSetup: PerpV2Fixture;
 perpSetup = getPerpV2Fixture(...);
@@ -97,36 +95,4 @@ The disclosure of security vulnerabilities helps us ensure the security of our u
 **How to report a security vulnerability?**
 
 If you believe you’ve found a security vulnerability in one of our contracts or platforms,
-send it to us by emailing [security@setprotocol.com](mailto:security@setprotocol.com).
-Please include the following details with your report:
-
-* A description of the location and potential impact of the vulnerability.
-
-* A detailed description of the steps required to reproduce the vulnerability.
-
-**Scope**
-
-Any vulnerability not previously disclosed by us or our independent auditors in their reports.
-
-**Guidelines**
-
-We require that all reporters:
-
-* Make every effort to avoid privacy violations, degradation of user experience,
-disruption to production systems, and destruction of data during security testing.
-
-* Use the identified communication channels to report vulnerability information to us.
-
-* Keep information about any vulnerabilities you’ve discovered confidential between yourself and
-Set until we’ve had 30 days to resolve the issue.
-
-If you follow these guidelines when reporting an issue to us, we commit to:
-
-* Not pursue or support any legal action related to your findings.
-
-* Work with you to understand and resolve the issue quickly
-(including an initial confirmation of your report within 72 hours of submission).
-
-* Grant a monetary reward based on the OWASP risk assessment methodology.
-
-[10]: https://semantic-release.gitbook.io/semantic-release/v/beta/
+please refer to our [ImmuneFi Bug Bounty](https://immunefi.com/bounty/indexcoop/). 

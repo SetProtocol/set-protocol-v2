@@ -1,5 +1,6 @@
 import chai from "chai";
 import { solidity } from "ethereum-waffle";
+import { SetToken } from "@utils/contracts";
 
 chai.use(solidity);
 
@@ -35,7 +36,6 @@ export const addSnapshotBeforeRestoreAfterEach = () => {
     await blockchain.revertAsync();
   });
 };
-
 
 // This is test sandboxing for nested snapshots. Can be used like a `beforeEach` statement.
 // The same caveats about time noted in the comment above apply.
@@ -77,19 +77,25 @@ export async function mineBlockAsync(): Promise<any> {
   await sendJSONRpcRequestAsync("evm_mine", []);
 }
 
-export async function increaseTimeAsync(
-  duration: BigNumber,
-): Promise<any> {
+export async function increaseTimeAsync(duration: BigNumber): Promise<any> {
   await sendJSONRpcRequestAsync("evm_increaseTime", [duration.toNumber()]);
   await mineBlockAsync();
 }
 
-async function sendJSONRpcRequestAsync(
-  method: string,
-  params: any[],
-): Promise<any> {
-  return provider.send(
-    method,
-    params,
-  );
+async function sendJSONRpcRequestAsync(method: string, params: any[]): Promise<any> {
+  return provider.send(method, params);
+}
+
+export async function convertNotionalToPosition(
+  notionalAmount: BigNumber,
+  setToken: SetToken,
+): Promise<BigNumber> {
+  return notionalAmount.mul(BigNumber.from(10).pow(18)).div(await setToken.totalSupply());
+}
+
+export async function convertPositionToNotional(
+  positionAmount: BigNumber,
+  setToken: SetToken,
+): Promise<BigNumber> {
+  return positionAmount.mul(await setToken.totalSupply()).div(BigNumber.from(10).pow(18));
 }

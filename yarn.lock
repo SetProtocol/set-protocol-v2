@@ -14313,12 +14313,6 @@ wrap-ansi@^7.0.0:
     string-width "^4.1.0"
     strip-ansi "^6.0.0"
 
-"wrapped-fcash@https://github.com/ckoopmann/wrapped-fcash.git#6b7d870c9b750aa343f0405f3543c9bbb0e3cdfc":
-  version "1.0.0"
-  resolved "https://github.com/ckoopmann/wrapped-fcash.git#6b7d870c9b750aa343f0405f3543c9bbb0e3cdfc"
-  dependencies:
-    dotenv "^10.0.0"
-
 wrappy@1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/wrappy/-/wrappy-1.0.2.tgz#b5243d8f3ec1aa35f1364605bc0d1036e30ab69f"
