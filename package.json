@@ -5,7 +5,36 @@
     "access": "public"
   },
   "description": "",
-  "main": "dist",
+  "exports": {
+    "./tasks": {
+      "import": "./dist/esm/tasks/index.js",
+      "require": "./dist/tasks/index.js"
+    },
+    "./typechain": {
+      "import": "./dist/esm/typechain/index.js",
+      "require": "./dist/typechain/index.js"
+    },
+    "./utils/test": {
+      "import": "./dist/esm/utils/test/index.js",
+      "require": "./dist/utils/test/index.js"
+    },
+    "./utils/common": {
+      "import": "./dist/esm/utils/common/index.js",
+      "require": "./dist/utils/common/index.js"
+    },
+    "./utils/contracts": {
+      "import": "./dist/esm/utils/contracts/index.js",
+      "require": "./dist/utils/contracts/index.js"
+    },
+    "./utils/deploys": {
+      "import": "./dist/esm/utils/deploys/index.js",
+      "require": "./dist/utils/deploys/index.js"
+    },
+    "./utils/tasks": {
+      "import": "./dist/esm/utils/tasks/index.js",
+      "require": "./dist/utils/tasks/index.js"
+    }
+  },
   "files": [
     "artifacts",
     "dist",
@@ -14,7 +43,8 @@
     "utils",
     "scripts",
     "typechain",
-    "tsconfig.json"
+    "tsconfig.json",
+    "hardhat.config.ts"
   ],
   "scripts": {
     "build": "yarn clean && yarn compile && yarn build:ts:latest",
@@ -47,7 +77,8 @@
     "test:fast": "NO_COMPILE=true TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost --no-compile",
     "test:fast:compile": "TS_NODE_TRANSPILE_ONLY=1 npx hardhat test --network localhost",
     "transpile": "tsc",
-    "transpile:dist:latest": "tsc --project tsconfig.dist.json",
+    "transpile:dist:latest": "tsc --project tsconfig.dist.json && yarn transpile:dist:esm",
+    "transpile:dist:esm": "tsc -p tsconfig.dist.esm.json && echo >dist/esm/package.json \"{\\\"type\\\":\\\"module\\\"}\"",
     "transpile:dist:hardhat": "tsc --project tsconfig.hardhat.json",
     "typechain": "npx hardhat typechain",
     "semantic-release": "semantic-release"
@@ -91,6 +122,7 @@
     "ethereum-waffle": "^3.4.0",
     "hardhat": "^2.6.4",
     "hardhat-contract-sizer": "^2.5.0",
+    "hardhat-deploy": "^0.11.15",
     "husky": "^4.2.5",
     "istanbul-combine-updated": "^0.3.0",
     "lint-staged": "^10.2.11",

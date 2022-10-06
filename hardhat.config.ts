@@ -8,6 +8,7 @@ import { privateKeys } from "./utils/wallets";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "solidity-coverage";
+import "hardhat-deploy";
 import "./tasks";
 
 const forkingConfig = {
@@ -22,6 +23,24 @@ const mochaConfig = {
 } as Mocha.MochaOptions;
 
 checkForkedProviderEnvironment();
+
+const hardhatNetworks = {
+  kovan: {
+    url: "https://kovan.infura.io/v3/" + process.env.INFURA_TOKEN,
+    // @ts-ignore
+    accounts: [`0x${process.env.KOVAN_DEPLOY_PRIVATE_KEY}`],
+  },
+  staging_mainnet: {
+    url: "https://mainnet.infura.io/v3/" + process.env.INFURA_TOKEN,
+    // @ts-ignore
+    accounts: [`0x${process.env.STAGING_MAINNET_DEPLOY_PRIVATE_KEY}`],
+  },
+  production: {
+    url: "https://mainnet.infura.io/v3/" + process.env.INFURA_TOKEN,
+    // @ts-ignore
+    accounts: [`0x${process.env.PRODUCTION_MAINNET_DEPLOY_PRIVATE_KEY}`],
+  },
+};
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -44,28 +63,14 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
       timeout: 200000,
       gas: 12000000,
-      blockGasLimit: 12000000
-    },
-    kovan: {
-      url: "https://kovan.infura.io/v3/" + process.env.INFURA_TOKEN,
-      // @ts-ignore
-      accounts: [`0x${process.env.KOVAN_DEPLOY_PRIVATE_KEY}`],
-    },
-    staging_mainnet: {
-      url: "https://mainnet.infura.io/v3/" + process.env.INFURA_TOKEN,
-      // @ts-ignore
-      accounts: [`0x${process.env.STAGING_MAINNET_DEPLOY_PRIVATE_KEY}`],
-    },
-    production: {
-      url: "https://mainnet.infura.io/v3/" + process.env.INFURA_TOKEN,
-      // @ts-ignore
-      accounts: [`0x${process.env.PRODUCTION_MAINNET_DEPLOY_PRIVATE_KEY}`],
+      blockGasLimit: 12000000,
     },
     // To update coverage network configuration got o .solcover.js and update param in providerOptions field
     coverage: {
       url: "http://127.0.0.1:8555", // Coverage launches its own ganache-cli client
       timeout: 200000,
     },
+    ...(process.env.KOVAN_DEPLOY_PRIVATE_KEY && hardhatNetworks),
   },
   // @ts-ignore
   typechain: {
