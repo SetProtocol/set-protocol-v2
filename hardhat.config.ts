@@ -2,13 +2,21 @@ require("dotenv").config();
 require("hardhat-contract-sizer");
 
 import chalk from "chalk";
-import { HardhatUserConfig } from "hardhat/config";
+import { HardhatUserConfig, task } from "hardhat/config";
 import { privateKeys } from "./utils/wallets";
 
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "solidity-coverage";
 import "hardhat-deploy";
+import {
+  TASK_COMPILE_SOLIDITY_GET_COMPILATION_JOB_FOR_FILE,
+  TASK_COMPILE_SOLIDITY_GET_DEPENDENCY_GRAPH,
+  TASK_COMPILE_SOLIDITY_COMPILE_JOB,
+} from "hardhat/builtin-tasks/task-names";
+
+import type { DependencyGraph, CompilationJob } from "hardhat/types/builtin-tasks";
+
 import "./tasks";
 
 const forkingConfig = {
@@ -104,15 +112,87 @@ function getHardhatPrivateKeys() {
 }
 
 function checkForkedProviderEnvironment() {
-  if (process.env.FORK &&
-      (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
-     ) {
-    console.log(chalk.red(
-      "You are running forked provider tests with invalid Alchemy credentials.\n" +
-      "Update your ALCHEMY_TOKEN settings in the `.env` file."
-    ));
+  if (
+    process.env.FORK &&
+    (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
+  ) {
+    console.log(
+      chalk.red(
+        "You are running forked provider tests with invalid Alchemy credentials.\n" +
+        "Update your ALCHEMY_TOKEN settings in the `.env` file.",
+      ),
+    );
     process.exit(1);
   }
 }
 
+task("index:compile:one", "Compiles a single contract in isolation")
+  .addPositionalParam("contractName")
+  .setAction(async function (args, env) {
+    const sourceName = env.artifacts.readArtifactSync(args.contractName).sourceName;
+
+    const dependencyGraph: DependencyGraph = await env.run(
+      TASK_COMPILE_SOLIDITY_GET_DEPENDENCY_GRAPH,
+      { sourceNames: [sourceName] },
+    );
+
+    const resolvedFiles = dependencyGraph.getResolvedFiles().filter(resolvedFile => {
+      return resolvedFile.sourceName === sourceName;
+    });
+
+    const compilationJob: CompilationJob = await env.run(
+      TASK_COMPILE_SOLIDITY_GET_COMPILATION_JOB_FOR_FILE,
+      {
+        dependencyGraph,
+        file: resolvedFiles[0],
+      },
+    );
+
+    await env.run(TASK_COMPILE_SOLIDITY_COMPILE_JOB, {
+      compilationJob,
+      compilationJobs: [compilationJob],
+      compilationJobIndex: 0,
+      emitsArtifacts: true,
+      quiet: true,
+    });
+
+    await env.run("typechain");
+  });
+
+task("index:compile:all", "Compiles all contracts in isolation").setAction(async function (
+  _args,
+  env,
+) {
+  const allArtifacts = await env.artifacts.getAllFullyQualifiedNames();
+  for (const contractName of allArtifacts) {
+    const sourceName = env.artifacts.readArtifactSync(contractName).sourceName;
+
+    const dependencyGraph: DependencyGraph = await env.run(
+      TASK_COMPILE_SOLIDITY_GET_DEPENDENCY_GRAPH,
+      {
+        sourceNames: [sourceName],
+      },
+    );
+
+    const resolvedFiles = dependencyGraph.getResolvedFiles().filter(resolvedFile => {
+      return resolvedFile.sourceName === sourceName;
+    });
+
+    const compilationJob: CompilationJob = await env.run(
+      TASK_COMPILE_SOLIDITY_GET_COMPILATION_JOB_FOR_FILE,
+      {
+        dependencyGraph,
+        file: resolvedFiles[0],
+      },
+    );
+
+    await env.run(TASK_COMPILE_SOLIDITY_COMPILE_JOB, {
+      compilationJob,
+      compilationJobs: [compilationJob],
+      compilationJobIndex: 0,
+      emitsArtifacts: true,
+      quiet: true,
+    });
+  }
+});
 export default config;
