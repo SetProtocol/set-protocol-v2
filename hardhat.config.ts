@@ -18,8 +18,8 @@ const forkingConfig = {
 
 const mochaConfig = {
   grep: "@forked-mainnet",
-  invert: (process.env.FORK) ? false : true,
-  timeout: (process.env.FORK) ? 100000 : 40000,
+  invert: process.env.FORK ? false : true,
+  timeout: process.env.FORK ? 100000 : 40000,
 } as Mocha.MochaOptions;
 
 checkForkedProviderEnvironment();
@@ -54,10 +54,10 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       allowUnlimitedContractSize: false,
-      forking: (process.env.FORK) ? forkingConfig : undefined,
+      forking: process.env.FORK ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
       gas: 12000000,
-      blockGasLimit: 12000000
+      blockGasLimit: 12000000,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -88,13 +88,11 @@ const config: HardhatUserConfig = {
   // These are external artifacts we don't compile but would like to improve
   // test performance for by hardcoding the gas into the abi at runtime
   // @ts-ignore
-  externalGasMods: [
-    "external/abi/perp",
-  ],
+  externalGasMods: ["external/abi/perp"],
 };
 
 function getHardhatPrivateKeys() {
-  return privateKeys.map(key => {
+  return privateKeys.map((key) => {
     const ONE_MILLION_ETH = "1000000000000000000000000";
     return {
       privateKey: key,
@@ -104,12 +102,16 @@ function getHardhatPrivateKeys() {
 }
 
 function checkForkedProviderEnvironment() {
-  if (process.env.FORK &&
-      (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")) {
-    console.log(chalk.red(
-      "You are running forked provider tests with invalid Alchemy credentials.\n" +
-      "Update your ALCHEMY_TOKEN settings in the `.env` file."
-    ));
+  if (
+    process.env.FORK &&
+    (!process.env.ALCHEMY_TOKEN || process.env.ALCHEMY_TOKEN === "fake_alchemy_token")
+  ) {
+    console.log(
+      chalk.red(
+        "You are running forked provider tests with invalid Alchemy credentials.\n" +
+          "Update your ALCHEMY_TOKEN settings in the `.env` file.",
+      ),
+    );
     process.exit(1);
   }
 }
