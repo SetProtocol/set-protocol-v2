@@ -3,5 +3,5 @@
   "parser": "typescript",
   "tabWidth": 2,
   "trailingComma": "all",
-  "arrowParens": "always"
+  "arrowParens": "avoid"
 }

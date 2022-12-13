@@ -100,7 +100,7 @@ const config: HardhatUserConfig = {
 };
 
 function getHardhatPrivateKeys() {
-  return privateKeys.map((key) => {
+  return privateKeys.map(key => {
     const ONE_MILLION_ETH = "1000000000000000000000000";
     return {
       privateKey: key,
@@ -134,7 +134,7 @@ task("index:compile:one", "Compiles a single contract in isolation")
       { sourceNames: [sourceName] },
     );
 
-    const resolvedFiles = dependencyGraph.getResolvedFiles().filter((resolvedFile) => {
+    const resolvedFiles = dependencyGraph.getResolvedFiles().filter(resolvedFile => {
       return resolvedFile.sourceName === sourceName;
     });
 
@@ -172,7 +172,7 @@ task("index:compile:all", "Compiles all contracts in isolation").setAction(async
       },
     );
 
-    const resolvedFiles = dependencyGraph.getResolvedFiles().filter((resolvedFile) => {
+    const resolvedFiles = dependencyGraph.getResolvedFiles().filter(resolvedFile => {
       return resolvedFile.sourceName === sourceName;
     });
 
