@@ -134,7 +134,7 @@ task("index:compile:one", "Compiles a single contract in isolation")
       { sourceNames: [sourceName] },
     );
 
-    const resolvedFiles = dependencyGraph.getResolvedFiles().filter(resolvedFile => {
+    const resolvedFiles = dependencyGraph.getResolvedFiles().filter((resolvedFile) => {
       return resolvedFile.sourceName === sourceName;
     });
 
@@ -172,7 +172,7 @@ task("index:compile:all", "Compiles all contracts in isolation").setAction(async
       },
     );
 
-    const resolvedFiles = dependencyGraph.getResolvedFiles().filter(resolvedFile => {
+    const resolvedFiles = dependencyGraph.getResolvedFiles().filter((resolvedFile) => {
       return resolvedFile.sourceName === sourceName;
     });
 
