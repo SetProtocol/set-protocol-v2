@@ -1,10 +1,14 @@
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/IndexCoop/index-protocol/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/IndexCoop/index-protocol/tree/master)
 [![Coverage Status](https://coveralls.io/repos/github/IndexCoop/index-protocol/badge.svg?branch=master)](https://coveralls.io/github/IndexCoop/index-protocol?branch=master)
 
-# Set Protocol V2 Contract Repository
+# Index Protocol Contract Repository
+
+An overview of Index Protocol is available in our [Gitbook docs][11]
+
+[11]: https://index-coop.gitbook.io/index-coop-community-handbook/protocols/index-protocol
 
 ## Contracts
-Repo originally forked from [Set Protocol v2](https://github.com/indexcoop/index-protocol) with approval from Set Labs. This repo is intended to house both original code (including most of this README) *and* new code that extends the protocol. 
+This repo was originally forked from [Set Protocol v2](https://github.com/indexcoop/index-protocol) with permission from Set Labs. It is intended to house both original code (including most of this README) *and* new code that extends the protocol. Not all of the original contracts will be deployed as part of Index Protocol, and in time we will clean up unused code.
 
 [Set Protocol](https://setprotocol.com/) is a specification for tokenized asset management strategies on the ethereum blockchain written in the Solidity programming language. We use [Hardhat](https://hardhat.org/) as a development environment for compiling, testing, and deploying our contracts.
 
@@ -78,21 +82,14 @@ description):
 
 
 ## Contributing
-We highly encourage participation from the community to help shape the development of Set. If you are interested in developing on top of Set Protocol or have any questions, please ping us on [Discord](https://discord.gg/ZWY66aR).
+We encourage participation from the community to help shape the development of Index Protocol. If you are interested in developing on top of Set Protocol or have any questions, please ping us on [Discord](https://discord.gg/ZWY66aR).
 
-## Security
+## Security Audits
 
-### TODO: Independent Audits
+Set Protocol V2 has undergone several audits. For more information see https://index-coop.gitbook.io/index-coop-community-handbook/protocols/security-and-audits
 
-### Code Coverage
+## Vulnerability Reporting ##
 
-All smart contracts are tested and have 100% line and branch coverage.
+If you believe you’ve found a security vulnerability in one of our contracts or platforms, we encourage you to submit it through our [ImmuneFi Bug Bounty][32] program.
 
-### Vulnerability Disclosure Policy
-
-The disclosure of security vulnerabilities helps us ensure the security of our users.
-
-**How to report a security vulnerability?**
-
-If you believe you’ve found a security vulnerability in one of our contracts or platforms,
-please refer to our [ImmuneFi Bug Bounty](https://immunefi.com/bounty/indexcoop/). 
+[32]: https://immunefi.com/bounty/indexcoop/
