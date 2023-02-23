@@ -17,6 +17,7 @@ import {
   DebtIssuanceMock,
   DebtModuleMock,
   ExplicitERC20Mock,
+  ERC4626Mock,
   ForceFunderMock,
   GaugeControllerMock,
   GodModeMock,
@@ -80,6 +81,7 @@ import { CurveStableswapMock__factory } from "../../typechain/factories/CurveSta
 import { CustomSetValuerMock__factory } from "../../typechain/factories/CustomSetValuerMock__factory";
 import { DebtIssuanceMock__factory } from "../../typechain/factories/DebtIssuanceMock__factory";
 import { DebtModuleMock__factory } from "../../typechain/factories/DebtModuleMock__factory";
+import { ERC4626Mock__factory } from "../../typechain/factories/ERC4626Mock__factory";
 import { ExplicitERC20Mock__factory } from "../../typechain/factories/ExplicitERC20Mock__factory";
 import { ForceFunderMock__factory } from "../../typechain/factories/ForceFunderMock__factory";
 import { GaugeControllerMock__factory } from "../../typechain/factories/GaugeControllerMock__factory";
@@ -475,6 +477,18 @@ export default class DeployMocks {
       rates.eth.usd,
       rates.usd.btc,
       rates.btc.usd,
+    );
+  }
+
+  public async deployERC4626Mock(
+    name: string,
+    symbol: string,
+    asset: Address,
+  ): Promise<ERC4626Mock> {
+    return await new ERC4626Mock__factory(this._deployerSigner).deploy(
+      name,
+      symbol,
+      asset,
     );
   }
 

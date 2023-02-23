@@ -28,6 +28,7 @@ import {
   CompoundBravoGovernanceAdapter,
   CompClaimAdapter,
   RgtMigrationWrapAdapter,
+  ERC4626WrapV2Adapter,
 } from "../contracts";
 import { Address, Bytes } from "./../types";
 
@@ -58,6 +59,7 @@ import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/Syn
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
 import { CompClaimAdapter__factory } from "../../typechain";
 import { RgtMigrationWrapAdapter__factory } from "../../typechain/factories/RgtMigrationWrapAdapter__factory";
+import { ERC4626WrapV2Adapter__factory } from "../../typechain/factories/ERC4626WrapV2Adapter__factory";
 
 export default class DeployAdapters {
   private _deployerSigner: Signer;
@@ -265,6 +267,10 @@ export default class DeployAdapters {
 
   public async deployAaveV2WrapV2Adapter(lendingPool: Address): Promise<AaveV2WrapV2Adapter> {
     return await new AaveV2WrapV2Adapter__factory(this._deployerSigner).deploy(lendingPool);
+  }
+
+  public async deployERC4626WrapV2Adapter(): Promise<ERC4626WrapV2Adapter> {
+    return await new ERC4626WrapV2Adapter__factory(this._deployerSigner).deploy();
   }
 
   public async deployCurveExchangeAdapter(
