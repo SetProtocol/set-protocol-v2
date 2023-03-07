@@ -121,7 +121,7 @@ jobs:
       - setup_job
       - add_ssh_keys:
           fingerprints:
-            - "46:a6:69:50:02:75:c5:bc:93:c8:52:96:b6:90:0e:70"
+            - "0b:b3:f8:c7:5b:27:54:c4:c4:b3:34:5b:83:12:7c:51"
       - run:
           name: Publish "latest" release
           command: yarn publish:ci:latest
