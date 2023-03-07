@@ -119,9 +119,6 @@ jobs:
     <<: *default_env
     steps:
       - setup_job
-      - add_ssh_keys:
-          fingerprints:
-            - "0b:b3:f8:c7:5b:27:54:c4:c4:b3:34:5b:83:12:7c:51"
       - run:
           name: Publish "latest" release
           command: yarn publish:ci:latest
