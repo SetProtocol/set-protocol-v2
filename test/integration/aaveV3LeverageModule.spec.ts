@@ -342,20 +342,35 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           });
         });
 
-        // describe("when the SetToken is not enabled on the controller", async () => {
-        //   beforeEach(async () => {
-        //     const nonEnabledSetToken = await createNonControllerEnabledSetToken(
-        //       [tokenAddresses.weth],
-        //       [ether(1)],
-        //       [aaveLeverageModule.address],
-        //     );
-        //     subjectSetToken = nonEnabledSetToken.address;
-        //   });
+        describe("when the SetToken is not enabled on the controller", async () => {
+          async function createNonControllerEnabledSetToken(
+            components: Address[],
+            positions: BigNumber[],
+            modules: Address[],
+          ): Promise<SetToken> {
+            return new SetToken__factory(owner.wallet).deploy(
+              components,
+              positions,
+              modules,
+              controller.address,
+              manager,
+              "TestSetToken",
+              "TEST",
+            );
+          }
+          beforeEach(async () => {
+            const nonEnabledSetToken = await createNonControllerEnabledSetToken(
+              [tokenAddresses.weth],
+              [ether(1)],
+              [aaveLeverageModule.address],
+            );
+            subjectSetToken = nonEnabledSetToken.address;
+          });
 
-        //   it("should revert", async () => {
-        //     await expect(subject()).to.be.revertedWith("Must be controller-enabled SetToken");
-        //   });
-        // });
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be controller-enabled SetToken");
+          });
+        });
       });
 
       describe("when isAllowListed is false", async () => {
