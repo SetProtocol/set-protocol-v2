@@ -5,8 +5,8 @@ import { SetToken } from "@utils/contracts";
 chai.use(solidity);
 
 // Use HARDHAT version of providers
-import { ethers } from "hardhat";
-import { BigNumber, providers } from "ethers";
+import { ethers, network } from "hardhat";
+import { BigNumber, providers, Signer } from "ethers";
 import { Blockchain } from "../common";
 
 const provider = ethers.provider;
@@ -98,4 +98,12 @@ export async function convertPositionToNotional(
   setToken: SetToken,
 ): Promise<BigNumber> {
   return positionAmount.mul(await setToken.totalSupply()).div(BigNumber.from(10).pow(18));
+}
+
+export async function impersonateAccount(address: string): Promise<Signer> {
+  await network.provider.request({
+    method: "hardhat_impersonateAccount",
+    params: [address],
+  });
+  return await ethers.getSigner(address);
 }

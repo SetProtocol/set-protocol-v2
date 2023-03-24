@@ -29,7 +29,7 @@ import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
 import { IExchangeAdapter } from "../../../interfaces/IExchangeAdapter.sol";
 import { ILendingPool } from "../../../interfaces/external/aave-v2/ILendingPool.sol";
-import { ILendingPoolAddressesProvider } from "../../../interfaces/external/aave-v2/ILendingPoolAddressesProvider.sol";
+import { IPoolAddressesProvider } from "../../../interfaces/external/aave-v3/IPoolAddressesProvider.sol";
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
 import { IProtocolDataProvider } from "../../../interfaces/external/aave-v2/IProtocolDataProvider.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
@@ -38,12 +38,12 @@ import { ModuleBase } from "../../lib/ModuleBase.sol";
 
 /**
  * @title AaveLeverageModule
- * @author Set Protocol
- * @notice Smart contract that enables leverage trading using Aave as the lending protocol.
+ * @author Set Protocol / Index Coop
+ * @notice Smart contract that enables leverage trading using AaveV3 as the lending protocol.
  * @dev Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
  * debt when borrowed assets are the same.
  */
-contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
+contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using AaveV2 for ISetToken;
 
     /* ============ Structs ============ */
@@ -189,7 +189,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     IProtocolDataProvider public immutable protocolDataProvider;
 
     // Used to fetch lendingPool address. This contract is immutable and its address will never change.
-    ILendingPoolAddressesProvider public immutable lendingPoolAddressesProvider;
+    IPoolAddressesProvider public immutable lendingPoolAddressesProvider;
 
     // Mapping to efficiently check if collateral asset is enabled in SetToken
     mapping(ISetToken => mapping(IERC20 => bool)) public collateralAssetEnabled;
@@ -215,7 +215,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      */
     constructor(
         IController _controller,
-        ILendingPoolAddressesProvider _lendingPoolAddressesProvider
+        IPoolAddressesProvider _lendingPoolAddressesProvider
     )
         public
         ModuleBase(_controller)
@@ -223,7 +223,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
         lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
         IProtocolDataProvider _protocolDataProvider = IProtocolDataProvider(
             // Use the raw input vs bytes32() conversion. This is to ensure the input is an uint and not a string.
-            _lendingPoolAddressesProvider.getAddress(0x0100000000000000000000000000000000000000000000000000000000000000)
+            _lendingPoolAddressesProvider.getPoolDataProvider()
         );
         protocolDataProvider = _protocolDataProvider;
 
@@ -756,7 +756,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * lending pool in this function to optimize vs forcing a fetch twice during lever/delever.
      */
     function _repayBorrowForHook(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _repayBorrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getLendingPool()), _asset, _notionalQuantity);
+        _repayBorrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getPool()), _asset, _notionalQuantity);
     }
 
     /**
@@ -771,7 +771,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
      * lending pool in this function to optimize vs forcing a fetch twice during lever/delever.
      */
     function _borrowForHook(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _borrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getLendingPool()), _asset, _notionalQuantity);
+        _borrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getPool()), _asset, _notionalQuantity);
     }
 
     /**
@@ -941,7 +941,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
     {
         ActionInfo memory actionInfo = ActionInfo ({
             exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
-            lendingPool: ILendingPool(lendingPoolAddressesProvider.getLendingPool()),
+            lendingPool: ILendingPool(lendingPoolAddressesProvider.getPool()),
             setToken: _setToken,
             collateralAsset: _isLever ? _receiveToken : _sendToken,
             borrowAsset: _isLever ? _sendToken : _receiveToken,
@@ -1065,7 +1065,7 @@ contract AaveLeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssu
             && underlyingToReserveTokens[_asset].aToken.balanceOf(address(_setToken)) > 0
         ) {
             _setToken.invokeSetUserUseReserveAsCollateral(
-                ILendingPool(lendingPoolAddressesProvider.getLendingPool()),
+                ILendingPool(lendingPoolAddressesProvider.getPool()),
                 address(_asset),
                 _useAsCollateral
             );
