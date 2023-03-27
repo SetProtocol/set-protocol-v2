@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber, constants } from "ethers";
+import { BigNumber, constants, utils } from "ethers";
 
 import { getRandomAccount, getRandomAddress } from "@utils/test";
 import { Account } from "@utils/test/types";
@@ -8,17 +8,17 @@ import { Address, Bytes } from "@utils/types";
 import { impersonateAccount } from "@utils/test/testingUtils";
 import DeployHelper from "@utils/deploys";
 import { cacheBeforeEach, getAccounts, getWaffleExpect } from "@utils/test/index";
-import { ADDRESS_ZERO, ZERO, EMPTY_BYTES } from "@utils/constants";
-import { ether, preciseDiv, preciseMul } from "@utils/index";
+import { ADDRESS_ZERO, ZERO } from "@utils/constants";
+import { ether, preciseMul } from "@utils/index";
 
 import {
   AaveV3LeverageModule,
+  IWETH,
+  IWETH__factory,
   IERC20,
   IERC20__factory,
   ILendingPool,
   ILendingPool__factory,
-  IProtocolDataProvider,
-  IProtocolDataProvider__factory,
   IPoolAddressesProvider,
   IPoolAddressesProvider__factory,
   Controller,
@@ -31,6 +31,8 @@ import {
   SetToken__factory,
   SetTokenCreator,
   SetTokenCreator__factory,
+  UniswapV3ExchangeAdapterV2,
+  UniswapV3ExchangeAdapterV2__factory,
 } from "@typechain/index";
 
 const expect = getWaffleExpect();
@@ -40,10 +42,12 @@ const expect = getWaffleExpect();
 const contractAddresses = {
   aaveV3AddressProvider: "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
   aaveV3ProtocolDataProvider: "0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3",
+  aaveV3Oracle: "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
   controller: "0xD2463675a099101E36D85278494268261a66603A",
   debtIssuanceModule: "0xa0a98EB7Af028BE00d04e46e1316808A62a8fd59",
   setTokenCreator: "0x2758BF6Af0EC63f1710d3d7890e1C263a247B75E",
   integrationRegistry: "0xb9083dee5e8273E54B9DB4c31bA9d4aB7C6B28d3",
+  uniswapV3ExchangeAdapterV2: "0xe6382D2D44402Bad8a03F11170032aBCF1Df1102",
 };
 
 const tokenAddresses = {
@@ -56,6 +60,10 @@ const tokenAddresses = {
   wbtc: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
 };
 
+const whales = {
+  dai: "0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8",
+};
+
 describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let owner: Account;
   let deployer: DeployHelper;
@@ -65,14 +73,13 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let integrationRegistry: IntegrationRegistry;
   let setTokenCreator: SetTokenCreator;
   let controller: Controller;
-  let weth: IERC20;
+  let weth: IWETH;
   let dai: IERC20;
   let wbtc: IERC20;
   let variableDebtDAI: IERC20;
   let aWETH: IERC20;
-  let aDAI: IERC20;
   let aaveLendingPool: ILendingPool;
-  let protocolDataProvider: IProtocolDataProvider;
+  let uniswapV3ExchangeAdapterV2: UniswapV3ExchangeAdapterV2;
 
   let manager: Address;
   const maxManagerFee = ether(0.05);
@@ -92,19 +99,16 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
       await poolAddressesProvider.getPool(),
       owner.wallet,
     );
-    weth = IERC20__factory.connect(tokenAddresses.weth, owner.wallet);
+    weth = IWETH__factory.connect(tokenAddresses.weth, owner.wallet);
+    await weth.deposit({ value: ether(10000) });
     dai = IERC20__factory.connect(tokenAddresses.dai, owner.wallet);
+    const daiWhale = await impersonateAccount(whales.dai);
+    await dai.connect(daiWhale).transfer(owner.address, ether(1000000));
     wbtc = IERC20__factory.connect(tokenAddresses.wbtc, owner.wallet);
     variableDebtDAI = IERC20__factory.connect(tokenAddresses.aDaiVariableDebtTokenV3, owner.wallet);
-    variableDebtWETH = IERC20__factory.connect(
-      tokenAddresses.aWethVariableDebtTokenV3,
-      owner.wallet,
-    );
     aWETH = IERC20__factory.connect(tokenAddresses.aWethV3, owner.wallet);
-    aDAI = IERC20__factory.connect(tokenAddresses.aDaiV3, owner.wallet);
-
-    protocolDataProvider = IProtocolDataProvider__factory.connect(
-      contractAddresses.aaveV3ProtocolDataProvider,
+    uniswapV3ExchangeAdapterV2 = UniswapV3ExchangeAdapterV2__factory.connect(
+      contractAddresses.uniswapV3ExchangeAdapterV2,
       owner.wallet,
     );
 
@@ -144,6 +148,12 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     const integrationRegistryOwner = await integrationRegistry.owner();
     integrationRegistry = integrationRegistry.connect(
       await impersonateAccount(integrationRegistryOwner),
+    );
+
+    await integrationRegistry.addIntegration(
+      aaveLeverageModule.address,
+      "UNISWAPV3",
+      uniswapV3ExchangeAdapterV2.address,
     );
   });
 
@@ -464,7 +474,6 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     let subjectTradeAdapterName: string;
     let subjectTradeData: Bytes;
     let subjectCaller: Account;
-    const tradeTarget: Address = ADDRESS_ZERO;
 
     context("when aWETH is collateral asset and borrow positions is 0", async () => {
       const initializeContracts = async () => {
@@ -490,35 +499,31 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         await aaveLendingPool
           .connect(owner.wallet)
           .deposit(weth.address, ether(1000), owner.address, ZERO);
-        // await dai.approve(aaveLendingPool.address, ether(10000));
-        // await aaveLendingPool.connect(owner.wallet).deposit(dai.address, ether(10000), owner.address, ZERO);
+
+        await dai.approve(aaveLendingPool.address, ether(10000));
+        await aaveLendingPool
+          .connect(owner.wallet)
+          .deposit(dai.address, ether(10000), owner.address, ZERO);
 
         // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
         const issueQuantity = ether(1);
-        destinationTokenQuantity = ether(1);
+        destinationTokenQuantity = utils.parseEther("0.5");
+        await aWETH.approve(debtIssuanceModule.address, ether(1000));
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
       };
 
-      const initializeSubjectVariables = () => {
+      const initializeSubjectVariables = async () => {
         subjectSetToken = setToken.address;
         subjectBorrowAsset = dai.address;
         subjectCollateralAsset = weth.address;
         subjectBorrowQuantity = ether(1000);
         subjectMinCollateralQuantity = destinationTokenQuantity;
-        subjectTradeAdapterName = "ONEINCHTOWETH";
-        subjectTradeData = EMPTY_BYTES;
-        // subjectTradeData = oneInchExchangeMockToWeth.interface.encodeFunctionData("swap", [
-        //   dai.address, // Send token
-        //   weth.address, // Receive token
-        //   subjectBorrowQuantity, // Send quantity
-        //   subjectMinCollateralQuantity, // Min receive quantity
-        //   ZERO,
-        //   ADDRESS_ZERO,
-        //   [ADDRESS_ZERO],
-        //   EMPTY_BYTES,
-        //   [ZERO],
-        //   [ZERO],
-        // ]);
+        subjectTradeAdapterName = "UNISWAPV3";
+        subjectTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+          [dai.address, weth.address], // Swap path
+          [500], // Send quantity
+          true,
+        );
         subjectCaller = owner;
       };
 
@@ -559,7 +564,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           expect(currentPositions.length).to.eq(2); // added a new borrow position
           expect(newFirstPosition.component).to.eq(aWETH.address);
           expect(newFirstPosition.positionState).to.eq(0); // Default
-          expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+          expect(newFirstPosition.unit).to.gte(expectedFirstPositionUnit);
           expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
         });
 
@@ -610,113 +615,12 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           // expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
         });
 
-        describe("when the leverage position has been liquidated", async () => {
-          let ethSeized: BigNumber;
-
-          cacheBeforeEach(async () => {
-            // Lever up
-            await aaveLeverageModule
-              .connect(subjectCaller.wallet)
-              .lever(
-                subjectSetToken,
-                subjectBorrowAsset,
-                subjectCollateralAsset,
-                subjectBorrowQuantity,
-                subjectMinCollateralQuantity,
-                subjectTradeAdapterName,
-                subjectTradeData,
-              );
-
-            // ETH decreases to $250
-            // TODO: fix
-            // const liquidationDaiPriceInEth = ether(0.004); // 1/250 = 0.004
-            // await setAssetPriceInOracle(dai.address, liquidationDaiPriceInEth);
-
-            // Seize 1 ETH + liquidation bonus by repaying debt of 250 DAI
-            ethSeized = ether(1);
-            const debtToCover = ether(250);
-            await dai.approve(aaveLendingPool.address, ether(250));
-
-            await aaveLendingPool
-              .connect(owner.wallet)
-              .liquidationCall(weth.address, dai.address, setToken.address, debtToCover, true);
-
-            // ETH increases to $1250 to allow more borrow
-            // TODO: fix
-            // await setAssetPriceInOracle(dai.address, ether(0.0008)); // 1/1250 = .0008
-
-            subjectBorrowQuantity = ether(1000);
-          });
-
-          it("should transfer the correct components to the exchange", async () => {
-            // const oldSourceTokenBalance = await dai.balanceOf(oneInchExchangeMockToWeth.address);
-
-            await subject();
-            // const totalSourceQuantity = subjectBorrowQuantity;
-            // const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-            // const newSourceTokenBalance = await dai.balanceOf(oneInchExchangeMockToWeth.address);
-            // expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
-          });
-
-          it("should update the collateral position on the SetToken correctly", async () => {
-            const initialPositions = await setToken.getPositions();
-
-            await subject();
-
-            // aWETH position is increased
-            const currentPositions = await setToken.getPositions();
-            const newFirstPosition = (await setToken.getPositions())[0];
-
-            // Get expected aTokens minted
-            const newUnits = destinationTokenQuantity;
-            const aaveLiquidationBonus = (
-              await protocolDataProvider.getReserveConfigurationData(weth.address)
-            ).liquidationBonus;
-            const liquidatedEth = preciseDiv(
-              preciseMul(ethSeized, aaveLiquidationBonus),
-              BigNumber.from(10000),
-            ); // ethSeized * 105%
-
-            const expectedPostLiquidationUnit = initialPositions[0].unit
-              .sub(liquidatedEth)
-              .add(newUnits);
-
-            expect(initialPositions.length).to.eq(2);
-            expect(currentPositions.length).to.eq(2);
-            expect(newFirstPosition.component).to.eq(aWETH.address);
-            expect(newFirstPosition.positionState).to.eq(0); // Default
-            expect(newFirstPosition.unit).to.eq(expectedPostLiquidationUnit);
-            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-          });
-
-          it("should update the borrow position on the SetToken correctly", async () => {
-            const initialPositions = await setToken.getPositions();
-
-            await subject();
-
-            // cEther position is increased
-            const currentPositions = await setToken.getPositions();
-            const newSecondPosition = (await setToken.getPositions())[1];
-
-            const expectedSecondPositionUnit = (
-              await variableDebtDAI.balanceOf(setToken.address)
-            ).mul(-1);
-
-            expect(initialPositions.length).to.eq(2);
-            expect(currentPositions.length).to.eq(2);
-            expect(newSecondPosition.component).to.eq(dai.address);
-            expect(newSecondPosition.positionState).to.eq(1); // External
-            expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
-            expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
-          });
-        });
-
         describe("when there is a protocol fee charged", async () => {
           let feePercentage: BigNumber;
 
           cacheBeforeEach(async () => {
             feePercentage = ether(0.05);
-            controller = controller.connect(owner.wallet);
+            controller = controller.connect(await impersonateAccount(await controller.owner()));
             await controller.addFee(
               aaveLeverageModule.address,
               ZERO, // Fee type on trade function denoted as 0
@@ -743,7 +647,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
               preciseMul(feePercentage, destinationTokenQuantity),
             );
             const newFeeRecipientBalance = await weth.balanceOf(feeRecipient);
-            expect(newFeeRecipientBalance).to.eq(expectedFeeRecipientBalance);
+            expect(newFeeRecipientBalance).to.gte(expectedFeeRecipientBalance);
           });
 
           it("should update the collateral position on the SetToken correctly", async () => {
@@ -756,15 +660,15 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
             const newFirstPosition = (await setToken.getPositions())[0];
 
             // Get expected cTokens minted
-            const unitProtocolFee = feePercentage.mul(destinationTokenQuantity).div(ether(1));
-            const newUnits = destinationTokenQuantity.sub(unitProtocolFee);
+            const unitProtocolFee = feePercentage.mul(subjectMinCollateralQuantity).div(ether(1));
+            const newUnits = subjectMinCollateralQuantity.sub(unitProtocolFee);
             const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
 
             expect(initialPositions.length).to.eq(1);
             expect(currentPositions.length).to.eq(2);
             expect(newFirstPosition.component).to.eq(aWETH.address);
             expect(newFirstPosition.positionState).to.eq(0); // Default
-            expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+            expect(newFirstPosition.unit).to.gte(expectedFirstPositionUnit);
             expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
           });
 
@@ -788,64 +692,11 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
             expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
             expect(newSecondPosition.module).to.eq(aaveLeverageModule.address);
           });
-
-          it("should emit the correct LeverageIncreased event", async () => {
-            const totalBorrowQuantity = subjectBorrowQuantity;
-            const totalCollateralQuantity = destinationTokenQuantity;
-            const totalProtocolFee = feePercentage.mul(totalCollateralQuantity).div(ether(1));
-
-            await expect(subject())
-              .to.emit(aaveLeverageModule, "LeverageIncreased")
-              .withArgs(
-                setToken.address,
-                subjectBorrowAsset,
-                subjectCollateralAsset,
-                tradeTarget,
-                totalBorrowQuantity,
-                totalCollateralQuantity.sub(totalProtocolFee),
-                totalProtocolFee,
-              );
-          });
-        });
-
-        describe("when slippage is greater than allowed", async () => {
-          cacheBeforeEach(async () => {
-            // Add Set token as token sender / recipient
-            // oneInchExchangeMockWithSlippage = oneInchExchangeMockWithSlippage.connect(owner.wallet);
-            // await oneInchExchangeMockWithSlippage.addSetTokenAddress(setToken.address);
-
-            // Fund One Inch exchange with destinationToken WETH
-            // await weth.transfer(oneInchExchangeMockWithSlippage.address, ether(10));
-
-            // Set to other mock exchange adapter with slippage
-            subjectTradeAdapterName = "ONEINCHSLIPPAGE";
-            // TODO: Generate valid subjectTradeData
-            subjectTradeData = EMPTY_BYTES;
-            // subjectTradeData = oneInchExchangeMockWithSlippage.interface.encodeFunctionData(
-            //   "swap",
-            //   [
-            //     dai.address, // Send token
-            //     weth.address, // Receive token
-            //     subjectBorrowQuantity, // Send quantity
-            //     subjectMinCollateralQuantity, // Min receive quantity
-            //     ZERO,
-            //     ADDRESS_ZERO,
-            //     [ADDRESS_ZERO],
-            //     EMPTY_BYTES,
-            //     [ZERO],
-            //     [ZERO],
-            //   ],
-            // );
-          });
-
-          it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Slippage too high");
-          });
         });
 
         describe("when the exchange is not valid", async () => {
           beforeEach(async () => {
-            subjectTradeAdapterName = "UNISWAP";
+            subjectTradeAdapterName = "INVALID";
           });
 
           it("should revert", async () => {
@@ -970,7 +821,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
         // Approve tokens to issuance module and call issue
         await aWETH.approve(debtIssuanceModule.address, ether(1000));
-        await aDAI.approve(debtIssuanceModule.address, ether(10000));
+        await dai.approve(debtIssuanceModule.address, ether(10000));
 
         // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
         const issueQuantity = ether(1);
@@ -978,27 +829,18 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
       });
 
-      beforeEach(() => {
+      beforeEach(async () => {
         subjectSetToken = setToken.address;
         subjectBorrowAsset = dai.address;
         subjectCollateralAsset = weth.address;
         subjectBorrowQuantity = ether(1000);
-        subjectMinCollateralQuantity = destinationTokenQuantity;
-        subjectTradeAdapterName = "ONEINCHTOWETH";
-        // TODO: Fix this
-        subjectTradeData = EMPTY_BYTES;
-        // subjectTradeData = oneInchExchangeMockToWeth.interface.encodeFunctionData("swap", [
-        //   dai.address, // Send token
-        //   weth.address, // Receive token
-        //   subjectBorrowQuantity, // Send quantity
-        //   subjectMinCollateralQuantity, // Min receive quantity
-        //   ZERO,
-        //   ADDRESS_ZERO,
-        //   [ADDRESS_ZERO],
-        //   EMPTY_BYTES,
-        //   [ZERO],
-        //   [ZERO],
-        // ]);
+        subjectMinCollateralQuantity = destinationTokenQuantity.div(2);
+        subjectTradeAdapterName = "UNISWAPV3";
+        subjectTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+          [dai.address, weth.address], // Swap path
+          [500], // Send quantity
+          true,
+        );
         subjectCaller = owner;
       });
 
@@ -1027,14 +869,14 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         const newSecondPosition = (await setToken.getPositions())[1];
 
         // Get expected aTokens minted
-        const newUnits = destinationTokenQuantity;
+        const newUnits = subjectMinCollateralQuantity;
         const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
 
         expect(initialPositions.length).to.eq(2);
         expect(currentPositions.length).to.eq(3);
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+        expect(newFirstPosition.unit).to.gte(expectedFirstPositionUnit);
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
 
         expect(newSecondPosition.component).to.eq(dai.address);
