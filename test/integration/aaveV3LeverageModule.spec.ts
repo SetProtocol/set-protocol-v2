@@ -43,6 +43,7 @@ const contractAddresses = {
   aaveV3AddressProvider: "0x2f39d218133AFaB8F2B819B1066c7E434Ad94E9e",
   aaveV3ProtocolDataProvider: "0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3",
   aaveV3Oracle: "0x54586bE62E3c3580375aE3723C145253060Ca0C2",
+  aaveV3Pool: "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
   controller: "0xD2463675a099101E36D85278494268261a66603A",
   debtIssuanceModule: "0xa0a98EB7Af028BE00d04e46e1316808A62a8fd59",
   setTokenCreator: "0x2758BF6Af0EC63f1710d3d7890e1C263a247B75E",
@@ -123,13 +124,13 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     controller = controller.connect(controllerOwnerSigner);
 
     deployer = new DeployHelper(owner.wallet);
-    const aaveV2Library = await deployer.libraries.deployAaveV2();
+    const aaveV3Library = await deployer.libraries.deployAaveV3();
 
     aaveLeverageModule = await deployer.modules.deployAaveV3LeverageModule(
       controller.address,
       poolAddressesProvider.address,
-      "contracts/protocol/integration/lib/AaveV2.sol:AaveV2",
-      aaveV2Library.address,
+      "contracts/protocol/integration/lib/AaveV3.sol:AaveV3",
+      aaveV3Library.address,
     );
     await controller.addModule(aaveLeverageModule.address);
 

@@ -23,12 +23,12 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import { AaveV2 } from "../../integration/lib/AaveV2.sol";
+import { AaveV3 } from "../../integration/lib/AaveV3.sol";
 import { IAToken } from "../../../interfaces/external/aave-v2/IAToken.sol";
 import { IController } from "../../../interfaces/IController.sol";
 import { IDebtIssuanceModule } from "../../../interfaces/IDebtIssuanceModule.sol";
 import { IExchangeAdapter } from "../../../interfaces/IExchangeAdapter.sol";
-import { ILendingPool } from "../../../interfaces/external/aave-v2/ILendingPool.sol";
+import { IPool } from "../../../interfaces/external/aave-v3/IPool.sol";
 import { IPoolAddressesProvider } from "../../../interfaces/external/aave-v3/IPoolAddressesProvider.sol";
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
 import { IProtocolDataProvider } from "../../../interfaces/external/aave-v2/IProtocolDataProvider.sol";
@@ -44,7 +44,7 @@ import { ModuleBase } from "../../lib/ModuleBase.sol";
  * debt when borrowed assets are the same.
  */
 contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
-    using AaveV2 for ISetToken;
+    using AaveV3 for ISetToken;
 
     /* ============ Structs ============ */
 
@@ -55,7 +55,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     struct ActionInfo {
         ISetToken setToken;                      // SetToken instance
-        ILendingPool lendingPool;                // Lending pool instance, we grab this everytime since it's best practice not to store
+        IPool lendingPool;                // Lending pool instance, we grab this everytime since it's best practice not to store
         IExchangeAdapter exchangeAdapter;        // Exchange adapter instance
         uint256 setTotalSupply;                  // Total supply of SetToken
         uint256 notionalSendQuantity;            // Total notional quantity sent to exchange
@@ -185,7 +185,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // Note: For an underlying asset to be enabled as collateral/borrow asset on SetToken, it must be added to this mapping first.
     mapping(IERC20 => ReserveTokens) public underlyingToReserveTokens;
 
-    // Used to fetch reserves and user data from AaveV2
+    // Used to fetch reserves and user data from AaveV3
     IProtocolDataProvider public immutable protocolDataProvider;
 
     // Used to fetch lendingPool address. This contract is immutable and its address will never change.
@@ -729,24 +729,24 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /* ============ Internal Functions ============ */
 
     /**
-     * @dev Invoke deposit from SetToken using AaveV2 library. Mints aTokens for SetToken.
+     * @dev Invoke deposit from SetToken using AaveV3 library. Mints aTokens for SetToken.
      */
-    function _deposit(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+    function _deposit(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeApprove(address(_asset), address(_lendingPool), _notionalQuantity);
         _setToken.invokeDeposit(_lendingPool, address(_asset), _notionalQuantity);
     }
 
     /**
-     * @dev Invoke withdraw from SetToken using AaveV2 library. Burns aTokens and returns underlying to SetToken.
+     * @dev Invoke withdraw from SetToken using AaveV3 library. Burns aTokens and returns underlying to SetToken.
      */
-    function _withdraw(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+    function _withdraw(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeWithdraw(_lendingPool, address(_asset), _notionalQuantity);
     }
 
     /**
-     * @dev Invoke repay from SetToken using AaveV2 library. Burns DebtTokens for SetToken.
+     * @dev Invoke repay from SetToken using AaveV3 library. Burns DebtTokens for SetToken.
      */
-    function _repayBorrow(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+    function _repayBorrow(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeApprove(address(_asset), address(_lendingPool), _notionalQuantity);
         _setToken.invokeRepay(_lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
@@ -756,13 +756,13 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * lending pool in this function to optimize vs forcing a fetch twice during lever/delever.
      */
     function _repayBorrowForHook(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _repayBorrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getPool()), _asset, _notionalQuantity);
+        _repayBorrow(_setToken, IPool(lendingPoolAddressesProvider.getPool()), _asset, _notionalQuantity);
     }
 
     /**
-     * @dev Invoke borrow from the SetToken using AaveV2 library. Mints DebtTokens for SetToken.
+     * @dev Invoke borrow from the SetToken using AaveV3 library. Mints DebtTokens for SetToken.
      */
-    function _borrow(ISetToken _setToken, ILendingPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+    function _borrow(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
         _setToken.invokeBorrow(_lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
 
@@ -771,7 +771,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * lending pool in this function to optimize vs forcing a fetch twice during lever/delever.
      */
     function _borrowForHook(ISetToken _setToken, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _borrow(_setToken, ILendingPool(lendingPoolAddressesProvider.getPool()), _asset, _notionalQuantity);
+        _borrow(_setToken, IPool(lendingPoolAddressesProvider.getPool()), _asset, _notionalQuantity);
     }
 
     /**
@@ -941,7 +941,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     {
         ActionInfo memory actionInfo = ActionInfo ({
             exchangeAdapter: IExchangeAdapter(getAndValidateAdapter(_tradeAdapterName)),
-            lendingPool: ILendingPool(lendingPoolAddressesProvider.getPool()),
+            lendingPool: IPool(lendingPoolAddressesProvider.getPool()),
             setToken: _setToken,
             collateralAsset: _isLever ? _receiveToken : _sendToken,
             borrowAsset: _isLever ? _sendToken : _receiveToken,
@@ -1065,7 +1065,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
             && underlyingToReserveTokens[_asset].aToken.balanceOf(address(_setToken)) > 0
         ) {
             _setToken.invokeSetUserUseReserveAsCollateral(
-                ILendingPool(lendingPoolAddressesProvider.getPool()),
+                IPool(lendingPoolAddressesProvider.getPool()),
                 address(_asset),
                 _useAsCollateral
             );
