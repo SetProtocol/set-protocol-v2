@@ -19,7 +19,7 @@ import type { DependencyGraph, CompilationJob } from "hardhat/types/builtin-task
 
 import "./tasks";
 
-const forkingConfig = {
+export const forkingConfig = {
   url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
   blockNumber: 16889000,
 };

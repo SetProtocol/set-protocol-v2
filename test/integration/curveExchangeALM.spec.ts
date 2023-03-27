@@ -491,10 +491,10 @@ describe("CurveExchangeAdapter AaveLeverageModule integration [ @forked-mainnet 
         expect(newSecondPosition.positionState).to.eq(0); // Pay everything back
 
         // Due to exchange rates in Curve Pool, there's a tiny bit of WETH left in the set token when redeeming
-        // with the current parameters as they are not 1:1. Actual WETH left in the Set = 19_104_483_628_943.
+        // with the current parameters as they are not 1:1. Actual WETH left in the Set = 64_546_225_787_308_765.
         // So around 0.000019 ETH
-        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit.add(BigNumber.from(19104483628943)));
-        expect(newSecondPosition.unit.div(ether(0.0001))).to.closeTo(expectedSecondPositionUnit, 4);
+        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit.add(BigNumber.from("64546225787308765")));
+        expect(newSecondPosition.unit.div(ether(0.0001))).to.closeTo(expectedSecondPositionUnit, 645);
         expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
       });
 

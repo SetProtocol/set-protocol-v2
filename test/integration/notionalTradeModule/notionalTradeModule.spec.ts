@@ -38,6 +38,8 @@ import {
   NOTIONAL_PROXY_ADDRESS,
 } from "./utils";
 
+import { forkingConfig } from "../../../hardhat.config";
+
 const expect = getWaffleExpect();
 
 const tokenAddresses: Record<string, string> = {
@@ -60,7 +62,19 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
   let tokens: ForkedTokens;
   let deployer: DeployHelper;
   let setup: SystemFixture;
+  const blockNumber = 14994313;
   before(async () => {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking: {
+            jsonRpcUrl: forkingConfig.url,
+            blockNumber,
+          },
+        },
+      ],
+    });
     [owner, manager] = await getAccounts();
     deployer = new DeployHelper(owner.wallet);
     setup = getSystemFixture(owner.address);
@@ -69,6 +83,20 @@ describe("Notional trade module integration [ @forked-mainnet ]", () => {
     // Setup ForkedTokens
     await initializeForkedTokens(deployer);
     tokens = getForkedTokens();
+  });
+
+  after(async () => {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking: {
+            jsonRpcUrl: forkingConfig.url,
+            blockNumber: forkingConfig.blockNumber,
+          },
+        },
+      ],
+    });
   });
   describe("When notional proxy is upgraded and wrapper factory deployed", () => {
     before(async () => {
