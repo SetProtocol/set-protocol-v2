@@ -434,4 +434,45 @@ library AaveV3 {
         
         _setToken.invoke(address(_lendingPool), 0, callData);
     }
+
+    /**
+     * Invoke set Efficiency Mode
+     *
+     * Allows SetToken to borrow a specific `_amountNotional` of the reserve underlying `_asset`, provided that 
+     * the SetToken already deposited enough collateral, or it was given enough allowance by a credit delegator
+     * on the corresponding debt token (StableDebtToken or VariableDebtToken)
+     * @param _setToken             Address of the SetToken
+     * @param _lendingPool          Address of the LendingPool contract
+     * @param _categoryId           TODO: What is this ?
+     */
+    function invokeSetUserEMode(
+        ISetToken _setToken,
+        IPool _lendingPool,
+        uint8 _categoryId
+    )
+        external
+    {
+        ( , , bytes memory borrowCalldata) = getSetUserEmodeCalldata(
+            _lendingPool,
+            _categoryId
+        );
+        
+        _setToken.invoke(address(_lendingPool), 0, borrowCalldata);
+    }
+
+    function getSetUserEmodeCalldata(
+        IPool _lendingPool,
+        uint8 _categoryId
+    )
+        public
+        pure
+        returns (address, uint256, bytes memory)
+    {
+        bytes memory callData = abi.encodeWithSignature(
+            "setUserEMode(uint8)", 
+            _categoryId
+        );
+        
+        return (address(_lendingPool), 0, callData);
+    }
 }

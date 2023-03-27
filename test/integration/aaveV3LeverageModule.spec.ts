@@ -906,4 +906,30 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
       });
     });
   });
+
+  describe("#setEModeCategory", () => {
+    let setToken: SetToken;
+    const initializeContracts = async () => {
+      setToken = await createSetToken(
+        [tokenAddresses.weth, tokenAddresses.dai],
+        [ether(1), ether(100)],
+        [aaveLeverageModule.address, debtIssuanceModule.address],
+      );
+      await initializeDebtIssuanceModule(setToken.address);
+
+      await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+      await aaveLeverageModule.initialize(
+        setToken.address,
+        [tokenAddresses.weth, tokenAddresses.dai],
+        [dai.address, weth.address],
+      );
+    };
+
+    cacheBeforeEach(initializeContracts);
+
+    it("works", async () => {
+      await aaveLeverageModule.setEModeCategory(setToken.address, 1);
+    });
+  });
 });

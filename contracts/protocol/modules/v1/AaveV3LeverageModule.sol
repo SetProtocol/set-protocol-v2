@@ -556,6 +556,15 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
+     * @dev MANAGER ONLY: Set EMode category
+     * @param _categoryId             CategoryId of the chosen EMode
+     */
+    function setEModeCategory(ISetToken _setToken, uint8 _categoryId) external onlyManagerAndValidSet(_setToken) {
+        _setToken.invokeSetUserEMode(IPool(lendingPoolAddressesProvider.getPool()), _categoryId);
+    }
+
+
+    /**
      * @dev CALLABLE BY ANYBODY: Updates `underlyingToReserveTokens` mappings. Reverts if mapping already exists
      * or the passed _underlying asset does not have a valid reserve on Aave.
      * Note: Call this function when Aave adds a new reserve.
