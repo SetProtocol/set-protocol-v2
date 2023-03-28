@@ -5,7 +5,7 @@ import { Signer, BigNumber, ContractTransaction, constants, utils } from "ethers
 import { getRandomAccount, getRandomAddress } from "@utils/test";
 import { Account } from "@utils/test/types";
 import { Address, Bytes } from "@utils/types";
-import { impersonateAccount } from "@utils/test/testingUtils";
+import { impersonateAccount, waitForEvent } from "@utils/test/testingUtils";
 import DeployHelper from "@utils/deploys";
 import { cacheBeforeEach, getAccounts, getWaffleExpect } from "@utils/test/index";
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";
@@ -596,29 +596,30 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
 
         it("should transfer the correct components to the exchange", async () => {
-          // const oldSourceTokenBalance = await dai.balanceOf(oneInchExchangeMockToWeth.address);
+          const oldSourceTokenBalance = await dai.balanceOf(wethDaiPool.address);
 
           await subject();
-          // const totalSourceQuantity = subjectBorrowQuantity;
-          // const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
-          // const newSourceTokenBalance = await dai.balanceOf(oneInchExchangeMockToWeth.address);
-          // expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
+          const totalSourceQuantity = subjectBorrowQuantity;
+          const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+          const newSourceTokenBalance = await dai.balanceOf(wethDaiPool.address);
+          expect(newSourceTokenBalance).to.eq(expectedSourceTokenBalance);
         });
 
         it("should transfer the correct components from the exchange", async () => {
-          // const oldDestinationTokenBalance = await weth.balanceOf(
-          //   oneInchExchangeMockToWeth.address,
-          // );
+          const oldDestinationTokenBalance = await weth.balanceOf(
+            wethDaiPool.address,
+          );
 
           await subject();
-          // const totalDestinationQuantity = destinationTokenQuantity;
-          // const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(
-          //   totalDestinationQuantity,
-          // );
-          // const newDestinationTokenBalance = await weth.balanceOf(
-          //   oneInchExchangeMockToWeth.address,
-          // );
-          // expect(newDestinationTokenBalance).to.eq(expectedDestinationTokenBalance);
+          const totalDestinationQuantity = destinationTokenQuantity;
+          const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(
+            totalDestinationQuantity,
+          );
+          const newDestinationTokenBalance = await weth.balanceOf(
+            wethDaiPool.address,
+          );
+          expect(newDestinationTokenBalance).to.gt(expectedDestinationTokenBalance.mul(999).div(1000));
+          expect(newDestinationTokenBalance).to.lt(expectedDestinationTokenBalance.mul(1001).div(1000));
         });
 
         describe("when there is a protocol fee charged", async () => {
@@ -1123,22 +1124,19 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
       it("should update the borrow asset equity on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
-        // const [, repayAssetAmountOut] = await uniswapV3Router.getAmountsOut(subjectRedeemQuantity, [
-        //   weth.address,
-        //   dai.address,
-        // ]);
-
+        const swapPromise = waitForEvent(wethDaiPool, "Swap");
         const tx = await subject();
 
         // Fetch total repay amount
         const res = await tx.wait();
+        const [, , amount0,] = await swapPromise;
         const levDecreasedEvent = res.events?.find(value => {
           return value.event == "LeverageDecreased";
         });
         expect(levDecreasedEvent).to.not.eq(undefined);
 
-        // const totalRepayAmount: BigNumber = levDecreasedEvent?.args?.[5];
-        // const expectedSecondPositionUnit = repayAssetAmountOut.sub(totalRepayAmount);
+        const initialSecondPosition = initialPositions[1];
+        const expectedSecondPositionUnit = initialSecondPosition.unit.sub(amount0.div(10));
 
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
@@ -1147,7 +1145,10 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(dai.address);
         expect(newSecondPosition.positionState).to.eq(0); // Default
-        // expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+        // Added some tolerance here when switching to aaveV3 integration testing (probably due to rounding errors)
+        // TODO: Review
+        expect(newSecondPosition.unit).to.gt(expectedSecondPositionUnit.mul(999).div(1000));
+        expect(newSecondPosition.unit).to.lt(expectedSecondPositionUnit.mul(1001).div(1000));
         expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
       });
 

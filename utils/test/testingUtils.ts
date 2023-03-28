@@ -1,6 +1,7 @@
 import chai from "chai";
 import { solidity } from "ethereum-waffle";
 import { SetToken } from "@utils/contracts";
+import { Contract} from "ethers";
 
 chai.use(solidity);
 
@@ -106,4 +107,12 @@ export async function impersonateAccount(address: string): Promise<Signer> {
     params: [address],
   });
   return await ethers.getSigner(address);
+}
+
+export async function waitForEvent(contract: Contract, event: string): Promise<any> {
+  return new Promise((resolve, _) => {
+      contract.on(event, (...args: any[]) => {
+      resolve(args);
+    });
+  });
 }
