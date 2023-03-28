@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import { BigNumber, constants, utils } from "ethers";
+import { Signer, BigNumber, constants, utils } from "ethers";
 
 import { getRandomAccount, getRandomAddress } from "@utils/test";
 import { Account } from "@utils/test/types";
@@ -17,8 +17,8 @@ import {
   IWETH__factory,
   IERC20,
   IERC20__factory,
-  ILendingPool,
-  ILendingPool__factory,
+  IPool,
+  IPool__factory,
   IPoolAddressesProvider,
   IPoolAddressesProvider__factory,
   Controller,
@@ -67,6 +67,7 @@ const whales = {
 
 describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let owner: Account;
+  let notOwner: Account;
   let deployer: DeployHelper;
   let aaveLeverageModule: AaveV3LeverageModule;
   let poolAddressesProvider: IPoolAddressesProvider;
@@ -79,7 +80,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let wbtc: IERC20;
   let variableDebtDAI: IERC20;
   let aWETH: IERC20;
-  let aaveLendingPool: ILendingPool;
+  let aaveLendingPool: IPool;
   let uniswapV3ExchangeAdapterV2: UniswapV3ExchangeAdapterV2;
 
   let manager: Address;
@@ -89,17 +90,14 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let managerFeeRecipient: Address;
   let managerIssuanceHook: Address;
   before(async () => {
-    [owner] = await getAccounts();
+    [owner, notOwner] = await getAccounts();
 
     poolAddressesProvider = IPoolAddressesProvider__factory.connect(
       contractAddresses.aaveV3AddressProvider,
       owner.wallet,
     );
 
-    aaveLendingPool = ILendingPool__factory.connect(
-      await poolAddressesProvider.getPool(),
-      owner.wallet,
-    );
+    aaveLendingPool = IPool__factory.connect(await poolAddressesProvider.getPool(), owner.wallet);
     weth = IWETH__factory.connect(tokenAddresses.weth, owner.wallet);
     await weth.deposit({ value: ether(10000) });
     dai = IERC20__factory.connect(tokenAddresses.dai, owner.wallet);
@@ -909,6 +907,9 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
   describe("#setEModeCategory", () => {
     let setToken: SetToken;
+    let subjectCategoryId: number;
+    let subjectSetToken: Address;
+    let caller: Signer;
     const initializeContracts = async () => {
       setToken = await createSetToken(
         [tokenAddresses.weth, tokenAddresses.dai],
@@ -928,8 +929,44 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
     cacheBeforeEach(initializeContracts);
 
-    it("works", async () => {
-      await aaveLeverageModule.setEModeCategory(setToken.address, 1);
+    beforeEach(() => {
+      subjectSetToken = setToken.address;
+      caller = owner.wallet;
+    });
+
+    const subject = () =>
+      aaveLeverageModule.connect(caller).setEModeCategory(subjectSetToken, subjectCategoryId);
+
+    describe("When changing the EMode Category from default to 1", async () => {
+      beforeEach(() => {
+        subjectCategoryId = 1;
+      });
+      it("sets the EMode category for the set Token user correctly", async () => {
+        await subject();
+        const categoryId = await aaveLendingPool.getUserEMode(subjectSetToken);
+        expect(categoryId).to.eq(subjectCategoryId);
+      });
+    });
+
+    describe("When setting the category back to 0", async () => {
+      beforeEach(async () => {
+        await aaveLeverageModule.setEModeCategory(subjectSetToken, 1);
+        subjectCategoryId = 0;
+      });
+      it("sets the EMode category for the set Token user correctly", async () => {
+        await subject();
+        const categoryId = await aaveLendingPool.getUserEMode(subjectSetToken);
+        expect(categoryId).to.eq(subjectCategoryId);
+      });
+    });
+
+    describe("When caller is not the owner", async () => {
+      beforeEach(async () => {
+        caller = notOwner.wallet;
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+      });
     });
   });
 });
