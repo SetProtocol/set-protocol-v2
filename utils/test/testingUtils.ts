@@ -110,8 +110,8 @@ export async function impersonateAccount(address: string): Promise<Signer> {
 }
 
 export async function waitForEvent(contract: Contract, event: string): Promise<any> {
-  return new Promise((resolve, _) => {
-      contract.on(event, (...args: any[]) => {
+  return new Promise(resolve => {
+    contract.on(event, (...args: any[]) => {
       resolve(args);
     });
   });

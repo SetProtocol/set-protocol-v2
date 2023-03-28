@@ -83,7 +83,9 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let dai: IERC20;
   let wbtc: IERC20;
   let variableDebtDAI: IERC20;
+  let variableDebtWETH: IERC20;
   let aWETH: IERC20;
+  let aDAI: IERC20;
   let aaveLendingPool: IPool;
   let uniswapV3ExchangeAdapterV2: UniswapV3ExchangeAdapterV2;
   let wethDaiPool: UniswapV3Pool;
@@ -110,7 +112,12 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     await dai.connect(daiWhale).transfer(owner.address, ether(1000000));
     wbtc = IERC20__factory.connect(tokenAddresses.wbtc, owner.wallet);
     variableDebtDAI = IERC20__factory.connect(tokenAddresses.aDaiVariableDebtTokenV3, owner.wallet);
+    variableDebtWETH = IERC20__factory.connect(
+      tokenAddresses.aWethVariableDebtTokenV3,
+      owner.wallet,
+    );
     aWETH = IERC20__factory.connect(tokenAddresses.aWethV3, owner.wallet);
+    aDAI = IERC20__factory.connect(tokenAddresses.aDaiV3, owner.wallet);
     uniswapV3ExchangeAdapterV2 = UniswapV3ExchangeAdapterV2__factory.connect(
       contractAddresses.uniswapV3ExchangeAdapterV2,
       owner.wallet,
@@ -606,20 +613,20 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
 
         it("should transfer the correct components from the exchange", async () => {
-          const oldDestinationTokenBalance = await weth.balanceOf(
-            wethDaiPool.address,
-          );
+          const oldDestinationTokenBalance = await weth.balanceOf(wethDaiPool.address);
 
           await subject();
           const totalDestinationQuantity = destinationTokenQuantity;
           const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(
             totalDestinationQuantity,
           );
-          const newDestinationTokenBalance = await weth.balanceOf(
-            wethDaiPool.address,
+          const newDestinationTokenBalance = await weth.balanceOf(wethDaiPool.address);
+          expect(newDestinationTokenBalance).to.gt(
+            expectedDestinationTokenBalance.mul(999).div(1000),
           );
-          expect(newDestinationTokenBalance).to.gt(expectedDestinationTokenBalance.mul(999).div(1000));
-          expect(newDestinationTokenBalance).to.lt(expectedDestinationTokenBalance.mul(1001).div(1000));
+          expect(newDestinationTokenBalance).to.lt(
+            expectedDestinationTokenBalance.mul(1001).div(1000),
+          );
         });
 
         describe("when there is a protocol fee charged", async () => {
@@ -1129,7 +1136,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
         // Fetch total repay amount
         const res = await tx.wait();
-        const [, , amount0,] = await swapPromise;
+        const [, , amount0] = await swapPromise;
         const levDecreasedEvent = res.events?.find(value => {
           return value.event == "LeverageDecreased";
         });
@@ -1251,6 +1258,337 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
       it("should revert", async () => {
         await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+  });
+
+  describe("#sync", async () => {
+    let setToken: SetToken;
+    let isInitialized: boolean;
+
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+
+    const initializeSubjectVariables = async () => {
+      subjectSetToken = setToken.address;
+      subjectCaller = await getRandomAccount();
+    };
+
+    async function subject(): Promise<any> {
+      return aaveLeverageModule.connect(subjectCaller.wallet).sync(subjectSetToken);
+    }
+
+    context("when aWETH and aDAI are collateral and WETH and DAI are borrow assets", async () => {
+      const initializeContracts = async () => {
+        setToken = await createSetToken(
+          [aWETH.address, aDAI.address],
+          [ether(2), ether(1000)],
+          [aaveLeverageModule.address, debtIssuanceModule.address],
+        );
+        await initializeDebtIssuanceModule(setToken.address);
+        // Add SetToken to allow list
+        await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+        // Initialize module if set to true
+        if (isInitialized) {
+          await aaveLeverageModule.initialize(
+            setToken.address,
+            [weth.address, dai.address, wbtc.address], // Enable WBTC that is not a Set position
+            [dai.address, weth.address, wbtc.address],
+          );
+        }
+
+        // Mint aTokens
+        await weth.approve(aaveLendingPool.address, ether(1000));
+        await aaveLendingPool
+          .connect(owner.wallet)
+          .deposit(weth.address, ether(1000), owner.address, ZERO);
+        await dai.approve(aaveLendingPool.address, ether(10000));
+        await aaveLendingPool
+          .connect(owner.wallet)
+          .deposit(dai.address, ether(10000), owner.address, ZERO);
+
+        // Approve tokens to issuance module and call issue
+        await aWETH.approve(debtIssuanceModule.address, ether(1000));
+        await aDAI.approve(debtIssuanceModule.address, ether(10000));
+
+        // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+        const issueQuantity = ether(1);
+        await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+        if (isInitialized) {
+          // Leverage aWETH in SetToken
+          const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+            [dai.address, weth.address], // Swap path
+            [500], // fees
+            true,
+          );
+
+          await aaveLeverageModule.lever(
+            setToken.address,
+            dai.address,
+            weth.address,
+            ether(2000),
+            ether(1),
+            "UNISWAPV3",
+            leverEthTradeData,
+          );
+
+          const leverDaiTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+            [weth.address, dai.address], // Swap path
+            [500], // fees
+            true,
+          );
+
+          await aaveLeverageModule.lever(
+            setToken.address,
+            weth.address,
+            dai.address,
+            ether(1),
+            ether(1000),
+            "UNISWAPV3",
+            leverDaiTradeData,
+          );
+        }
+      };
+
+      describe("when module is initialized", async () => {
+        before(async () => {
+          isInitialized = true;
+        });
+
+        cacheBeforeEach(initializeContracts);
+        beforeEach(initializeSubjectVariables);
+
+        it("should update the collateral positions on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          // cEther position is increased
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+          const newSecondPosition = (await setToken.getPositions())[1];
+
+          const expectedFirstPositionUnit = await aWETH.balanceOf(setToken.address); // need not divide as total supply is 1.
+          const expectedSecondPositionUnit = await aDAI.balanceOf(setToken.address);
+
+          expect(initialPositions.length).to.eq(4);
+          expect(currentPositions.length).to.eq(4);
+          expect(newFirstPosition.component).to.eq(aWETH.address);
+          expect(newFirstPosition.positionState).to.eq(0); // Default
+          expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+
+          expect(newSecondPosition.component).to.eq(aDAI.address);
+          expect(newSecondPosition.positionState).to.eq(0); // Default
+          expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+        });
+
+        it("should update the borrow positions on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          await subject();
+
+          // cEther position is increased
+          const currentPositions = await setToken.getPositions();
+          const newThirdPosition = (await setToken.getPositions())[2];
+          const newFourthPosition = (await setToken.getPositions())[3];
+
+          const expectedThirdPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(
+            -1,
+          );
+          const expectedFourthPositionUnit = (
+            await variableDebtWETH.balanceOf(setToken.address)
+          ).mul(-1);
+
+          expect(initialPositions.length).to.eq(4);
+          expect(currentPositions.length).to.eq(4);
+          expect(newThirdPosition.component).to.eq(dai.address);
+          expect(newThirdPosition.positionState).to.eq(1); // External
+          expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
+          expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
+
+          expect(newFourthPosition.component).to.eq(weth.address);
+          expect(newFourthPosition.positionState).to.eq(1); // External
+          expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
+          expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+        });
+
+        describe("when leverage position has been liquidated", async () => {
+          let liquidationRepayQuantity: BigNumber;
+
+          cacheBeforeEach(async () => {
+            // Leverage aWETH again
+            const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+              [dai.address, weth.address], // Swap path
+              [500], // fees
+              true,
+            );
+
+            await aaveLeverageModule.lever(
+              setToken.address,
+              dai.address,
+              weth.address,
+              ether(2000),
+              ether(1),
+              "UNISWAPV3",
+              leverEthTradeData,
+            );
+          });
+
+          beforeEach(async () => {
+            // ETH decreases to $100
+            // const liquidationDaiPriceInEth = ether(0.01); // 1/100 = 0.01
+            // TODO: Find a way to set asset rpice
+            // await setAssetPriceInOracle(dai.address, liquidationDaiPriceInEth);
+
+            // Seize 1 ETH + 5% liquidation bonus by repaying debt of 100 DAI
+            liquidationRepayQuantity = ether(100);
+            await dai.approve(aaveLendingPool.address, ether(100));
+
+            await aaveLendingPool
+              .connect(owner.wallet)
+              .liquidationCall(
+                weth.address,
+                dai.address,
+                setToken.address,
+                liquidationRepayQuantity,
+                true,
+              );
+          });
+
+          it("should update the collateral positions on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            const currentPositions = await setToken.getPositions();
+            const newFirstPosition = (await setToken.getPositions())[0];
+            const newSecondPosition = (await setToken.getPositions())[1];
+
+            // const aaveLiquidationBonus = (await protocolDataProvider.getReserveConfigurationData(setup.weth.address)).liquidationBonus;
+            // const totalTokensSezied = preciseDiv(preciseMul(ether(1), aaveLiquidationBonus), BigNumber.from(10000));   // ethSeized * 105%
+            // const expectedFirstPositionUnit = initialPositions[0].unit.sub(totalTokensSezied);   // off by 1 wei, due to interest accrual
+            const expectedFirstPositionUnit = await aWETH.balanceOf(setToken.address);
+
+            expect(initialPositions.length).to.eq(4);
+            expect(currentPositions.length).to.eq(4);
+
+            // aWETH position decreases
+            expect(newFirstPosition.component).to.eq(aWETH.address);
+            expect(newFirstPosition.positionState).to.eq(0); // Default
+            expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+            expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+
+            // cDAI position should stay the same
+            expect(newSecondPosition.component).to.eq(aDAI.address);
+            expect(newSecondPosition.positionState).to.eq(0); // Default
+            expect(newSecondPosition.unit).to.eq(newSecondPosition.unit);
+            expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+          });
+
+          it("should update the borrow position on the SetToken correctly", async () => {
+            const initialPositions = await setToken.getPositions();
+
+            await subject();
+
+            const currentPositions = await setToken.getPositions();
+            const newThirdPosition = (await setToken.getPositions())[2];
+            const newFourthPosition = (await setToken.getPositions())[3];
+
+            const expectedThirdPositionUnit = (
+              await variableDebtDAI.balanceOf(setToken.address)
+            ).mul(-1);
+            const expectedFourthPositionUnit = (
+              await variableDebtWETH.balanceOf(setToken.address)
+            ).mul(-1);
+
+            expect(initialPositions.length).to.eq(4);
+            expect(currentPositions.length).to.eq(4);
+
+            expect(newThirdPosition.component).to.eq(dai.address);
+            expect(newThirdPosition.positionState).to.eq(1); // External
+            expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
+            expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
+
+            expect(newFourthPosition.component).to.eq(weth.address);
+            expect(newFourthPosition.positionState).to.eq(1); // External
+            expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
+            expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+          });
+        });
+
+        describe("when SetToken is not valid", async () => {
+          beforeEach(async () => {
+            const nonEnabledSetToken = await createNonControllerEnabledSetToken(
+              [weth.address],
+              [ether(1)],
+              [aaveLeverageModule.address],
+            );
+
+            subjectSetToken = nonEnabledSetToken.address;
+          });
+
+          it("should revert", async () => {
+            await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+          });
+        });
+      });
+
+      describe("when module is not initialized", async () => {
+        beforeEach(() => {
+          isInitialized = false;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+    });
+
+    describe("when set token total supply is 0", async () => {
+      const initializeContracts = async () => {
+        setToken = await createSetToken(
+          [aWETH.address, aDAI.address],
+          [ether(2), ether(1000)],
+          [aaveLeverageModule.address, debtIssuanceModule.address],
+        );
+        await initializeDebtIssuanceModule(setToken.address);
+        // Add SetToken to allow list
+        await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+
+        // Initialize module if set to true
+        await aaveLeverageModule.initialize(
+          setToken.address,
+          [weth.address, dai.address],
+          [dai.address, weth.address],
+        );
+      };
+
+      beforeEach(async () => {
+        await initializeContracts();
+        await initializeSubjectVariables();
+      });
+
+      it("should preserve default positions", async () => {
+        const initialPositions = await setToken.getPositions();
+        await subject();
+        const currentPositions = await setToken.getPositions();
+
+        expect(currentPositions.length).to.eq(2); // 2 Default positions
+        expect(initialPositions.length).to.eq(2);
+
+        expect(currentPositions[0].component).to.eq(aWETH.address);
+        expect(currentPositions[0].positionState).to.eq(0); // Default
+        expect(currentPositions[0].unit).to.eq(initialPositions[0].unit);
+        expect(currentPositions[0].module).to.eq(ADDRESS_ZERO);
+
+        expect(currentPositions[1].component).to.eq(aDAI.address);
+        expect(currentPositions[1].positionState).to.eq(0); // Default
+        expect(currentPositions[1].unit).to.eq(initialPositions[1].unit);
+        expect(currentPositions[1].module).to.eq(ADDRESS_ZERO);
       });
     });
   });
