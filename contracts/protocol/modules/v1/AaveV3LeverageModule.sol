@@ -1,5 +1,5 @@
 /*
-    Copyright 2021 Set Labs Inc.
+    Copyright 2022 Index Coop
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -37,11 +37,11 @@ import { IVariableDebtToken } from "../../../interfaces/external/aave-v2/IVariab
 import { ModuleBase } from "../../lib/ModuleBase.sol";
 
 /**
- * @title AaveLeverageModule
+ * @title AaveV3LeverageModule
  * @author Set Protocol / Index Coop
  * @notice Smart contract that enables leverage trading using AaveV3 as the lending protocol.
- * @dev Do not use this module in conjunction with other debt modules that allow Aave debt positions as it could lead to double counting of
- * debt when borrowed assets are the same.
+ * @dev This contract is largely equivalent to AaveLeverageModule with minor adjustments to the changed interface of the address provider and adding
+ * integration of EMode
  */
 contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIssuanceHook {
     using AaveV3 for ISetToken;
