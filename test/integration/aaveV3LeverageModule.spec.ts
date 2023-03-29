@@ -1627,6 +1627,24 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
       if (isInitialized) {
         await aaveLeverageModule.initialize(setToken.address, [weth.address], []);
       }
+
+      const initReservesInput = {
+        aTokenImpl: "0x7EfFD7b47Bfd17e52fB7559d3f924201b9DbfF3d",
+        stableDebtTokenImpl: "0x15C5620dfFaC7c7366EED66C20Ad222DDbB1eD57",
+        variableDebtTokenImpl: "0xaC725CB59D16C81061BDeA61041a8A5e73DA9EC6",
+        underlyingAssetDecimals: 18,
+        interestRateStrategyAddress: "0x76884cAFeCf1f7d4146DA6C4053B18B76bf6ED14",
+        underlyingAsset: "0xD533a949740bb3306d119CC777fa900bA034cd52",
+        treasury: "0x464C71f6c2F760DdA6093dCB91C24c39e5d6e18c",
+        incentivesController: "0x8164Cc65827dcFe994AB23944CBC90e0aa80bFcb",
+        aTokenName: "Aave Ethereum CRV",
+        aTokenSymbol: "aEthCRV",
+        variableDebtTokenName: "Aave Ethereum Variable Debt CRV",
+        variableDebtTokenSymbol: "variableDebtEthCRV",
+        stableDebtTokenName: "Aave Ethereum Stable Debt CRV",
+        stableDebtTokenSymbol: "stableDebtEthCRV",
+        params: "0x",
+      };
     };
 
     const initializeSubjectVariables = () => {
