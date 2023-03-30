@@ -105,10 +105,8 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let usdc: IERC20;
   let variableDebtDAI: IERC20;
   let variableDebtWETH: IERC20;
-  let variableDebtUSDC: IERC20;
   let aWETH: IERC20;
   let aDAI: IERC20;
-  let aUSDC: IERC20;
   let aaveLendingPool: IPool;
   let uniswapV3ExchangeAdapterV2: UniswapV3ExchangeAdapterV2;
   let wethDaiPool: UniswapV3Pool;
@@ -146,7 +144,6 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     );
 
     usdc = IERC20__factory.connect(tokenAddresses.usdc, owner.wallet);
-    aUSDC = IERC20__factory.connect(tokenAddresses.aUSDC, owner.wallet);
     aaveLendingPool = IPool__factory.connect(await poolAddressesProvider.getPool(), owner.wallet);
     weth = IWETH__factory.connect(tokenAddresses.weth, owner.wallet);
     await weth.deposit({ value: ether(10000) });
@@ -157,10 +154,6 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     variableDebtDAI = IERC20__factory.connect(tokenAddresses.aDaiVariableDebtTokenV3, owner.wallet);
     variableDebtWETH = IERC20__factory.connect(
       tokenAddresses.aWethVariableDebtTokenV3,
-      owner.wallet,
-    );
-    variableDebtUSDC = IERC20__factory.connect(
-      tokenAddresses.aUsdcVariableDebtTokenV3,
       owner.wallet,
     );
     aWETH = IERC20__factory.connect(tokenAddresses.aWethV3, owner.wallet);
@@ -1468,7 +1461,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
         });
 
-        //TODO: Find a way to trigger liquidation and reactivate test
+        // TODO: Find a way to trigger liquidation and reactivate test
         describe.skip("when leverage position has been liquidated", async () => {
           let liquidationRepayQuantity: BigNumber;
 
