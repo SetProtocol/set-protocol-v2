@@ -2502,7 +2502,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
       });
     });
-  //});
+  });
 
   describe("#componentRedeemHook", async () => {
     let setToken: SetToken;
@@ -2634,111 +2634,113 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   });
 
   describe("#removeModule", async () => {
-    // let setToken: SetToken;
-    // let subjectModule: Address;
-    // cacheBeforeEach(async () => {
-    //   setToken = await createSetToken(
-    //     [aWETH.address],
-    //     [ether(100)],
-    //     [aaveLeverageModule.address, debtIssuanceModule.address],
-    //   );
-    //   await initializeDebtIssuanceModule(setToken.address);
-    //   // Add SetToken to allow list
-    //   await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-    //   await aaveLeverageModule.initialize(
-    //     setToken.address,
-    //     [weth.address],
-    //     [weth.address, dai.address],
-    //   );
-    //   // Mint aTokens
-    //   await weth.approve(aaveLendingPool.address, ether(1000));
-    //   await aaveLendingPool
-    //     .connect(owner.wallet)
-    //     .deposit(weth.address, ether(1000), owner.address, ZERO);
-    //   // Approve tokens to issuance module and call issue
-    //   await aWETH.approve(debtIssuanceModule.address, ether(1000));
-    //   await debtIssuanceModule.issue(setToken.address, ether(1), owner.address);
-    // });
-    // beforeEach(() => {
-    //   subjectModule = aaveLeverageModule.address;
-    // });
-    // async function subject(): Promise<any> {
-    //   return setToken.removeModule(subjectModule);
-    // }
-    // describe("When an EOA is registered as a module", () => {
-    //   cacheBeforeEach(async () => {
-    //     await controller.addModule(owner.address);
-    //     await setToken.addModule(owner.address);
-    //     await setToken.connect(owner.wallet).initializeModule();
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("function call to a non-contract account");
-    //   });
-    // });
-    // it("should remove the Module on the SetToken", async () => {
-    //   await subject();
-    //   const isModuleEnabled = await setToken.isInitializedModule(aaveLeverageModule.address);
-    //   expect(isModuleEnabled).to.be.false;
-    // });
-    // it("should remove the Module on the SetToken", async () => {
-    //   await subject();
-    //   const isModuleEnabled = await setToken.isInitializedModule(aaveLeverageModule.address);
-    //   expect(isModuleEnabled).to.be.false;
-    // });
-    // it("should delete the mappings", async () => {
-    //   await subject();
-    //   const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
-    //   const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
-    //   const isWethCollateral = await aaveLeverageModule.collateralAssetEnabled(
-    //     setToken.address,
-    //     weth.address,
-    //   );
-    //   const isDaiCollateral = await aaveLeverageModule.collateralAssetEnabled(
-    //     setToken.address,
-    //     weth.address,
-    //   );
-    //   const isDaiBorrow = await aaveLeverageModule.borrowAssetEnabled(
-    //     setToken.address,
-    //     weth.address,
-    //   );
-    //   const isEtherBorrow = await aaveLeverageModule.borrowAssetEnabled(
-    //     setToken.address,
-    //     weth.address,
-    //   );
-    //   expect(collateralAssets.length).to.eq(0);
-    //   expect(borrowAssets.length).to.eq(0);
-    //   expect(isWethCollateral).to.be.false;
-    //   expect(isDaiCollateral).to.be.false;
-    //   expect(isDaiBorrow).to.be.false;
-    //   expect(isEtherBorrow).to.be.false;
-    // });
-    // it("should unregister on the debt issuance module", async () => {
-    //   await subject();
-    //   const issuanceSettings = await debtIssuanceModule.issuanceSettings(setToken.address);
-    //   expect(issuanceSettings.feeRecipient).to.eq(ADDRESS_ZERO);
-    // });
-    // describe("when borrow balance exists", async () => {
-    //   beforeEach(async () => {
-    //     // Lever SetToken
-    //     const leverTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
-    //       [dai.address, weth.address], // Swap path
-    //       [500], // fees
-    //       true,
-    //     );
-    //     await aaveLeverageModule.lever(
-    //       setToken.address,
-    //       dai.address,
-    //       weth.address,
-    //       ether(1000),
-    //       ether(1),
-    //       "UNISWAPV3",
-    //       leverTradeData,
-    //     );
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Variable debt remaining");
-    //   });
-    // });
+    let setToken: SetToken;
+    let subjectModule: Address;
+    cacheBeforeEach(async () => {
+      setToken = await createSetToken(
+        [aWETH.address],
+        [ether(100)],
+        [aaveLeverageModule.address, debtIssuanceModule.address],
+      );
+      await initializeDebtIssuanceModule(setToken.address);
+      // Add SetToken to allow list
+      await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+      await aaveLeverageModule.initialize(
+        setToken.address,
+        [weth.address],
+        [weth.address, dai.address],
+      );
+      // Mint aTokens
+      await weth.approve(aaveLendingPool.address, ether(1000));
+      await aaveLendingPool
+        .connect(owner.wallet)
+        .deposit(weth.address, ether(1000), owner.address, ZERO);
+      // Approve tokens to issuance module and call issue
+      await aWETH.approve(debtIssuanceModule.address, ether(1000));
+      await debtIssuanceModule.issue(setToken.address, ether(1), owner.address);
+    });
+    beforeEach(() => {
+      subjectModule = aaveLeverageModule.address;
+    });
+    async function subject(): Promise<any> {
+      return setToken.removeModule(subjectModule);
+    }
+    describe("When an EOA is registered as a module", () => {
+      cacheBeforeEach(async () => {
+        await controller.addModule(owner.address);
+        await setToken.addModule(owner.address);
+        await setToken.connect(owner.wallet).initializeModule();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("function call to a non-contract account");
+      });
+    });
+    it("should remove the Module on the SetToken", async () => {
+      await subject();
+      const isModuleEnabled = await setToken.isInitializedModule(aaveLeverageModule.address);
+      expect(isModuleEnabled).to.be.false;
+    });
+    it("should remove the Module on the SetToken", async () => {
+      await subject();
+      const isModuleEnabled = await setToken.isInitializedModule(aaveLeverageModule.address);
+      expect(isModuleEnabled).to.be.false;
+    });
+    it("should delete the mappings", async () => {
+      await subject();
+      const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
+      const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
+      const isWethCollateral = await aaveLeverageModule.collateralAssetEnabled(
+        setToken.address,
+        weth.address,
+      );
+      const isDaiCollateral = await aaveLeverageModule.collateralAssetEnabled(
+        setToken.address,
+        weth.address,
+      );
+      const isDaiBorrow = await aaveLeverageModule.borrowAssetEnabled(
+        setToken.address,
+        weth.address,
+      );
+      const isEtherBorrow = await aaveLeverageModule.borrowAssetEnabled(
+        setToken.address,
+        weth.address,
+      );
+      expect(collateralAssets.length).to.eq(0);
+      expect(borrowAssets.length).to.eq(0);
+      expect(isWethCollateral).to.be.false;
+      expect(isDaiCollateral).to.be.false;
+      expect(isDaiBorrow).to.be.false;
+      expect(isEtherBorrow).to.be.false;
+    });
+    it("should unregister on the debt issuance module", async () => {
+      const isModuleIssuanceHookBefore = await debtIssuanceModule.isModuleIssuanceHook(setToken.address, aaveLeverageModule.address);
+      expect(isModuleIssuanceHookBefore).to.be.true;
+      await subject();
+      const isModuleIssuanceHookAfter = await debtIssuanceModule.isModuleIssuanceHook(setToken.address, aaveLeverageModule.address);
+      expect(isModuleIssuanceHookAfter).to.be.false;
+    });
+    describe("when borrow balance exists", async () => {
+      beforeEach(async () => {
+        // Lever SetToken
+        const leverTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+          [dai.address, weth.address], // Swap path
+          [500], // fees
+          true,
+        );
+        await aaveLeverageModule.lever(
+          setToken.address,
+          dai.address,
+          weth.address,
+          ether(2000),
+          ether(1),
+          "UNISWAPV3",
+          leverTradeData,
+        );
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Variable debt remaining");
+      });
+    });
   });
 
   describe("#removeCollateralAssets", async () => {
