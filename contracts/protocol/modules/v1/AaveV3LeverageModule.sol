@@ -31,7 +31,7 @@ import { IExchangeAdapter } from "../../../interfaces/IExchangeAdapter.sol";
 import { IPool } from "../../../interfaces/external/aave-v3/IPool.sol";
 import { IPoolAddressesProvider } from "../../../interfaces/external/aave-v3/IPoolAddressesProvider.sol";
 import { IModuleIssuanceHook } from "../../../interfaces/IModuleIssuanceHook.sol";
-import { IProtocolDataProvider } from "../../../interfaces/external/aave-v2/IProtocolDataProvider.sol";
+import { IAaveProtocolDataProvider } from "../../../interfaces/external/aave-v3/IAaveProtocolDataProvider.sol";
 import { ISetToken } from "../../../interfaces/ISetToken.sol";
 import { IVariableDebtToken } from "../../../interfaces/external/aave-v2/IVariableDebtToken.sol";
 import { ModuleBase } from "../../lib/ModuleBase.sol";
@@ -186,7 +186,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     mapping(IERC20 => ReserveTokens) public underlyingToReserveTokens;
 
     // Used to fetch reserves and user data from AaveV3
-    IProtocolDataProvider public immutable protocolDataProvider;
+    IAaveProtocolDataProvider public immutable protocolDataProvider;
 
     // Used to fetch lendingPool address. This contract is immutable and its address will never change.
     IPoolAddressesProvider public immutable lendingPoolAddressesProvider;
@@ -221,13 +221,13 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ModuleBase(_controller)
     {
         lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
-        IProtocolDataProvider _protocolDataProvider = IProtocolDataProvider(
+        IAaveProtocolDataProvider _protocolDataProvider = IAaveProtocolDataProvider(
             // Use the raw input vs bytes32() conversion. This is to ensure the input is an uint and not a string.
             _lendingPoolAddressesProvider.getPoolDataProvider()
         );
         protocolDataProvider = _protocolDataProvider;
 
-        IProtocolDataProvider.TokenData[] memory reserveTokens = _protocolDataProvider.getAllReservesTokens();
+        IAaveProtocolDataProvider.TokenData[] memory reserveTokens = _protocolDataProvider.getAllReservesTokens();
         for(uint256 i = 0; i < reserveTokens.length; i++) {
             (address aToken, , address variableDebtToken) = _protocolDataProvider.getReserveTokensAddresses(reserveTokens[i].tokenAddress);
             underlyingToReserveTokens[IERC20(reserveTokens[i].tokenAddress)] = ReserveTokens(IAToken(aToken), IVariableDebtToken(variableDebtToken));

@@ -1,6 +1,6 @@
 pragma solidity 0.6.10;
 pragma experimental ABIEncoderV2;
-import {ConfiguratorInputTypes} from './ConfigurationInputTypes.sol';
+import {ConfiguratorInputTypes} from "./ConfigurationInputTypes.sol";
 
 interface IPoolConfigurator {
     event ATokenUpgraded(address indexed asset, address indexed proxy, address indexed implementation);
