@@ -2741,7 +2741,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         await expect(subject()).to.be.revertedWith("Variable debt remaining");
       });
     });
-  //});
+  });
 
   describe("#removeCollateralAssets", async () => {
     let setToken: SetToken;
@@ -2850,119 +2850,119 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   });
 
   describe("#removeBorrowAssets", async () => {
-    // let setToken: SetToken;
-    // let isInitialized: boolean;
-    // let subjectSetToken: Address;
-    // let subjectBorrowAssets: Address[];
-    // let subjectCaller: Account;
-    // const initializeContracts = async () => {
-    //   setToken = await createSetToken(
-    //     [aWETH.address],
-    //     [ether(2)],
-    //     [aaveLeverageModule.address, debtIssuanceModule.address],
-    //   );
-    //   await initializeDebtIssuanceModule(setToken.address);
-    //   // Add SetToken to allow list
-    //   await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-    //   // Mint aTokens
-    //   await weth.approve(aaveLendingPool.address, ether(1000));
-    //   await aaveLendingPool
-    //     .connect(owner.wallet)
-    //     .deposit(weth.address, ether(1000), owner.address, ZERO);
-    //   // Approve tokens to issuance module and call issue
-    //   await aWETH.approve(debtIssuanceModule.address, ether(1000));
-    //   // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
-    //   const issueQuantity = ether(1);
-    //   await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
-    //   // Initialize module if set to true
-    //   if (isInitialized) {
-    //     await aaveLeverageModule.initialize(
-    //       setToken.address,
-    //       [weth.address],
-    //       [weth.address, dai.address],
-    //     );
-    //   }
-    // };
-    // const initializeSubjectVariables = () => {
-    //   subjectSetToken = setToken.address;
-    //   subjectBorrowAssets = [dai.address];
-    //   subjectCaller = owner;
-    // };
-    // async function subject(): Promise<any> {
-    //   return aaveLeverageModule
-    //     .connect(subjectCaller.wallet)
-    //     .removeBorrowAssets(subjectSetToken, subjectBorrowAssets);
-    // }
-    // describe("when module is initialized", () => {
-    //   before(() => {
-    //     isInitialized = true;
-    //   });
-    //   cacheBeforeEach(initializeContracts);
-    //   beforeEach(initializeSubjectVariables);
-    //   it("should remove the borrow asset from mappings", async () => {
-    //     await subject();
-    //     const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
-    //     const isDAIBorrow = await aaveLeverageModule.borrowAssetEnabled(
-    //       setToken.address,
-    //       dai.address,
-    //     );
-    //     expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([weth.address]));
-    //     expect(isDAIBorrow).to.be.false;
-    //   });
-    //   it("should emit the correct BorrowAssetsUpdated event", async () => {
-    //     await expect(subject())
-    //       .to.emit(aaveLeverageModule, "BorrowAssetsUpdated")
-    //       .withArgs(subjectSetToken, false, subjectBorrowAssets);
-    //   });
-    //   describe("when borrow asset is not enabled on module", async () => {
-    //     beforeEach(async () => {
-    //       subjectBorrowAssets = [dai.address, dai.address];
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Borrow not enabled");
-    //     });
-    //   });
-    //   describe("when borrow balance exists", async () => {
-    //     beforeEach(async () => {
-    //       // Lever SetToken
-    //       const leverTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
-    //         [dai.address, weth.address], // Swap path
-    //         [500], // fees
-    //         true,
-    //       );
-    //       await aaveLeverageModule.lever(
-    //         setToken.address,
-    //         dai.address,
-    //         weth.address,
-    //         ether(1000),
-    //         ether(1),
-    //         "UNISWAPV3",
-    //         leverTradeData,
-    //       );
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Variable debt remaining");
-    //     });
-    //   });
-    //   describe("when the caller is not the SetToken manager", async () => {
-    //     beforeEach(async () => {
-    //       subjectCaller = await getRandomAccount();
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-    //     });
-    //   });
-    // });
-    // describe("when module is not initialized", async () => {
-    //   beforeEach(async () => {
-    //     isInitialized = false;
-    //     await initializeContracts();
-    //     initializeSubjectVariables();
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-    //   });
-    // });
+    let setToken: SetToken;
+    let isInitialized: boolean;
+    let subjectSetToken: Address;
+    let subjectBorrowAssets: Address[];
+    let subjectCaller: Account;
+    const initializeContracts = async () => {
+      setToken = await createSetToken(
+        [aWETH.address],
+        [ether(2)],
+        [aaveLeverageModule.address, debtIssuanceModule.address],
+      );
+      await initializeDebtIssuanceModule(setToken.address);
+      // Add SetToken to allow list
+      await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+      // Mint aTokens
+      await weth.approve(aaveLendingPool.address, ether(1000));
+      await aaveLendingPool
+        .connect(owner.wallet)
+        .deposit(weth.address, ether(1000), owner.address, ZERO);
+      // Approve tokens to issuance module and call issue
+      await aWETH.approve(debtIssuanceModule.address, ether(1000));
+      // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+      const issueQuantity = ether(1);
+      await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+      // Initialize module if set to true
+      if (isInitialized) {
+        await aaveLeverageModule.initialize(
+          setToken.address,
+          [weth.address],
+          [weth.address, dai.address],
+        );
+      }
+    };
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+      subjectBorrowAssets = [dai.address];
+      subjectCaller = owner;
+    };
+    async function subject(): Promise<any> {
+      return aaveLeverageModule
+        .connect(subjectCaller.wallet)
+        .removeBorrowAssets(subjectSetToken, subjectBorrowAssets);
+    }
+    describe("when module is initialized", () => {
+      before(() => {
+        isInitialized = true;
+      });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+      it("should remove the borrow asset from mappings", async () => {
+        await subject();
+        const borrowAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[1];
+        const isDAIBorrow = await aaveLeverageModule.borrowAssetEnabled(
+          setToken.address,
+          dai.address,
+        );
+        expect(JSON.stringify(borrowAssets)).to.eq(JSON.stringify([weth.address]));
+        expect(isDAIBorrow).to.be.false;
+      });
+      it("should emit the correct BorrowAssetsUpdated event", async () => {
+        await expect(subject())
+          .to.emit(aaveLeverageModule, "BorrowAssetsUpdated")
+          .withArgs(subjectSetToken, false, subjectBorrowAssets);
+      });
+      describe("when borrow asset is not enabled on module", async () => {
+        beforeEach(async () => {
+          subjectBorrowAssets = [dai.address, dai.address];
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Borrow not enabled");
+        });
+      });
+      describe("when borrow balance exists", async () => {
+        beforeEach(async () => {
+          // Lever SetToken
+          const leverTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+            [dai.address, weth.address], // Swap path
+            [500], // fees
+            true,
+          );
+          await aaveLeverageModule.lever(
+            setToken.address,
+            dai.address,
+            weth.address,
+            ether(2000),
+            ether(1),
+            "UNISWAPV3",
+            leverTradeData,
+          );
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Variable debt remaining");
+        });
+      });
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+    });
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#updateAllowedSetToken", async () => {
