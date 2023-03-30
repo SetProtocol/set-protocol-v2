@@ -1996,86 +1996,86 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   });
 
   describe("#registerToModule", async () => {
-    // let setToken: SetToken;
-    // let otherIssuanceModule: DebtIssuanceMock;
-    // let isInitialized: boolean;
-    // let subjectSetToken: Address;
-    // let subjectDebtIssuanceModule: Address;
-    // const initializeContracts = async function () {
-    //   otherIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
-    //   await controller.addModule(otherIssuanceModule.address);
-    //   setToken = await createSetToken(
-    //     [aWETH.address],
-    //     [ether(100)],
-    //     [aaveLeverageModule.address, debtIssuanceModule.address],
-    //   );
-    //   await initializeDebtIssuanceModule(setToken.address);
-    //   // Add SetToken to allow list
-    //   await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-    //   // Initialize module if set to true
-    //   if (isInitialized) {
-    //     await aaveLeverageModule.initialize(
-    //       setToken.address,
-    //       [weth.address, dai.address, wbtc.address], // Enable WBTC that is not a Set position
-    //       [dai.address, weth.address, wbtc.address],
-    //     );
-    //   }
-    //   // Add other issuance mock after initializing Aave Leverage module, so register is never called
-    //   await setToken.addModule(otherIssuanceModule.address);
-    //   await otherIssuanceModule.initialize(setToken.address);
-    // };
-    // const initializeSubjectVariables = () => {
-    //   subjectSetToken = setToken.address;
-    //   subjectDebtIssuanceModule = otherIssuanceModule.address;
-    // };
-    // async function subject(): Promise<any> {
-    //   return aaveLeverageModule.registerToModule(subjectSetToken, subjectDebtIssuanceModule);
-    // }
-    // describe("when module is initialized", () => {
-    //   beforeEach(() => {
-    //     isInitialized = true;
-    //   });
-    //   cacheBeforeEach(initializeContracts);
-    //   beforeEach(initializeSubjectVariables);
-    //   it("should register on the other issuance module", async () => {
-    //     const previousIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
-    //     await subject();
-    //     const currentIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
-    //     expect(previousIsRegistered).to.be.false;
-    //     expect(currentIsRegistered).to.be.true;
-    //   });
-    //   describe("when SetToken is not valid", async () => {
-    //     beforeEach(async () => {
-    //       const nonEnabledSetToken = await createNonControllerEnabledSetToken(
-    //         [weth.address],
-    //         [ether(1)],
-    //         [aaveLeverageModule.address],
-    //       );
-    //       subjectSetToken = nonEnabledSetToken.address;
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-    //     });
-    //   });
-    //   describe("when debt issuance module is not initialized on SetToken", async () => {
-    //     beforeEach(async () => {
-    //       await setToken.removeModule(otherIssuanceModule.address);
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Issuance not initialized");
-    //     });
-    //   });
-    // });
-    // describe("when module is not initialized", async () => {
-    //   beforeEach(async () => {
-    //     isInitialized = false;
-    //     await initializeContracts();
-    //     initializeSubjectVariables();
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-    //   });
-    // });
+    let setToken: SetToken;
+    let otherIssuanceModule: DebtIssuanceMock;
+    let isInitialized: boolean;
+    let subjectSetToken: Address;
+    let subjectDebtIssuanceModule: Address;
+    const initializeContracts = async function () {
+      otherIssuanceModule = await deployer.mocks.deployDebtIssuanceMock();
+      await controller.addModule(otherIssuanceModule.address);
+      setToken = await createSetToken(
+        [aWETH.address],
+        [ether(100)],
+        [aaveLeverageModule.address, debtIssuanceModule.address],
+      );
+      await initializeDebtIssuanceModule(setToken.address);
+      // Add SetToken to allow list
+      await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+      // Initialize module if set to true
+      if (isInitialized) {
+        await aaveLeverageModule.initialize(
+          setToken.address,
+          [weth.address, dai.address, wbtc.address], // Enable WBTC that is not a Set position
+          [dai.address, weth.address, wbtc.address],
+        );
+      }
+      // Add other issuance mock after initializing Aave Leverage module, so register is never called
+      await setToken.addModule(otherIssuanceModule.address);
+      await otherIssuanceModule.initialize(setToken.address);
+    };
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+      subjectDebtIssuanceModule = otherIssuanceModule.address;
+    };
+    async function subject(): Promise<any> {
+      return aaveLeverageModule.registerToModule(subjectSetToken, subjectDebtIssuanceModule);
+    }
+    describe("when module is initialized", () => {
+      beforeEach(() => {
+        isInitialized = true;
+      });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+      it("should register on the other issuance module", async () => {
+        const previousIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
+        await subject();
+        const currentIsRegistered = await otherIssuanceModule.isRegistered(setToken.address);
+        expect(previousIsRegistered).to.be.false;
+        expect(currentIsRegistered).to.be.true;
+      });
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await createNonControllerEnabledSetToken(
+            [weth.address],
+            [ether(1)],
+            [aaveLeverageModule.address],
+          );
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+      describe("when debt issuance module is not initialized on SetToken", async () => {
+        beforeEach(async () => {
+          await setToken.removeModule(otherIssuanceModule.address);
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Issuance not initialized");
+        });
+      });
+    });
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#moduleIssueHook", async () => {
