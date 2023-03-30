@@ -2502,136 +2502,135 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
       });
     });
-  });
+  //});
 
   describe("#componentRedeemHook", async () => {
-    // let setToken: SetToken;
-    // let isInitialized: boolean;
-    // let repayQuantity: BigNumber;
-    // let subjectSetToken: Address;
-    // let subjectSetQuantity: BigNumber;
-    // let subjectComponent: Address;
-    // let subjectIsEquity: boolean;
-    // let subjectCaller: Account;
-    // let issueQuantity: BigNumber;
-    // context("when aWETH is collateral and DAI is borrow asset", async () => {
-    //   before(async () => {
-    //     isInitialized = true;
-    //   });
-    //   cacheBeforeEach(async () => {
-    //     // Add mock module to controller
-    //     await controller.addModule(mockModule.address);
-    //     setToken = await createSetToken(
-    //       [aWETH.address],
-    //       [ether(2)],
-    //       [aaveLeverageModule.address, debtIssuanceModule.address],
-    //     );
-    //     await initializeDebtIssuanceModule(setToken.address);
-    //     // Add SetToken to allow list
-    //     await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-    //     // Initialize module if set to true
-    //     if (isInitialized) {
-    //       await aaveLeverageModule.initialize(
-    //         setToken.address,
-    //         [weth.address, wbtc.address], // Enable WBTC that is not a Set position
-    //         [dai.address, wbtc.address],
-    //       );
-    //     }
-    //     // Initialize mock module
-    //     await setToken.addModule(mockModule.address);
-    //     await setToken.connect(mockModule.wallet).initializeModule();
-    //     // Mint aTokens
-    //     await weth.approve(aaveLendingPool.address, ether(100));
-    //     await aaveLendingPool
-    //       .connect(owner.wallet)
-    //       .deposit(weth.address, ether(100), owner.address, ZERO);
-    //     // Approve tokens to issuance module and call issue
-    //     await aWETH.connect(owner.wallet).approve(debtIssuanceModule.address, ether(100));
-    //     issueQuantity = ether(1);
-    //     await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
-    //     // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
-    //     repayQuantity = ether(1000);
-    //     // Lever aETH in SetToken
-    //     if (isInitialized) {
-    //       const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
-    //         [dai.address, weth.address], // Swap path
-    //         [500], // fees
-    //         true,
-    //       );
-    //       await aaveLeverageModule.lever(
-    //         setToken.address,
-    //         dai.address,
-    //         weth.address,
-    //         repayQuantity,
-    //         ether(0.1),
-    //         "UNISWAPV3",
-    //         leverEthTradeData,
-    //       );
-    //     }
-    //     // Transfer repay quantity to SetToken for repayment
-    //     await dai.transfer(setToken.address, repayQuantity);
-    //   });
-    //   beforeEach(() => {
-    //     subjectSetToken = setToken.address;
-    //     subjectSetQuantity = issueQuantity;
-    //     subjectComponent = dai.address;
-    //     subjectIsEquity = false;
-    //     subjectCaller = mockModule;
-    //   });
-    //   async function subject(): Promise<any> {
-    //     return aaveLeverageModule
-    //       .connect(subjectCaller.wallet)
-    //       .componentRedeemHook(
-    //         subjectSetToken,
-    //         subjectSetQuantity,
-    //         subjectComponent,
-    //         subjectIsEquity,
-    //       );
-    //   }
-    //   it("should decrease borrowed quantity on the SetToken", async () => {
-    //     const previousDaiBalance = await dai.balanceOf(setToken.address);
-    //     await subject();
-    //     const currentDaiBalance = await dai.balanceOf(setToken.address);
-    //     expect(previousDaiBalance).to.eq(repayQuantity);
-    //     expect(currentDaiBalance).to.eq(ZERO);
-    //   });
-    //   describe("when _isEquity is false and component has positive unit", async () => {
-    //     beforeEach(async () => {
-    //       subjectComponent = aWETH.address;
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Component must be negative");
-    //     });
-    //   });
-    //   describe("when isEquity is true", async () => {
-    //     beforeEach(async () => {
-    //       subjectIsEquity = true;
-    //     });
-    //     it("should NOT decrease borrowed quantity on the SetToken", async () => {
-    //       const previousDaiBalance = await dai.balanceOf(setToken.address);
-    //       await subject();
-    //       const currentDaiBalance = await dai.balanceOf(setToken.address);
-    //       expect(previousDaiBalance).to.eq(repayQuantity);
-    //       expect(currentDaiBalance).to.eq(repayQuantity);
-    //     });
-    //   });
-    //   describe("when caller is not module", async () => {
-    //     beforeEach(async () => {
-    //       subjectCaller = owner;
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Only the module can call");
-    //     });
-    //   });
-    //   describe("if disabled module is caller", async () => {
-    //     beforeEach(async () => {
-    //       await controller.removeModule(mockModule.address);
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
-    //     });
-    //   });
-    // });
+    let setToken: SetToken;
+    let isInitialized: boolean;
+    let repayQuantity: BigNumber;
+    let subjectSetToken: Address;
+    let subjectSetQuantity: BigNumber;
+    let subjectComponent: Address;
+    let subjectIsEquity: boolean;
+    let subjectCaller: Account;
+    let issueQuantity: BigNumber;
+    context("when aWETH is collateral and DAI is borrow asset", async () => {
+      before(async () => {
+        isInitialized = true;
+      });
+      cacheBeforeEach(async () => {
+        // Add mock module to controller
+        await controller.addModule(mockModule.address);
+        setToken = await createSetToken(
+          [aWETH.address],
+          [ether(2)],
+          [aaveLeverageModule.address, debtIssuanceModule.address],
+        );
+        await initializeDebtIssuanceModule(setToken.address);
+        // Add SetToken to allow list
+        await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+        // Initialize module if set to true
+        if (isInitialized) {
+          await aaveLeverageModule.initialize(
+            setToken.address,
+            [weth.address, wbtc.address], // Enable WBTC that is not a Set position
+            [dai.address, wbtc.address],
+          );
+        }
+        // Initialize mock module
+        await setToken.addModule(mockModule.address);
+        await setToken.connect(mockModule.wallet).initializeModule();
+        // Mint aTokens
+        await weth.approve(aaveLendingPool.address, ether(100));
+        await aaveLendingPool
+          .connect(owner.wallet)
+          .deposit(weth.address, ether(100), owner.address, ZERO);
+        // Approve tokens to issuance module and call issue
+        await aWETH.connect(owner.wallet).approve(debtIssuanceModule.address, ether(100));
+        issueQuantity = ether(1);
+        await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        repayQuantity = ether(1000);
+        // Lever aETH in SetToken
+        if (isInitialized) {
+          const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+            [dai.address, weth.address], // Swap path
+            [500], // fees
+            true,
+          );
+          await aaveLeverageModule.lever(
+            setToken.address,
+            dai.address,
+            weth.address,
+            repayQuantity,
+            ether(0.1),
+            "UNISWAPV3",
+            leverEthTradeData,
+          );
+        }
+        // Transfer repay quantity to SetToken for repayment
+        await dai.transfer(setToken.address, repayQuantity);
+      });
+      beforeEach(() => {
+        subjectSetToken = setToken.address;
+        subjectSetQuantity = issueQuantity;
+        subjectComponent = dai.address;
+        subjectIsEquity = false;
+        subjectCaller = mockModule;
+      });
+      async function subject(): Promise<any> {
+        return aaveLeverageModule
+          .connect(subjectCaller.wallet)
+          .componentRedeemHook(
+            subjectSetToken,
+            subjectSetQuantity,
+            subjectComponent,
+            subjectIsEquity,
+          );
+      }
+      it("should decrease borrowed quantity on the SetToken", async () => {
+        const previousDaiBalance = await dai.balanceOf(setToken.address);
+        await subject();
+        const currentDaiBalance = await dai.balanceOf(setToken.address);
+        expect(previousDaiBalance).to.eq(repayQuantity);
+        expect(currentDaiBalance).to.eq(ZERO);
+      });
+      describe("when _isEquity is false and component has positive unit", async () => {
+        beforeEach(async () => {
+          subjectComponent = aWETH.address;
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Component must be negative");
+        });
+      });
+      describe("when isEquity is true", async () => {
+        beforeEach(async () => {
+          subjectIsEquity = true;
+        });
+        it("should NOT decrease borrowed quantity on the SetToken", async () => {
+          const previousDaiBalance = await dai.balanceOf(setToken.address);
+          await subject();
+          const currentDaiBalance = await dai.balanceOf(setToken.address);
+          expect(previousDaiBalance).to.eq(repayQuantity);
+          expect(currentDaiBalance).to.eq(repayQuantity);
+        });
+      });
+      describe("when caller is not module", async () => {
+        beforeEach(async () => {
+          subjectCaller = owner;
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Only the module can call");
+        });
+      });
+      describe("if disabled module is caller", async () => {
+        beforeEach(async () => {
+          await controller.removeModule(mockModule.address);
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+        });
+      });
+    });
   });
 
   describe("#removeModule", async () => {
