@@ -2079,152 +2079,152 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   });
 
   describe("#moduleIssueHook", async () => {
-    // let setToken: SetToken;
-    // let isInitialized: boolean;
-    // let subjectSetToken: Address;
-    // let subjectCaller: Account;
-    // context("when aWETH and aDAI are collateral and WETH and DAI are borrow assets", async () => {
-    //   before(async () => {
-    //     isInitialized = true;
-    //   });
-    //   cacheBeforeEach(async () => {
-    //     // Add mock module to controller
-    //     await controller.addModule(mockModule.address);
-    //     setToken = await createSetToken(
-    //       [aWETH.address, aDAI.address],
-    //       [ether(10), ether(5000)],
-    //       [aaveLeverageModule.address, debtIssuanceModule.address],
-    //     );
-    //     await initializeDebtIssuanceModule(setToken.address);
-    //     // Add SetToken to allow list
-    //     await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-    //     // Initialize module if set to true
-    //     if (isInitialized) {
-    //       await aaveLeverageModule.initialize(
-    //         setToken.address,
-    //         [weth.address, dai.address, wbtc.address], // Enable WBTC that is not a Set position
-    //         [dai.address, weth.address, wbtc.address],
-    //       );
-    //     }
-    //     // Initialize mock module
-    //     await setToken.addModule(mockModule.address);
-    //     await setToken.connect(mockModule.wallet).initializeModule();
-    //     // Mint aTokens
-    //     await weth.approve(aaveLendingPool.address, ether(10));
-    //     await aaveLendingPool
-    //       .connect(owner.wallet)
-    //       .deposit(weth.address, ether(10), owner.address, ZERO);
-    //     await dai.approve(aaveLendingPool.address, ether(10000));
-    //     await aaveLendingPool
-    //       .connect(owner.wallet)
-    //       .deposit(dai.address, ether(10000), owner.address, ZERO);
-    //     // Approve tokens to issuance module and call issue
-    //     await aWETH.approve(debtIssuanceModule.address, ether(10));
-    //     await aDAI.approve(debtIssuanceModule.address, ether(10000));
-    //     // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
-    //     const issueQuantity = ether(1);
-    //     await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
-    //     // Lever both aDAI and aWETH in SetToken
-    //     if (isInitialized) {
-    //       const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
-    //         [dai.address, weth.address], // Swap path
-    //         [500], // fees
-    //         true,
-    //       );
-    //       await aaveLeverageModule.lever(
-    //         setToken.address,
-    //         dai.address,
-    //         weth.address,
-    //         ether(1000),
-    //         ether(1),
-    //         "UNISWAPV3",
-    //         leverEthTradeData,
-    //       );
-    //       const leverDaiTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
-    //         [weth.address, dai.address], // Swap path
-    //         [500], // fees
-    //         true,
-    //       );
-    //       await aaveLeverageModule.lever(
-    //         setToken.address,
-    //         weth.address,
-    //         dai.address,
-    //         ether(1),
-    //         ether(1000),
-    //         "UNISWAPV3",
-    //         leverDaiTradeData,
-    //       );
-    //     }
-    //   });
-    //   beforeEach(() => {
-    //     subjectSetToken = setToken.address;
-    //     subjectCaller = mockModule;
-    //   });
-    //   async function subject(): Promise<any> {
-    //     return aaveLeverageModule
-    //       .connect(subjectCaller.wallet)
-    //       .moduleIssueHook(subjectSetToken, ZERO);
-    //   }
-    //   it("should update the collateral positions on the SetToken correctly", async () => {
-    //     const initialPositions = await setToken.getPositions();
-    //     await subject();
-    //     const currentPositions = await setToken.getPositions();
-    //     const newFirstPosition = (await setToken.getPositions())[0];
-    //     const newSecondPosition = (await setToken.getPositions())[1];
-    //     const expectedFirstPositionUnit = await aWETH.balanceOf(setToken.address); // need not divide, since total Supply = 1
-    //     const expectedSecondPositionUnit = await aDAI.balanceOf(setToken.address);
-    //     expect(initialPositions.length).to.eq(4);
-    //     expect(currentPositions.length).to.eq(4);
-    //     expect(newFirstPosition.component).to.eq(aWETH.address);
-    //     expect(newFirstPosition.positionState).to.eq(0); // Default
-    //     expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
-    //     expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
-    //     expect(newSecondPosition.component).to.eq(aDAI.address);
-    //     expect(newSecondPosition.positionState).to.eq(0); // Default
-    //     expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
-    //     expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
-    //   });
-    //   it("should update the borrow positions on the SetToken correctly", async () => {
-    //     const initialPositions = await setToken.getPositions();
-    //     await subject();
-    //     // aWETH position is increased
-    //     const currentPositions = await setToken.getPositions();
-    //     const newThirdPosition = (await setToken.getPositions())[2];
-    //     const newFourthPosition = (await setToken.getPositions())[3];
-    //     const expectedThirdPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(
-    //       -1,
-    //     ); // since, variable debt mode
-    //     const expectedFourthPositionUnit = (await variableDebtWETH.balanceOf(setToken.address)).mul(
-    //       -1,
-    //     );
-    //     expect(initialPositions.length).to.eq(4);
-    //     expect(currentPositions.length).to.eq(4);
-    //     expect(newThirdPosition.component).to.eq(dai.address);
-    //     expect(newThirdPosition.positionState).to.eq(1); // External
-    //     expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
-    //     expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
-    //     expect(newFourthPosition.component).to.eq(weth.address);
-    //     expect(newFourthPosition.positionState).to.eq(1); // External
-    //     expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
-    //     expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
-    //   });
-    //   describe("when caller is not module", async () => {
-    //     beforeEach(async () => {
-    //       subjectCaller = owner;
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Only the module can call");
-    //     });
-    //   });
-    //   describe("if disabled module is caller", async () => {
-    //     beforeEach(async () => {
-    //       await controller.removeModule(mockModule.address);
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
-    //     });
-    //   });
-    // });
+    let setToken: SetToken;
+    let isInitialized: boolean;
+    let subjectSetToken: Address;
+    let subjectCaller: Account;
+    context("when aWETH and aDAI are collateral and WETH and DAI are borrow assets", async () => {
+      before(async () => {
+        isInitialized = true;
+      });
+      cacheBeforeEach(async () => {
+        // Add mock module to controller
+        await controller.addModule(mockModule.address);
+        setToken = await createSetToken(
+          [aWETH.address, aDAI.address],
+          [ether(10), ether(5000)],
+          [aaveLeverageModule.address, debtIssuanceModule.address],
+        );
+        await initializeDebtIssuanceModule(setToken.address);
+        // Add SetToken to allow list
+        await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+        // Initialize module if set to true
+        if (isInitialized) {
+          await aaveLeverageModule.initialize(
+            setToken.address,
+            [weth.address, dai.address, wbtc.address], // Enable WBTC that is not a Set position
+            [dai.address, weth.address, wbtc.address],
+          );
+        }
+        // Initialize mock module
+        await setToken.addModule(mockModule.address);
+        await setToken.connect(mockModule.wallet).initializeModule();
+        // Mint aTokens
+        await weth.approve(aaveLendingPool.address, ether(10));
+        await aaveLendingPool
+          .connect(owner.wallet)
+          .deposit(weth.address, ether(10), owner.address, ZERO);
+        await dai.approve(aaveLendingPool.address, ether(10000));
+        await aaveLendingPool
+          .connect(owner.wallet)
+          .deposit(dai.address, ether(10000), owner.address, ZERO);
+        // Approve tokens to issuance module and call issue
+        await aWETH.approve(debtIssuanceModule.address, ether(10));
+        await aDAI.approve(debtIssuanceModule.address, ether(10000));
+        // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+        const issueQuantity = ether(1);
+        await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+        // Lever both aDAI and aWETH in SetToken
+        if (isInitialized) {
+          const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+            [dai.address, weth.address], // Swap path
+            [500], // fees
+            true,
+          );
+          await aaveLeverageModule.lever(
+            setToken.address,
+            dai.address,
+            weth.address,
+            ether(2000),
+            ether(1),
+            "UNISWAPV3",
+            leverEthTradeData,
+          );
+          const leverDaiTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+            [weth.address, dai.address], // Swap path
+            [500], // fees
+            true,
+          );
+          await aaveLeverageModule.lever(
+            setToken.address,
+            weth.address,
+            dai.address,
+            ether(1),
+            ether(1000),
+            "UNISWAPV3",
+            leverDaiTradeData,
+          );
+        }
+      });
+      beforeEach(() => {
+        subjectSetToken = setToken.address;
+        subjectCaller = mockModule;
+      });
+      async function subject(): Promise<any> {
+        return aaveLeverageModule
+          .connect(subjectCaller.wallet)
+          .moduleIssueHook(subjectSetToken, ZERO);
+      }
+      it("should update the collateral positions on the SetToken correctly", async () => {
+        const initialPositions = await setToken.getPositions();
+        await subject();
+        const currentPositions = await setToken.getPositions();
+        const newFirstPosition = (await setToken.getPositions())[0];
+        const newSecondPosition = (await setToken.getPositions())[1];
+        const expectedFirstPositionUnit = await aWETH.balanceOf(setToken.address); // need not divide, since total Supply = 1
+        const expectedSecondPositionUnit = await aDAI.balanceOf(setToken.address);
+        expect(initialPositions.length).to.eq(4);
+        expect(currentPositions.length).to.eq(4);
+        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.positionState).to.eq(0); // Default
+        expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+        expect(newSecondPosition.component).to.eq(aDAI.address);
+        expect(newSecondPosition.positionState).to.eq(0); // Default
+        expect(newSecondPosition.unit).to.eq(expectedSecondPositionUnit);
+        expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+      });
+      it("should update the borrow positions on the SetToken correctly", async () => {
+        const initialPositions = await setToken.getPositions();
+        await subject();
+        // aWETH position is increased
+        const currentPositions = await setToken.getPositions();
+        const newThirdPosition = (await setToken.getPositions())[2];
+        const newFourthPosition = (await setToken.getPositions())[3];
+        const expectedThirdPositionUnit = (await variableDebtDAI.balanceOf(setToken.address)).mul(
+          -1,
+        ); // since, variable debt mode
+        const expectedFourthPositionUnit = (await variableDebtWETH.balanceOf(setToken.address)).mul(
+          -1,
+        );
+        expect(initialPositions.length).to.eq(4);
+        expect(currentPositions.length).to.eq(4);
+        expect(newThirdPosition.component).to.eq(dai.address);
+        expect(newThirdPosition.positionState).to.eq(1); // External
+        expect(newThirdPosition.unit).to.eq(expectedThirdPositionUnit);
+        expect(newThirdPosition.module).to.eq(aaveLeverageModule.address);
+        expect(newFourthPosition.component).to.eq(weth.address);
+        expect(newFourthPosition.positionState).to.eq(1); // External
+        expect(newFourthPosition.unit).to.eq(expectedFourthPositionUnit);
+        expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
+      });
+      describe("when caller is not module", async () => {
+        beforeEach(async () => {
+          subjectCaller = owner;
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Only the module can call");
+        });
+      });
+      describe("if disabled module is caller", async () => {
+        beforeEach(async () => {
+          await controller.removeModule(mockModule.address);
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Module must be enabled on controller");
+        });
+      });
+    });
   });
 
   describe("#moduleRedeemHook", async () => {
