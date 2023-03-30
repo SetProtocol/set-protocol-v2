@@ -2966,149 +2966,148 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   });
 
   describe("#updateAllowedSetToken", async () => {
-    // let setToken: SetToken;
-    // let subjectSetToken: Address;
-    // let subjectStatus: boolean;
-    // let subjectCaller: Account;
-    // beforeEach(async () => {
-    //   setToken = setToken = await createSetToken(
-    //     [aWETH.address],
-    //     [ether(2)],
-    //     [aaveLeverageModule.address, debtIssuanceModule.address],
-    //   );
-    //   subjectSetToken = setToken.address;
-    //   subjectStatus = true;
-    //   subjectCaller = owner;
-    // });
-    // async function subject(): Promise<any> {
-    //   return aaveLeverageModule
-    //     .connect(subjectCaller.wallet)
-    //     .updateAllowedSetToken(subjectSetToken, subjectStatus);
-    // }
-    // it("should add Set to allow list", async () => {
-    //   await subject();
-    //   const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
-    //   expect(isAllowed).to.be.true;
-    // });
-    // it("should emit the correct SetTokenStatusUpdated event", async () => {
-    //   await expect(subject())
-    //     .to.emit(aaveLeverageModule, "SetTokenStatusUpdated")
-    //     .withArgs(subjectSetToken, subjectStatus);
-    // });
-    // describe("when disabling a Set", async () => {
-    //   beforeEach(async () => {
-    //     await subject();
-    //     subjectStatus = false;
-    //   });
-    //   it("should remove Set from allow list", async () => {
-    //     await subject();
-    //     const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
-    //     expect(isAllowed).to.be.false;
-    //   });
-    //   it("should emit the correct SetTokenStatusUpdated event", async () => {
-    //     await expect(subject())
-    //       .to.emit(aaveLeverageModule, "SetTokenStatusUpdated")
-    //       .withArgs(subjectSetToken, subjectStatus);
-    //   });
-    //   describe("when Set Token is removed on controller", async () => {
-    //     beforeEach(async () => {
-    //       await controller.removeSet(setToken.address);
-    //     });
-    //     it("should remove the Set from allow list", async () => {
-    //       await subject();
-    //       const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
-    //       expect(isAllowed).to.be.false;
-    //     });
-    //   });
-    // });
-    // describe("when Set is removed on controller", async () => {
-    //   beforeEach(async () => {
-    //     await controller.removeSet(setToken.address);
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Invalid SetToken");
-    //   });
-    // });
-    // describe("when not called by owner", async () => {
-    //   beforeEach(async () => {
-    //     subjectCaller = await getRandomAccount();
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
-    //   });
-    // });
+    let setToken: SetToken;
+    let subjectSetToken: Address;
+    let subjectStatus: boolean;
+    let subjectCaller: Account;
+    beforeEach(async () => {
+      setToken = setToken = await createSetToken(
+        [aWETH.address],
+        [ether(2)],
+        [aaveLeverageModule.address, debtIssuanceModule.address],
+      );
+      subjectSetToken = setToken.address;
+      subjectStatus = true;
+      subjectCaller = owner;
+    });
+    async function subject(): Promise<any> {
+      return aaveLeverageModule
+        .connect(subjectCaller.wallet)
+        .updateAllowedSetToken(subjectSetToken, subjectStatus);
+    }
+    it("should add Set to allow list", async () => {
+      await subject();
+      const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
+      expect(isAllowed).to.be.true;
+    });
+    it("should emit the correct SetTokenStatusUpdated event", async () => {
+      await expect(subject())
+        .to.emit(aaveLeverageModule, "SetTokenStatusUpdated")
+        .withArgs(subjectSetToken, subjectStatus);
+    });
+    describe("when disabling a Set", async () => {
+      beforeEach(async () => {
+        await subject();
+        subjectStatus = false;
+      });
+      it("should remove Set from allow list", async () => {
+        await subject();
+        const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
+        expect(isAllowed).to.be.false;
+      });
+      it("should emit the correct SetTokenStatusUpdated event", async () => {
+        await expect(subject())
+          .to.emit(aaveLeverageModule, "SetTokenStatusUpdated")
+          .withArgs(subjectSetToken, subjectStatus);
+      });
+      describe("when Set Token is removed on controller", async () => {
+        beforeEach(async () => {
+          await controller.removeSet(setToken.address);
+        });
+        it("should remove the Set from allow list", async () => {
+          await subject();
+          const isAllowed = await aaveLeverageModule.allowedSetTokens(subjectSetToken);
+          expect(isAllowed).to.be.false;
+        });
+      });
+    });
+    describe("when Set is removed on controller", async () => {
+      beforeEach(async () => {
+        await controller.removeSet(setToken.address);
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid SetToken");
+      });
+    });
+    describe("when not called by owner", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
+    });
   });
 
   describe("#updateAnySetAllowed", async () => {
-    // let subjectAnySetAllowed: boolean;
-    // let subjectCaller: Account;
-    // beforeEach(async () => {
-    //   subjectAnySetAllowed = true;
-    //   subjectCaller = owner;
-    // });
-    // async function subject(): Promise<any> {
-    //   return aaveLeverageModule
-    //     .connect(subjectCaller.wallet)
-    //     .updateAnySetAllowed(subjectAnySetAllowed);
-    // }
-    // it("should remove Set from allow list", async () => {
-    //   await subject();
-    //   const anySetAllowed = await aaveLeverageModule.anySetAllowed();
-    //   expect(anySetAllowed).to.be.true;
-    // });
-    // it("should emit the correct AnySetAllowedUpdated event", async () => {
-    //   await expect(subject())
-    //     .to.emit(aaveLeverageModule, "AnySetAllowedUpdated")
-    //     .withArgs(subjectAnySetAllowed);
-    // });
-    // describe("when not called by owner", async () => {
-    //   beforeEach(async () => {
-    //     subjectCaller = await getRandomAccount();
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
-    //   });
-    // });
+    let subjectAnySetAllowed: boolean;
+    let subjectCaller: Account;
+    beforeEach(async () => {
+      subjectAnySetAllowed = true;
+      subjectCaller = owner;
+    });
+    async function subject(): Promise<any> {
+      return aaveLeverageModule
+        .connect(subjectCaller.wallet)
+        .updateAnySetAllowed(subjectAnySetAllowed);
+    }
+    it("should remove Set from allow list", async () => {
+      await subject();
+      const anySetAllowed = await aaveLeverageModule.anySetAllowed();
+      expect(anySetAllowed).to.be.true;
+    });
+    it("should emit the correct AnySetAllowedUpdated event", async () => {
+      await expect(subject())
+        .to.emit(aaveLeverageModule, "AnySetAllowedUpdated")
+        .withArgs(subjectAnySetAllowed);
+    });
+    describe("when not called by owner", async () => {
+      beforeEach(async () => {
+        subjectCaller = await getRandomAccount();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Ownable: caller is not the owner");
+      });
+    });
   });
 
   describe("#addUnderlyingToReserveTokensMappings", async () => {
-    // let subjectUnderlying: Address;
-    // let subjectCaller: Account;
-    // beforeEach(async () => {
-    //   subjectUnderlying = usdc.address;
-    //   subjectCaller = await getRandomAccount();
-    // });
-    // async function subject(): Promise<any> {
-    //   return aaveLeverageModule
-    //     .connect(subjectCaller.wallet)
-    //     .addUnderlyingToReserveTokensMapping(subjectUnderlying);
-    // }
-    // it("should add the underlying to reserve tokens mappings", async () => {
-    //   await subject();
-    //   const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(usdc.address);
-    //   expect(reserveTokens.aToken).to.eq(aUSDC.address);
-    //   expect(reserveTokens.variableDebtToken).to.eq(variableDebtUSDC.address);
-    // });
-    // it("should emit ReserveTokensUpdated event", async () => {
-    //   await expect(subject())
-    //     .to.emit(aaveLeverageModule, "ReserveTokensUpdated")
-    //     .withArgs(usdc.address, aUSDC.address, variableDebtUSDC.address);
-    // });
-    // describe("when mapping already exists", async () => {
-    //   beforeEach(async () => {
-    //     subjectUnderlying = weth.address;
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Mapping already exists");
-    //   });
-    // });
-    // describe("when reserve is invalid", async () => {
-    //   beforeEach(async () => {
-    //     subjectUnderlying = await getRandomAddress();
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Invalid aave reserve");
-    //   });
-    // });
+    let subjectUnderlying: Address;
+    let subjectCaller: Account;
+    beforeEach(async () => {
+      const mockToken = await registerMockToken();
+      subjectUnderlying = mockToken.address;
+      subjectCaller = await getRandomAccount();
+    });
+    async function subject(): Promise<any> {
+      return aaveLeverageModule
+        .connect(subjectCaller.wallet)
+        .addUnderlyingToReserveTokensMapping(subjectUnderlying);
+    }
+    it("should add the underlying to reserve tokens mappings", async () => {
+      await subject();
+      const reserveTokens = await aaveLeverageModule.underlyingToReserveTokens(subjectUnderlying);
+      expect(reserveTokens.aToken).to.not.eq(ADDRESS_ZERO);
+      expect(reserveTokens.variableDebtToken).to.not.eq(ADDRESS_ZERO);
+    });
+    it("should emit ReserveTokensUpdated event", async () => {
+      await expect(subject()).to.emit(aaveLeverageModule, "ReserveTokensUpdated");
+    });
+    describe("when mapping already exists", async () => {
+      beforeEach(async () => {
+        subjectUnderlying = weth.address;
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Mapping already exists");
+      });
+    });
+    describe("when reserve is invalid", async () => {
+      beforeEach(async () => {
+        subjectUnderlying = await getRandomAddress();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Invalid aave reserve");
+      });
+    });
   });
 });
