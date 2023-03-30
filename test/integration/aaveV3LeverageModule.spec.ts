@@ -2741,112 +2741,112 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         await expect(subject()).to.be.revertedWith("Variable debt remaining");
       });
     });
-  });
+  //});
 
   describe("#removeCollateralAssets", async () => {
-    // let setToken: SetToken;
-    // let isInitialized: boolean;
-    // let subjectSetToken: Address;
-    // let subjectCollateralAssets: Address[];
-    // let subjectCaller: Account;
-    // const initializeContracts = async () => {
-    //   setToken = await createSetToken(
-    //     [aWETH.address],
-    //     [ether(1)],
-    //     [aaveLeverageModule.address, debtIssuanceModule.address],
-    //   );
-    //   await initializeDebtIssuanceModule(setToken.address);
-    //   // Add SetToken to allow list
-    //   await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-    //   // Initialize module if set to true
-    //   if (isInitialized) {
-    //     await aaveLeverageModule.initialize(setToken.address, [weth.address, dai.address], []);
-    //   }
-    // };
-    // const initializeSubjectVariables = () => {
-    //   subjectSetToken = setToken.address;
-    //   subjectCollateralAssets = [dai.address];
-    //   subjectCaller = owner;
-    // };
-    // async function subject(): Promise<any> {
-    //   return await aaveLeverageModule
-    //     .connect(subjectCaller.wallet)
-    //     .removeCollateralAssets(subjectSetToken, subjectCollateralAssets);
-    // }
-    // describe("when module is initialized", () => {
-    //   before(async () => {
-    //     isInitialized = true;
-    //   });
-    //   cacheBeforeEach(initializeContracts);
-    //   beforeEach(initializeSubjectVariables);
-    //   it("should remove the collateral asset from mappings", async () => {
-    //     await subject();
-    //     const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
-    //     const isDAICollateral = await aaveLeverageModule.collateralAssetEnabled(
-    //       setToken.address,
-    //       dai.address,
-    //     );
-    //     expect(JSON.stringify(collateralAssets)).to.eq(JSON.stringify([weth.address]));
-    //     expect(isDAICollateral).to.be.false;
-    //   });
-    //   it("should emit the correct CollateralAssetsUpdated event", async () => {
-    //     await expect(subject())
-    //       .to.emit(aaveLeverageModule, "CollateralAssetsUpdated")
-    //       .withArgs(subjectSetToken, false, subjectCollateralAssets);
-    //   });
-    //   describe("when removing a collateral asset which has been enabled to be used as collateral on aave", async () => {
-    //     beforeEach(async () => {
-    //       // Mint aTokens
-    //       await weth.approve(aaveLendingPool.address, ether(1000));
-    //       await aaveLendingPool
-    //         .connect(owner.wallet)
-    //         .deposit(weth.address, ether(1000), owner.address, ZERO);
-    //       // Approve tokens to issuance module and call issue
-    //       await aWETH.approve(debtIssuanceModule.address, ether(1000));
-    //       // Transfer of aToken to SetToken during issuance would enable the underlying to be used as collateral by SetToken on Aave
-    //       const issueQuantity = ether(1);
-    //       await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
-    //       subjectCollateralAssets = [weth.address]; // remove weth
-    //     });
-    //     it("should disable the asset to be used as collateral on aave", async () => {
-    //       const beforeUsageAsCollateralEnabled = (
-    //         await protocolDataProvider.getUserReserveData(weth.address, setToken.address)
-    //       ).usageAsCollateralEnabled;
-    //       await subject();
-    //       const afterUsageAsCollateralEnabled = (
-    //         await protocolDataProvider.getUserReserveData(weth.address, setToken.address)
-    //       ).usageAsCollateralEnabled;
-    //       expect(beforeUsageAsCollateralEnabled).to.be.true;
-    //       expect(afterUsageAsCollateralEnabled).to.be.false;
-    //     });
-    //   });
-    //   describe("when collateral asset is not enabled on module", async () => {
-    //     beforeEach(async () => {
-    //       subjectCollateralAssets = [weth.address, usdc.address];
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Collateral not enabled");
-    //     });
-    //   });
-    //   describe("when the caller is not the SetToken manager", async () => {
-    //     beforeEach(async () => {
-    //       subjectCaller = await getRandomAccount();
-    //     });
-    //     it("should revert", async () => {
-    //       await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
-    //     });
-    //   });
-    // });
-    // describe("when module is not initialized", async () => {
-    //   beforeEach(async () => {
-    //     isInitialized = false;
-    //     await initializeContracts();
-    //     initializeSubjectVariables();
-    //   });
-    //   it("should revert", async () => {
-    //     await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
-    //   });
-    // });
+    let setToken: SetToken;
+    let isInitialized: boolean;
+    let subjectSetToken: Address;
+    let subjectCollateralAssets: Address[];
+    let subjectCaller: Account;
+    const initializeContracts = async () => {
+      setToken = await createSetToken(
+        [aWETH.address],
+        [ether(1)],
+        [aaveLeverageModule.address, debtIssuanceModule.address],
+      );
+      await initializeDebtIssuanceModule(setToken.address);
+      // Add SetToken to allow list
+      await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+      // Initialize module if set to true
+      if (isInitialized) {
+        await aaveLeverageModule.initialize(setToken.address, [weth.address, dai.address], []);
+      }
+    };
+    const initializeSubjectVariables = () => {
+      subjectSetToken = setToken.address;
+      subjectCollateralAssets = [dai.address];
+      subjectCaller = owner;
+    };
+    async function subject(): Promise<any> {
+      return await aaveLeverageModule
+        .connect(subjectCaller.wallet)
+        .removeCollateralAssets(subjectSetToken, subjectCollateralAssets);
+    }
+    describe("when module is initialized", () => {
+      before(async () => {
+        isInitialized = true;
+      });
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+      it("should remove the collateral asset from mappings", async () => {
+        await subject();
+        const collateralAssets = (await aaveLeverageModule.getEnabledAssets(setToken.address))[0];
+        const isDAICollateral = await aaveLeverageModule.collateralAssetEnabled(
+          setToken.address,
+          dai.address,
+        );
+        expect(JSON.stringify(collateralAssets)).to.eq(JSON.stringify([weth.address]));
+        expect(isDAICollateral).to.be.false;
+      });
+      it("should emit the correct CollateralAssetsUpdated event", async () => {
+        await expect(subject())
+          .to.emit(aaveLeverageModule, "CollateralAssetsUpdated")
+          .withArgs(subjectSetToken, false, subjectCollateralAssets);
+      });
+      describe("when removing a collateral asset which has been enabled to be used as collateral on aave", async () => {
+        beforeEach(async () => {
+          // Mint aTokens
+          await weth.approve(aaveLendingPool.address, ether(1000));
+          await aaveLendingPool
+            .connect(owner.wallet)
+            .deposit(weth.address, ether(1000), owner.address, ZERO);
+          // Approve tokens to issuance module and call issue
+          await aWETH.approve(debtIssuanceModule.address, ether(1000));
+          // Transfer of aToken to SetToken during issuance would enable the underlying to be used as collateral by SetToken on Aave
+          const issueQuantity = ether(1);
+          await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+          subjectCollateralAssets = [weth.address]; // remove weth
+        });
+        it("should disable the asset to be used as collateral on aave", async () => {
+          const beforeUsageAsCollateralEnabled = (
+            await protocolDataProvider.getUserReserveData(weth.address, setToken.address)
+          ).usageAsCollateralEnabled;
+          await subject();
+          const afterUsageAsCollateralEnabled = (
+            await protocolDataProvider.getUserReserveData(weth.address, setToken.address)
+          ).usageAsCollateralEnabled;
+          expect(beforeUsageAsCollateralEnabled).to.be.true;
+          expect(afterUsageAsCollateralEnabled).to.be.false;
+        });
+      });
+      describe("when collateral asset is not enabled on module", async () => {
+        beforeEach(async () => {
+          subjectCollateralAssets = [weth.address, usdc.address];
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Collateral not enabled");
+        });
+      });
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+    });
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
   });
 
   describe("#removeBorrowAssets", async () => {
