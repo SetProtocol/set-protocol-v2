@@ -389,9 +389,9 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 setTotalSupply = _setToken.totalSupply();
         uint256 notionalRedeemQuantity = _redeemQuantityUnits.preciseMul(setTotalSupply);
 
-        require(borrowAssetEnabled[_setToken][_repayAsset], "Borrow not enabled");
+        require(borrowAssetEnabled[_setToken][_repayAsset], "BNE");
         uint256 notionalRepayQuantity = underlyingToReserveTokens[_repayAsset].variableDebtToken.balanceOf(address(_setToken));
-        require(notionalRepayQuantity > 0, "Borrow balance is zero");
+        require(notionalRepayQuantity > 0, "BBZ");
 
         ActionInfo memory deleverInfo = _createAndValidateActionInfoNotional(
             _setToken,
@@ -486,14 +486,14 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         onlyValidAndPendingSet(_setToken)
     {
         if (!anySetAllowed) {
-            require(allowedSetTokens[_setToken], "Not allowed SetToken");
+            require(allowedSetTokens[_setToken], "NAS");
         }
 
         // Initialize module before trying register
         _setToken.initializeModule();
 
         // Get debt issuance module registered to this module and require that it is initialized
-        require(_setToken.isInitializedModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)), "Issuance not initialized");
+        require(_setToken.isInitializedModule(getAndValidateAdapter(DEFAULT_ISSUANCE_MODULE_NAME)), "INI");
 
         // Try if register exists on any of the modules including the debt issuance module
         address[] memory modules = _setToken.getModules();
@@ -520,7 +520,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         address[] memory borrowAssets = enabledAssets[setToken].borrowAssets;
         for(uint256 i = 0; i < borrowAssets.length; i++) {
             IERC20 borrowAsset = IERC20(borrowAssets[i]);
-            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(setToken)) == 0, "Variable debt remaining");
+            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(setToken)) == 0, "VDR");
 
             delete borrowAssetEnabled[setToken][borrowAsset];
         }
@@ -550,7 +550,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _debtIssuanceModule   Debt issuance module address to register
      */
     function registerToModule(ISetToken _setToken, IDebtIssuanceModule _debtIssuanceModule) external onlyManagerAndValidSet(_setToken) {
-        require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "Issuance not initialized");
+        require(_setToken.isInitializedModule(address(_debtIssuanceModule)), "INI");
 
         _debtIssuanceModule.registerToIssuanceModule(_setToken);
     }
@@ -571,11 +571,11 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _underlying               Address of underlying asset
      */
     function addUnderlyingToReserveTokensMapping(IERC20 _underlying) external {
-        require(address(underlyingToReserveTokens[_underlying].aToken) == address(0), "Mapping already exists");
+        require(address(underlyingToReserveTokens[_underlying].aToken) == address(0), "MAE");
 
         // An active reserve is an alias for a valid reserve on Aave.
         (,,,,,,,, bool isActive,) = protocolDataProvider.getReserveConfigurationData(address(_underlying));
-        require(isActive, "Invalid aave reserve");
+        require(isActive, "IAE");
 
         _addUnderlyingToReserveTokensMapping(_underlying);
     }
@@ -604,7 +604,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         for(uint256 i = 0; i < _collateralAssets.length; i++) {
             IERC20 collateralAsset = _collateralAssets[i];
-            require(collateralAssetEnabled[_setToken][collateralAsset], "Collateral not enabled");
+            require(collateralAssetEnabled[_setToken][collateralAsset], "CNE");
 
             _updateUseReserveAsCollateral(_setToken, collateralAsset, false);
 
@@ -635,8 +635,8 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         for(uint256 i = 0; i < _borrowAssets.length; i++) {
             IERC20 borrowAsset = _borrowAssets[i];
 
-            require(borrowAssetEnabled[_setToken][borrowAsset], "Borrow not enabled");
-            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(_setToken)) == 0, "Variable debt remaining");
+            require(borrowAssetEnabled[_setToken][borrowAsset], "BNE");
+            require(underlyingToReserveTokens[borrowAsset].variableDebtToken.balanceOf(address(_setToken)) == 0, "VDR");
 
             delete borrowAssetEnabled[_setToken][borrowAsset];
             enabledAssets[_setToken].borrowAssets.removeStorage(address(borrowAsset));
@@ -650,7 +650,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @param _status               Bool indicating if _setToken is allowed to initialize this module
      */
     function updateAllowedSetToken(ISetToken _setToken, bool _status) external onlyOwner {
-        require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "Invalid SetToken");
+        require(controller.isSet(address(_setToken)) || allowedSetTokens[_setToken], "IST");
         allowedSetTokens[_setToken] = _status;
         emit SetTokenStatusUpdated(_setToken, _status);
     }
@@ -694,7 +694,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         if (!_isEquity) {
             int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
-            require(componentDebt < 0, "Component must be negative");
+            require(componentDebt < 0, "CMBN");
 
             uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMul(_setTokenQuantity);
             _borrowForHook(_setToken, _component, notionalDebt);
@@ -714,7 +714,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         if (!_isEquity) {
             int256 componentDebt = _setToken.getExternalPositionRealUnit(address(_component), address(this));
 
-            require(componentDebt < 0, "Component must be negative");
+            require(componentDebt < 0, "CMBN");
 
             uint256 notionalDebt = componentDebt.mul(-1).toUint256().preciseMulCeil(_setTokenQuantity);
             _repayBorrowForHook(_setToken, _component, notionalDebt);
@@ -823,7 +823,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 receiveTokenQuantity = _receiveToken.balanceOf(address(setToken)).sub(_actionInfo.preTradeReceiveTokenBalance);
         require(
             receiveTokenQuantity >= _actionInfo.minNotionalReceiveQuantity,
-            "Slippage too high"
+            "STH"
         );
 
         return receiveTokenQuantity;
@@ -1085,10 +1085,10 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Validate common requirements for lever and delever
      */
     function _validateCommon(ActionInfo memory _actionInfo) internal view {
-        require(collateralAssetEnabled[_actionInfo.setToken][_actionInfo.collateralAsset], "Collateral not enabled");
-        require(borrowAssetEnabled[_actionInfo.setToken][_actionInfo.borrowAsset], "Borrow not enabled");
-        require(_actionInfo.collateralAsset != _actionInfo.borrowAsset, "Collateral and borrow asset must be different");
-        require(_actionInfo.notionalSendQuantity > 0, "Quantity is 0");
+        require(collateralAssetEnabled[_actionInfo.setToken][_actionInfo.collateralAsset], "CNE");
+        require(borrowAssetEnabled[_actionInfo.setToken][_actionInfo.borrowAsset], "BNE");
+        require(_actionInfo.collateralAsset != _actionInfo.borrowAsset, "CBE");
+        require(_actionInfo.notionalSendQuantity > 0, "ZQ");
     }
 
     /**
@@ -1104,10 +1104,10 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         // An active reserve is an alias for a valid reserve on Aave.
         // We are checking for the availability of the reserve directly on Aave rather than checking our internal `underlyingToReserveTokens` mappings,
         // because our mappings can be out-of-date if a new reserve is added to Aave
-        require(isActive, "Invalid aave reserve");
+        require(isActive, "IAR");
         // A frozen reserve doesn't allow any new deposit, borrow or rate swap but allows repayments, liquidations and withdrawals
-        require(!isFrozen, "Frozen aave reserve");
-        require(usageAsCollateralEnabled, "Collateral disabled on Aave");
+        require(!isFrozen, "FAR");
+        require(usageAsCollateralEnabled, "CNE");
     }
 
     /**
@@ -1120,9 +1120,9 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         require(address(underlyingToReserveTokens[_asset].variableDebtToken) == variableDebtToken, "Invalid variable debt token address");
 
         (, , , , , , bool borrowingEnabled, , bool isActive, bool isFrozen) = protocolDataProvider.getReserveConfigurationData(address(_asset));
-        require(isActive, "Invalid aave reserve");
-        require(!isFrozen, "Frozen aave reserve");
-        require(borrowingEnabled, "Borrowing disabled on Aave");
+        require(isActive, "IAR");
+        require(!isFrozen, "FAR");
+        require(borrowingEnabled, "BNE");
     }
 
     /**

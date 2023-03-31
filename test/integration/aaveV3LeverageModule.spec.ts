@@ -442,7 +442,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Issuance not initialized");
+          await expect(subject()).to.be.revertedWith("INI");
         });
       });
 
@@ -500,7 +500,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
         describe("when SetToken is not allowlisted", async () => {
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Not allowed SetToken");
+            await expect(subject()).to.be.revertedWith("NAS");
           });
         });
 
@@ -769,7 +769,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Collateral not enabled");
+            await expect(subject()).to.be.revertedWith("CNE");
           });
         });
 
@@ -779,7 +779,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Borrow not enabled");
+            await expect(subject()).to.be.revertedWith("BNE");
           });
         });
 
@@ -790,7 +790,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
           it("should revert", async () => {
             await expect(subject()).to.be.revertedWith(
-              "Collateral and borrow asset must be different",
+              "CBE",
             );
           });
         });
@@ -801,7 +801,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Quantity is 0");
+            await expect(subject()).to.be.revertedWith("ZQ");
           });
         });
 
@@ -1249,7 +1249,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow not enabled");
+          await expect(subject()).to.be.revertedWith("BNE");
         });
       });
 
@@ -1263,7 +1263,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
 
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow balance is zero");
+          await expect(subject()).to.be.revertedWith("BBZ");
         });
       });
 
@@ -1810,7 +1810,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
             });
 
             it("should revert", async () => {
-              await expect(subject()).to.be.revertedWith("Invalid aave reserve");
+              await expect(subject()).to.be.revertedWith("IAR");
             });
           });
           describe("when the caller is not the SetToken manager", async () => {
@@ -1829,7 +1829,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
             await aaveLeverageModule.addUnderlyingToReserveTokensMapping(mockToken.address);
           });
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Collateral disabled on Aave");
+            await expect(subject()).to.be.revertedWith("CNE");
           });
         });
       });
@@ -1944,7 +1944,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
             await aaveLeverageModule.addUnderlyingToReserveTokensMapping(mockToken.address);
           });
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith("Borrowing disabled on Aave");
+            await expect(subject()).to.be.revertedWith("BNE");
           });
         });
       });
@@ -1953,7 +1953,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           subjectBorrowAssets = [await getRandomAddress()];
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Invalid aave reserve");
+          await expect(subject()).to.be.revertedWith("IAR");
         });
       });
       describe("when borrow asset reserve is frozen on Aave", async () => {
@@ -1964,7 +1964,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           await lendingPoolConfigurator.setReserveFreeze(dai.address, false);
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Frozen aave reserve");
+          await expect(subject()).to.be.revertedWith("FAR");
         });
       });
       describe("when the caller is not the SetToken manager", async () => {
@@ -2055,7 +2055,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           await setToken.removeModule(otherIssuanceModule.address);
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Issuance not initialized");
+          await expect(subject()).to.be.revertedWith("INI");
         });
       });
     });
@@ -2463,7 +2463,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           subjectComponent = aWETH.address;
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Component must be negative");
+          await expect(subject()).to.be.revertedWith("CMBN");
         });
       });
       describe("when isEquity is true", async () => {
@@ -2592,7 +2592,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           subjectComponent = aWETH.address;
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Component must be negative");
+          await expect(subject()).to.be.revertedWith("CMBN");
         });
       });
       describe("when isEquity is true", async () => {
@@ -2731,7 +2731,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         );
       });
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Variable debt remaining");
+        await expect(subject()).to.be.revertedWith("VDR");
       });
     });
   });
@@ -2818,7 +2818,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           subjectCollateralAssets = [weth.address, usdc.address];
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Collateral not enabled");
+          await expect(subject()).to.be.revertedWith("CNE");
         });
       });
       describe("when the caller is not the SetToken manager", async () => {
@@ -2912,7 +2912,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           subjectBorrowAssets = [dai.address, dai.address];
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Borrow not enabled");
+          await expect(subject()).to.be.revertedWith("BNE");
         });
       });
       describe("when borrow balance exists", async () => {
@@ -2934,7 +2934,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           );
         });
         it("should revert", async () => {
-          await expect(subject()).to.be.revertedWith("Variable debt remaining");
+          await expect(subject()).to.be.revertedWith("VDR");
         });
       });
       describe("when the caller is not the SetToken manager", async () => {
@@ -3019,7 +3019,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         await controller.removeSet(setToken.address);
       });
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Invalid SetToken");
+        await expect(subject()).to.be.revertedWith("IST");
       });
     });
     describe("when not called by owner", async () => {
@@ -3091,7 +3091,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         subjectUnderlying = weth.address;
       });
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Mapping already exists");
+        await expect(subject()).to.be.revertedWith("MAE");
       });
     });
     describe("when reserve is invalid", async () => {
@@ -3099,7 +3099,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         subjectUnderlying = await getRandomAddress();
       });
       it("should revert", async () => {
-        await expect(subject()).to.be.revertedWith("Invalid aave reserve");
+        await expect(subject()).to.be.revertedWith("IAE");
       });
     });
   });

@@ -65,8 +65,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      // TODO: Set back to false and fix contract too large issue
-      allowUnlimitedContractSize: true,
+      allowUnlimitedContractSize: false,
       forking: process.env.FORK ? forkingConfig : undefined,
       accounts: getHardhatPrivateKeys(),
       gas: 12000000,
