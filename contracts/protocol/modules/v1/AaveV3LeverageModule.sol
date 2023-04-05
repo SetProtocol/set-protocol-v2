@@ -556,7 +556,11 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev MANAGER ONLY: Set EMode category
+     * @dev MANAGER ONLY: Set EMode category allowing the SetToken to take advantage of better liquidation parameters on Aave, 
+     * thereby reducing the risk of liquidation for a given leverage ratio.
+     * When EMode is activated the user (the set token) can only borrow assets from 
+     * the same category. (i.e. "eth like" assets or "stablecoins").
+     * See: https://docs.aave.com/faq/aave-v3-features#high-efficiency-mode-e-mode
      * @param _categoryId             CategoryId of the chosen EMode
      */
     function setEModeCategory(ISetToken _setToken, uint8 _categoryId) external onlyManagerAndValidSet(_setToken) {
