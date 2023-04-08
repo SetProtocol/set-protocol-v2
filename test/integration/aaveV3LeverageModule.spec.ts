@@ -81,10 +81,14 @@ const tokenAddresses = {
   usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   aUSDC: "0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c",
   aUsdcVariableDebtTokenV3: "0x72E95b8931767C79bA4EeE721354d6E99a61D004",
+  stEth: "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84",
+  wstEth: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
+  awstEthV3: "0x0B925eD163218f6662a35e0f0371Ac234f9E9371",
 };
 
 const whales = {
   dai: "0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8",
+  wsteth: "0xAF06acFD1BD492B913d5807d562e4FC3A6343C4E"
 };
 
 describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
@@ -103,9 +107,11 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let dai: IERC20;
   let wbtc: IERC20;
   let usdc: IERC20;
+  let wsteth: IERC20;
   let variableDebtDAI: IERC20;
   let variableDebtWETH: IERC20;
   let aWETH: IERC20;
+  let aWstEth: IERC20;
   let aDAI: IERC20;
   let aaveLendingPool: IPool;
   let uniswapV3ExchangeAdapterV2: UniswapV3ExchangeAdapterV2;
@@ -162,6 +168,9 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
       contractAddresses.uniswapV3ExchangeAdapterV2,
       owner.wallet,
     );
+
+    wsteth = IERC20__factory.connect(tokenAddresses.wstEth, owner.wallet);
+    aWstEth = IERC20__factory.connect(tokenAddresses.awstEthV3, owner.wallet);
 
     wethDaiPool = UniswapV3Pool__factory.connect(contractAddresses.wethDaiPool, owner.wallet);
 
