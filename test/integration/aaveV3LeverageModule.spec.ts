@@ -88,7 +88,8 @@ const tokenAddresses = {
 
 const whales = {
   dai: "0x075e72a5eDf65F0A5f44699c7654C1a76941Ddc8",
-  wsteth: "0xAF06acFD1BD492B913d5807d562e4FC3A6343C4E"
+  awsteth: "0xAF06acFD1BD492B913d5807d562e4FC3A6343C4E",
+  wsteth: "0x5fEC2f34D80ED82370F733043B6A536d7e9D7f8d",
 };
 
 describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
@@ -542,6 +543,137 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     let subjectTradeData: Bytes;
     let subjectCaller: Account;
 
+    async function subject(): Promise<any> {
+      return aaveLeverageModule
+        .connect(subjectCaller.wallet)
+        .lever(
+          subjectSetToken,
+          subjectBorrowAsset,
+          subjectCollateralAsset,
+          subjectBorrowQuantity,
+          subjectMinCollateralQuantity,
+          subjectTradeAdapterName,
+          subjectTradeData,
+          { gasLimit: 2000000 },
+        );
+    }
+
+    context(
+      "when WETH is borrow asset, and WSTETH is collateral asset (icEth configuration)",
+      async () => {
+        before(async () => {
+          isInitialized = true;
+        });
+
+        cacheBeforeEach(async () => {
+          setToken = await createSetToken(
+            [aWstEth.address, weth.address],
+            [ether(2), ether(1)],
+            [aaveLeverageModule.address, debtIssuanceModule.address],
+          );
+          await initializeDebtIssuanceModule(setToken.address);
+          // Add SetToken to allow list
+          await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+          // Initialize module if set to true
+          if (isInitialized) {
+            await aaveLeverageModule.initialize(
+              setToken.address,
+              [weth.address, wsteth.address],
+              [wsteth.address, weth.address],
+            );
+          }
+
+          // Mint aTokens
+          await network.provider.send("hardhat_setBalance", [
+            whales.wsteth,
+            ether(10).toHexString(),
+          ]);
+          console.log("sending wsteth");
+          await wsteth
+            .connect(await impersonateAccount(whales.wsteth))
+            .transfer(owner.address, ether(10000));
+          console.log("sent wsteth");
+          await wsteth.approve(aaveLendingPool.address, ether(10000));
+          console.log("Minting aWstEth");
+          await aaveLendingPool
+            .connect(owner.wallet)
+            .deposit(wsteth.address, ether(10000), owner.address, ZERO);
+
+          await weth.approve(aaveLendingPool.address, ether(1000));
+          console.log("Minting aWeth");
+          await aaveLendingPool
+            .connect(owner.wallet)
+            .deposit(weth.address, ether(1000), owner.address, ZERO);
+
+          // Approve tokens to issuance module and call issue
+          await aWstEth.approve(debtIssuanceModule.address, ether(10000));
+          await weth.approve(debtIssuanceModule.address, ether(1000));
+          console.log("Balances:", {
+            aWstEth: utils.formatEther(await aWstEth.balanceOf(owner.address)),
+            weth: utils.formatEther(await weth.balanceOf(owner.address)),
+          });
+          console.log("Allowance:", {
+            aWstEth: utils.formatEther(
+              await aWstEth.allowance(owner.address, debtIssuanceModule.address),
+            ),
+            weth: utils.formatEther(
+              await weth.allowance(owner.address, debtIssuanceModule.address),
+            ),
+          });
+
+          // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+          const issueQuantity = ether(1);
+          destinationTokenQuantity = ether(1);
+          console.log("Issuing");
+          await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+          console.log("Issued");
+        });
+
+        beforeEach(async () => {
+          subjectSetToken = setToken.address;
+          subjectBorrowAsset = weth.address;
+          subjectCollateralAsset = wsteth.address;
+          subjectBorrowQuantity = utils.parseEther("0.2");
+          subjectMinCollateralQuantity = utils.parseEther("0.1");
+          subjectTradeAdapterName = "UNISWAPV3";
+          subjectTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+            [weth.address, wsteth.address], // Swap path
+            [500], // Fees
+            true,
+          );
+          subjectCaller = owner;
+        });
+
+        it("should update the collateral position on the SetToken correctly", async () => {
+          const initialPositions = await setToken.getPositions();
+
+          console.log("Leveraging");
+          await subject();
+          console.log("Leveraged");
+
+          // cEther position is increased
+          const currentPositions = await setToken.getPositions();
+          const newFirstPosition = (await setToken.getPositions())[0];
+          const newSecondPosition = (await setToken.getPositions())[1];
+
+          // Get expected aTokens minted
+          const newUnits = subjectMinCollateralQuantity;
+          const expectedFirstPositionUnit = initialPositions[0].unit.add(newUnits);
+
+          expect(initialPositions.length).to.eq(2);
+          expect(currentPositions.length).to.eq(3);
+          expect(newFirstPosition.component).to.eq(aWstEth.address);
+          expect(newFirstPosition.positionState).to.eq(0); // Default
+          expect(newFirstPosition.unit).to.gte(expectedFirstPositionUnit);
+          expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+
+          expect(newSecondPosition.component).to.eq(weth.address);
+          expect(newSecondPosition.positionState).to.eq(0); // Default
+          expect(newSecondPosition.unit).to.eq(ether(1));
+          expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+        });
+      },
+    );
     context("when aWETH is collateral asset and borrow positions is 0", async () => {
       const initializeContracts = async () => {
         setToken = await createSetToken(
@@ -593,20 +725,6 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         );
         subjectCaller = owner;
       };
-
-      async function subject(): Promise<any> {
-        return aaveLeverageModule
-          .connect(subjectCaller.wallet)
-          .lever(
-            subjectSetToken,
-            subjectBorrowAsset,
-            subjectCollateralAsset,
-            subjectBorrowQuantity,
-            subjectMinCollateralQuantity,
-            subjectTradeAdapterName,
-            subjectTradeData,
-          );
-      }
 
       describe("when module is initialized", async () => {
         before(async () => {
@@ -798,9 +916,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           });
 
           it("should revert", async () => {
-            await expect(subject()).to.be.revertedWith(
-              "CBE",
-            );
+            await expect(subject()).to.be.revertedWith("CBE");
           });
         });
 
@@ -911,20 +1027,6 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         );
         subjectCaller = owner;
       });
-
-      async function subject(): Promise<any> {
-        return aaveLeverageModule
-          .connect(subjectCaller.wallet)
-          .lever(
-            subjectSetToken,
-            subjectBorrowAsset,
-            subjectCollateralAsset,
-            subjectBorrowQuantity,
-            subjectMinCollateralQuantity,
-            subjectTradeAdapterName,
-            subjectTradeData,
-          );
-      }
 
       it("should update the collateral position on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
@@ -2715,10 +2817,16 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
       expect(isEtherBorrow).to.be.false;
     });
     it("should unregister on the debt issuance module", async () => {
-      const isModuleIssuanceHookBefore = await debtIssuanceModule.isModuleIssuanceHook(setToken.address, aaveLeverageModule.address);
+      const isModuleIssuanceHookBefore = await debtIssuanceModule.isModuleIssuanceHook(
+        setToken.address,
+        aaveLeverageModule.address,
+      );
       expect(isModuleIssuanceHookBefore).to.be.true;
       await subject();
-      const isModuleIssuanceHookAfter = await debtIssuanceModule.isModuleIssuanceHook(setToken.address, aaveLeverageModule.address);
+      const isModuleIssuanceHookAfter = await debtIssuanceModule.isModuleIssuanceHook(
+        setToken.address,
+        aaveLeverageModule.address,
+      );
       expect(isModuleIssuanceHookAfter).to.be.false;
     });
     describe("when borrow balance exists", async () => {

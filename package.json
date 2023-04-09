@@ -53,6 +53,7 @@
     "build:ts:latest": "yarn typechain && yarn transpile:dist:latest",
     "build:ts:hardhat": "yarn typechain && yarn transpile:dist:hardhat",
     "chain": "npx hardhat node",
+    "chain:fork": "FORK=true npx hardhat node",
     "clean": "./scripts/clean.sh",
     "compile": "npx hardhat compile && npx hardhat index:compile:all",
     "compile:latest": "SKIP_ABI_GAS_MODS=true npx hardhat compile && npx hardhat index:compile:all",
