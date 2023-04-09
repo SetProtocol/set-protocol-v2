@@ -1075,19 +1075,62 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
     let caller: Signer;
     const initializeContracts = async () => {
       setToken = await createSetToken(
-        [tokenAddresses.weth, tokenAddresses.dai],
-        [ether(1), ether(100)],
+        [aWstEth.address, weth.address],
+        [ether(2), ether(1)],
         [aaveLeverageModule.address, debtIssuanceModule.address],
       );
       await initializeDebtIssuanceModule(setToken.address);
-
+      // Add SetToken to allow list
       await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
-
+      // Initialize module if set to true
       await aaveLeverageModule.initialize(
         setToken.address,
-        [tokenAddresses.weth, tokenAddresses.dai],
-        [dai.address, weth.address],
+        [weth.address, wsteth.address],
+        [wsteth.address, weth.address],
       );
+
+      // Mint aTokens
+      await network.provider.send("hardhat_setBalance", [whales.wsteth, ether(10).toHexString()]);
+      await wsteth
+        .connect(await impersonateAccount(whales.wsteth))
+        .transfer(owner.address, ether(10000));
+      await wsteth.approve(aaveLendingPool.address, ether(10000));
+      await aaveLendingPool
+        .connect(owner.wallet)
+        .deposit(wsteth.address, ether(10000), owner.address, ZERO);
+
+      await weth.approve(aaveLendingPool.address, ether(1000));
+      await aaveLendingPool
+        .connect(owner.wallet)
+        .deposit(weth.address, ether(1000), owner.address, ZERO);
+
+      // Approve tokens to issuance module and call issue
+      await aWstEth.approve(debtIssuanceModule.address, ether(10000));
+      await weth.approve(debtIssuanceModule.address, ether(1000));
+
+      // Issue 1 SetToken. Note: 1inch mock is hardcoded to trade 1000 DAI regardless of Set supply
+      const issueQuantity = ether(1);
+      await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+      // This is a borrow amount that will fail in normal mode but should work in e-mode
+      const borrowAmount = utils.parseEther("1.5");
+
+      const leverageTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+        [weth.address, wsteth.address], // Swap path
+        [500], // Fees
+        true,
+      );
+      console.log("levering up");
+      await aaveLeverageModule.lever(
+        setToken.address,
+        weth.address,
+        wsteth.address,
+        borrowAmount,
+        utils.parseEther("0.1"),
+        "UNISWAPV3",
+        leverageTradeData,
+      );
+      console.log("levered up");
     };
 
     cacheBeforeEach(initializeContracts);
@@ -1109,17 +1152,31 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         const categoryId = await aaveLendingPool.getUserEMode(subjectSetToken);
         expect(categoryId).to.eq(subjectCategoryId);
       });
+
+      it("Increases liquidationThreshold and healthFactor", async () => {
+        const userDataBefore = await aaveLendingPool.getUserAccountData(subjectSetToken);
+        await subject();
+        const userDataAfter = await aaveLendingPool.getUserAccountData(subjectSetToken);
+        expect(userDataAfter.healthFactor).to.be.gt(userDataBefore.healthFactor);
+        expect(userDataAfter.currentLiquidationThreshold).to.be.gt(
+          userDataBefore.currentLiquidationThreshold,
+        );
+      });
     });
 
-    describe("When setting the category back to 0", async () => {
+    describe("When category has been set to 1 (ETH)", async () => {
       beforeEach(async () => {
         await aaveLeverageModule.setEModeCategory(subjectSetToken, 1);
-        subjectCategoryId = 0;
       });
-      it("sets the EMode category for the set Token user correctly", async () => {
-        await subject();
-        const categoryId = await aaveLendingPool.getUserEMode(subjectSetToken);
-        expect(categoryId).to.eq(subjectCategoryId);
+      describe("When setting the category back to 0", async () => {
+        beforeEach(() => {
+          subjectCategoryId = 0;
+        });
+        it("sets the EMode category for the set Token user correctly", async () => {
+          await subject();
+          const categoryId = await aaveLendingPool.getUserEMode(subjectSetToken);
+          expect(categoryId).to.eq(subjectCategoryId);
+        });
       });
     });
 
