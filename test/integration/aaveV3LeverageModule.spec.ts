@@ -14,6 +14,9 @@ import { network } from "hardhat";
 
 import {
   AaveV3LeverageModule,
+  IAaveOracle,
+  IAaveOracle__factory,
+  ChainlinkAggregatorMock,
   DebtIssuanceMock,
   IWETH,
   IWETH__factory,
@@ -118,6 +121,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let uniswapV3ExchangeAdapterV2: UniswapV3ExchangeAdapterV2;
   let wethDaiPool: UniswapV3Pool;
   let protocolDataProvider: IAaveProtocolDataProvider;
+  let aaveOracle: IAaveOracle;
 
   let manager: Address;
   const maxManagerFee = ether(0.05);
@@ -127,6 +131,11 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   let managerIssuanceHook: Address;
   cacheBeforeEach(async () => {
     [owner, notOwner, mockModule] = await getAccounts();
+
+    aaveOracle = IAaveOracle__factory.connect(
+      contractAddresses.aaveV3Oracle,
+      await impersonateAccount(contractAddresses.aaveGovernance),
+    );
 
     poolAddressesProvider = IPoolAddressesProvider__factory.connect(
       contractAddresses.aaveV3AddressProvider,
@@ -1622,10 +1631,12 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         });
 
         // TODO: Find a way to trigger liquidation and reactivate test
-        describe.skip("when leverage position has been liquidated", async () => {
+        describe("when leverage position has been liquidated", async () => {
           let liquidationRepayQuantity: BigNumber;
+          let chainlinkAggregatorMock: ChainlinkAggregatorMock;
 
           cacheBeforeEach(async () => {
+            chainlinkAggregatorMock = await deployer.mocks.deployChainlinkAggregatorMock(18);
             // Leverage aWETH again
             const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
               [dai.address, weth.address], // Swap path
@@ -1644,16 +1655,48 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
             );
           });
 
+          // async function logUserAccountData(label: string) {
+          //   let userAccountData = await aaveLendingPool.getUserAccountData(setToken.address);
+          //   console.log(label, {
+          //     totalDebtBase: utils.formatEther(userAccountData.totalDebtBase),
+          //     totalCollateralBase: utils.formatEther(userAccountData.totalCollateralBase),
+          //     availableBorrowsBase: utils.formatEther(userAccountData.availableBorrowsBase),
+          //     currentLiquidationThreshold: utils.formatEther(
+          //       userAccountData.currentLiquidationThreshold,
+          //     ),
+          //     ltv: utils.formatEther(userAccountData.ltv),
+          //     healthFactor: utils.formatEther(userAccountData.healthFactor),
+          //   });
+          // }
+
+          async function logPositions(label: string) {
+            const positions = await setToken.getPositions();
+            console.log(label);
+            positions.forEach(position => {
+              console.log({
+                component: position.component,
+                unit: utils.formatEther(position.unit),
+                positionState: position.positionState,
+              });
+            });
+          }
+
           beforeEach(async () => {
             // ETH decreases to $100
             // const liquidationDaiPriceInEth = ether(0.01); // 1/100 = 0.01
             // TODO: Find a way to set asset rpice
             // await setAssetPriceInOracle(dai.address, liquidationDaiPriceInEth);
 
-            // Seize 1 ETH + 5% liquidation bonus by repaying debt of 100 DAI
-            liquidationRepayQuantity = ether(100);
-            await dai.approve(aaveLendingPool.address, ether(100));
+            // await logUserAccountData("User account data before price reset: ");
+            await aaveOracle.setAssetSources([dai.address], [chainlinkAggregatorMock.address]);
+            await chainlinkAggregatorMock.setLatestAnswer(ether(10.01));
 
+            // Seize 1 ETH + 5% liquidation bonus by repaying debt of 100 DAI
+            liquidationRepayQuantity = ether(4000);
+            await dai.approve(aaveLendingPool.address, liquidationRepayQuantity);
+
+            // await logUserAccountData("User account data after price reset: ");
+            // await logPositions("Positions before liquidation: ");
             await aaveLendingPool
               .connect(owner.wallet)
               .liquidationCall(
@@ -1663,13 +1706,16 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
                 liquidationRepayQuantity,
                 true,
               );
+            // await logPositions("Positions after liquidation: ");
           });
 
           it("should update the collateral positions on the SetToken correctly", async () => {
             const initialPositions = await setToken.getPositions();
+            await logPositions("positions before sync: ");
 
             await subject();
 
+            await logPositions("positions after sync: ");
             const currentPositions = await setToken.getPositions();
             const newFirstPosition = (await setToken.getPositions())[0];
             const newSecondPosition = (await setToken.getPositions())[1];
