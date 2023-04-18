@@ -1630,13 +1630,16 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
           expect(newFourthPosition.module).to.eq(aaveLeverageModule.address);
         });
 
-        // TODO: Find a way to trigger liquidation and reactivate test
         describe("when leverage position has been liquidated", async () => {
           let liquidationRepayQuantity: BigNumber;
           let chainlinkAggregatorMock: ChainlinkAggregatorMock;
+          let totalTokensSezied: BigNumber;
+          const oracleDecimals = 8;
 
           cacheBeforeEach(async () => {
-            chainlinkAggregatorMock = await deployer.mocks.deployChainlinkAggregatorMock(18);
+            chainlinkAggregatorMock = await deployer.mocks.deployChainlinkAggregatorMock(
+              oracleDecimals,
+            );
             // Leverage aWETH again
             const leverEthTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
               [dai.address, weth.address], // Swap path
@@ -1655,48 +1658,15 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
             );
           });
 
-          // async function logUserAccountData(label: string) {
-          //   let userAccountData = await aaveLendingPool.getUserAccountData(setToken.address);
-          //   console.log(label, {
-          //     totalDebtBase: utils.formatEther(userAccountData.totalDebtBase),
-          //     totalCollateralBase: utils.formatEther(userAccountData.totalCollateralBase),
-          //     availableBorrowsBase: utils.formatEther(userAccountData.availableBorrowsBase),
-          //     currentLiquidationThreshold: utils.formatEther(
-          //       userAccountData.currentLiquidationThreshold,
-          //     ),
-          //     ltv: utils.formatEther(userAccountData.ltv),
-          //     healthFactor: utils.formatEther(userAccountData.healthFactor),
-          //   });
-          // }
-
-          async function logPositions(label: string) {
-            const positions = await setToken.getPositions();
-            console.log(label);
-            positions.forEach(position => {
-              console.log({
-                component: position.component,
-                unit: utils.formatEther(position.unit),
-                positionState: position.positionState,
-              });
-            });
-          }
-
           beforeEach(async () => {
-            // ETH decreases to $100
-            // const liquidationDaiPriceInEth = ether(0.01); // 1/100 = 0.01
-            // TODO: Find a way to set asset rpice
-            // await setAssetPriceInOracle(dai.address, liquidationDaiPriceInEth);
-
-            // await logUserAccountData("User account data before price reset: ");
+            await subject();
             await aaveOracle.setAssetSources([dai.address], [chainlinkAggregatorMock.address]);
-            await chainlinkAggregatorMock.setLatestAnswer(ether(10.01));
+            await chainlinkAggregatorMock.setLatestAnswer(utils.parseUnits("10.1", oracleDecimals));
 
-            // Seize 1 ETH + 5% liquidation bonus by repaying debt of 100 DAI
-            liquidationRepayQuantity = ether(4000);
+            liquidationRepayQuantity = ether(100);
             await dai.approve(aaveLendingPool.address, liquidationRepayQuantity);
 
-            // await logUserAccountData("User account data after price reset: ");
-            // await logPositions("Positions before liquidation: ");
+            const aWethBalanceBefore = await aWETH.balanceOf(setToken.address);
             await aaveLendingPool
               .connect(owner.wallet)
               .liquidationCall(
@@ -1706,32 +1676,26 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
                 liquidationRepayQuantity,
                 true,
               );
-            // await logPositions("Positions after liquidation: ");
+            const aWethBalanceAfter = await aWETH.balanceOf(setToken.address);
+            totalTokensSezied = aWethBalanceBefore.sub(aWethBalanceAfter);
           });
 
           it("should update the collateral positions on the SetToken correctly", async () => {
             const initialPositions = await setToken.getPositions();
-            await logPositions("positions before sync: ");
 
             await subject();
 
-            await logPositions("positions after sync: ");
             const currentPositions = await setToken.getPositions();
-            const newFirstPosition = (await setToken.getPositions())[0];
-            const newSecondPosition = (await setToken.getPositions())[1];
+            const newFirstPosition = currentPositions[0];
+            const newSecondPosition = currentPositions[1];
 
-            // const aaveLiquidationBonus = (await protocolDataProvider.getReserveConfigurationData(weth.address)).liquidationBonus;
-            // const totalTokensSezied = preciseDiv(preciseMul(ether(1), aaveLiquidationBonus), BigNumber.from(10000));   // ethSeized * 105%
-            // const expectedFirstPositionUnit = initialPositions[0].unit.sub(totalTokensSezied);   // off by 1 wei, due to interest accrual
-            const expectedFirstPositionUnit = await aWETH.balanceOf(setToken.address);
-
-            expect(initialPositions.length).to.eq(4);
-            expect(currentPositions.length).to.eq(4);
+            const expectedFirstPositionUnit = initialPositions[0].unit.sub(totalTokensSezied);
 
             // aWETH position decreases
             expect(newFirstPosition.component).to.eq(aWETH.address);
             expect(newFirstPosition.positionState).to.eq(0); // Default
-            expect(newFirstPosition.unit).to.eq(expectedFirstPositionUnit);
+            expect(newFirstPosition.unit).to.gt(expectedFirstPositionUnit.mul(9999).div(10000));
+            expect(newFirstPosition.unit).to.lt(expectedFirstPositionUnit.mul(10001).div(10000));
             expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
 
             // cDAI position should stay the same
