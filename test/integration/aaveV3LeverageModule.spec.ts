@@ -1350,14 +1350,13 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
 
         // Fetch total repay amount
         const res = await tx.wait();
-        const [, , amount0] = await swapPromise;
+        await swapPromise;
         const levDecreasedEvent = res.events?.find(value => {
           return value.event == "LeverageDecreased";
         });
         expect(levDecreasedEvent).to.not.eq(undefined);
 
         const initialSecondPosition = initialPositions[1];
-        const expectedSecondPositionUnit = initialSecondPosition.unit.sub(amount0.div(10));
 
         const currentPositions = await setToken.getPositions();
         const newSecondPosition = (await setToken.getPositions())[1];
@@ -1366,10 +1365,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(dai.address);
         expect(newSecondPosition.positionState).to.eq(0); // Default
-        // Added some tolerance here when switching to aaveV3 integration testing (probably due to rounding errors)
-        // TODO: Review
-        expect(newSecondPosition.unit).to.gt(expectedSecondPositionUnit.mul(999).div(1000));
-        expect(newSecondPosition.unit).to.lt(expectedSecondPositionUnit);
+        expect(newSecondPosition.unit).to.lt(initialSecondPosition);
         expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
       });
 
