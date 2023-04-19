@@ -27,6 +27,7 @@ import {
 import { Address } from "../types";
 
 import { AaveLeverageModule__factory } from "../../typechain/factories/AaveLeverageModule__factory";
+import { AaveV3LeverageModule, AaveV3LeverageModule__factory } from "../../typechain";
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
@@ -174,6 +175,21 @@ export default class DeployModules {
     libraryAddress: Address,
   ): Promise<AaveLeverageModule> {
     return await new AaveLeverageModule__factory(
+      // @ts-ignore
+      {
+        [libraryName]: libraryAddress,
+      },
+      this._deployerSigner,
+    ).deploy(controller, lendingPoolAddressesProvider);
+  }
+
+  public async deployAaveV3LeverageModule(
+    controller: Address,
+    lendingPoolAddressesProvider: Address,
+    libraryName: string,
+    libraryAddress: Address,
+  ): Promise<AaveV3LeverageModule> {
+    return await new AaveV3LeverageModule__factory(
       // @ts-ignore
       {
         [libraryName]: libraryAddress,
