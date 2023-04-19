@@ -1365,7 +1365,7 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newSecondPosition.component).to.eq(dai.address);
         expect(newSecondPosition.positionState).to.eq(0); // Default
-        expect(newSecondPosition.unit).to.lt(initialSecondPosition);
+        expect(newSecondPosition.unit).to.gt(initialSecondPosition.unit);
         expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
       });
 
