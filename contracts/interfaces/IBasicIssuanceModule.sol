@@ -24,4 +24,11 @@ interface IBasicIssuanceModule {
         ISetToken _setToken,
         uint256 _quantity
     ) external returns(address[] memory, uint256[] memory);
+
+    function redeem(
+        ISetToken _setToken,
+        uint256 _quantity,
+        address _to
+    )
+        external;
 }

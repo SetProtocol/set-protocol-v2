@@ -5,6 +5,7 @@ import chalk from "chalk";
 import { HardhatUserConfig } from "hardhat/config";
 import { privateKeys } from "./utils/wallets";
 
+import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "solidity-coverage";
@@ -12,7 +13,7 @@ import "./tasks";
 
 const forkingConfig = {
   url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
-  blockNumber: 14792479,
+  // blockNumber: 14792479,
 };
 
 const mochaConfig = {
@@ -51,6 +52,7 @@ const config: HardhatUserConfig = {
     },
     localhost: {
       url: "http://127.0.0.1:8545",
+      forking: (process.env.FORK) ? forkingConfig : undefined,
       timeout: 200000,
       gas: 12000000,
       blockGasLimit: 12000000
