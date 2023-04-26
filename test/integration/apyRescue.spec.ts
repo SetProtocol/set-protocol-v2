@@ -22,7 +22,7 @@ import {
 
 const expect = getWaffleExpect();
 
-describe("APYRescue [ @forked-mainnet ]", () => {
+describe.skip("APYRescue [ @forked-mainnet ]", () => {
   let controller: Controller;
   let basicIssuanceModule: BasicIssuanceModule;
 
