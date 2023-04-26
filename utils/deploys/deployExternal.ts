@@ -330,6 +330,10 @@ export default class DeployExternalContracts {
     return await new WETH9__factory(this._deployerSigner).deploy();
   }
 
+  public async getWETH(weth: Address): Promise<WETH9> {
+    return await new WETH9__factory(this._deployerSigner).attach(weth);
+  };
+
   // AAVE V2
   public async deployAaveV2LendingPoolAddressesProvider(marketId: string): Promise<AaveV2LendingPoolAddressesProvider> {
     return await new AaveV2LendingPoolAddressesProvider__factory(this._deployerSigner).deploy(marketId);
