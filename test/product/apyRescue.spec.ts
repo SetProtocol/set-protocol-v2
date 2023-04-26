@@ -257,7 +257,13 @@ describe("APYRescue", () => {
   });
 
   describe("#withdrawRescuedFunds", async () => {
+    let isRescued: boolean;
+
     let subjectCaller: Account;
+
+    before(async () => {
+      isRescued = true;
+    });
 
     beforeEach(async () => {
       await setup.weth.connect(owner.wallet).approve(issuanceModule.address, ether(1.5));
@@ -271,7 +277,9 @@ describe("APYRescue", () => {
       await apyToken.connect(recipient.wallet).approve(apyRescue.address, ether(.5));
       await apyRescue.connect(recipient.wallet).deposit(ether(.5));
 
-      await apyRescue.connect(owner.wallet).recoverAssets();
+      if (isRescued) {
+        await apyRescue.connect(owner.wallet).recoverAssets();
+      }
 
       subjectCaller = owner;
     });
@@ -312,6 +320,20 @@ describe("APYRescue", () => {
       const apyTokenBalance = await apyRescue.shares(subjectCaller.address);
 
       expect(apyTokenBalance).to.eq(ZERO);
+    });
+
+    describe("when funds haven't been rescued", async () => {
+      before(async () => {
+        isRescued = false;
+      });
+
+      after(async () => {
+        isRescued = true;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("APYRescue: redemption not initiated");
+      });
     });
   });
 });

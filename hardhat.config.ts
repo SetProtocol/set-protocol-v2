@@ -13,7 +13,7 @@ import "./tasks";
 
 const forkingConfig = {
   url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_TOKEN}`,
-  // blockNumber: 14792479,
+  blockNumber: 14792479,
 };
 
 const mochaConfig = {
