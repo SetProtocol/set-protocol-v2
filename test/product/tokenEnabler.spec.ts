@@ -19,7 +19,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe.only("TokenEnabler", () => {
+describe("TokenEnabler", () => {
   let owner: Account;
   let recipient: Account;
   let deployer: DeployHelper;

@@ -19,7 +19,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe.only("APYRescue", () => {
+describe("APYRescue", () => {
   let owner: Account;
   let recipient: Account;
   let deployer: DeployHelper;
