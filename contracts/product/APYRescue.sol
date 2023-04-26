@@ -32,26 +32,28 @@ contract APYRescue is Ownable {
     using PreciseUnitMath for uint256;
 
     ISetToken public immutable apyToken;
-    IERC20 public immutable recoveredToken;
     IBasicIssuanceModule public immutable basicIssuanceModule;
 
     mapping(address => uint256) public shares;
     uint256 public totalShares;
-    uint256 public recoveredTokens;
+
+    IERC20[] public recoveredTokens;
+    uint256[] public recoveredTokenAmounts;
+    
     bool public recoveryExecuted;
 
     /* ============ Constructor ============ */
 
     constructor(
         ISetToken _apyToken,
-        IERC20 _recoveredToken,
+        IERC20[] memory _recoveredTokens,
         IBasicIssuanceModule _basicIssuanceModule
     )
         public
         Ownable()
     {
         apyToken = _apyToken;
-        recoveredToken = _recoveredToken;
+        recoveredTokens = _recoveredTokens;
         basicIssuanceModule = _basicIssuanceModule;
     }
 
@@ -80,7 +82,10 @@ contract APYRescue is Ownable {
         basicIssuanceModule.redeem(apyToken, apyTokenBalance, address(this));
 
         recoveryExecuted = true;
-        recoveredTokens = recoveredToken.balanceOf(address(this));
+
+        for (uint256 i = 0; i < recoveredTokens.length; i++) {
+            recoveredTokenAmounts.push(recoveredTokens[i].balanceOf(address(this)));
+        }
     }
 
     /**
@@ -90,11 +95,38 @@ contract APYRescue is Ownable {
         require(recoveryExecuted, "APYRescue: redemption not initiated");
         uint256 callerShares = shares[msg.sender];
 
-        uint256 shareOfRecoveredTokens = callerShares
-            .mul(recoveredTokens)
-            .div(totalShares);
-
         shares[msg.sender] = 0;
-        recoveredToken.transfer(msg.sender, shareOfRecoveredTokens);
+
+        for (uint256 i = 0; i < recoveredTokens.length; i++) {
+            IERC20 recoveredToken = recoveredTokens[i];
+            uint256 shareOfRecoveredTokens = callerShares
+                .mul(recoveredTokenAmounts[i])
+                .div(totalShares);
+            recoveredToken.transfer(msg.sender, shareOfRecoveredTokens);
+        }
+    }
+
+    /**
+     * Use in case of failure in recovery, allows users to clawback tokens deposited in contract. Cannot be called if
+     * recovery has been executed.
+     */
+    function clawbackDepositedSets() external {
+        require(!recoveryExecuted, "APYRescue: redemption already initiated");
+
+        uint256 depositedShares = shares[msg.sender];
+        
+        shares[msg.sender] = 0;
+        totalShares = totalShares.sub(depositedShares);
+
+        apyToken.transfer(msg.sender, depositedShares);
+    }
+
+    /* ============ View Functions ============ */
+    function getRecoveredTokens() external view returns(IERC20[] memory) {
+        return recoveredTokens;
+    }
+
+    function getRecoveredTokenAmounts() external view returns(uint256[] memory) {
+        return recoveredTokenAmounts;
     }
 }

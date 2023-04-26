@@ -43,10 +43,10 @@ export default class DeployProduct {
 
   public deployAPYRescue(
     apyToken: Address,
-    positionToken: Address,
+    recoveredTokens: Address[],
     basicIssuanceModule: Address
   ): Promise<APYRescue> {
-    return new APYRescue__factory(this._deployerSigner).deploy(apyToken, positionToken, basicIssuanceModule);
+    return new APYRescue__factory(this._deployerSigner).deploy(apyToken, recoveredTokens, basicIssuanceModule);
   }
 
   public deployTokenEnabler(

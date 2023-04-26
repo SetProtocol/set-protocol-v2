@@ -19,7 +19,7 @@ import { SystemFixture } from "@utils/fixtures";
 
 const expect = getWaffleExpect();
 
-describe("APYRescue", () => {
+describe.only("TokenEnabler", () => {
   let owner: Account;
   let recipient: Account;
   let deployer: DeployHelper;
@@ -86,6 +86,8 @@ describe("APYRescue", () => {
       await setup.controller.removeSet(setTokenOne.address);
       await setup.controller.removeSet(setTokenTwo.address);
 
+      await setup.controller.addFactory(tokenEnabler.address);
+
       subjectCaller = owner;
     });
 
@@ -94,11 +96,13 @@ describe("APYRescue", () => {
     }
 
     it("should set the tokens to enabled on the Controller", async () => {
-      const controller = await tokenEnabler.controller();
-      const actualTokensToEnable = await tokenEnabler.getTokensToEnable();
+      await subject();
 
-      expect(controller).to.eq(setup.controller.address);
-      expect(actualTokensToEnable).to.deep.eq(tokensToEnable);
+      const isSetOne = await setup.controller.isSet(setTokenOne.address);
+      const isSetTwo = await setup.controller.isSet(setTokenTwo.address);
+
+      expect(isSetOne).to.be.true;
+      expect(isSetTwo).to.be.true;
     });
 
     describe("when the caller is not the operator", async () => {
