@@ -69,7 +69,7 @@ contract APYRescue is Ownable {
         // Must approve _amount to this contract to be transferred
         apyToken.transferFrom(msg.sender, address(this), _amount);
 
-        shares[msg.sender] += shares[msg.sender].add(_amount);
+        shares[msg.sender] = shares[msg.sender].add(_amount);
         totalShares = totalShares.add(_amount);
     }
 

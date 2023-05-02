@@ -90,8 +90,8 @@ describe("APYRescue", () => {
       await setup.usdc.connect(owner.wallet).approve(issuanceModule.address, usdc(150));
       await issuanceModule.connect(owner.wallet).issue(apyToken.address, ether(1.5), owner.address);
 
-      subjectAmount = ether(1);
-      await apyToken.approve(apyRescue.address, subjectAmount);
+      subjectAmount = ether(.5);
+      await apyToken.approve(apyRescue.address, ether(1));
 
       subjectCaller = owner;
     });
@@ -118,6 +118,22 @@ describe("APYRescue", () => {
       const postBalance = await apyRescue.shares(owner.address);
 
       expect(postBalance).to.eq(preBalance.add(subjectAmount));
+    });
+
+    describe("when multiple deposits are performed", async () => {
+      beforeEach(async () => {
+        await subject();
+      });
+
+      it("should have the correct amount of shares", async () => {
+        const preBalance = await apyRescue.shares(owner.address);
+
+        await subject();
+
+        const postBalance = await apyRescue.shares(owner.address);
+
+        expect(postBalance).to.eq(preBalance.add(subjectAmount));
+      });
     });
 
     describe("when the rescue has already been performed", async () => {
