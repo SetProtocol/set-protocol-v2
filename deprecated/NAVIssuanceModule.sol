@@ -63,8 +63,8 @@ contract NavIssuanceModule is ModuleBase, ReentrancyGuard {
 
     event SetTokenNAVIssued(
         ISetToken indexed _setToken,
-        address _issuer,
-        address _to,
+        address indexed _issuer,
+        address indexed _to,
         address _reserveAsset,
         address _hookContract,
         uint256 _setTokenQuantity,
@@ -74,8 +74,8 @@ contract NavIssuanceModule is ModuleBase, ReentrancyGuard {
 
     event SetTokenNAVRedeemed(
         ISetToken indexed _setToken,
-        address _redeemer,
-        address _to,
+        address indexed _redeemer,
+        address indexed _to,
         address _reserveAsset,
         address _hookContract,
         uint256 _setTokenQuantity,
