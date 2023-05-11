@@ -21,14 +21,22 @@ pragma experimental "ABIEncoderV2";
 
 import { IAToken } from "../../../interfaces/external/aave-v2/IAToken.sol";
 import { ILendingPool } from "../../../interfaces/external/aave-v2/ILendingPool.sol";
+import { IWETHGateway } from "../../../interfaces/external/aave-v2/IWETHGateway.sol";
 
 /**
  * @title AaveV2WrapV2Adapter
  * @author Set Protocol
  *
  * Wrap adapter for Aave V2 that returns data for wraps/unwraps of tokens
+ * Note if this contract is used on other chains, simply think of "ETH" support as support for the native coin
+ * e.g. MATIC / AVAX, for which Aave also only uses the wrapped versions, easily usable through the gateway contract
  */
 contract AaveV2WrapV2Adapter {
+
+    /* ============ Constants ============ */
+
+    // Mock address to indicate ETH. Aave V2 only supports WETH but provides a WETHGateway which handles everything
+    address public constant ETH_TOKEN_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /* ============ Modifiers ============ */
 
@@ -43,13 +51,19 @@ contract AaveV2WrapV2Adapter {
     /* ========== State Variables ========= */
 
     // Address of the Aave LendingPool contract
-    // Note: this address may change in the event of an upgrade
-    ILendingPool public lendingPool;
+    // Note: this address should refer to the proxy contract, even if the lending pool changes, the proxy address stays the same
+    ILendingPool public immutable lendingPool;
+    // Address of the WETH Gateway, provided by Aave to handle direct ETH deposits / withdraws (handling wrapping to WETH)
+    IWETHGateway public immutable wethGateway;
+    // Aave only supports WETH, the address is used to replace ETH_TOKEN_ADDRESS for valid pair checks
+    address public immutable weth;
 
     /* ============ Constructor ============ */
 
-    constructor(ILendingPool _lendingPool) public {
+    constructor(ILendingPool _lendingPool, IWETHGateway _wethGateway, address _weth) public {
         lendingPool = _lendingPool;
+        wethGateway = _wethGateway;
+        weth = _weth;
     }
 
     /* ============ External Getter Functions ============ */
@@ -78,15 +92,31 @@ contract AaveV2WrapV2Adapter {
         _onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        bytes memory callData = abi.encodeWithSignature(
-            "deposit(address,uint256,address,uint16)",
-            _underlyingToken,
-            _underlyingUnits,
-            _to,
-            0
-        );
+        uint256 value;
+        bytes memory callData;
+        address callTarget;
+        if (_underlyingToken == ETH_TOKEN_ADDRESS) {
+            value = _underlyingUnits;
+            callTarget = address(wethGateway);
+            // Aave V2 provides a "WETHGateway" contract which wraps ETH -> WETH and deposits for aWETH
+            callData = abi.encodeWithSignature(
+                "depositETH(address,address,uint16)",
+                address(lendingPool),
+                _to,
+                0
+            );
+        } else {
+            callTarget = address(lendingPool);
+            callData = abi.encodeWithSignature(
+                "deposit(address,uint256,address,uint16)",
+                _underlyingToken,
+                _underlyingUnits,
+                _to,
+                0
+            );
+        }
 
-        return (address(lendingPool), 0, callData);
+        return (callTarget, value, callData);
     }
 
     /**
@@ -95,6 +125,7 @@ contract AaveV2WrapV2Adapter {
      * @param _underlyingToken      Address of the underlying asset
      * @param _wrappedToken         Address of the component to be unwrapped
      * @param _wrappedTokenUnits    Total quantity of wrapped token units to unwrap
+     *      - Note that aTokens are rebasing and hold a 1:1 peg with underlying. So _wrappedTokenUnits = underlying token units
      * @param _to                   Address to send the unwrapped tokens to
      *
      * @return address              Target contract address
@@ -113,14 +144,28 @@ contract AaveV2WrapV2Adapter {
         _onlyValidTokenPair(_underlyingToken, _wrappedToken)
         returns (address, uint256, bytes memory)
     {
-        bytes memory callData = abi.encodeWithSignature(
-            "withdraw(address,uint256,address)",
-            _underlyingToken,
-            _wrappedTokenUnits,
-            _to
-        );
+        bytes memory callData;
+        address callTarget;
+        if (_underlyingToken == ETH_TOKEN_ADDRESS) {
+            callTarget = address(wethGateway);
+            // Aave V2 provides a "WETHGateway" contract which withdraws aWETH and unwraps WETH -> ETH
+            callData = abi.encodeWithSignature(
+                "withdrawETH(address,uint256,address)",
+                address(lendingPool),
+                _wrappedTokenUnits,
+                _to
+            );
+        } else {
+            callTarget = address(lendingPool);
+            callData = abi.encodeWithSignature(
+                "withdraw(address,uint256,address)",
+                _underlyingToken,
+                _wrappedTokenUnits,
+                _to
+            );
+        }
 
-        return (address(lendingPool), 0, callData);
+        return (callTarget, 0, callData);
     }
 
     /**
@@ -143,6 +188,9 @@ contract AaveV2WrapV2Adapter {
      * @return bool                Whether or not the wrapped token accepts the underlying token as collateral
      */
     function validTokenPair(address _underlyingToken, address _wrappedToken) internal view returns(bool) {
+        if(_underlyingToken == ETH_TOKEN_ADDRESS) {
+            _underlyingToken = weth;
+        }
         return IAToken(_wrappedToken).UNDERLYING_ASSET_ADDRESS() == _underlyingToken;
     }
 }
