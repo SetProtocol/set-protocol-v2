@@ -22,6 +22,22 @@ const mochaConfig = {
   timeout: (process.env.FORK) ? 100000 : 40000,
 } as Mocha.MochaOptions;
 
+// Compiles new types for contracts & external.
+// NOTE: when adding files to the `external` folder, you must run `yarn typechain` to
+// generate the necessary types artifacts. By default we only generate types for regular
+// `artifacts` to take advantage of typechain's incremental generation feature.
+const fullTypechainConfig = {
+  outDir: "typechain",
+  target: "ethers-v5",
+  externalArtifacts: ["external/**/*.json"],
+}
+
+// Only re-compiles types for recently changed contracts
+const defaultTypechainConfig = {
+  outDir: "typechain",
+  target: "ethers-v5",
+}
+
 checkForkedProviderEnvironment();
 
 const config: HardhatUserConfig = {
@@ -79,11 +95,7 @@ const config: HardhatUserConfig = {
     },
   },
   // @ts-ignore
-  typechain: {
-    outDir: "typechain",
-    target: "ethers-v5",
-    externalArtifacts: ["external/**/*.json"],
-  },
+  typechain: (process.env.BUILD) ? fullTypechainConfig : defaultTypechainConfig,
   // @ts-ignore
   contractSizer: {
     runOnCompile: false,

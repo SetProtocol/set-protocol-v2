@@ -31,13 +31,38 @@ brew install https://raw.githubusercontent.com/ethereum/homebrew-ethereum/06d13a
 
 ### Generate TypeChain Typings
 
-`yarn build`
+To generate a complete set of types (including for resources in the `external` folder) run:
+
+`yarn typechain`
+
+By default `yarn compile` will incrementally generate types for any recently changed types in the
+`contracts` folder
+
 
 ### Run Contract Tests
 
-`yarn test` to run compiled contracts
+There are several test commands to support different use cases. It's fastest to specify
+the test file you're interested in and skip typescript typechecking using one of the "fast" commands.
+(Typechecking is already done continuously by your code editor.)
 
-OR `yarn test:clean` if contracts have been typings need to be updated
+
+Invoke the command using `yarn`.
+
+**Example**
+
+```sh
+# The fastest way to run a test
+
+$ yarn test:fast test/protocol/modules/v2/perpLeverageModuleV2.spec.ts
+```
+
+| Command | Compiles | Typechecks | Notes |
+| ---- | ---- | ---- | ---- |
+| `test` | :white_check_mark: | :white_check_mark: | Slowest - used in CI to perform all validations |
+| `test:fast` | :x:`| :x: | Fastest |
+| `test:fast:compile` | :white_check_mark: | :white_check_mark: | Fast with solidity compilation |
+| `test:fork` | :white_check_mark: | :white_check_mark: |Runs any tests with the tag `@forked-mainnet` in its mocha test description |
+| `test:fork:fast` | :x: | :x: | Runs `test:fork` without typechecking |
 
 ### Run Coverage Report for Tests
 
