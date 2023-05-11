@@ -110,6 +110,7 @@ export { Uint256ArrayUtilsMock } from "../../typechain/Uint256ArrayUtilsMock";
 export { Uni } from "../../typechain/Uni";
 export { UniswapPairPriceAdapter } from "../../typechain/UniswapPairPriceAdapter";
 export { UniswapV2AmmAdapter } from "../../typechain/UniswapV2AmmAdapter";
+export { CurveAmmAdapter } from "../../typechain/CurveAmmAdapter";
 export { UniswapV2ExchangeAdapter } from "../../typechain/UniswapV2ExchangeAdapter";
 export { UniswapV2ExchangeAdapterV2 } from "../../typechain/UniswapV2ExchangeAdapterV2";
 export { UniswapV2IndexExchangeAdapter } from "../../typechain/UniswapV2IndexExchangeAdapter";
