@@ -217,15 +217,15 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      */
     constructor(
         IController _controller,
-        IPoolAddressesProvider _poolAddressProvider
+        IPoolAddressesProvider _poolAddressesProvider
     )
         public
         ModuleBase(_controller)
     {
-        lendingPoolAddressesProvider = _poolAddressProvider;
+        lendingPoolAddressesProvider = _poolAddressesProvider;
         IAaveProtocolDataProvider _protocolDataProvider = IAaveProtocolDataProvider(
             // Use the raw input vs bytes32() conversion. This is to ensure the input is an uint and not a string.
-            _poolAddressProvider.getPoolDataProvider()
+            _poolAddressesProvider.getPoolDataProvider()
         );
         protocolDataProvider = _protocolDataProvider;
 
