@@ -436,14 +436,12 @@ library AaveV3 {
     }
 
     /**
-     * Invoke set Efficiency Mode
+     * Invoke set User EMode on  aave pool
      *
-     * Allows SetToken to borrow a specific `_amountNotional` of the reserve underlying `_asset`, provided that 
-     * the SetToken already deposited enough collateral, or it was given enough allowance by a credit delegator
-     * on the corresponding debt token (StableDebtToken or VariableDebtToken)
+     * Sets the Aave-EMode category on behalf of the SetToken corresponding to the specified token category.
      * @param _setToken             Address of the SetToken
      * @param _lendingPool          Address of the LendingPool contract
-     * @param _categoryId           TODO: What is this ?
+     * @param _categoryId           The category id  of the EMode (Usually identifies groups of correlated assets such as stablecoins or eth derivatives)
      */
     function invokeSetUserEMode(
         ISetToken _setToken,
