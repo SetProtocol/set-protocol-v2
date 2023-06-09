@@ -213,19 +213,19 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev Instantiate addresses. Underlying to reserve tokens mapping is created.
      * @param _controller                       Address of controller contract
-     * @param _lendingPoolAddressesProvider     Address of Aave LendingPoolAddressProvider
+     * @param _poolAddressesProvider            Address of AaveV3 PoolAddressProvider
      */
     constructor(
         IController _controller,
-        IPoolAddressesProvider _lendingPoolAddressesProvider
+        IPoolAddressesProvider _poolAddressProvider
     )
         public
         ModuleBase(_controller)
     {
-        lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
+        lendingPoolAddressesProvider = _poolAddressProvider;
         IAaveProtocolDataProvider _protocolDataProvider = IAaveProtocolDataProvider(
             // Use the raw input vs bytes32() conversion. This is to ensure the input is an uint and not a string.
-            _lendingPoolAddressesProvider.getPoolDataProvider()
+            _poolAddressProvider.getPoolDataProvider()
         );
         protocolDataProvider = _protocolDataProvider;
 
