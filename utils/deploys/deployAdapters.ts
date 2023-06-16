@@ -4,6 +4,7 @@ import {
   AaveGovernanceV2Adapter,
   AaveV2WrapV2Adapter,
   BalancerV1IndexExchangeAdapter,
+  BalancerV2ExchangeAdapter,
   CompoundLikeGovernanceAdapter,
   CurveExchangeAdapter,
   CurveStakingAdapter,
@@ -35,6 +36,7 @@ import { Address, Bytes } from "./../types";
 import { AaveGovernanceV2Adapter__factory } from "../../typechain/factories/AaveGovernanceV2Adapter__factory";
 import { AaveV2WrapV2Adapter__factory } from "../../typechain/factories/AaveV2WrapV2Adapter__factory";
 import { BalancerV1IndexExchangeAdapter__factory } from "../../typechain/factories/BalancerV1IndexExchangeAdapter__factory";
+import { BalancerV2ExchangeAdapter__factory } from "../../typechain/factories/BalancerV2ExchangeAdapter__factory";
 import { CompoundLikeGovernanceAdapter__factory } from "../../typechain/factories/CompoundLikeGovernanceAdapter__factory";
 import { CurveExchangeAdapter__factory } from "../../typechain/factories/CurveExchangeAdapter__factory";
 import { CurveStakingAdapter__factory } from "../../typechain/factories/CurveStakingAdapter__factory";
@@ -142,6 +144,12 @@ export default class DeployAdapters {
     return await new BalancerV1IndexExchangeAdapter__factory(this._deployerSigner).deploy(
       balancerProxy,
     );
+  }
+
+  public async deployBalancerV2ExchangeAdapter(
+    vault: Address,
+  ): Promise<BalancerV2ExchangeAdapter> {
+    return await new BalancerV2ExchangeAdapter__factory(this._deployerSigner).deploy(vault);
   }
 
   public async deployCompoundLikeGovernanceAdapter(

@@ -11,6 +11,7 @@ export { AmmAdapterMock } from "../../typechain/AmmAdapterMock";
 export { AmmModule } from "../../typechain/AmmModule";
 export { AssetLimitHook } from "../../typechain/AssetLimitHook";
 export { BalancerV1IndexExchangeAdapter } from "../../typechain/BalancerV1IndexExchangeAdapter";
+export { BalancerV2ExchangeAdapter } from "../../typechain/BalancerV2ExchangeAdapter";
 export { BasicIssuanceModule } from "../../typechain/BasicIssuanceModule";
 export { BytesArrayUtilsMock } from "../../typechain/BytesArrayUtilsMock";
 export { ChainlinkAggregatorMock } from "../../typechain/ChainlinkAggregatorMock";
