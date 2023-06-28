@@ -747,7 +747,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Invoke deposit from SetToken using AaveV3 library. Mints aTokens for SetToken.
      */
     function _deposit(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeApprove(address(_asset), address(_lendingPool), _notionalQuantity);
+        _invokeApproveWithReset(address(_asset), address(_lendingPool), _notionalQuantity);
         _setToken.invokeDeposit(_lendingPool, address(_asset), _notionalQuantity);
     }
 
@@ -762,7 +762,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Invoke repay from SetToken using AaveV3 library. Burns DebtTokens for SetToken.
      */
     function _repayBorrow(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _setToken.invokeApprove(address(_asset), address(_lendingPool), _notionalQuantity);
+        _invokeApproveWithReset(address(_asset), address(_lendingPool), _notionalQuantity);
         _setToken.invokeRepay(_lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
 
@@ -805,7 +805,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         ISetToken setToken = _actionInfo.setToken;
         uint256 notionalSendQuantity = _actionInfo.notionalSendQuantity;
 
-        setToken.invokeApprove(
+        _invokeApproveWithReset(
             address(_sendToken),
             _actionInfo.exchangeAdapter.getSpender(),
             notionalSendQuantity
@@ -1149,5 +1149,22 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     function _getBorrowPosition(ISetToken _setToken, IERC20 _borrowAsset, uint256 _setTotalSupply) internal view returns (int256) {
         uint256 borrowNotionalBalance = underlyingToReserveTokens[_borrowAsset].variableDebtToken.balanceOf(address(_setToken));
         return borrowNotionalBalance.preciseDivCeil(_setTotalSupply).toInt256().mul(-1);
+    }
+
+    /**
+     * @dev Includes reset / zero approval to ensure compatibility with USDT
+     *
+     */
+    function _invokeApproveWithReset(IERC20 _token, address _spender, uint256 _amount) internal {
+        setToken.invokeApprove(
+            address(_token),
+            _spender,
+            0
+        );
+        setToken.invokeApprove(
+            address(_token),
+            _spender,
+            _amount
+        );
     }
 }
