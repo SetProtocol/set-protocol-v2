@@ -747,7 +747,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Invoke deposit from SetToken using AaveV3 library. Mints aTokens for SetToken.
      */
     function _deposit(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _invokeApproveWithReset(address(_asset), address(_lendingPool), _notionalQuantity);
+        _invokeApproveWithReset(_setToken, _asset, address(_lendingPool), _notionalQuantity);
         _setToken.invokeDeposit(_lendingPool, address(_asset), _notionalQuantity);
     }
 
@@ -762,7 +762,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Invoke repay from SetToken using AaveV3 library. Burns DebtTokens for SetToken.
      */
     function _repayBorrow(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
-        _invokeApproveWithReset(address(_asset), address(_lendingPool), _notionalQuantity);
+        _invokeApproveWithReset(_setToken, _asset, address(_lendingPool), _notionalQuantity);
         _setToken.invokeRepay(_lendingPool, address(_asset), _notionalQuantity, BORROW_RATE_MODE);
     }
 
@@ -806,7 +806,8 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
         uint256 notionalSendQuantity = _actionInfo.notionalSendQuantity;
 
         _invokeApproveWithReset(
-            address(_sendToken),
+            setToken,
+            _sendToken,
             _actionInfo.exchangeAdapter.getSpender(),
             notionalSendQuantity
         );
@@ -1155,13 +1156,13 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
      * @dev Includes reset / zero approval to ensure compatibility with USDT
      *
      */
-    function _invokeApproveWithReset(IERC20 _token, address _spender, uint256 _amount) internal {
-        setToken.invokeApprove(
+    function _invokeApproveWithReset(ISetToken _setToken, IERC20 _token, address _spender, uint256 _amount) internal {
+        _setToken.invokeApprove(
             address(_token),
             _spender,
             0
         );
-        setToken.invokeApprove(
+        _setToken.invokeApprove(
             address(_token),
             _spender,
             _amount
