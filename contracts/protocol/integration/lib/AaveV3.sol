@@ -36,7 +36,7 @@ library AaveV3 {
      *
      * Deposits an `_amountNotional` of underlying asset into the reserve, receiving in return overlying aTokens.
      * - E.g. User deposits 100 USDC and gets in return 100 aUSDC
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset to deposit
      * @param _amountNotional       The amount to be deposited
      * @param _onBehalfOf           The address that will receive the aTokens, same as msg.sender if the user
@@ -50,7 +50,7 @@ library AaveV3 {
      * @return bytes                Deposit calldata
      */
     function getDepositCalldata(
-        IPool _lendingPool,
+        IPool _pool,
         address _asset, 
         uint256 _amountNotional,
         address _onBehalfOf,
@@ -68,36 +68,36 @@ library AaveV3 {
             _referralCode
         );
         
-        return (address(_lendingPool), 0, callData);
+        return (address(_pool), 0, callData);
     }
     
     /**
-     * Invoke deposit on LendingPool from SetToken
+     * Invoke deposit on Pool from SetToken
      * 
      * Deposits an `_amountNotional` of underlying asset into the reserve, receiving in return overlying aTokens.
      * - E.g. SetToken deposits 100 USDC and gets in return 100 aUSDC
      * @param _setToken             Address of the SetToken
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset to deposit
      * @param _amountNotional       The amount to be deposited
      */
     function invokeDeposit(
         ISetToken _setToken,
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         uint256 _amountNotional        
     )
         external
     {
         ( , , bytes memory depositCalldata) = getDepositCalldata(
-            _lendingPool,
+            _pool,
             _asset,
             _amountNotional, 
             address(_setToken), 
             0
         );
         
-        _setToken.invoke(address(_lendingPool), 0, depositCalldata);
+        _setToken.invoke(address(_pool), 0, depositCalldata);
     }
     
     /**
@@ -105,7 +105,7 @@ library AaveV3 {
      * 
      * Withdraws an `_amountNotional` of underlying asset from the reserve, burning the equivalent aTokens owned
      * - E.g. User has 100 aUSDC, calls withdraw() and receives 100 USDC, burning the 100 aUSDC
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset to withdraw
      * @param _amountNotional       The underlying amount to be withdrawn
      *                              Note: Passing type(uint256).max will withdraw the entire aToken balance
@@ -118,7 +118,7 @@ library AaveV3 {
      * @return bytes                Withdraw calldata
      */
     function getWithdrawCalldata(
-        IPool _lendingPool,
+        IPool _pool,
         address _asset, 
         uint256 _amountNotional,
         address _receiver        
@@ -134,17 +134,17 @@ library AaveV3 {
             _receiver
         );
         
-        return (address(_lendingPool), 0, callData);
+        return (address(_pool), 0, callData);
     }
     
     /**
-     * Invoke withdraw on LendingPool from SetToken
+     * Invoke withdraw on Pool from SetToken
      * 
      * Withdraws an `_amountNotional` of underlying asset from the reserve, burning the equivalent aTokens owned
      * - E.g. SetToken has 100 aUSDC, and receives 100 USDC, burning the 100 aUSDC
      *     
      * @param _setToken         Address of the SetToken
-     * @param _lendingPool      Address of the LendingPool contract
+     * @param _pool             Address of the AaveV3 Pool contract
      * @param _asset            The address of the underlying asset to withdraw
      * @param _amountNotional   The underlying amount to be withdrawn
      *                          Note: Passing type(uint256).max will withdraw the entire aToken balance
@@ -153,7 +153,7 @@ library AaveV3 {
      */
     function invokeWithdraw(
         ISetToken _setToken,
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         uint256 _amountNotional        
     )
@@ -161,13 +161,13 @@ library AaveV3 {
         returns (uint256)
     {
         ( , , bytes memory withdrawCalldata) = getWithdrawCalldata(
-            _lendingPool,
+            _pool,
             _asset,
             _amountNotional, 
             address(_setToken)
         );
         
-        return abi.decode(_setToken.invoke(address(_lendingPool), 0, withdrawCalldata), (uint256));
+        return abi.decode(_setToken.invoke(address(_pool), 0, withdrawCalldata), (uint256));
     }
     
     /**
@@ -177,7 +177,7 @@ library AaveV3 {
      * the borrower already deposited enough collateral, or he was given enough allowance by a credit delegator
      * on the corresponding debt token (StableDebtToken or VariableDebtToken)
      *
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset to borrow
      * @param _amountNotional       The amount to be borrowed
      * @param _interestRateMode     The interest rate mode at which the user wants to borrow: 1 for Stable, 2 for Variable
@@ -192,7 +192,7 @@ library AaveV3 {
      * @return bytes                Borrow calldata
      */
     function getBorrowCalldata(
-        IPool _lendingPool,
+        IPool _pool,
         address _asset, 
         uint256 _amountNotional,
         uint256 _interestRateMode,
@@ -212,24 +212,24 @@ library AaveV3 {
             _onBehalfOf
         );
         
-        return (address(_lendingPool), 0, callData);
+        return (address(_pool), 0, callData);
     }
     
     /**
-     * Invoke borrow on LendingPool from SetToken
+     * Invoke borrow on Pool from SetToken
      *
      * Allows SetToken to borrow a specific `_amountNotional` of the reserve underlying `_asset`, provided that 
      * the SetToken already deposited enough collateral, or it was given enough allowance by a credit delegator
      * on the corresponding debt token (StableDebtToken or VariableDebtToken)
      * @param _setToken             Address of the SetToken
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset to borrow
      * @param _amountNotional       The amount to be borrowed
      * @param _interestRateMode     The interest rate mode at which the user wants to borrow: 1 for Stable, 2 for Variable
      */
     function invokeBorrow(
         ISetToken _setToken,
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         uint256 _amountNotional,
         uint256 _interestRateMode
@@ -237,7 +237,7 @@ library AaveV3 {
         external
     {
         ( , , bytes memory borrowCalldata) = getBorrowCalldata(
-            _lendingPool,
+            _pool,
             _asset,
             _amountNotional,
             _interestRateMode,
@@ -245,7 +245,7 @@ library AaveV3 {
             address(_setToken)
         );
         
-        _setToken.invoke(address(_lendingPool), 0, borrowCalldata);
+        _setToken.invoke(address(_pool), 0, borrowCalldata);
     }
 
     /**
@@ -253,7 +253,7 @@ library AaveV3 {
      *
      * Repays a borrowed `_amountNotional` on a specific `_asset` reserve, burning the equivalent debt tokens owned
      * - E.g. User repays 100 USDC, burning 100 variable/stable debt tokens of the `onBehalfOf` address
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the borrowed underlying asset previously borrowed
      * @param _amountNotional       The amount to repay
      *                              Note: Passing type(uint256).max will repay the whole debt for `_asset` on the specific `_interestRateMode`
@@ -267,7 +267,7 @@ library AaveV3 {
      * @return bytes                Repay calldata
      */
     function getRepayCalldata(
-        IPool _lendingPool,
+        IPool _pool,
         address _asset, 
         uint256 _amountNotional,
         uint256 _interestRateMode,        
@@ -285,16 +285,16 @@ library AaveV3 {
             _onBehalfOf
         );
         
-        return (address(_lendingPool), 0, callData);
+        return (address(_pool), 0, callData);
     }
 
     /**
-     * Invoke repay on LendingPool from SetToken
+     * Invoke repay on Pool from SetToken
      *
      * Repays a borrowed `_amountNotional` on a specific `_asset` reserve, burning the equivalent debt tokens owned
      * - E.g. SetToken repays 100 USDC, burning 100 variable/stable debt tokens
      * @param _setToken             Address of the SetToken
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the borrowed underlying asset previously borrowed
      * @param _amountNotional       The amount to repay
      *                              Note: Passing type(uint256).max will repay the whole debt for `_asset` on the specific `_interestRateMode`
@@ -304,7 +304,7 @@ library AaveV3 {
      */
     function invokeRepay(
         ISetToken _setToken,
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         uint256 _amountNotional,
         uint256 _interestRateMode
@@ -313,21 +313,21 @@ library AaveV3 {
         returns (uint256)
     {
         ( , , bytes memory repayCalldata) = getRepayCalldata(
-            _lendingPool,
+            _pool,
             _asset,
             _amountNotional,
             _interestRateMode,
             address(_setToken)
         );
         
-        return abi.decode(_setToken.invoke(address(_lendingPool), 0, repayCalldata), (uint256));
+        return abi.decode(_setToken.invoke(address(_pool), 0, repayCalldata), (uint256));
     }
 
     /**
      * Get setUserUseReserveAsCollateral calldata from SetToken
      * 
      * Allows borrower to enable/disable a specific deposited asset as collateral
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset deposited
      * @param _useAsCollateral      true` if the user wants to use the deposit as collateral, `false` otherwise
      *
@@ -336,7 +336,7 @@ library AaveV3 {
      * @return bytes                SetUserUseReserveAsCollateral calldata
      */
     function getSetUserUseReserveAsCollateralCalldata(
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         bool _useAsCollateral
     )
@@ -350,7 +350,7 @@ library AaveV3 {
             _useAsCollateral
         );
         
-        return (address(_lendingPool), 0, callData);
+        return (address(_pool), 0, callData);
     }
 
     /**
@@ -358,32 +358,32 @@ library AaveV3 {
      *
      * Allows SetToken to enable/disable a specific deposited asset as collateral
      * @param _setToken             Address of the SetToken
-     * @param _lendingPool          Address of the LendingPool contract
+     * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset deposited
      * @param _useAsCollateral      true` if the user wants to use the deposit as collateral, `false` otherwise
      */
     function invokeSetUserUseReserveAsCollateral(
         ISetToken _setToken,
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         bool _useAsCollateral
     )
         external
     {
         ( , , bytes memory callData) = getSetUserUseReserveAsCollateralCalldata(
-            _lendingPool,
+            _pool,
             _asset,
             _useAsCollateral
         );
         
-        _setToken.invoke(address(_lendingPool), 0, callData);
+        _setToken.invoke(address(_pool), 0, callData);
     }
     
     /**
      * Get swapBorrowRate calldata from SetToken
      *
      * Allows a borrower to toggle his debt between stable and variable mode
-     * @param _lendingPool      Address of the LendingPool contract
+     * @param _pool             Address of the AaveV3 Pool contract
      * @param _asset            The address of the underlying asset borrowed
      * @param _rateMode         The rate mode that the user wants to swap to
      *
@@ -392,7 +392,7 @@ library AaveV3 {
      * @return bytes            SwapBorrowRate calldata
      */
     function getSwapBorrowRateModeCalldata(
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         uint256 _rateMode
     )
@@ -406,7 +406,7 @@ library AaveV3 {
             _rateMode
         );
         
-        return (address(_lendingPool), 0, callData);
+        return (address(_pool), 0, callData);
     }
 
     /**
@@ -414,54 +414,52 @@ library AaveV3 {
      * 
      * Allows SetToken to toggle it's debt between stable and variable mode
      * @param _setToken         Address of the SetToken
-     * @param _lendingPool      Address of the LendingPool contract
+     * @param _pool             Address of the AaveV3 Pool contract
      * @param _asset            The address of the underlying asset borrowed
      * @param _rateMode         The rate mode that the user wants to swap to
      */
     function invokeSwapBorrowRateMode(
         ISetToken _setToken,
-        IPool _lendingPool,
+        IPool _pool,
         address _asset,
         uint256 _rateMode
     )
         external
     {
         ( , , bytes memory callData) = getSwapBorrowRateModeCalldata(
-            _lendingPool,
+            _pool,
             _asset,
             _rateMode
         );
         
-        _setToken.invoke(address(_lendingPool), 0, callData);
+        _setToken.invoke(address(_pool), 0, callData);
     }
 
     /**
-     * Invoke set Efficiency Mode
+     * Invoke set User EMode on  aave pool
      *
-     * Allows SetToken to borrow a specific `_amountNotional` of the reserve underlying `_asset`, provided that 
-     * the SetToken already deposited enough collateral, or it was given enough allowance by a credit delegator
-     * on the corresponding debt token (StableDebtToken or VariableDebtToken)
+     * Sets the Aave-EMode category on behalf of the SetToken corresponding to the specified token category.
      * @param _setToken             Address of the SetToken
-     * @param _lendingPool          Address of the LendingPool contract
-     * @param _categoryId           TODO: What is this ?
+     * @param _pool                 Address of the AaveV3 Pool contract
+     * @param _categoryId           The category id  of the EMode (Usually identifies groups of correlated assets such as stablecoins or eth derivatives)
      */
     function invokeSetUserEMode(
         ISetToken _setToken,
-        IPool _lendingPool,
+        IPool _pool,
         uint8 _categoryId
     )
         external
     {
         ( , , bytes memory borrowCalldata) = getSetUserEmodeCalldata(
-            _lendingPool,
+            _pool,
             _categoryId
         );
         
-        _setToken.invoke(address(_lendingPool), 0, borrowCalldata);
+        _setToken.invoke(address(_pool), 0, borrowCalldata);
     }
 
     function getSetUserEmodeCalldata(
-        IPool _lendingPool,
+        IPool _pool,
         uint8 _categoryId
     )
         public
@@ -473,6 +471,6 @@ library AaveV3 {
             _categoryId
         );
         
-        return (address(_lendingPool), 0, callData);
+        return (address(_pool), 0, callData);
     }
 }

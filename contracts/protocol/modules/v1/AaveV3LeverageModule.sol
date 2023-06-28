@@ -55,7 +55,8 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
     struct ActionInfo {
         ISetToken setToken;                      // SetToken instance
-        IPool lendingPool;                // Lending pool instance, we grab this everytime since it's best practice not to store
+        // NOTE: As the type suggests this refers to the "Pool" smart contract on aaveV3, however keeping this name as is to avoid breaking changes to the interface
+        IPool lendingPool;                       // Pool instance, we grab this everytime since it's best practice not to store
         IExchangeAdapter exchangeAdapter;        // Exchange adapter instance
         uint256 setTotalSupply;                  // Total supply of SetToken
         uint256 notionalSendQuantity;            // Total notional quantity sent to exchange
@@ -188,6 +189,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     // Used to fetch reserves and user data from AaveV3
     IAaveProtocolDataProvider public immutable protocolDataProvider;
 
+    // NOTE: As the type suggests this refers to the "PoolAddressProvider" smart contract on aaveV3, however keeping this name as is to avoid breaking changes to the interface
     // Used to fetch lendingPool address. This contract is immutable and its address will never change.
     IPoolAddressesProvider public immutable lendingPoolAddressesProvider;
 
@@ -211,19 +213,19 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev Instantiate addresses. Underlying to reserve tokens mapping is created.
      * @param _controller                       Address of controller contract
-     * @param _lendingPoolAddressesProvider     Address of Aave LendingPoolAddressProvider
+     * @param _poolAddressesProvider            Address of AaveV3 PoolAddressProvider
      */
     constructor(
         IController _controller,
-        IPoolAddressesProvider _lendingPoolAddressesProvider
+        IPoolAddressesProvider _poolAddressesProvider
     )
         public
         ModuleBase(_controller)
     {
-        lendingPoolAddressesProvider = _lendingPoolAddressesProvider;
+        lendingPoolAddressesProvider = _poolAddressesProvider;
         IAaveProtocolDataProvider _protocolDataProvider = IAaveProtocolDataProvider(
             // Use the raw input vs bytes32() conversion. This is to ensure the input is an uint and not a string.
-            _lendingPoolAddressesProvider.getPoolDataProvider()
+            _poolAddressesProvider.getPoolDataProvider()
         );
         protocolDataProvider = _protocolDataProvider;
 
