@@ -241,7 +241,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /**
      * @dev MANAGER ONLY: Increases leverage for a given collateral position using an enabled borrow asset.
      * Borrows _borrowAsset from Aave. Performs a DEX trade, exchanging the _borrowAsset for _collateralAsset.
-     * Deposits _collateralAsset to Aave and mints corresponding aToken.
+     * Supplies _collateralAsset to Aave and mints corresponding aToken.
      * Note: Both collateral and borrow assets need to be enabled, and they must not be the same asset.
      * @param _setToken                     Instance of the SetToken
      * @param _borrowAsset                  Address of underlying asset being borrowed for leverage
@@ -284,7 +284,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
 
         uint256 postTradeCollateralQuantity = postTradeReceiveQuantity.sub(protocolFee);
 
-        _deposit(leverInfo.setToken, leverInfo.lendingPool, _collateralAsset, postTradeCollateralQuantity);
+        _supply(leverInfo.setToken, leverInfo.lendingPool, _collateralAsset, postTradeCollateralQuantity);
 
         _updateLeverPositions(leverInfo, _borrowAsset);
 
@@ -509,7 +509,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any deposited collateral assets
+     * @dev MANAGER ONLY: Removes this module from the SetToken, via call by the SetToken. Any supplied collateral assets
      * are disabled to be used as collateral on Aave. Aave Settings and manager enabled assets state is deleted.
      * Note: Function will revert is there is any debt remaining on Aave
      */
@@ -602,7 +602,7 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     }
 
     /**
-     * @dev MANAGER ONLY: Remove collateral assets. Disable deposited assets to be used as collateral on Aave market.
+     * @dev MANAGER ONLY: Remove collateral assets. Disable supplied assets to be used as collateral on Aave market.
      * @param _setToken             Instance of the SetToken
      * @param _collateralAssets     Addresses of collateral underlying assets to remove
      */
@@ -744,11 +744,11 @@ contract AaveV3LeverageModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIs
     /* ============ Internal Functions ============ */
 
     /**
-     * @dev Invoke deposit from SetToken using AaveV3 library. Mints aTokens for SetToken.
+     * @dev Invoke supply from SetToken using AaveV3 library. Mints aTokens for SetToken.
      */
-    function _deposit(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
+    function _supply(ISetToken _setToken, IPool _lendingPool, IERC20 _asset, uint256 _notionalQuantity) internal {
         _invokeApproveWithReset(_setToken, _asset, address(_lendingPool), _notionalQuantity);
-        _setToken.invokeDeposit(_lendingPool, address(_asset), _notionalQuantity);
+        _setToken.invokeSupply(_lendingPool, address(_asset), _notionalQuantity);
     }
 
     /**
