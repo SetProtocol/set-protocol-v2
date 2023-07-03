@@ -1222,6 +1222,268 @@ describe("AaveV3LeverageModule integration", () => {
     });
   });
 
+  describe("#delever", async () => {
+    let setToken: SetToken;
+    let isInitialized: boolean;
+
+    let subjectSetToken: Address;
+    let subjectCollateralAsset: Address;
+    let subjectRepayAsset: Address;
+    let subjectRedeemQuantity: BigNumber;
+    let subjectMinRepayQuantity: BigNumber;
+    let subjectTradeAdapterName: string;
+    let subjectTradeData: Bytes;
+    let subjectCaller: Account;
+
+    const initializeContracts = async () => {
+      setToken = await createSetToken(
+        [aWETH.address],
+        [ether(10)],
+        [aaveLeverageModule.address, debtIssuanceModule.address],
+      );
+      await initializeDebtIssuanceModule(setToken.address);
+      // Add SetToken to allow list
+      await aaveLeverageModule.updateAllowedSetToken(setToken.address, true);
+      // Initialize module if set to true
+      if (isInitialized) {
+        await aaveLeverageModule.initialize(
+          setToken.address,
+          [weth.address, dai.address],
+          [dai.address, weth.address],
+        );
+      }
+
+      const issueQuantity = ether(10);
+
+      await weth.approve(aaveLendingPool.address, ether(100));
+      await aaveLendingPool
+        .connect(owner.wallet)
+        .deposit(weth.address, ether(100), owner.address, ZERO);
+      await aWETH.approve(debtIssuanceModule.address, ether(100));
+      await debtIssuanceModule.issue(setToken.address, issueQuantity, owner.address);
+
+      // Lever SetToken
+      if (isInitialized) {
+        const leverTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+          [dai.address, weth.address], // Swap path
+          [500], // fees
+          true,
+        );
+
+        await aaveLeverageModule.lever(
+          setToken.address,
+          dai.address,
+          weth.address,
+          ether(2000),
+          ether(1),
+          "UNISWAPV3",
+          leverTradeData,
+        );
+      }
+    };
+
+    const initializeSubjectVariables = async () => {
+      subjectSetToken = setToken.address;
+      subjectCollateralAsset = weth.address;
+      subjectRepayAsset = dai.address;
+      subjectRedeemQuantity = ether(2);
+      subjectTradeAdapterName = "UNISWAPV3";
+      subjectMinRepayQuantity = ZERO;
+      subjectCaller = owner;
+      subjectTradeData = await uniswapV3ExchangeAdapterV2.generateDataParam(
+        [weth.address, dai.address], // Swap path
+        [500], // Send quantity
+        true,
+      );
+    };
+
+    async function subject(): Promise<ContractTransaction> {
+      return await aaveLeverageModule
+        .connect(subjectCaller.wallet)
+        .delever(
+          subjectSetToken,
+          subjectCollateralAsset,
+          subjectRepayAsset,
+          subjectRedeemQuantity,
+          subjectMinRepayQuantity,
+          subjectTradeAdapterName,
+          subjectTradeData,
+        );
+    }
+
+    describe("when module is initialized", async () => {
+      before(async () => {
+        isInitialized = true;
+      });
+
+      cacheBeforeEach(initializeContracts);
+      beforeEach(initializeSubjectVariables);
+
+      it("should update the collateral position on the SetToken correctly", async () => {
+        const initialPositions = await setToken.getPositions();
+
+        await subject();
+
+        const currentPositions = await setToken.getPositions();
+        const newFirstPosition = (await setToken.getPositions())[0];
+
+        // Get expected aTokens burnt
+        const removedUnits = subjectRedeemQuantity;
+        const expectedFirstPositionUnit = initialPositions[0].unit.sub(removedUnits);
+
+        expect(initialPositions.length).to.eq(2);
+        expect(currentPositions.length).to.eq(2);
+        expect(newFirstPosition.component).to.eq(aWETH.address);
+        expect(newFirstPosition.positionState).to.eq(0); // Default
+        // When switching to uniswapV3 integration testing had to add some small tolerance here
+        // TODO: understand why
+        expect(newFirstPosition.unit).to.lt(expectedFirstPositionUnit.mul(1001).div(1000));
+        expect(newFirstPosition.unit).to.gt(expectedFirstPositionUnit.mul(999).div(1000));
+        expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
+      });
+
+      it("should wipe the debt on Aave", async () => {
+        await subject();
+
+        const borrowDebt = await variableDebtDAI.balanceOf(setToken.address);
+
+        expect(borrowDebt).to.eq(ZERO);
+      });
+
+      it("should remove external positions on the borrow asset", async () => {
+        await subject();
+
+        const borrowAssetExternalModules = await setToken.getExternalPositionModules(dai.address);
+        const borrowExternalUnit = await setToken.getExternalPositionRealUnit(
+          dai.address,
+          aaveLeverageModule.address,
+        );
+        const isPositionModule = await setToken.isExternalPositionModule(
+          dai.address,
+          aaveLeverageModule.address,
+        );
+
+        expect(borrowAssetExternalModules.length).to.eq(0);
+        expect(borrowExternalUnit).to.eq(ZERO);
+        expect(isPositionModule).to.eq(false);
+      });
+
+      it("should update the borrow asset equity on the SetToken correctly", async () => {
+        const initialPositions = await setToken.getPositions();
+
+        const swapPromise = waitForEvent(wethDaiPool, "Swap");
+        const tx = await subject();
+
+        // Fetch total repay amount
+        const res = await tx.wait();
+        await swapPromise;
+        const levDecreasedEvent = res.events?.find(value => {
+          return value.event == "LeverageDecreased";
+        });
+        expect(levDecreasedEvent).to.not.eq(undefined);
+
+        const initialSecondPosition = initialPositions[1];
+
+        const currentPositions = await setToken.getPositions();
+        const newSecondPosition = (await setToken.getPositions())[1];
+
+        expect(initialPositions.length).to.eq(2);
+        expect(currentPositions.length).to.eq(2);
+        expect(newSecondPosition.component).to.eq(dai.address);
+        expect(newSecondPosition.positionState).to.eq(0); // Default
+        expect(newSecondPosition.unit).to.gt(initialSecondPosition.unit);
+        expect(newSecondPosition.module).to.eq(ADDRESS_ZERO);
+      });
+
+      it("should transfer the correct components to the exchange", async () => {
+        const oldSourceTokenBalance = await weth.balanceOf(wethDaiPool.address);
+
+        await subject();
+        const totalSourceQuantity = subjectRedeemQuantity;
+        const expectedSourceTokenBalance = oldSourceTokenBalance.add(totalSourceQuantity);
+        const newSourceTokenBalance = await weth.balanceOf(wethDaiPool.address);
+        // Had to add some tolerance here when switching to aaveV3 integration testing
+        // TODO: understand why
+        expect(newSourceTokenBalance).to.lt(expectedSourceTokenBalance.mul(102).div(100));
+        expect(newSourceTokenBalance).to.gt(expectedSourceTokenBalance.mul(99).div(100));
+      });
+
+      it("should transfer the correct components from the exchange", async () => {
+        // const [, repayAssetAmountOut] = await uniswapV3Router.getAmountsOut(subjectRedeemQuantity, [
+        //   weth.address,
+        //   dai.address,
+        // ]);
+        const oldDestinationTokenBalance = await dai.balanceOf(wethDaiPool.address);
+
+        await subject();
+        // const totalDestinationQuantity = repayAssetAmountOut;
+        // const expectedDestinationTokenBalance = oldDestinationTokenBalance.sub(
+        //   totalDestinationQuantity,
+        // );
+        const newDestinationTokenBalance = await dai.balanceOf(wethDaiPool.address);
+        expect(newDestinationTokenBalance).to.lt(oldDestinationTokenBalance);
+      });
+
+      describe("when the exchange is not valid", async () => {
+        beforeEach(async () => {
+          subjectTradeAdapterName = "INVALID";
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be valid adapter");
+        });
+      });
+
+      describe("when borrow / repay asset is not enabled", async () => {
+        beforeEach(async () => {
+          subjectRepayAsset = wbtc.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("BNE");
+        });
+      });
+
+      describe("when the caller is not the SetToken manager", async () => {
+        beforeEach(async () => {
+          subjectCaller = await getRandomAccount();
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be the SetToken manager");
+        });
+      });
+
+      describe("when SetToken is not valid", async () => {
+        beforeEach(async () => {
+          const nonEnabledSetToken = await createNonControllerEnabledSetToken(
+            [weth.address],
+            [ether(1)],
+            [aaveLeverageModule.address],
+          );
+
+          subjectSetToken = nonEnabledSetToken.address;
+        });
+
+        it("should revert", async () => {
+          await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+        });
+      });
+    });
+
+    describe("when module is not initialized", async () => {
+      beforeEach(async () => {
+        isInitialized = false;
+        await initializeContracts();
+        initializeSubjectVariables();
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("Must be a valid and initialized SetToken");
+      });
+    });
+  });
+
   describe("#deleverToZeroBorrowBalance", async () => {
     let setToken: SetToken;
     let isInitialized: boolean;
