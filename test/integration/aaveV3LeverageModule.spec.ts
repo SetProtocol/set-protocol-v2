@@ -11,6 +11,7 @@ import { cacheBeforeEach, getAccounts, getWaffleExpect } from "@utils/test/index
 import { ADDRESS_ZERO, ZERO } from "@utils/constants";
 import { ether, preciseMul } from "@utils/index";
 import { network } from "hardhat";
+import { forkingConfig } from "../../hardhat.config";
 
 import {
   AaveV3LeverageModule,
@@ -95,7 +96,7 @@ const whales = {
   wsteth: "0x5fEC2f34D80ED82370F733043B6A536d7e9D7f8d",
 };
 
-describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
+describe("AaveV3LeverageModule integration", () => {
   let owner: Account;
   let notOwner: Account;
   let mockModule: Account;
@@ -129,6 +130,28 @@ describe("AaveV3LeverageModule integration [ @forked-mainnet ]", () => {
   const managerRedeemFee = ether(0);
   let managerFeeRecipient: Address;
   let managerIssuanceHook: Address;
+
+  const blockNumber = 17611000;
+  before(async () => {
+    const forking = {
+      jsonRpcUrl: forkingConfig.url,
+      blockNumber,
+    };
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking,
+        },
+      ],
+    });
+  });
+  after(async () => {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [],
+    });
+  });
   cacheBeforeEach(async () => {
     [owner, notOwner, mockModule] = await getAccounts();
 
