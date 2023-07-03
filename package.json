@@ -58,7 +58,7 @@
     "compile": "npx hardhat compile && npx hardhat index:compile:all",
     "compile:latest": "SKIP_ABI_GAS_MODS=true npx hardhat compile && npx hardhat index:compile:all",
     "coverage": "yarn clean && yarn build && yarn cov:command",
-    "cov:command": "COVERAGE=true node --max-old-space-size=4096 ./node_modules/.bin/hardhat coverage",
+    "cov:command": "COVERAGE=true node ./node_modules/.bin/hardhat coverage",
     "etherscan:verify": "hardhat --network kovan etherscan-verify --solc-input --license 'None'",
     "flatten": "npx waffle flatten",
     "lint": "yarn run lint-sol && yarn run lint-ts",
