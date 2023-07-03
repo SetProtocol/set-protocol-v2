@@ -121,7 +121,7 @@
     "eslint-plugin-jsdoc": "^38.0.6",
     "eslint-plugin-no-null": "^1.0.2",
     "ethereum-waffle": "^3.4.0",
-    "hardhat": "^2.6.4",
+    "hardhat": "^2.11.0",
     "hardhat-contract-sizer": "^2.5.0",
     "hardhat-deploy": "^0.11.15",
     "husky": "^4.2.5",
