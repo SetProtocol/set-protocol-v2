@@ -1371,12 +1371,10 @@ describe("AaveV3LeverageModule integration", () => {
       it("should update the borrow asset equity on the SetToken correctly", async () => {
         const initialPositions = await setToken.getPositions();
 
-        const swapPromise = waitForEvent(wethDaiPool, "Swap");
         const tx = await subject();
 
         // Fetch total repay amount
         const res = await tx.wait();
-        await swapPromise;
         const levDecreasedEvent = res.events?.find(value => {
           return value.event == "LeverageDecreased";
         });
@@ -1594,8 +1592,6 @@ describe("AaveV3LeverageModule integration", () => {
         expect(currentPositions.length).to.eq(2);
         expect(newFirstPosition.component).to.eq(aWETH.address);
         expect(newFirstPosition.positionState).to.eq(0); // Default
-        // When switching to uniswapV3 integration testing had to add some small tolerance here
-        // TODO: understand why
         expect(newFirstPosition.unit).to.lt(expectedFirstPositionUnit.mul(1001).div(1000));
         expect(newFirstPosition.unit).to.gt(expectedFirstPositionUnit.mul(999).div(1000));
         expect(newFirstPosition.module).to.eq(ADDRESS_ZERO);
