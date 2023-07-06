@@ -44,3 +44,9 @@ export interface CustomOracleNAVIssuanceSettings {
   maxPremiumPercentage: BigNumber;
   minSetTokenSupply: BigNumber;
 }
+
+export interface AuctionExecutionParams {
+  targetUnit: BigNumber;
+  priceAdapterName: string;
+  priceAdapterConfigData: Bytes;
+}

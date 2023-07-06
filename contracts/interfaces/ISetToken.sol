@@ -131,4 +131,5 @@ interface ISetToken is IERC20 {
     function isInitializedModule(address _module) external view returns(bool);
     function isPendingModule(address _module) external view returns(bool);
     function isLocked() external view returns (bool);
+    function locker() external view returns (address);
 }

@@ -4,6 +4,7 @@ import {
   AaveLeverageModule,
   AirdropModule,
   AmmModule,
+  AuctionRebalanceModuleV1,
   BasicIssuanceModule,
   ClaimModule,
   CompoundLeverageModule,
@@ -30,6 +31,7 @@ import { AaveLeverageModule__factory } from "../../typechain/factories/AaveLever
 import { AaveV3LeverageModule, AaveV3LeverageModule__factory } from "../../typechain";
 import { AirdropModule__factory } from "../../typechain/factories/AirdropModule__factory";
 import { AmmModule__factory } from "../../typechain/factories/AmmModule__factory";
+import { AuctionRebalanceModuleV1__factory } from "../../typechain/factories/AuctionRebalanceModuleV1__factory";
 import { BasicIssuanceModule__factory } from "../../typechain/factories/BasicIssuanceModule__factory";
 import { ClaimModule__factory } from "../../typechain/factories/ClaimModule__factory";
 import { CompoundLeverageModule__factory } from "../../typechain/factories/CompoundLeverageModule__factory";
@@ -264,5 +266,9 @@ export default class DeployModules {
       },
       this._deployerSigner,
     ).deploy(controller, perpVault, perpQuoter, perpMarketRegistry, maxPerpPositionsPerSet);
+  }
+
+  public async deployAuctionRebalanceModuleV1(controller: Address): Promise<AuctionRebalanceModuleV1> {
+    return await new AuctionRebalanceModuleV1__factory(this._deployerSigner).deploy(controller);
   }
 }
