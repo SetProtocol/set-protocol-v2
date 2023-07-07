@@ -34,11 +34,11 @@ library AaveV3 {
     /**
      * Get deposit calldata from SetToken
      *
-     * Deposits an `_amountNotional` of underlying asset into the reserve, receiving in return overlying aTokens.
-     * - E.g. User deposits 100 USDC and gets in return 100 aUSDC
+     * Supplies an `_amountNotional` of underlying asset into the reserve, receiving in return overlying aTokens.
+     * - E.g. User supplies 100 USDC and gets in return 100 aUSDC
      * @param _pool                 Address of the AaveV3 Pool contract
      * @param _asset                The address of the underlying asset to deposit
-     * @param _amountNotional       The amount to be deposited
+     * @param _amountNotional       The amount to be supplied
      * @param _onBehalfOf           The address that will receive the aTokens, same as msg.sender if the user
      *                              wants to receive them on his own wallet, or a different address if the beneficiary of aTokens
      *                              is a different wallet
@@ -49,7 +49,7 @@ library AaveV3 {
      * @return uint256              Call value
      * @return bytes                Deposit calldata
      */
-    function getDepositCalldata(
+    function getSupplyCalldata(
         IPool _pool,
         address _asset, 
         uint256 _amountNotional,
@@ -61,7 +61,7 @@ library AaveV3 {
         returns (address, uint256, bytes memory)
     {
         bytes memory callData = abi.encodeWithSignature(
-            "deposit(address,uint256,address,uint16)", 
+            "supply(address,uint256,address,uint16)", 
             _asset, 
             _amountNotional, 
             _onBehalfOf,
@@ -72,16 +72,16 @@ library AaveV3 {
     }
     
     /**
-     * Invoke deposit on Pool from SetToken
+     * Invoke supply on Pool from SetToken
      * 
-     * Deposits an `_amountNotional` of underlying asset into the reserve, receiving in return overlying aTokens.
-     * - E.g. SetToken deposits 100 USDC and gets in return 100 aUSDC
+     * Supplies an `_amountNotional` of underlying asset into the reserve, receiving in return overlying aTokens.
+     * - E.g. SetToken supplies 100 USDC and gets in return 100 aUSDC
      * @param _setToken             Address of the SetToken
      * @param _pool                 Address of the AaveV3 Pool contract
-     * @param _asset                The address of the underlying asset to deposit
-     * @param _amountNotional       The amount to be deposited
+     * @param _asset                The address of the underlying asset to supply
+     * @param _amountNotional       The amount to be supplied
      */
-    function invokeDeposit(
+    function invokeSupply(
         ISetToken _setToken,
         IPool _pool,
         address _asset,
@@ -89,7 +89,7 @@ library AaveV3 {
     )
         external
     {
-        ( , , bytes memory depositCalldata) = getDepositCalldata(
+        ( , , bytes memory supplyCalldata) = getSupplyCalldata(
             _pool,
             _asset,
             _amountNotional, 
@@ -97,7 +97,7 @@ library AaveV3 {
             0
         );
         
-        _setToken.invoke(address(_pool), 0, depositCalldata);
+        _setToken.invoke(address(_pool), 0, supplyCalldata);
     }
     
     /**
@@ -174,7 +174,7 @@ library AaveV3 {
      * Get borrow calldata from SetToken
      *
      * Allows users to borrow a specific `_amountNotional` of the reserve underlying `_asset`, provided that 
-     * the borrower already deposited enough collateral, or he was given enough allowance by a credit delegator
+     * the borrower already supplied enough collateral, or he was given enough allowance by a credit delegator
      * on the corresponding debt token (StableDebtToken or VariableDebtToken)
      *
      * @param _pool                 Address of the AaveV3 Pool contract
@@ -219,7 +219,7 @@ library AaveV3 {
      * Invoke borrow on Pool from SetToken
      *
      * Allows SetToken to borrow a specific `_amountNotional` of the reserve underlying `_asset`, provided that 
-     * the SetToken already deposited enough collateral, or it was given enough allowance by a credit delegator
+     * the SetToken already supplied enough collateral, or it was given enough allowance by a credit delegator
      * on the corresponding debt token (StableDebtToken or VariableDebtToken)
      * @param _setToken             Address of the SetToken
      * @param _pool                 Address of the AaveV3 Pool contract
@@ -326,9 +326,9 @@ library AaveV3 {
     /**
      * Get setUserUseReserveAsCollateral calldata from SetToken
      * 
-     * Allows borrower to enable/disable a specific deposited asset as collateral
+     * Allows borrower to enable/disable a specific supplied asset as collateral
      * @param _pool                 Address of the AaveV3 Pool contract
-     * @param _asset                The address of the underlying asset deposited
+     * @param _asset                The address of the underlying asset supplied
      * @param _useAsCollateral      true` if the user wants to use the deposit as collateral, `false` otherwise
      *
      * @return address              Target contract address
@@ -356,10 +356,10 @@ library AaveV3 {
     /**
      * Invoke an asset to be used as collateral on Aave from SetToken
      *
-     * Allows SetToken to enable/disable a specific deposited asset as collateral
+     * Allows SetToken to enable/disable a specific supplied asset as collateral
      * @param _setToken             Address of the SetToken
      * @param _pool                 Address of the AaveV3 Pool contract
-     * @param _asset                The address of the underlying asset deposited
+     * @param _asset                The address of the underlying asset supplied
      * @param _useAsCollateral      true` if the user wants to use the deposit as collateral, `false` otherwise
      */
     function invokeSetUserUseReserveAsCollateral(

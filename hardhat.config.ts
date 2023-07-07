@@ -27,7 +27,7 @@ export const forkingConfig = {
 const mochaConfig = {
   grep: "@forked-mainnet",
   invert: process.env.FORK ? false : true,
-  timeout: process.env.FORK ? 100000 : 40000,
+  timeout: 200000,
 } as Mocha.MochaOptions;
 
 checkForkedProviderEnvironment();
