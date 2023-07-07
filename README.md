@@ -88,6 +88,8 @@ We encourage participation from the community to help shape the development of I
 
 Set Protocol V2 has undergone several audits. For more information see https://index-coop.gitbook.io/index-coop-community-handbook/protocols/security-and-audits
 
+We have also audited recent changes  and additions to the protocol post-fork.
+
 ## Vulnerability Reporting ##
 
 If you believe you’ve found a security vulnerability in one of our contracts or platforms, we encourage you to submit it through our [ImmuneFi Bug Bounty][32] program.
