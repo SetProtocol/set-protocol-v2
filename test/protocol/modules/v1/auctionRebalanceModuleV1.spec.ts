@@ -34,7 +34,6 @@ import {
 } from "@utils/test/index";
 import { SystemFixture } from "@utils/fixtures";
 import { ContractTransaction } from "ethers";
-import { before } from "mocha";
 
 const expect = getWaffleExpect();
 
