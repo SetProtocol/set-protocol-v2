@@ -419,6 +419,13 @@ contract AmmModule is ModuleBase, ReentrancyGuard {
 
         // Loop through and approve total notional tokens to spender
         for (uint256 i = 0; i < _actionInfo.components.length ; i++) {
+            // Reset allowance to handle tokens with approval race protections 
+            _actionInfo.setToken.invokeApprove(
+                _actionInfo.components[i],
+                spender,
+                0
+            );
+
             _actionInfo.setToken.invokeApprove(
                 _actionInfo.components[i],
                 spender,
