@@ -3,7 +3,7 @@ import { BigNumber } from "ethers";
 
 import { Address } from "@utils/types";
 import { Account } from "@utils/test/types";
-import { InvokeMock, SetToken, StandardTokenWithFeeMock } from "@utils/contracts";
+import { ERC20NoReturnMock, InvokeMock, SetToken, StandardTokenWithFeeMock } from "@utils/contracts";
 import { ZERO } from "@utils/constants";
 import DeployHelper from "@utils/deploys";
 import {
@@ -131,6 +131,42 @@ describe("Invoke", () => {
         const newBalance = await setup.weth.balanceOf(subjectRecipient);
 
         await expect(newBalance).to.eq(previousBalance);
+      });
+    });
+
+    describe("when the erc20 transfer call returns false", async () => {
+      beforeEach(async () => {
+        const erc20ReturnFalseMock = await deployer.mocks.deployERC20ReturnFalseMock();
+        subjectToken = erc20ReturnFalseMock.address;
+      });
+
+      it("should revert", async () => {
+        await expect(subject()).to.be.revertedWith("ERC20 transfer failed");
+      });
+    });
+
+    describe("when the erc20 transfer call returns nothing", async () => {
+      let erc20NoReturnMock: ERC20NoReturnMock;
+
+      beforeEach(async () => {
+        erc20NoReturnMock = await deployer.mocks.deployERC20NoReturnMock(
+          owner.address, ether(10000), 6
+        );
+        await erc20NoReturnMock.transfer(setToken.address, subjectTransferQuantity);
+
+        subjectToken = erc20NoReturnMock.address;
+      });
+
+      it("should transfer the token to the recipient", async () => {
+        const beforeTransferBalance = await erc20NoReturnMock.balanceOf(subjectSetToken);
+
+        await subject();
+
+        const afterTransferBalance = await erc20NoReturnMock.balanceOf(subjectSetToken);
+        expect(afterTransferBalance).to.eq(beforeTransferBalance.sub(subjectTransferQuantity));
+
+        const recipientBalance = await erc20NoReturnMock.balanceOf(subjectRecipient);
+        expect(recipientBalance).to.eq(subjectTransferQuantity);
       });
     });
   });

@@ -43,6 +43,8 @@ export { DebtIssuanceModule } from "../../typechain/DebtIssuanceModule";
 export { DebtIssuanceModuleV2 } from "../../typechain/DebtIssuanceModuleV2";
 export { DebtModuleMock } from "../../typechain/DebtModuleMock";
 export { DelegateRegistry } from "../../typechain/DelegateRegistry";
+export { ERC20NoReturnMock } from "../../typechain/ERC20NoReturnMock";
+export { ERC20ReturnFalseMock } from "../../typechain/ERC20ReturnFalseMock";
 export { ERC4626Mock } from "../../typechain/ERC4626Mock";
 export { ERC4626WrapV2Adapter } from "../../typechain/ERC4626WrapV2Adapter";
 export { ExplicitERC20Mock } from "../../typechain/ExplicitERC20Mock";
