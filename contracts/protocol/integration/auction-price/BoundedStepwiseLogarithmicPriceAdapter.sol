@@ -55,7 +55,7 @@ contract BoundedStepwiseLogarithmicPriceAdapter {
         uint256 timeBucket = _timeElapsed / bucketSize;
 
         // Protect against logarithmic argument overflow
-        if (timeBucket > type(uint256).max / timeCoefficient) {
+        if (timeBucket > uint256(type(int256).max) / timeCoefficient) {
             return _getBoundaryPrice(isDecreasing, maxPrice, minPrice);
         }
         int256 lnArgument = int256(timeBucket * timeCoefficient);
@@ -70,7 +70,7 @@ contract BoundedStepwiseLogarithmicPriceAdapter {
         if (lnExpression > type(uint256).max / scalingFactor) {
             return _getBoundaryPrice(isDecreasing, maxPrice, minPrice);
         }
-        uint256 priceChange = scalingFactor * lnExpression;
+        uint256 priceChange = FixedPointMathLib.mulWad(scalingFactor, lnExpression);
 
         if (isDecreasing) {
             // Protect against price underflow

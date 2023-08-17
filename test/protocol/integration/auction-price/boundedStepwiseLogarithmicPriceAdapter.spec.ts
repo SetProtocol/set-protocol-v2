@@ -48,7 +48,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
   describe("#getPrice", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectScalingFactor: number;
+    let subjectScalingFactor: BigNumber;
     let subjectTimeCoefficient: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -60,7 +60,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectScalingFactor = 1;
+      subjectScalingFactor = ether(1);
       subjectTimeCoefficient = ether(1.718281828459045235); // approx e - 1
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = true;
@@ -146,7 +146,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
     describe("when the time elapsed is 0", async () => {
       beforeEach(async () => {
         subjectInitialPrice = ether(100);
-        subjectScalingFactor = 1;
+        subjectScalingFactor = ether(1);
         subjectTimeCoefficient = ether(1.718281828459045235); // approx e - 1
         subjectBucketSize = ONE_HOUR_IN_SECONDS;
         subjectIsDecreasing = true;
@@ -304,7 +304,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     describe("when it is decreasing and the price computation will underflow", async () => {
       beforeEach(async () => {
-        subjectScalingFactor = 50;
+        subjectScalingFactor = ether(50);
         subjectTimeCoefficient = subjectInitialPrice.div(2);
         subjectPriceAdapterConfigData = await boundedStepwiseLogarithmicPriceAdapter.getEncodedData(
           subjectInitialPrice,
@@ -328,7 +328,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     describe("when it is decreasing and the price computation returns below the minimum", async () => {
       beforeEach(async () => {
-        subjectScalingFactor = 3;
+        subjectScalingFactor = ether(3);
         subjectTimeCoefficient = subjectInitialPrice.div(2);
         subjectPriceAdapterConfigData = await boundedStepwiseLogarithmicPriceAdapter.getEncodedData(
           subjectInitialPrice,
@@ -378,7 +378,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     describe("when it is not decreasing and the price computation returns above the maximum", async () => {
       beforeEach(async () => {
-        subjectScalingFactor = 3;
+        subjectScalingFactor = ether(3);
         subjectTimeCoefficient = subjectInitialPrice.div(2);
         subjectIsDecreasing = false;
         subjectMaxPrice = ether(110);
@@ -425,7 +425,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
       describe("when the scaling factor is 0", async () => {
         beforeEach(async () => {
-          subjectScalingFactor = 0;
+          subjectScalingFactor = ZERO;
           subjectPriceAdapterConfigData = await boundedStepwiseLogarithmicPriceAdapter.getEncodedData(
             subjectInitialPrice,
             subjectScalingFactor,
@@ -522,7 +522,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
   describe("#isPriceAdapterConfigDataValid", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectScalingFactor: number;
+    let subjectScalingFactor: BigNumber;
     let subjectTimeCoefficient: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -533,7 +533,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectScalingFactor = 1;
+      subjectScalingFactor = ether(1);
       subjectTimeCoefficient = ether(1.718281828459045235); // approx e - 1
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = false;
@@ -584,7 +584,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     describe("when the scaling factor is 0", async () => {
       beforeEach(async () => {
-        subjectScalingFactor = 0;
+        subjectScalingFactor = ZERO;
         subjectPriceAdapterConfigData = await boundedStepwiseLogarithmicPriceAdapter.getEncodedData(
           subjectInitialPrice,
           subjectScalingFactor,
@@ -690,7 +690,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
   describe("#areParamsValid", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectScalingFactor: number;
+    let subjectScalingFactor: BigNumber;
     let subjectTimeCoefficient: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectMaxPrice: BigNumber;
@@ -698,7 +698,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectScalingFactor = 1;
+      subjectScalingFactor = ether(1);
       subjectTimeCoefficient = ether(1.718281828459045235); // approx e - 1
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectMaxPrice = ether(110);
@@ -736,7 +736,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     describe("when the scaling factor is 0", async () => {
       beforeEach(async () => {
-        subjectScalingFactor = 0;
+        subjectScalingFactor = ZERO;
       });
 
       it("should return false", async () => {
@@ -797,7 +797,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
   describe("#getDecodedData", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectScalingFactor: number;
+    let subjectScalingFactor: BigNumber;
     let subjectTimeCoefficient: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -808,7 +808,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectScalingFactor = 1;
+      subjectScalingFactor = ether(1);
       subjectTimeCoefficient = ether(1.718281828459045235); // approx e - 1
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = false;
@@ -856,7 +856,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
   describe("#getEncodedData", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectScalingFactor: number;
+    let subjectScalingFactor: BigNumber;
     let subjectTimeCoefficient: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -865,7 +865,7 @@ describe("BoundedStepwiseLogarithmicPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectScalingFactor = 1;
+      subjectScalingFactor = ether(1);
       subjectTimeCoefficient = ether(1.718281828459045235); // approx e - 1
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = false;

@@ -48,7 +48,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
   describe("#getPrice", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectCoefficient: number;
+    let subjectCoefficient: BigNumber;
     let subjectExponent: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -60,7 +60,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectCoefficient = 1;
+      subjectCoefficient = ether(1);
       subjectExponent = ether(1);
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = true;
@@ -371,7 +371,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
       describe("when the coefficient is 0", async () => {
         beforeEach(async () => {
-          subjectCoefficient = 0;
+          subjectCoefficient = ZERO;
           subjectPriceAdapterConfigData = await boundedStepwiseExponentialPriceAdapter.getEncodedData(
             subjectInitialPrice,
             subjectCoefficient,
@@ -468,7 +468,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
   describe("#isPriceAdapterConfigDataValid", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectCoefficient: number;
+    let subjectCoefficient: BigNumber;
     let subjectExponent: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -479,7 +479,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectCoefficient = 1;
+      subjectCoefficient = ether(1);
       subjectExponent = ether(1);
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = false;
@@ -530,7 +530,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
     describe("when the coefficient is 0", async () => {
       beforeEach(async () => {
-        subjectCoefficient = 0;
+        subjectCoefficient = ZERO;
         subjectPriceAdapterConfigData = await boundedStepwiseExponentialPriceAdapter.getEncodedData(
           subjectInitialPrice,
           subjectCoefficient,
@@ -743,7 +743,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
   describe("#getDecodedData", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectCoefficient: number;
+    let subjectCoefficient: BigNumber;
     let subjectExponent: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -754,7 +754,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectCoefficient = 1;
+      subjectCoefficient = ether(1);
       subjectExponent = ether(1);
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = false;
@@ -802,7 +802,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
   describe("#getEncodedData", async () => {
     let subjectInitialPrice: BigNumber;
-    let subjectCoefficient: number;
+    let subjectCoefficient: BigNumber;
     let subjectExponent: BigNumber;
     let subjectBucketSize: BigNumber;
     let subjectIsDecreasing: boolean;
@@ -811,7 +811,7 @@ describe("BoundedStepwiseExponentialPriceAdapter", () => {
 
     beforeEach(async () => {
       subjectInitialPrice = ether(100);
-      subjectCoefficient = 1;
+      subjectCoefficient = ether(1);
       subjectExponent = ether(1);
       subjectBucketSize = ONE_HOUR_IN_SECONDS;
       subjectIsDecreasing = false;

@@ -55,7 +55,7 @@ contract BoundedStepwiseExponentialPriceAdapter {
         uint256 timeBucket = _timeElapsed / bucketSize;
 
         // Protect against exponential argument overflow
-        if (timeBucket > type(uint256).max / timeCoefficient) {
+        if (timeBucket > uint256(type(int256).max) / timeCoefficient) {
             return _getBoundaryPrice(isDecreasing, maxPrice, minPrice);
         }
         int256 expArgument = int256(timeCoefficient * timeBucket);
@@ -70,7 +70,7 @@ contract BoundedStepwiseExponentialPriceAdapter {
         if (scalingFactor > type(uint256).max / expExpression) {
             return _getBoundaryPrice(isDecreasing, maxPrice, minPrice);
         }
-        uint256 priceChange = scalingFactor * expExpression - WAD;
+        uint256 priceChange = FixedPointMathLib.mulWad(scalingFactor, expExpression - WAD);
 
         if (isDecreasing) {
             // Protect against price underflow
