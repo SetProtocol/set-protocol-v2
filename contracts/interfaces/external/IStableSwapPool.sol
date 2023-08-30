@@ -12,7 +12,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 /**
  * Curve StableSwap ERC20 <-> ERC20 pool.

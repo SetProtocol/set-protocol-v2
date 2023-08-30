@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 interface IWrappedfCashFactory {
     function deployWrapper(uint16 currencyId, uint40 maturity) external returns(address);

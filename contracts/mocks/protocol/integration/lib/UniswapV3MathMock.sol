@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import { UniswapV3Math } from "../../../../protocol/integration/lib/UniswapV3Math.sol";

@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 /**
  * Mock ChainlinkAggregator that can be passed to any contract that consumes these.

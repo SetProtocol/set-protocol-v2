@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { AaveV2 } from "../../../../protocol/integration/lib/AaveV2.sol";
 import { ILendingPool } from "../../../../interfaces/external/aave-v2/ILendingPool.sol";

@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 // https://docs.synthetix.io/contracts/source/interfaces/iExchanger
 interface ISynthetixExchanger {

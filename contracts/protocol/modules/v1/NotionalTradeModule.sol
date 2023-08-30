@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 pragma experimental "ABIEncoderV2";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -851,7 +851,7 @@ contract NotionalTradeModule is ModuleBase, ReentrancyGuard, Ownable, IModuleIss
     /**
      * @dev Safe downcast from uint256 to uint88
      */
-    function _safeUint88(uint256 x) internal view returns (uint88) {
+    function _safeUint88(uint256 x) internal pure returns (uint88) {
         require(x <= uint256(type(uint88).max), "Uint88 downcast: overflow");
         return uint88(x);
     }

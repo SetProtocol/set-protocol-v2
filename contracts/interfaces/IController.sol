@@ -15,7 +15,7 @@
 
     SPDX-License-Identifier: Apache License, Version 2.0
 */
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 interface IController {
     function addSet(address _setToken) external;

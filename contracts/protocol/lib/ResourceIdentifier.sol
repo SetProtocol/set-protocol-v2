@@ -16,7 +16,7 @@
     SPDX-License-Identifier: Apache License, Version 2.0
 */
 
-pragma solidity 0.6.10;
+pragma solidity 0.6.12;
 
 import { IController } from "../../interfaces/IController.sol";
 import { IIntegrationRegistry } from "../../interfaces/IIntegrationRegistry.sol";
