@@ -12,7 +12,8 @@ import {
   UniswapFixture,
   YearnFixture,
   UniswapV3Fixture,
-  PerpV2Fixture
+  PerpV2Fixture,
+  VelodromeFixture
 } from "../fixtures";
 import { Blockchain, ProtocolUtils } from "../common";
 
@@ -27,6 +28,7 @@ export const getCurveFixture = (ownerAddress: Address) => new CurveFixture(provi
 export const getCompoundFixture = (ownerAddress: Address) => new CompoundFixture(provider, ownerAddress);
 export const getKyberV3DMMFixture = (ownerAddress: Address) => new KyberV3DMMFixture(provider, ownerAddress);
 export const getUniswapFixture = (ownerAddress: Address) => new UniswapFixture(provider, ownerAddress);
+export const getVelodromeFixture = (ownerAddress: Address) => new VelodromeFixture(provider, ownerAddress);
 export const getYearnFixture = (ownerAddress: Address) => new YearnFixture(provider, ownerAddress);
 export const getUniswapV3Fixture = (ownerAddress: Address) => new UniswapV3Fixture(provider, ownerAddress);
 export const getPerpV2Fixture = (ownerAddress: Address) => new PerpV2Fixture(provider, ownerAddress);

@@ -56,7 +56,11 @@ import { UniswapV3ExchangeAdapterV2__factory } from "../../typechain/factories/U
 import { SnapshotGovernanceAdapter__factory } from "../../typechain/factories/SnapshotGovernanceAdapter__factory";
 import { SynthetixExchangeAdapter__factory } from "../../typechain/factories/SynthetixExchangeAdapter__factory";
 import { CompoundBravoGovernanceAdapter__factory } from "../../typechain/factories/CompoundBravoGovernanceAdapter__factory";
-import { CompClaimAdapter__factory } from "../../typechain";
+import {
+  CompClaimAdapter__factory,
+  VelodromeExchangeAdapter,
+  VelodromeExchangeAdapter__factory,
+} from "../../typechain";
 import { RgtMigrationWrapAdapter__factory } from "../../typechain/factories/RgtMigrationWrapAdapter__factory";
 
 export default class DeployAdapters {
@@ -292,6 +296,14 @@ export default class DeployAdapters {
       weth,
       steth,
       exchange,
+    );
+  }
+
+  public async deployVelodromeExchangeAdapter(
+    velodromeRouter: Address,
+  ): Promise<VelodromeExchangeAdapter> {
+    return await new VelodromeExchangeAdapter__factory(this._deployerSigner).deploy(
+      velodromeRouter,
     );
   }
 }
