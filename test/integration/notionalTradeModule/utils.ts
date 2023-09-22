@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import { BigNumber, Signer } from "ethers";
-import { INotionalProxy, WrappedfCash, WrappedfCashFactory } from "@utils/contracts";
+import { INotionalProxy, WrappedfCash, WrappedfCashFactoryExperimental } from "@utils/contracts";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { IERC20 } from "@typechain/IERC20";
 import { ICErc20 } from "@typechain/ICErc20";
@@ -95,7 +95,7 @@ export async function getCurrencyIdAndMaturity(underlyingAddress: string, maturi
 }
 
 export async function deployWrappedfCashInstance(
-  wrappedfCashFactory: WrappedfCashFactory,
+  wrappedfCashFactory: WrappedfCashFactoryExperimental,
   currencyId: number,
   maturity: BigNumber,
 ) {

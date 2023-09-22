@@ -1,3 +1,3 @@
 // External Uniswap Contracts
 export { WrappedfCash } from "../../typechain/WrappedfCash";
-export { WrappedfCashFactory } from "../../typechain/WrappedfCashFactory";
+export { WrappedfCashFactoryExperimental } from "../../typechain/WrappedfCashFactoryExperimental";

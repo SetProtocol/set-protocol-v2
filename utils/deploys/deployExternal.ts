@@ -37,7 +37,7 @@ import { Unitroller__factory } from "../../typechain/factories/Unitroller__facto
 import { WETH9__factory } from "../../typechain/factories/WETH9__factory";
 import { WhitePaperInterestRateModel__factory } from "../../typechain/factories/WhitePaperInterestRateModel__factory";
 import { WrappedfCash__factory } from "../../typechain/factories/WrappedfCash__factory";
-import { WrappedfCashFactory__factory } from "../../typechain/factories/WrappedfCashFactory__factory";
+import { WrappedfCashFactoryExperimental__factory } from "../../typechain/factories/WrappedfCashFactoryExperimental__factory";
 
 import {
   CurveDeposit,
@@ -73,7 +73,7 @@ import {
 
 import {
   WrappedfCash,
-  WrappedfCashFactory
+  WrappedfCashFactoryExperimental
 } from "../contracts/notional";
 
 import { StakingRewards__factory } from "../../typechain/factories/StakingRewards__factory";
@@ -736,8 +736,8 @@ export default class DeployExternalContracts {
     return await new WrappedfCash__factory(this._deployerSigner).deploy(notionalProxy, weth);
   }
 
-  public async deployWrappedfCashFactory(beacon: Address): Promise<WrappedfCashFactory> {
-    return await new WrappedfCashFactory__factory(this._deployerSigner).deploy(beacon);
+  public async deployWrappedfCashFactory(beacon: Address): Promise<WrappedfCashFactoryExperimental> {
+    return await new WrappedfCashFactoryExperimental__factory(this._deployerSigner).deploy(beacon);
   }
 
 
