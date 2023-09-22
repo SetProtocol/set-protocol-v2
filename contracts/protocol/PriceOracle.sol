@@ -120,6 +120,10 @@ contract PriceOracle is Ownable {
             "PriceOracle.getPrice: Caller must be system contract."
         );
 
+        if (_assetOne == _assetTwo) {
+            return 10**18;
+        }
+        
         bool priceFound;
         uint256 price;
 
