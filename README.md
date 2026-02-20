@@ -52,7 +52,7 @@ npm install @setprotocol/set-protocol-v2
 ```
 
 The distribution also comes with fixtures for mocking and testing SetProtocol's interactions with
-other protocols including Uniswap, Balancer, Compound (and many more.) To use these you'll need to install the peer dependencies listed in `package.json`.
+other protocols, including Uniswap, Balancer, Compound (and many more). To use these, you'll need to install the peer dependencies listed in `package.json`.
 
 #### Example Usage
 
